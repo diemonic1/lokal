@@ -1,78 +1,94 @@
-// Library search (the search bar's songs, albums and artists, desktop and web):
-// every word of the query must be found in one of the fields, in any order,
-// so "fame is for fools hallex" finds Hallex M's "Fame Is for Fools" (title
-// words and an artist word). Results where the whole query appears together
-// come first.
+// Library search (the search bar's songs, albums and artists, desktop and web),
+// on the search index (electron/searchIndex.js): every word of the query must
+// begin a word of the title, artist, album, album artist, comment or lyrics,
+// in any order, so "fame is for fools hallex" finds Hallex M's "Fame Is for
+// Fools" (title words and an artist word). Songs found by their names come
+// first -- the whole query in the title, then in another name, then all its
+// words in the names -- and songs found only by their comment or lyrics last.
 
-const MAX_WORDS = 8
+const { matchExpression, queryWords, fold } = require('./searchIndex')
 
 /** "Fame is  for Fools" -> ['fame', 'is', 'for', 'fools'] */
-function searchWords(query) {
-  return [...new Set(String(query || '').toLowerCase().split(/\s+/).filter(Boolean))].slice(0, MAX_WORDS)
-}
+const searchWords = queryWords
 
-// LIKE treats % and _ as wildcards: a search for "100%" means the text "100%".
-const likeText = text => `%${String(text).replace(/[\\%_]/g, c => `\\${c}`)}%`
+// Words compared without case or accents: "Beyoncé" / "beyonce".
+const WORD_CHARS = /[\p{L}\p{N}]+/gu
+const plainWords = text => fold(text).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().match(WORD_CHARS) || []
+const joined = text => ` ${plainWords(text).join(' ')}`
 
 /**
- * SQL where each word is in one of `columns`: { sql, params }, or null for an
- * empty query.
+ * SQL (on `tracks`) for songs with every word in one of `columns` of the
+ * index: { sql, params }, or null for an empty query.
  */
 function wordsMatch(query, columns) {
-  const words = searchWords(query)
-  if (!words.length) return null
-  const one = `(${columns.map(column => `${column} LIKE ? ESCAPE '\\'`).join(' OR ')})`
+  const match = matchExpression(query, columns)
+  if (!match) return null
   return {
-    sql: `(${words.map(() => one).join(' AND ')})`,
-    params: words.flatMap(word => columns.map(() => likeText(word))),
+    sql: 'id IN (SELECT d.track_id FROM track_search_docs d WHERE d.doc IN (SELECT rowid FROM track_search WHERE track_search MATCH ?))',
+    params: [match],
   }
 }
 
-/**
- * ORDER BY terms putting the whole query first: in `first` (the title), then
- * in any of `columns`. { sql, params }
- */
-function phraseFirst(query, first, columns) {
-  const phrase = likeText(String(query || '').trim().toLowerCase())
-  return {
-    sql: `CASE WHEN LOWER(${first}) LIKE ? ESCAPE '\\' THEN 0 WHEN ${columns.map(c => `LOWER(${c}) LIKE ? ESCAPE '\\'`).join(' OR ')} THEN 1 ELSE 2 END`,
-    params: [phrase, ...columns.map(() => phrase)],
-  }
+const NAMES = ['title', 'artist', 'album', 'album_artist']
+
+/** 0: the query in the title, 1: in another name, 2: its words in the names, 3: found by comment or lyrics. */
+function rankOf(track, words) {
+  const phrase = ` ${words.join(' ')}`
+  const names = NAMES.map(column => joined(track[column]))
+  if (names[0].includes(phrase)) return 0
+  if (names.some(name => name.includes(phrase))) return 1
+  const nameWords = names.join(' ').split(' ')
+  return words.every(word => nameWords.some(name => name.startsWith(word))) ? 2 : 3
 }
 
-const TRACK_COLUMNS = ['title', 'artist', 'album', 'album_artist']
-
-/** Library songs for `query` (not streamed ones), best matches first. */
-function searchTracks(db, query, limit = 40) {
-  const match = wordsMatch(query, TRACK_COLUMNS)
+/** Library songs for `query` (not streamed ones), best matches first: all of them unless `limit`. */
+function searchTracks(db, query, limit = Infinity) {
+  const match = matchExpression(query)
   if (!match) return []
-  const order = phraseFirst(query, 'title', TRACK_COLUMNS)
-  return db.prepare(`SELECT * FROM tracks WHERE file_path NOT LIKE 'ghost://%' AND ${match.sql}
-    ORDER BY ${order.sql}, IFNULL(play_count, 0) DESC, title COLLATE NOCASE LIMIT ?`).all(...match.params, ...order.params, limit)
+  let rows
+  try {
+    rows = db.prepare(`SELECT t.* FROM track_search s JOIN track_search_docs d ON d.doc = s.rowid JOIN tracks t ON t.id = d.track_id
+      WHERE track_search MATCH ? ORDER BY bm25(track_search, 10, 8, 4, 4, 1, 1), IFNULL(t.play_count, 0) DESC, t.title COLLATE NOCASE`).all(match)
+  } catch (e) {
+    console.warn('[librarySearch] Search failed:', e.message)
+    return []
+  }
+  const words = plainWords(query)
+  return rows
+    .map((track, order) => ({ track, order, rank: rankOf(track, words) }))
+    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+    .slice(0, limit)
+    .map(found => found.track)
 }
 
 /**
- * Artists for `query`: the name contains the query, or the artist sings one
- * of the songs found and their name is one of its words ("... hallex" -> Hallex M).
+ * Artists for `query`: the query begins a word of the name, or the artist
+ * sings one of the songs found and a word of their name is one of its words
+ * ("... hallex" -> Hallex M).
  */
 function searchArtists(db, query, tracks = [], limit = 5) {
-  const words = searchWords(query)
+  const words = plainWords(query)
   if (!words.length) return []
-  const byName = db.prepare(`SELECT a.*, COUNT(atl.track_id) as track_count FROM artists a JOIN artist_track_links atl ON atl.artist_id = a.id
-    WHERE a.name LIKE ? ESCAPE '\\' GROUP BY a.id LIMIT ?`).all(likeText(String(query).trim()), limit)
+  const phrase = ` ${words.join(' ')}`
+  const artists = db.prepare(`SELECT a.*, COUNT(atl.track_id) as track_count FROM artists a JOIN artist_track_links atl ON atl.artist_id = a.id
+    GROUP BY a.id`).all()
+  const exactFirst = artist => (joined(artist.name) === phrase ? 0 : joined(artist.name).startsWith(phrase) ? 1 : 2)
+  const byName = artists.filter(artist => joined(artist.name).includes(phrase))
+    .sort((a, b) => exactFirst(a) - exactFirst(b) || b.track_count - a.track_count)
+    .slice(0, limit)
   const ids = tracks.map(track => track.id).slice(0, 40)
   // Short words ("is", "of") are in too many names to say anything.
   const named = words.filter(word => word.length >= 3)
   if (byName.length >= limit || !ids.length || !named.length) return byName
-  const anyWord = `(${named.map(() => "a.name LIKE ? ESCAPE '\\'").join(' OR ')})`
-  const ofSongs = db.prepare(`SELECT a.*, (SELECT COUNT(*) FROM artist_track_links x WHERE x.artist_id = a.id) as track_count FROM artists a
-    WHERE a.id IN (SELECT artist_id FROM artist_track_links WHERE track_id IN (${ids.map(() => '?').join(',')})) AND ${anyWord}
-    LIMIT ?`).all(...ids, ...named.map(likeText), limit)
+  const singers = new Set(db.prepare(`SELECT DISTINCT artist_id FROM artist_track_links WHERE track_id IN (${ids.map(() => '?').join(',')})`)
+    .all(...ids).map(row => row.artist_id))
   const seen = new Set(byName.map(a => a.id))
-  return [...byName, ...ofSongs.filter(a => !seen.has(a.id))].slice(0, limit)
+  const ofSongs = artists.filter(artist => singers.has(artist.id) && !seen.has(artist.id)
+    && plainWords(artist.name).some(name => named.some(word => name.startsWith(word))))
+  return [...byName, ...ofSongs].slice(0, limit)
 }
 
-module.exports = { searchWords, wordsMatch, phraseFirst, searchTracks, searchArtists, TRACK_COLUMNS }
+module.exports = { searchWords, wordsMatch, searchTracks, searchArtists }
 
 // ---------------------------------------------------------------- spelling
 

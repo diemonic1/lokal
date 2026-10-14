@@ -12,6 +12,7 @@ const fs = require('fs')
 const path = require('path')
 const mm = require('../musicMetadata')
 const { lyricsFromMeta, isSyncedText } = require('./fileLyrics')
+const { setFileLyrics } = require('../searchIndex')
 
 const INSTRUMENTAL_TRACK_TEXT = 'Instrumental track without lyrics'
 const UNFOUND_TRACK_TEXT = 'Невозможно нагуглить слова этого трека'
@@ -60,6 +61,7 @@ async function runAnalysis(db, { exts, onProgress = () => {}, job = {} } = {}) {
   const totals = emptyCounts()
   const folders = new Map()
   const saveKind = db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE file_path = ?')
+  const trackOf = db.prepare('SELECT id FROM tracks WHERE file_path = ?')
   let lastSent = 0
   for (let i = 0; i < files.length; i++) {
     if (job.cancelled) return { ok: false, cancelled: true }
@@ -70,6 +72,7 @@ async function runAnalysis(db, { exts, onProgress = () => {}, job = {} } = {}) {
     const { kind, fish } = classify(text, relDir)
     // The song list's Lyrics column gets the same answer while we're here.
     try { saveKind.run(kind === 'synced' ? 'sync' : text && text.trim() ? 'plain' : '', file) } catch {}
+    try { setFileLyrics(db, trackOf.get(file)?.id, text || '') } catch {}
     const folder = folders.get(relDir) || emptyCounts()
     for (const counts of [totals, folder]) {
       counts.total++

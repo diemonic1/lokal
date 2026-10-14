@@ -606,7 +606,7 @@ router.get('/flow-pool', (req, res) => {
 
 router.get('/search', (req, res) => {
   // Every word in one of the fields, in any order (electron/librarySearch.js).
-  res.json(require('../../electron/librarySearch').searchTracks(getDB(), String(req.query.q || ''), 60))
+  res.json(require('../../electron/librarySearch').searchTracks(getDB(), String(req.query.q || '')))
 })
 
 router.get('/search-lyrics', (req, res) => {

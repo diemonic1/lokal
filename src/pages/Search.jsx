@@ -39,7 +39,6 @@ export default function Search() {
   const [tracks, setTracks] = useState([])
   const [artists, setArtists] = useState([])
   const [albums, setAlbums] = useState([])
-  const [lyricMatches, setLyricMatches] = useState([])
   const [searching, setSearching] = useState(false)
   const [recentItems, setRecentItems] = useState(getRecentItems)
   const recentTrackSelectionRef = useRef(0)
@@ -51,7 +50,7 @@ export default function Search() {
   const [onlineQuery, setOnlineQuery] = useState(query)
   const exactRef = useRef('')
   const nav = useNavigate()
-  const { playQueue, playTrack } = usePlayerStore(useShallow(({ playQueue, playTrack }) => ({ playQueue, playTrack })))
+  const { playQueue } = usePlayerStore(useShallow(({ playQueue }) => ({ playQueue })))
   const isSearchStarted = !!query.trim()
   // A pasted link isn't searched for: it's offered for download.
   const link = asLink(query)
@@ -62,15 +61,15 @@ export default function Search() {
     return () => window.removeEventListener(HISTORY_EVENT, refresh)
   }, [])
 
-  /** Search tracks, albums and lyrics for `q`; results from an outdated search are ignored. */
+  /** Search tracks (by names, comments and lyrics), artists and albums for `q`; results from an outdated search are ignored. */
   const doSearch = useCallback(async (q) => {
     const seq = ++searchSeqRef.current
-    if (!q.trim()) { setTracks([]); setArtists([]); setAlbums([]); setLyricMatches([]); setSearching(false); setCorrection(null); setOnlineQuery(''); return }
+    if (!q.trim()) { setTracks([]); setArtists([]); setAlbums([]); setSearching(false); setCorrection(null); setOnlineQuery(''); return }
     setSearching(true)
-    let res, albumRes, lyricsRes
-    const searchLibrary = text => Promise.all([api.searchTracks(text), api.searchAlbums(text), api.searchLyrics(text)])
+    let res, albumRes
+    const searchLibrary = text => Promise.all([api.searchTracks(text), api.searchAlbums(text)])
     try {
-      ;[res, albumRes, lyricsRes] = await searchLibrary(q)
+      ;[res, albumRes] = await searchLibrary(q)
       const found = (Array.isArray(res) ? res : res?.tracks || []).length || (res?.artists || []).length || (Array.isArray(albumRes) ? albumRes : []).length
       let corrected = null
       // Nothing as typed: maybe a typo. Corrected the library's way (or YouTube Music's).
@@ -78,7 +77,7 @@ export default function Search() {
         const spelling = await Promise.resolve(api.searchSpelling?.(q)).catch(() => null)
         if (seq !== searchSeqRef.current) return
         corrected = spelling?.corrected || null
-        if (corrected) [res, albumRes, lyricsRes] = await searchLibrary(corrected)
+        if (corrected) [res, albumRes] = await searchLibrary(corrected)
       }
       if (seq !== searchSeqRef.current) return
       setCorrection(corrected ? { from: q.trim(), to: corrected } : null)
@@ -87,7 +86,7 @@ export default function Search() {
       // Only the latest search may change what's shown.
       if (seq !== searchSeqRef.current) return
       console.warn('[search] Search failed:', error)
-      setTracks([]); setArtists([]); setAlbums([]); setLyricMatches([])
+      setTracks([]); setArtists([]); setAlbums([])
       setSearching(false)
       return
     }
@@ -96,7 +95,6 @@ export default function Search() {
     if (res?.artists) { setArtists(res.artists || []); setTracks(res.tracks || []) }
     else { setArtists([]); setTracks(Array.isArray(res) ? res : []) }
     setAlbums(Array.isArray(albumRes) ? albumRes : [])
-    setLyricMatches(Array.isArray(lyricsRes) ? lyricsRes : [])
     setSearching(false)
   }, [])
 
@@ -192,20 +190,8 @@ export default function Search() {
     }
   }
 
-  /** Play a track found by its lyrics and remember it. */
-  const handleLyricMatchPlay = (track) => {
-    saveRecentSearch(query.trim())
-    saveRecentItem({
-      id: track.id,
-      name: track.title,
-      artist: track.artist,
-      artwork_path: track.artwork_path,
-      type: 'track',
-    })
-    playTrack(track, [track])
-  }
-
-  // With a query, the results page: library matches, then online songs.
+  // With a query, the results page: library songs, artists and albums, then
+  // online songs under a line.
   const showSearchResults = isSearchStarted
 
   return (
@@ -296,6 +282,16 @@ export default function Search() {
             </p>
           )}
 
+          {tracks.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Tracks")}</h2>
+                <button onClick={() => playQueue(tracks, 0)} className="text-xs text-accent hover:text-accent/70 font-display uppercase tracking-wider transition-colors">{t("Play All")}</button>
+              </div>
+              <TrackList tracks={tracks} />
+            </section>
+          )}
+
           {artists.length > 0 && (
             <section>
               <h2 className="text-xs font-display text-muted uppercase tracking-widest mb-3">{t("Artists")}</h2>
@@ -334,52 +330,15 @@ export default function Search() {
             </section>
           )}
 
-          {tracks.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Tracks")}</h2>
-                <button onClick={() => playQueue(tracks, 0)} className="text-xs text-accent hover:text-accent/70 font-display uppercase tracking-wider transition-colors">{t("Play All")}</button>
-              </div>
-              <TrackList tracks={tracks} />
-            </section>
-          )}
-
-          {lyricMatches.length > 0 && (
-            <section>
-              <h2 className="text-xs font-display text-muted uppercase tracking-widest mb-3">{t("Lyrics Matches")}</h2>
-              <div className="space-y-2">
-                {lyricMatches.map((track, i) => (
-                  <motion.button
-                    key={`${track.id}-lyrics-${i}`}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    onClick={() => handleLyricMatchPlay(track)}
-                    className="w-full text-left rounded-xl border border-border bg-elevated/70 hover:border-accent/30 hover:bg-card transition-colors px-4 py-3"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm text-white truncate">{track.title}</p>
-                        <p className="text-xs text-muted truncate">{track.artist}{track.album ? ` · ${track.album}` : ''}</p>
-                      </div>
-                      <div className="flex items-center gap-2 text-accent flex-shrink-0">
-                        <span className="text-[10px] font-display uppercase tracking-[0.22em]">{t('Play')}</span>
-                        <Play size={13} fill="currentColor" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted mt-2 truncate">{track.lyricSnippet}</p>
-                  </motion.button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {query && !searching && !tracks.length && !artists.length && !albums.length && !lyricMatches.length && (
+          {query && !searching && !tracks.length && !artists.length && !albums.length && (
             <div className="flex items-center gap-3 py-3 text-muted">
               <Music size={18} className="opacity-40" />
               <p className="text-sm">{t('Nothing in your library for "{query}"', { query: correction?.from === query.trim() ? correction.to : query })}</p>
             </div>
           )}
+
+          {/* Library results above, online ones below. */}
+          <hr className="border-0 h-px bg-white" />
 
           <OnlineResults query={onlineQuery} soulseekFor={soulseekFor} findOn={findOnRequest} />
         </>

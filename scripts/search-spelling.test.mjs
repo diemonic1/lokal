@@ -5,13 +5,15 @@ import { DatabaseSync } from 'node:sqlite'
 
 const require = createRequire(import.meta.url)
 const { correctSpelling } = require('../electron/librarySearch.js')
+const { ensureSearchIndex } = require('../electron/searchIndex.js')
 const youtube = require('../electron/online/youtube.js')
 const { spelling } = require('../electron/online/spelling.js')
 
 function library(rows) {
   const db = new DatabaseSync(':memory:')
-  db.exec('CREATE TABLE tracks (id TEXT, file_path TEXT, title TEXT, artist TEXT, album TEXT, album_artist TEXT, play_count INT)')
-  const add = db.prepare('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, 0)')
+  db.exec('CREATE TABLE tracks (id TEXT, file_path TEXT, title TEXT, artist TEXT, album TEXT, album_artist TEXT, play_count INT, comment TEXT); CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)')
+  ensureSearchIndex(db)
+  const add = db.prepare('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, 0, NULL)')
   rows.forEach((row, i) => add.run(String(i), row.file_path || `/music/${i}.flac`, row.title, row.artist, row.album || null, row.album_artist || null))
   return db
 }

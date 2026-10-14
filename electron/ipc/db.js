@@ -387,6 +387,8 @@ function initDB() {
     db.prepare("UPDATE settings SET value = '0' WHERE key = 'prefer_media_keys' AND value = '1'").run()
   } catch {}
 
+  try { require('../searchIndex').ensureSearchIndex(db) } catch (e) { console.warn('[db] Search index unavailable:', e.message) }
+
   return db
 }
 
