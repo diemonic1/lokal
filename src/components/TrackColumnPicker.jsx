@@ -1,10 +1,22 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Columns3, LockKeyhole } from 'lucide-react'
-import { TRACK_COLUMN_OPTIONS } from '../trackColumns'
+import { Columns3, GripVertical, LockKeyhole } from 'lucide-react'
+import { ALWAYS_SHOWN, ROW_SIZE, TRACK_COLUMN_DEFS } from '../trackColumns'
+
+// Shown inside Title or at the row's ends: switched on and off, not moved.
+const OTHER_OPTIONS = [['artwork', 'Artwork'], ['artist', 'Artist'], ['actions', 'Quick actions'], ['grip', 'Drag handle']]
 
 export default function TrackColumnPicker({ columns, playlist, onChange, onReset }) {
   const [open, setOpen] = useState(false)
+  // The column being dragged in the list, and where it would land.
+  const [dragKey, setDragKey] = useState(null)
+  const [overKey, setOverKey] = useState(null)
+  const moveColumn = (key, target) => {
+    if (!key || key === target) return
+    const order = columns.order.filter(k => k !== key)
+    order.splice(order.indexOf(target) + (columns.order.indexOf(key) < columns.order.indexOf(target) ? 1 : 0), 0, key)
+    onChange('order', order)
+  }
   const [position, setPosition] = useState({})
   const button = useRef(null)
   const panel = useRef(null)
@@ -64,19 +76,48 @@ export default function TrackColumnPicker({ columns, playlist, onChange, onReset
         onClick={event => event.stopPropagation()}
         className="fixed z-[200] w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-border bg-elevated p-2 shadow-2xl">
         <p className="px-2 py-1.5 text-xs font-display uppercase tracking-wider text-muted">Show in song lists</p>
-        {['Title', 'Album'].map(label => (
-          <label key={label} title="Always shown" className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted">
-            <input type="checkbox" checked disabled className="accent-accent" />
-            <span className="flex-1">{label}</span><LockKeyhole size={12} aria-hidden="true" />
-          </label>
-        ))}
-        {TRACK_COLUMN_OPTIONS.filter(([key]) => key !== 'grip' || playlist).map(([key, label]) => (
+        {columns.order.map(key => {
+          const locked = ALWAYS_SHOWN.has(key)
+          const label = TRACK_COLUMN_DEFS[key].label
+          return (
+            <div key={key} draggable
+              onDragStart={event => { setDragKey(key); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', key) }}
+              onDragOver={event => { if (!dragKey) return; event.preventDefault(); setOverKey(key) }}
+              onDrop={event => { event.preventDefault(); moveColumn(dragKey, key); setDragKey(null); setOverKey(null) }}
+              onDragEnd={() => { setDragKey(null); setOverKey(null) }}
+              className={`flex items-center gap-1.5 rounded-lg pr-2 text-sm hover:bg-card focus-within:bg-card ${dragKey === key ? 'opacity-40' : ''} ${overKey === key && dragKey !== key ? 'ring-1 ring-accent/60' : ''}`}>
+              <span title="Drag to reorder" className="cursor-grab px-0.5 py-1.5 text-muted active:cursor-grabbing"><GripVertical size={13} aria-hidden="true" /></span>
+              {locked ? (
+                <label title="Always shown" className="flex flex-1 items-center gap-2.5 py-1.5 text-muted">
+                  <input type="checkbox" checked disabled className="accent-accent" />
+                  <span className="flex-1">{label}</span><LockKeyhole size={12} aria-hidden="true" />
+                </label>
+              ) : (
+                <label className="flex flex-1 cursor-pointer items-center gap-2.5 py-1.5 text-text">
+                  <input type="checkbox" checked={!!columns[key]} onChange={event => onChange(key, event.target.checked)} className="accent-accent" />
+                  {label}
+                </label>
+              )}
+            </div>
+          )
+        })}
+        <div className="my-1 border-t border-border" />
+        {OTHER_OPTIONS.filter(([key]) => key !== 'grip' || playlist).map(([key, label]) => (
           <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-text hover:bg-card focus-within:bg-card">
-            <input type="checkbox" checked={columns[key]} onChange={event => onChange(key, event.target.checked)} className="accent-accent" />
+            <input type="checkbox" checked={!!columns[key]} onChange={event => onChange(key, event.target.checked)} className="accent-accent" />
             {label}
           </label>
         ))}
-        <p className="border-t border-border px-2 pt-2 text-[11px] leading-relaxed text-muted">Saved for all song lists in this profile. Narrow lists tuck Album under Title and fit other columns as space allows.</p>
+        <div className="mt-1 border-t border-border px-2 py-2">
+          <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
+            <span>Row size</span><span>{Math.round(columns.rowSize * 100)}%</span>
+          </div>
+          <input type="range" min={ROW_SIZE.min} max={ROW_SIZE.max} step={ROW_SIZE.step} value={columns.rowSize}
+            onChange={event => onChange('rowSize', Number(event.target.value))}
+            onDoubleClick={() => onChange('rowSize', ROW_SIZE.initial)}
+            aria-label="Row size" title="Double-click to reset" className="w-full accent-accent" />
+        </div>
+        <p className="border-t border-border px-2 pt-2 text-[11px] leading-relaxed text-muted">Saved for all song lists in this profile. Drag a column's edge in the header to resize it. Narrow lists tuck Album under Title and fit other columns as space allows.</p>
         <button type="button" onClick={onReset} className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs text-accent hover:bg-card">Reset to defaults</button>
       </div>, document.body,
     )}

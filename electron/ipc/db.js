@@ -232,6 +232,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN valence REAL`,
     `ALTER TABLE tracks ADD COLUMN tempo REAL`,
     `ALTER TABLE tracks ADD COLUMN time_signature INTEGER`,
+    // The file's comment tag; '' once read and empty, NULL while unread.
+    `ALTER TABLE tracks ADD COLUMN comment TEXT`,
     // Downloaded songs: where from ('yt', 'sc', an addon 'a-<key>', 'soulseek',
     // 'web') and which online song ("yt:<id>", "a-<key>:<id>"...), so the same
     // song isn't downloaded twice and versions from different places can be
@@ -280,6 +282,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN valence REAL`,
     `ALTER TABLE tracks ADD COLUMN tempo REAL`,
     `ALTER TABLE tracks ADD COLUMN time_signature INTEGER`,
+    // The file's comment tag; '' once read and empty, NULL while unread.
+    `ALTER TABLE tracks ADD COLUMN comment TEXT`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_by TEXT DEFAULT 'guest'`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_at INTEGER`,
     

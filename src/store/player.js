@@ -135,6 +135,30 @@ function readAutoOpenSidePanelSetting() {
   }
 }
 
+// The side panels as they were left last session: open or closed, and which
+// view (Details / Lyrics / Queue) the merged panel showed. A view the
+// current Side Panels mode can't show falls back as a mode switch would.
+const SIDE_PANELS_KEY = 'lokal-side-panels'
+const SIDE_PANEL_KEYS = ['showRightSidebar', 'sidePanelView', 'showQueue', 'showLyricsPanel']
+function readSidePanels() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null')
+    if (!saved || typeof saved !== 'object') return {}
+    const view = ['info', 'lyrics', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
+    if (readExclusiveSidePanelsSetting()) {
+      return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
+    }
+    return {
+      showRightSidebar: !!saved.showRightSidebar,
+      sidePanelView: 'info',
+      showQueue: !!saved.showQueue,
+      showLyricsPanel: !!saved.showLyricsPanel,
+    }
+  } catch {
+    return {}
+  }
+}
+
 function readOutputDevice() {
   try { return localStorage.getItem('lokal-output-device') || 'default' } catch { return 'default' }
 }
@@ -269,6 +293,7 @@ export const usePlayerStore = create((set, get) => ({
   wasShuffled: false, 
 
   ...(savedQueueState || {}),
+  ...readSidePanels(),
   playbackGeneration: 0,
 
   setAudioRef: (ref) => set({ audioRef: ref }),
@@ -1177,6 +1202,13 @@ usePlayerStore.subscribe((state) => {
   if (lastSavedQueue && current.every((value, i) => value === lastSavedQueue[i])) return
   lastSavedQueue = current
   if (!queueSaveTimer) queueSaveTimer = setTimeout(saveQueueNow, 800)
+})
+let lastSavedSidePanels = null
+usePlayerStore.subscribe((state) => {
+  const current = SIDE_PANEL_KEYS.map(key => state[key])
+  if (lastSavedSidePanels && current.every((value, i) => value === lastSavedSidePanels[i])) return
+  lastSavedSidePanels = current
+  try { localStorage.setItem(SIDE_PANELS_KEY, JSON.stringify(Object.fromEntries(SIDE_PANEL_KEYS.map(key => [key, state[key]])))) } catch {}
 })
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => { if (queueSaveTimer) saveQueueNow() })

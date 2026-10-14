@@ -27,6 +27,7 @@ import { openRadio } from '../radioActions'
 import LikeBurst from './LikeBurst'
 import { showToast } from './Toaster'
 import { losslessMenuItem } from '../quality'
+import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 
 // "Music" is a placeholder some files carry, not a genre.
 const isPlaceholderGenre = genre => !String(genre || '').trim() || String(genre).trim().toLowerCase() === 'music'
@@ -234,6 +235,32 @@ export default function RightSidebar() {
 
   const artSrc = trackArtURL(currentTrack)
 
+  // Width: dragged by the panel's left edge, kept between sessions.
+  const width = useSidePanelWidth()
+  const lyricsScale = useSideLyricsScale()
+  const [resizing, setResizing] = useState(false)
+  const startResize = (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = width
+    let last = startWidth
+    setResizing(true)
+    const move = e => { last = setSidePanelWidth(startWidth + (startX - e.clientX), { persist: false }) }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      setSidePanelWidth(last)
+      setResizing(false)
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   const doubleClickLike = async event => {
     if (!currentTrack || likeBusy.current || event.target.closest?.('button, a, input, [role="slider"]')) return
     likeBusy.current = true
@@ -295,12 +322,22 @@ export default function RightSidebar() {
         // I can verify without a live browser.
         <motion.aside
           initial={{ width: 0 }}
-          animate={{ width: 300 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+          animate={{ width }}
+          transition={resizing ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 32 }}
           aria-label={t("Now Playing")}
-          className="overflow-hidden flex-shrink-0"
-          style={{ minWidth: 300 }}
+          className="relative overflow-hidden flex-shrink-0"
+          style={{ minWidth: width }}
         >
+          {/* Drag the left edge to resize; double-click puts it back. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("Resize the side panel")}
+            title={t("Drag to resize")}
+            onPointerDown={startResize}
+            onDoubleClick={() => setSidePanelWidth(300)}
+            className="absolute left-0 inset-y-0 z-40 w-1.5 cursor-col-resize"
+          />
           {/* Fixed width, slides via transform instead of the width above --
               keeping backdrop-filter/background off the width-animating
               element avoids the Chromium rendering glitch (blur resampling
@@ -308,11 +345,11 @@ export default function RightSidebar() {
               flash. This element's own width never changes; sliding is
               purely x, and closing is instant along with the parent. */}
           <motion.div
-            initial={{ x: 300 }}
+            initial={{ x: width }}
             animate={{ x: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             className="h-full flex flex-col border-l border-border"
-            style={{ width: 300, backgroundColor: 'rgba(var(--surface-rgb), 0.85)' }}
+            style={{ width, backgroundColor: 'rgba(var(--surface-rgb), 0.85)' }}
           >
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0 border-b border-border">
             <div className="flex gap-0.5 p-0.5 bg-card rounded-lg border border-border/50">
@@ -467,7 +504,7 @@ export default function RightSidebar() {
                 >
                   <div className="flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
                     {currentTrack ? (
-                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={1.4} isAutoSynced={isAutoSynced} />
+                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">No track playing</div>
                     )}

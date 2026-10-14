@@ -20,7 +20,7 @@ import SelectionBar from './SelectionBar'
 import DeleteTracksDialog from './DeleteTracksDialog'
 import { useSelection } from '../selection'
 import { addToPlaylistMany, addToQueueMany, libraryTracks, playNextMany } from '../trackActions'
-import { trackColumnLayout, trackColumnPreferences } from '../trackColumns'
+import { trackColumnLayout, trackColumnPreferences, TRACK_COLUMN_DEFS, MAX_FIXED_WIDTH } from '../trackColumns'
 import { useTrackColumnsStore } from '../store/trackColumns'
 import TrackColumnPicker from './TrackColumnPicker'
 import { TrackSourceIcon } from './SourceIcon'
@@ -43,6 +43,13 @@ const LARGE_LIST_STEP = 200
 // height, measured from the DOM once one renders; this is only the value used
 // before that first measurement (text-sm + text-xs lines = 36px, plus py-1.5).
 const DEFAULT_ROW_HEIGHT = 48
+
+// The scanner files a song with no album tag under "Unknown Album": shown as
+// nothing, like a missing album.
+const albumName = track => {
+  const album = String(track?.album || '').trim()
+  return album.toLowerCase() === 'unknown album' ? '' : album
+}
 // Rows kept mounted on each side of the visible band. The window is only
 // recomputed once the visible band gets within half of this of an edge, so
 // ordinary scrolling re-renders every ~50 rows rather than on every frame.
@@ -169,6 +176,58 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const anyLiked = useMemo(() => tracks.some(track => likedIds.has(track.id)), [tracks, likedIds])
   const actionSlots = (showPlayNext ? 1 : 0) + (anyStreamed || resolveTracks ? 1 : 0) + (showAddToQueue ? 1 : 0) + (onQuickAdd ? 1 : 0) + 4
   const layout = trackColumnLayout(listWidth, columns, { playlist: !!playlistId && !!onReorder, actionSlots, likedTrack: anyLiked, extraColumns })
+  const extraByKey = Object.fromEntries(extraColumns.map(column => [column.key, column]))
+  // Row size (Columns menu): the cover and the row's padding grow with it.
+  const rowPadding = `${Math.max(0.125, 0.375 + (columns.rowSize - 1))}rem`
+  const artworkSize = `${2 * columns.rowSize}rem`
+  const setWidths = widths => setColumn(profile, 'widths', widths)
+  const resetColumnWidth = key => {
+    const { [key]: _, ...rest } = columns.widths
+    setWidths(rest)
+  }
+  // Dragging a header edge. A fixed column takes the new width in rem; a flex
+  // one (Title, Album, Genre, Comment) takes room from the other flex columns,
+  // and all of them are saved as shares, so they keep their proportions when
+  // the window is resized.
+  const startColumnResize = (key, event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    const header = event.currentTarget.closest('[data-track-header]')
+    const cells = Object.fromEntries([...header.querySelectorAll('[data-col]')].map(el => [el.dataset.col, el.getBoundingClientRect().width]))
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    const startX = event.clientX
+    const def = TRACK_COLUMN_DEFS[key]
+    const flexKeys = layout.order.filter(k => TRACK_COLUMN_DEFS[k]?.flex)
+    const move = e => {
+      const dx = e.clientX - startX
+      if (!def?.flex) {
+        const minRem = def?.min || 2
+        setWidths({ ...columns.widths, [key]: Math.round(Math.min(MAX_FIXED_WIDTH, Math.max(minRem, (cells[key] + dx) / rem)) * 100) / 100 })
+        return
+      }
+      const others = flexKeys.filter(k => k !== key)
+      if (!others.length) return
+      const total = flexKeys.reduce((sum, k) => sum + cells[k], 0)
+      const othersStart = total - cells[key]
+      const othersMin = others.reduce((sum, k) => sum + TRACK_COLUMN_DEFS[k].min * rem, 0)
+      const size = Math.min(total - othersMin, Math.max(def.min * rem, cells[key] + dx))
+      const scale = (total - size) / othersStart
+      const next = { ...columns.widths, [key]: Math.round(size) }
+      for (const k of others) next[k] = Math.round(cells[k] * scale)
+      setWidths(next)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const mergedTracks = tracks.map(track => trackOverrides[track.id] ? { ...track, ...trackOverrides[track.id] } : track)
   const navigate = useNavigate()
   const menu = useContextMenu()
@@ -291,6 +350,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   // layout even if row styling changes. Once only: a transient state like
   // the drag-over border would otherwise skew every spacer mid-drag.
   const rowHeightMeasuredRef = useRef(false)
+  useEffect(() => { rowHeightMeasuredRef.current = false }, [columns.rowSize])
   useEffect(() => {
     if (!isLargeList || rowHeightMeasuredRef.current || draggedId || !rowsRef.current) return
     // Only a row inside the viewport is guaranteed to be actually rendered;
@@ -490,11 +550,16 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     }
   }
 
-  // Only Ctrl/Cmd+click (or Shift+click, a range) selects: a plain click
-  // doesn't, so songs aren't selected by accident. Double click plays.
+  // Ctrl/Cmd+click (or Shift+click, a range) selects; a plain click anywhere
+  // on the row plays the song, or pauses/resumes it if it's the one playing.
   const handleTrackClick = (track, e) => {
-    e.stopPropagation()
-    selection.click(track.id, e)
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      e.stopPropagation()
+      selection.click(track.id, e)
+      return
+    }
+    selection.clear()
+    handlePlay(track, e)
   }
 
   const handleContainerClick = (e) => {
@@ -787,16 +852,31 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
         <TrackColumnPicker columns={columns} playlist={!!playlistId}
           onChange={(key, value) => setColumn(profile, key, value)} onReset={() => resetColumns(profile)} />
       </div>
-      <div data-track-header className="grid grid-cols-[var(--tl-columns)] items-center gap-2 px-4 py-1.5 text-xs text-muted uppercase tracking-widest border-b border-border font-display mb-0.5">
+      <div data-track-header className="grid grid-cols-[var(--tl-columns)] items-center gap-2 pl-1 pr-4 py-1.5 text-xs text-muted uppercase tracking-widest border-b border-border font-display mb-0.5">
         {layout.grip && <span />}
-        {layout.number && <SortableHeader column="number" label="playlist number" sort={sort} onSortChange={onSortChange} className="justify-center text-center">#</SortableHeader>}
-        <span>{layout.album ? 'Title' : 'Title / Album'}</span>
-        {layout.album && <span className="truncate">Album</span>}
-        {layout.source && <span className="flex justify-center" title={t("Source")}><Globe size={12} aria-hidden="true" /><span className="sr-only">{t("Source")}</span></span>}
-        {layout.quality && <span className="text-center">Quality</span>}
-        {extraColumns.map(column => layout[column.key] && <span key={column.key} className="truncate text-right tracking-normal">{column.label}</span>)}
-        {layout.added && <SortableHeader column="added" label="date added" sort={sort} onSortChange={onSortChange} className="justify-end truncate text-right tracking-normal">Date added</SortableHeader>}
-        {layout.time && <SortableHeader column="time" label="duration" sort={sort} onSortChange={onSortChange} className="justify-end text-right">Time</SortableHeader>}
+        {layout.order.map(key => {
+          const extra = extraByKey[key]
+          const cell = extra ? <span className="truncate text-right tracking-normal">{extra.label}</span>
+            : key === 'number' ? <SortableHeader column="number" label="playlist number" sort={sort} onSortChange={onSortChange} className="justify-center text-center">#</SortableHeader>
+            : key === 'title' ? <span>{layout.album ? 'Title' : 'Title / Album'}</span>
+            : key === 'album' ? <span className="truncate">Album</span>
+            : key === 'source' ? <span className="flex justify-center" title={t("Source")}><Globe size={12} aria-hidden="true" /><span className="sr-only">{t("Source")}</span></span>
+            : key === 'quality' ? <span className="text-center">Quality</span>
+            : key === 'genre' ? <span className="truncate tracking-normal">Genre</span>
+            : key === 'comment' ? <span className="truncate tracking-normal">Comment</span>
+            : key === 'added' ? <SortableHeader column="added" label="date added" sort={sort} onSortChange={onSortChange} className="justify-end truncate text-right tracking-normal">Date added</SortableHeader>
+            : key === 'time' ? <SortableHeader column="time" label="duration" sort={sort} onSortChange={onSortChange} className="justify-end text-right">Time</SortableHeader>
+            : null
+          return (
+            <div key={key} data-col={key} className="relative grid min-w-0 items-center">
+              {cell}
+              {/* Drag the edge to resize this column (double-click: default width). */}
+              <span aria-hidden="true" title="Drag to resize" onPointerDown={e => startColumnResize(key, e)}
+                onDoubleClick={e => { e.stopPropagation(); resetColumnWidth(key) }} onClick={e => e.stopPropagation()}
+                className="absolute -right-[7px] inset-y-[-4px] z-10 w-2.5 cursor-col-resize" />
+            </div>
+          )
+        })}
         <span className="sr-only">Actions</span>
         <span aria-hidden="true" />
       </div>
@@ -841,11 +921,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
             onMouseEnter={() => setHoveredId(track.id)}
             onMouseLeave={() => setHoveredId(null)}
             onClick={(e) => handleTrackClick(track, e)}
-            onDoubleClick={e => handlePlay(track, e)}
             onContextMenu={(e) => openTrackMenu(e, track)}
             aria-selected={isSelected}
-            style={isHighlighted ? undefined : { contentVisibility: 'auto', containIntrinsicSize: `${rowContentHeight}px` }}
-            className={`grid grid-cols-[var(--tl-columns)] gap-2 px-4 py-1.5 rounded-lg items-center cursor-default group transition-colors ${isCurrent ? 'bg-accent/8' : 'hover:bg-elevated'} ${isSelected ? 'bg-accent/15' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-t-2 border-accent' : ''} ${isGhost ? 'opacity-75' : ''} ${isFlashing ? 'ring-2 ring-accent bg-accent/15 animate-pulse' : ''}`}
+            style={{ paddingBlock: rowPadding, ...(isHighlighted ? null : { contentVisibility: 'auto', containIntrinsicSize: `${rowContentHeight}px` }) }}
+            className={`grid grid-cols-[var(--tl-columns)] gap-2 pl-1 pr-4 rounded-lg items-center cursor-default group transition-colors ${isCurrent ? 'bg-accent/8' : 'hover:bg-elevated'} ${isSelected ? 'bg-accent/15' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-t-2 border-accent' : ''} ${isGhost ? 'opacity-75' : ''} ${isFlashing ? 'ring-2 ring-accent bg-accent/15 animate-pulse' : ''}`}
           >
             {layout.grip && (
               <div className="flex items-center justify-center text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing">
@@ -853,7 +932,11 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               </div>
             )}
 
-            {layout.number && <div data-track-column="number" className="flex items-center justify-center h-7 text-xs text-muted font-display">
+            {layout.order.map(key => {
+              const extra = extraByKey[key]
+              if (extra) return <span key={key} data-track-column={key} className="truncate text-right text-xs text-muted">{extra.render(track)}</span>
+              switch (key) {
+                case 'number': return <React.Fragment key={key}><div data-track-column="number" className="flex items-center justify-center h-7 text-xs text-muted font-display">
               {isGhost ? (
                 <button onClick={e => { e.stopPropagation(); setGhostTrack(track) }} className="text-yellow-300 hover:text-yellow-200 transition-colors" title={t("Ghost song")}>
                   <AlertCircle size={14} />
@@ -863,20 +946,14 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   {isCurrent && isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />}
                 </button>
               ) : <span className={isCurrent ? 'text-accent' : ''}>{trackNumbers?.get(track.playlist_track_id ?? track.id) ?? trackIndex + 1}</span>}
-            </div>}
-
-            <div className="min-w-0 flex items-center gap-2.5">
-              {columns.artwork ? <div className="w-8 h-8 rounded flex-shrink-0 overflow-hidden bg-card relative">
+            </div></React.Fragment>
+                case 'title': return <React.Fragment key={key}><div className="min-w-0 flex items-center gap-2.5">
+              {columns.artwork ? <div className="rounded flex-shrink-0 overflow-hidden bg-card relative" style={{ width: artworkSize, height: artworkSize }}>
                 {resolveTracks ? <DiscoveryImage item={track} src={src} className="w-full h-full object-cover" /> : src ? <img src={src} className="w-full h-full object-cover" alt="" loading="lazy" decoding="async" /> : <div className="w-full h-full flex items-center justify-center text-muted"><Music size={11} /></div>}
                 {!layout.number && <button onClick={e => handlePlay(track, e)} aria-label={`${isCurrent && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
-                  className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 text-white">
+                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                   {isCurrent && isPlaying ? <Pause size={14} /> : <Play size={14} />}
                 </button>}
-                {layout.number && api.isElectron && isHov && !resolveTracks && (
-                  <button onClick={e => replaceArtwork(track, e)} title={t("Replace artwork")} className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera size={10} className="text-white" />
-                  </button>
-                )}
               </div> : !layout.number && <button onClick={e => handlePlay(track, e)} aria-label={`${isCurrent && isPlaying ? 'Pause' : 'Play'} ${track.title}`} className="shrink-0 text-muted hover:text-accent">
                 {isCurrent && isPlaying ? <Pause size={14} /> : <Play size={14} />}
               </button>}
@@ -894,20 +971,17 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 </div>
                 <div className="flex min-w-0 items-center text-xs text-muted leading-4 h-4">
                   {columns.artist && <span className="min-w-0 flex-1 truncate" title={track.artist}>{track.artist}</span>}
-                  {!layout.album && <>
+                  {!layout.album && albumName(track) && <>
                     {columns.artist && track.artist && <span className="mx-1 shrink-0">·</span>}
-                    <span data-inline-album className="min-w-0 flex-1 truncate" title={track.album || 'Unknown album'}>{track.album || 'Unknown album'}</span>
+                    <span data-inline-album className="min-w-0 flex-1 truncate" title={albumName(track)}>{albumName(track)}</span>
                   </>}
                 </div>
                 {extraColumns.filter(column => !layout[column.key]).map(column => <span key={column.key} className="mr-2 text-[10px] text-muted">{column.label}: {column.render(track)}</span>)}
               </div>
-            </div>
-
-            {layout.album && (
-              <p className="truncate text-xs text-muted" title={track.album || undefined}>{track.album || '—'}</p>
-            )}
-            {layout.source && <span className="flex items-center justify-center"><TrackSourceIcon track={track} addonNames={addonNames} /></span>}
-            {layout.quality && (() => {
+            </div></React.Fragment>
+                case 'album': return <React.Fragment key={key}><p className="truncate text-xs text-muted" title={albumName(track) || undefined}>{albumName(track)}</p></React.Fragment>
+                case 'source': return <React.Fragment key={key}><span className="flex items-center justify-center"><TrackSourceIcon track={track} addonNames={addonNames} /></span></React.Fragment>
+                case 'quality': return <React.Fragment key={key}>{(() => {
               // Same badge as the Audio Quality page; opens that page on its list.
               const tier = isStreamed(track) || isGhost ? 'unknown' : (isSuspect(track) ? 'suspect' : tierOf(track))
               if (tier === 'unknown') return <span title={t("Quality unknown")} className="text-center text-xs text-muted/50">—</span>
@@ -919,10 +993,14 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   {info.label}
                 </button>
               )
-            })()}
-            {extraColumns.map(column => layout[column.key] && <span key={column.key} data-track-column={column.key} className="truncate text-right text-xs text-muted">{column.render(track)}</span>)}
-            {layout.added && <p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p>}
-            {layout.time && <span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span>}
+            })()}</React.Fragment>
+                case 'genre': return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={track.genre || undefined}>{track.genre || ''}</p>
+                case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
+                case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
+                case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>
+                default: return null
+              }
+            })}
             {/* More stays reachable even with every optional column off. */}
             <div className="flex items-center justify-end gap-1.5">
               <div className={`${layout.actions ? 'flex' : 'hidden'} items-center justify-end gap-1.5`}>

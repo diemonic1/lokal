@@ -256,8 +256,12 @@ function buildPossibleDuplicateGroups(tracks = []) {
     .sort((left, right) => right.confidence - left.confidence)
 }
 
+// Same as electron/ipc/scanner.js: non-Latin scripts keep their letters, or
+// every Cyrillic, CJK, ... artist shared the id "a-unknown".
+const SLUG_SEPARATORS = /(?:(?![a-z0-9])[\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]|[^\p{L}\p{N}\p{M}])+/gu
+
 function slugify(str) {
-  return (str || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
+  return (str || 'unknown').toLowerCase().replace(SLUG_SEPARATORS, '-').replace(/^-|-$/g, '') || 'unknown'
 }
 
 function getKeepCommaArtists() {

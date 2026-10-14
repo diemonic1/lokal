@@ -273,7 +273,7 @@ export default function PlayerBar() {
           <button onClick={prev} className="text-text/90 hover:text-text transition-colors" title={t("Previous")}><SkipBack size={18} fill="currentColor" /></button>
           <motion.button onClick={togglePlay} disabled={!currentTrack} whileTap={{ scale: 0.88 }}
             className={`w-9 h-9 rounded-full flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-40 ${flowPlaying ? 'flow-play' : 'bg-accent text-base'}`}>
-            {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" className="translate-x-0.5" />}
+            {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
           </motion.button>
           <button onClick={next} className="text-text/90 hover:text-text transition-colors" title={t("Next")}><SkipForward size={18} fill="currentColor" /></button>
           <button onClick={toggleRepeat} className={`transition-colors ${repeat !== 'none' ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t(repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all')}><RepeatIcon size={15} /></button>

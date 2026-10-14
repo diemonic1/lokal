@@ -52,8 +52,13 @@ function hashFile(fp, stat) {
   return crypto.createHash('sha256').update(fp + stat.size + stat.mtimeMs).digest('hex').slice(0, 16)
 }
 
+// Latin letters outside a-z still drop out (so existing ids don't change), but
+// other scripts keep theirs: with plain [^a-z0-9] every Cyrillic, CJK, ... name
+// slugged to "unknown" and all of those artists shared one id.
+const SLUG_SEPARATORS = /(?:(?![a-z0-9])[\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]|[^\p{L}\p{N}\p{M}])+/gu
+
 function slugify(str) {
-  return (str || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
+  return (str || 'unknown').toLowerCase().replace(SLUG_SEPARATORS, '-').replace(/^-|-$/g, '') || 'unknown'
 }
 
 function getKeepCommaArtists() {
@@ -112,7 +117,8 @@ function unlockArtistLinks(db, trackId) {
 // Bump when splitArtists changes how it reads names, so the next scan re-links
 // the library once (see relinkArtistsIfNeeded).
 // 3: version 2 also linked streamed (ghost://) tracks; this undoes that.
-const ARTIST_SPLITTER_VERSION = 3
+// 4: slugify keeps non-Latin letters; splits up the shared "a-unknown" artist.
+const ARTIST_SPLITTER_VERSION = 4
 
 /**
  * Brings every track's artist links in line with splitArtists (e.g. after it
@@ -125,6 +131,17 @@ const ARTIST_SPLITTER_VERSION = 3
 function relinkArtists(db = getDB()) {
   const keepComma = getKeepCommaArtists()
   ensureLinkLocks(db)
+  // Before version 4 every non-Latin name slugged to "unknown", so all those
+  // artists were one "a-unknown" row named after whichever was scanned last.
+  // Drop it (and its links) so the pass below gives each its own artist.
+  const collapsed = db.prepare("SELECT name FROM artists WHERE id = 'a-unknown'").get()
+  if (collapsed && slugify(collapsed.name) !== 'unknown') {
+    db.transaction(() => {
+      db.prepare("DELETE FROM artist_link_locks WHERE track_id IN (SELECT track_id FROM artist_track_links WHERE artist_id = 'a-unknown')").run()
+      db.prepare("DELETE FROM artist_track_links WHERE artist_id = 'a-unknown'").run()
+      db.prepare("DELETE FROM artists WHERE id = 'a-unknown'").run()
+    })()
+  }
   const tracks = db.prepare("SELECT id, artist FROM tracks WHERE file_path NOT LIKE 'ghost://%' AND id NOT IN (SELECT track_id FROM artist_link_locks)").all()
   const linked = new Map()
   for (const row of db.prepare('SELECT track_id, artist_id FROM artist_track_links').all()) {
@@ -307,6 +324,31 @@ function pickPreferredArtist(common) {
   return rawArtist
 }
 
+// The comment tag as text: music-metadata gives strings or { text } entries.
+function commentText(common) {
+  const list = Array.isArray(common?.comment) ? common.comment : common?.comment ? [common.comment] : []
+  return list.map(c => (typeof c === 'string' ? c : c?.text || '')).map(c => c.trim()).filter(Boolean).join(' / ')
+}
+
+// Songs indexed before the comment column existed (or with an unreadable
+// tag) have it NULL: read just that for them, once. '' marks "read, none".
+async function backfillComments(db) {
+  let rows
+  try { rows = db.prepare("SELECT id, file_path FROM tracks WHERE comment IS NULL AND file_path NOT LIKE 'ghost://%'").all() } catch { return 0 }
+  const save = db.prepare('UPDATE tracks SET comment = ? WHERE id = ?')
+  let done = 0
+  for (const row of rows) {
+    let comment = ''
+    try {
+      if (!fs.existsSync(row.file_path)) continue
+      comment = commentText((await mm.parseFile(row.file_path, { duration: false, skipCovers: true })).common)
+    } catch {}
+    save.run(comment, row.id)
+    done++
+  }
+  return done
+}
+
 function extractTitleFromFilename(filePath) {
   const basename = path.basename(filePath, path.extname(filePath))
   const cleaned = basename
@@ -406,6 +448,7 @@ async function scanFolder(folderPath) {
           console.warn(`[scanFolder] Failed to link artist ${aid} to track ${trackId}:`, linkErr.message)
         }
       }
+      db.prepare('UPDATE tracks SET comment = ? WHERE id = ?').run(item.comment ?? '', trackId)
       applyPendingImportedMetadataToTrack(db, trackId)
       resolveGhostsByIsrc(db, trackId)
     }
@@ -467,12 +510,16 @@ async function scanFolder(folderPath) {
       if (getSkipDrumKit() && isDrumKit(title, c.album, c.genre?.[0])) { console.log(`[scanFolder] Skipped: ${filePath} - Drumkit pattern detected`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
       const artwork = await extractArtwork(meta, trackId, folderArtwork)
       const replaygain = c.replaygain_track_gain || null
-      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, quality: quality.qualityFields(meta) })
+      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), quality: quality.qualityFields(meta) })
       if (batch.length >= BATCH) { await insertBatch(batch); batch = [] }
     } catch { scanStatus.errors++ }
     scanStatus.done++; emit('scanner:progress', { ...scanStatus })
   }
   if (batch.length > 0) await insertBatch(batch)
+  try {
+    const read = await backfillComments(db)
+    if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
+  } catch (e) { console.warn('[scanFolder] Comment backfill skipped:', e.message) }
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
   return scanStatus
 }
@@ -1940,6 +1987,7 @@ async function indexSingleFile(filePath, opts = {}) {
         console.warn(`[indexSingleFile] Failed to link artist ${aid} to track ${trackId}:`, linkErr.message)
       }
     }
+    db.prepare('UPDATE tracks SET comment = ? WHERE id = ?').run(commentText(c), trackId)
     applyPendingImportedMetadataToTrack(db, trackId)
     if (!opts.deferGhostResolution) resolveGhostsByIsrc(db, trackId)
   })

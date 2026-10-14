@@ -5,6 +5,7 @@ import { usePlayerStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import LyricsPanel from './LyricsPanel'
 import { api, wordSyncEnabled } from '../api'
+import { useSideLyricsScale } from '../sidePanelPrefs'
 
 // The actual lyrics view, with no opinion about how it's framed -- used both
 // by the standalone panel below (independent mode) and, via RightSidebar's
@@ -14,6 +15,7 @@ import { api, wordSyncEnabled } from '../api'
 export function LyricsContent({ onClose }) {
   const { currentTrack, progress, toggleLyricsFullscreen } = usePlayerStore(useShallow(({ currentTrack, progress, toggleLyricsFullscreen }) => ({ currentTrack, progress, toggleLyricsFullscreen })))
   const wordSync = wordSyncEnabled()
+  const lyricsScale = useSideLyricsScale()
   // Backend-persisted setting (Settings' Auto Translate/unsynced-auto-sync
   // toggle saves via api.saveSettings, never to localStorage), matching how
   // FullscreenPlayer/LyricsFullscreen already read it -- reading a
@@ -53,7 +55,7 @@ export function LyricsContent({ onClose }) {
 
       <div className="flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
         {currentTrack ? (
-          <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={1.4} isAutoSynced={isAutoSynced} />
+          <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
         ) : (
           <div className="flex items-center justify-center h-full text-muted text-xs">No track playing</div>
         )}

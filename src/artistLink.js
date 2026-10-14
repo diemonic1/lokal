@@ -7,17 +7,22 @@
 import { isOnlineTrack } from './onlineBrowse.js'
 import { streamRef } from './onlineTracks.js'
 
+// Matches slugify in electron/ipc/scanner.js: non-Latin scripts keep their
+// letters (a Cyrillic name used to slug to nothing and got no link).
+const SLUG_SEPARATORS = /(?:(?![a-z0-9])[\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]|[^\p{L}\p{N}\p{M}])+/gu
+const toSlug = value => value.toLowerCase().replace(SLUG_SEPARATORS, '-').replace(/^-+|-+$/g, '')
+
 export function artistToSlug(artistName, keepCommaArtists = []) {
   if (!artistName) return ''
   const lowerName = artistName.toLowerCase().trim()
   for (const keep of keepCommaArtists) {
     const lowerKeep = keep.toLowerCase().trim()
     if (lowerName === lowerKeep || lowerName.startsWith(lowerKeep + ' ') || lowerName.endsWith(' ' + lowerKeep)) {
-      return keep.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      return toSlug(keep)
     }
   }
   const firstPart = artistName.split(',')[0].trim()
-  return firstPart.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return toSlug(firstPart)
 }
 
 export function navigateToTrackArtist(nav, track, keepCommaArtists = []) {
