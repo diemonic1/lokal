@@ -18,6 +18,7 @@
   "build": {
     "appId": "com.lokal.music",
     "productName": "Lokal",
+    "electronDist": "node_modules/electron/dist",
     "icon": "public/lokal-icon.ico",
     "files": [
       "dist/**/*",
@@ -41,13 +42,7 @@
       "icon": "public/lokal-icon.ico",
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
+          "target": "dir",
           "arch": [
             "x64"
           ]
