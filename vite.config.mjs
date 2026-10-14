@@ -46,6 +46,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '127.0.0.1',
     proxy: {
       // xfwd: pass the page's own host on, so the server's same-origin check
       // (API_KEY, cookie-authorised writes) recognises requests from :5173.
