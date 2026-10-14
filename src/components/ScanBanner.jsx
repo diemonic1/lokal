@@ -57,7 +57,7 @@ export default function ScanBanner() {
       </div>
       <div className="flex gap-2 flex-shrink-0">
         {folder && (
-          <button onClick={() => api.scanFolder(folder).then(refreshAfterRequest)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted hover:text-white transition-colors">
+          <button onClick={() => api.scanFolder(folder, { full: true }).then(refreshAfterRequest)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted hover:text-white transition-colors">
             <RefreshCw size={12} /> Rescan
           </button>
         )}

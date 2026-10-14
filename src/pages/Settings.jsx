@@ -23,7 +23,7 @@ import { repairMissingTracks } from '../ghostDownloads'
 import { plural } from '../plural'
 import { readCrossfadeSettings, CROSSFADE_MIN_S } from '../audio/crossfade'
 import SoulseekSignIn from '../components/SoulseekSignIn'
-import { useSideLyricsScale, setSideLyricsScale, SIDE_LYRICS_SCALE } from '../sidePanelPrefs'
+import { useSideLyricsScale, setSideLyricsScale, SIDE_LYRICS_SCALE, useLeftSidebarScale, setLeftSidebarScale, LEFT_SIDEBAR_SCALE } from '../sidePanelPrefs'
 
 const EQ_BANDS = ['31Hz', '62Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz']
 const EQ_PRESETS = {
@@ -466,6 +466,7 @@ export default function Settings() {
   const fileInputRef = useRef(null)
   const { themeName, themeOverrides, showAdvanced, setShowAdvanced, selectTheme, setAccent, saveOverride, saveOverrides, resetTheme, textScale, setTextScale } = useTheme()
   const sideLyricsScale = useSideLyricsScale()
+  const leftSidebarScale = useLeftSidebarScale()
 
   useEffect(() => {
     if (activeCategory !== 'library') return
@@ -650,7 +651,7 @@ export default function Settings() {
   const rescan = async () => {
     if (!settings.music_folder) return
     setScanning(true)
-    await api.scanFolder(settings.music_folder)
+    await api.scanFolder(settings.music_folder, { full: true })
     setScanning(false)
   }
 
@@ -1833,6 +1834,29 @@ activeCategory === 'data' ? usersTried
             <div className="flex justify-between mt-1">
               <span className="text-[10px] text-muted/50">Small</span>
               <span className="text-[10px] text-muted/50">Large</span>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-white font-medium mb-1">Left Sidebar Size</p>
+            <p className="text-xs text-muted mb-3">Size of the folders, their covers and names in the left sidebar.</p>
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted">A</span>
+              <input
+                type="range"
+                min={LEFT_SIDEBAR_SCALE.min}
+                max={LEFT_SIDEBAR_SCALE.max}
+                step={LEFT_SIDEBAR_SCALE.step}
+                value={leftSidebarScale}
+                onChange={(e) => setLeftSidebarScale(e.target.value)}
+                onDoubleClick={() => setLeftSidebarScale(LEFT_SIDEBAR_SCALE.initial)}
+                title="Double-click to reset"
+                className="flex-1 accent-accent"
+              />
+              <span className="text-lg text-muted">A</span>
+              <span className="text-xs text-muted ml-2 w-12">
+                {Math.round(leftSidebarScale * 100)}%
+              </span>
             </div>
           </div>
 

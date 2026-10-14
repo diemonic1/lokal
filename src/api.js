@@ -347,7 +347,7 @@ export const api = {
   setKeepCommaArtists: (artists) => isE() ? el().setKeepCommaArtists(artists) : apiFetch('/settings/keep-comma-artists', { method:'PUT', body:{artists} }),
   getTheme: () => isE() ? el().getTheme() : apiFetch('/settings/theme'),
   saveTheme: (theme, overrides) => isE() ? el().saveTheme(theme, overrides) : apiFetch('/settings/theme', { method:'PUT', body:{theme, overrides} }),
-  scanFolder: (f) => isE() ? el().scanFolder(f) : apiFetch('/settings/scan', { method:'POST', body:{folder:f} }),
+  scanFolder: (f, o = {}) => isE() ? el().scanFolder(f, o) : apiFetch('/settings/scan', { method:'POST', body:{folder:f, full:!!o.full} }),
   resolveFileToPlay: (f) => isE() ? el().resolveFileToPlay(f) : Promise.resolve({ success: false, error: 'Electron only' }),
   onOpenFileRequest: (fn) => { if (isE() && typeof el().onOpenFileRequest === 'function') return el().onOpenFileRequest(fn); return () => {} },
   updateThumbarState: (state) => (isE() && typeof el().updateThumbarState === 'function') ? el().updateThumbarState(state) : Promise.resolve(),

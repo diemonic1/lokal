@@ -919,29 +919,9 @@ export const usePlayerStore = create((set, get) => ({
   switchFullscreenView: (view) => set(view === 'lyrics'
     ? { showLyricsFullscreen: true }
     : { showFullscreen: true, showLyricsFullscreen: false }),
-  // Opens/closes the right-hand panel itself. In merged mode, reopening
-  // always resets to the base "info" view -- the panel's info/lyrics
-  // content is the persistent base that Queue slides up over, per Spotify's
-  // own pattern, so reopening should land back on that base rather than
-  // wherever it happened to be showing when last closed.
-  toggleRightSidebar: () => set(s => {
-    if (!s.exclusiveSidePanels) {
-      // Independent mode: exactly the original, fully separate behavior --
-      // no interaction with the Queue panel at all.
-      return { showRightSidebar: !s.showRightSidebar }
-    }
-    if (!s.showRightSidebar) {
-      return { showRightSidebar: true, sidePanelView: 'info' }
-    }
-    // Panel's already open, whatever it's currently showing (info, Queue,
-    // or Lyrics). This is the sidebar's own collapse button (the chevron in
-    // its header, which stays visible above the Queue/Lyrics overlays), so
-    // it always collapses the whole panel in one click rather than first
-    // sliding the Queue/Lyrics overlay back down to info and only closing
-    // on a second click -- reopening already resets to 'info' above, so
-    // there's nothing left to reset here on the way out.
-    return { showRightSidebar: false }
-  }),
+  // Opens/closes the right-hand panel itself, keeping whichever tab (Details,
+  // Lyrics, Queue) it showed last.
+  toggleRightSidebar: () => set(s => ({ showRightSidebar: !s.showRightSidebar })),
   toggleFullscreen: () => set(s => {
     const next = !s.showFullscreen
     if (!next && typeof window !== 'undefined' && window.electron?.refreshHitRegions) {

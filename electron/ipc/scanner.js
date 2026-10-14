@@ -398,7 +398,28 @@ function trackParams(item, trackId = item?.id) {
   }
 }
 
-async function scanFolder(folderPath) {
+// Bump when the way tags are read changes: the next scan then reads every file
+// again instead of skipping the unchanged ones.
+// 2: ID3v1 is ignored (see ../musicMetadata).
+const TAG_READER_VERSION = 2
+
+// One scan at a time: asking again while one runs waits for it (a full
+// re-read asked meanwhile runs right after).
+let runningScan = null
+let pendingFullScan = null
+
+function scanFolder(folderPath, opts = {}) {
+  if (!runningScan) {
+    runningScan = runScan(folderPath, opts).finally(() => { runningScan = null })
+    return runningScan
+  }
+  if (!opts.full) return runningScan
+  pendingFullScan ||= runningScan.catch(() => {}).then(() => { pendingFullScan = null; return scanFolder(folderPath, opts) })
+  return pendingFullScan
+}
+
+// `full` reads every file's tags again, not only new and changed files.
+async function runScan(folderPath, { full = false } = {}) {
   const db = getDB()
   try { db.exec("ALTER TABLE tracks ADD COLUMN replaygain TEXT") } catch {}
   scanStatus = { scanning: true, total: 0, done: 0, errors: 0, skipped: 0 }
@@ -407,6 +428,7 @@ async function scanFolder(folderPath) {
     if (relinked) console.log(`[scanFolder] Re-linked artists for ${relinked} track(s)`)
   } catch (e) { console.warn('[scanFolder] Artist re-link skipped:', e.message) }
   const files = walkDir(folderPath)
+  const rereadTags = full || Number(db.prepare("SELECT value FROM settings WHERE key = 'tag_reader_version'").get()?.value || 0) < TAG_READER_VERSION
   scanStatus.total = files.length
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('music_folder', ?)").run(folderPath)
 
@@ -483,7 +505,7 @@ async function scanFolder(folderPath) {
       const trackId = 't-' + hashFile(filePath, stat)
       const existing = db.prepare('SELECT last_modified, artwork_path FROM tracks WHERE id = ?').get(trackId)
       const folderArtwork = getFolderArtwork(filePath)
-      if (existing && existing.last_modified === stat.mtimeMs) {
+      if (existing && existing.last_modified === stat.mtimeMs && !rereadTags) {
         const existingArtwork = existing.artwork_path ? path.resolve(existing.artwork_path) : null
         const storedArtworkDir = path.resolve(getStorageDir(), 'artwork')
         const hasCachedArtwork = existingArtwork &&
@@ -520,6 +542,7 @@ async function scanFolder(folderPath) {
     const read = await backfillComments(db)
     if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
   } catch (e) { console.warn('[scanFolder] Comment backfill skipped:', e.message) }
+  if (rereadTags) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('tag_reader_version', ?)").run(String(TAG_READER_VERSION))
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
   return scanStatus
 }
@@ -1224,7 +1247,7 @@ function exportAppData() {
 
 function registerScannerHandlers(ipcMain) {
   const { BrowserWindow } = require('electron')
-  ipcMain.handle('scanner:scan', async (e, folder) => { mainWindow = BrowserWindow.fromWebContents(e.sender); return scanFolder(folder || DEFAULT_MUSIC_PATH) })
+  ipcMain.handle('scanner:scan', async (e, folder, opts) => { mainWindow = BrowserWindow.fromWebContents(e.sender); return scanFolder(folder || DEFAULT_MUSIC_PATH, { full: !!opts?.full }) })
   ipcMain.handle('scanner:status', () => scanStatus)
   ipcMain.handle('scanner:getLibraryFolders', (_, relativePath, search) => getLibraryFolders(getDB(), relativePath, search))
   ipcMain.handle('scanner:resolveFileToPlay', async (_, filePath) => {
@@ -1259,6 +1282,8 @@ function registerScannerHandlers(ipcMain) {
     if (genre) { where.push(genre.sql); params.push(...genre.params) }
     const quality = opts.quality ? require('../quality').tierFilter(db, opts.quality) : null
     if (quality) { where.push(quality.sql); params.push(...quality.params) }
+    const folder = require('../libraryFolder').folderFilter(db, opts.folder)
+    if (folder) { where.push(folder.sql); params.push(...folder.params) }
     return require('../trackErrors').listTracks(db, opts, { where, params, exists: fs.existsSync })
   })
   ipcMain.handle('tracks:reportError', (_, trackId, message) => { try { return require('../trackErrors').recordTrackError(getDB(), trackId, message) } catch { return false } })

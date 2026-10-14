@@ -47,3 +47,17 @@ export const setSidePanelWidth = (value, { persist = true } = {}) => write(WIDTH
 
 export const useSideLyricsScale = () => usePref(LYRICS_SCALE_KEY, SIDE_LYRICS_SCALE)
 export const setSideLyricsScale = value => write(LYRICS_SCALE_KEY, SIDE_LYRICS_SCALE, value, true)
+
+// The left sidebar (music folders): its width (dragged by its right edge) and
+// the size of its entries (Settings > Appearance).
+const LEFT_WIDTH_KEY = 'lokal-left-sidebar-width'
+const LEFT_SCALE_KEY = 'lokal-left-sidebar-scale'
+
+export const LEFT_SIDEBAR_WIDTH = { min: 160, max: 480, initial: 224 }
+export const LEFT_SIDEBAR_SCALE = { min: 0.8, max: 2, step: 0.05, initial: 1 }
+
+export const useLeftSidebarWidth = () => usePref(LEFT_WIDTH_KEY, LEFT_SIDEBAR_WIDTH)
+export const setLeftSidebarWidth = (value, { persist = true } = {}) => write(LEFT_WIDTH_KEY, LEFT_SIDEBAR_WIDTH, value, persist)
+
+export const useLeftSidebarScale = () => usePref(LEFT_SCALE_KEY, LEFT_SIDEBAR_SCALE)
+export const setLeftSidebarScale = value => write(LEFT_SCALE_KEY, LEFT_SIDEBAR_SCALE, value, true)

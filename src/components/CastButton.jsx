@@ -93,9 +93,9 @@ export default function CastButton() {
         aria-expanded={open}
         aria-haspopup="menu"
         data-cast-button
-        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors bg-elevated hover:bg-card ${castActive || open ? 'text-accent' : 'text-muted hover:text-text'}`}
+        className={`flex h-7 w-7 items-center justify-center transition-colors ${castActive || open ? 'text-accent' : 'text-text/90 hover:text-text'}`}
       >
-        <Cast size={15} strokeWidth={castActive ? 2.4 : 1.8} className={connecting ? 'animate-pulse' : ''} />
+        <Cast size={15} strokeWidth={castActive ? 2.4 : 2} className={connecting ? 'animate-pulse' : ''} />
       </button>
 
       <AnimatePresence>

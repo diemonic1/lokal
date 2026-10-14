@@ -8,7 +8,7 @@ function DeviceIcon({ kind }) {
   return kind === 'headphones' ? <Headphones size={14} aria-hidden="true" /> : <Volume2 size={14} aria-hidden="true" />
 }
 
-function BrowserAudioOutputPicker() {
+function BrowserAudioOutputPicker({ placement = 'up' }) {
   const outputDeviceId = usePlayerStore(state => state.outputDeviceId)
   const setOutputDevice = usePlayerStore(state => state.setOutputDevice)
   const [devices, setDevices] = useState([])
@@ -122,7 +122,7 @@ function BrowserAudioOutputPicker() {
         <DeviceIcon kind={currentKind} />
       </button>
       {open && (
-        <div role="menu" aria-label="Audio output" className="absolute bottom-full right-0 z-30 mb-2 w-64 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl">
+        <div role="menu" aria-label="Audio output" className={`absolute right-0 z-50 w-64 ${placement === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'} max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl`}>
           <div className="flex items-center justify-between px-2 py-1.5">
             <p className="text-xs font-display uppercase tracking-wider text-muted">Audio output</p>
             {loading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />}
@@ -153,7 +153,7 @@ function BrowserAudioOutputPicker() {
   )
 }
 
-export default function AudioOutputPicker() {
+export default function AudioOutputPicker({ placement = 'up' }) {
   const [native, setNative] = useState(() => window.__lokalOutputStatus?.mode === 'native')
   const [open, setOpen] = useState(false)
   const root = useRef(null)
@@ -171,13 +171,13 @@ export default function AudioOutputPicker() {
     document.addEventListener('keydown', close)
     return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close) }
   }, [open])
-  if (!native) return <BrowserAudioOutputPicker />
+  if (!native) return <BrowserAudioOutputPicker placement={placement} />
   return (
     <div ref={root} className="relative flex items-center justify-center">
       <button type="button" onClick={() => setOpen(value => !value)} aria-label="Native audio output" aria-expanded={open} className="text-accent">
         <Volume2 size={14} />
       </button>
-      {open && <div className="absolute bottom-full right-0 z-30 mb-2 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl">
+      {open && <div className={`absolute right-0 z-50 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl ${placement === 'down' ? 'top-full mt-2 max-h-[70vh] overflow-y-auto' : 'bottom-full mb-2'}`}>
         <OutputPrecisionSettings compact />
       </div>}
     </div>

@@ -9,6 +9,9 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import Sidebar from './components/Sidebar'
 import PlayerBar from './components/PlayerBar'
 import TitleBar from './components/TitleBar'
+import TabBar from './components/TabBar'
+import { initialTabPath } from './libraryNav'
+import { rescanOnStartup } from './scanProgress'
 import { usePageWidth } from './pageWidth'
 import RightSidebar from './components/RightSidebar'
 import FullscreenPlayer from './components/FullscreenPlayer'
@@ -338,6 +341,8 @@ export default function App() {
   const glassPlayerBar = useAppearanceFlag('glass_player_bar')
   // Pages lay out by the space they get between the sidebars (pageWidth.js).
   const pageWidthRef = usePageWidth()
+  // Every launch reads the music folder's tags again (progress: the bar by Home).
+  useEffect(() => { rescanOnStartup() }, [])
   const audioRef = useRef(null)
   const cfAudioRef = useRef(null)
   const streamRecoveryRef = useRef({ track: null, pending: false, failed: [] })
@@ -2687,7 +2692,7 @@ export default function App() {
   }
 
   return (
-    <Router>
+    <Router initialEntries={[initialTabPath()]}>
       <NativeHistoryNavigation />
       <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !glassPlayerBar ? undefined : { '--player-space': '104px' }}>
         {/* Covers the window (overlays included) while it switches to or from
@@ -2715,6 +2720,7 @@ export default function App() {
             />
 
             <TitleBar />
+            <TabBar />
             <ReleaseRefreshBanner />
             <div className="flex flex-1 overflow-hidden" data-app-layout>
               <Sidebar />

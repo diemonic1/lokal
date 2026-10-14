@@ -14,7 +14,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Clock, Home, Search as SearchIcon, Shuffle, X } from 'lucide-react'
+import { Clock, Home, RefreshCw, Search as SearchIcon, Shuffle, X } from 'lucide-react'
+import { rescanLibrary, useScanProgress } from '../scanProgress'
+import HeaderPlayerControls, { HEADER_ICON, headerIconTone } from './HeaderPlayerControls'
 import { useSearchStore } from '../store/search'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { readFlowSettings, saveFlowSettings, startFlow } from '../flow/session'
@@ -56,6 +58,39 @@ function Highlighted({ text, typed }) {
       <span className="text-text font-medium">{text.slice(at, at + q.length)}</span>
       {text.slice(at + q.length)}
     </span>
+  )
+}
+
+/** A short bar left of Home while the library is being scanned (laid over, so nothing moves). */
+function ScanProgressBar() {
+  const { scanning, done, total } = useScanProgress()
+  if (!scanning) return null
+  const label = total ? `Scanning tags… ${done}/${total}` : 'Scanning tags…'
+  return (
+    <div role="progressbar" aria-label={label} title={label} aria-valuemin={0} aria-valuemax={total || undefined} aria-valuenow={total ? done : undefined}
+      className="absolute right-full top-1/2 mr-2 h-1 w-14 -translate-y-1/2 overflow-hidden rounded-full bg-border">
+      {total
+        ? <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${Math.min(100, (done / total) * 100)}%` }} />
+        : <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />}
+    </div>
+  )
+}
+
+/** Rescan the whole music folder; spins while any scan runs. Styled like Home. */
+function RescanButton() {
+  const { t } = useTranslation()
+  const { scanning } = useScanProgress()
+  return (
+    <button
+      type="button"
+      onClick={() => { if (!scanning) rescanLibrary() }}
+      disabled={scanning}
+      title={t("Rescan all tracks")}
+      aria-label={t("Rescan all tracks")}
+      className={`${HEADER_ICON} ${headerIconTone(false)}`}
+    >
+      <RefreshCw size={15} className={scanning ? 'animate-spin text-accent' : ''} />
+    </button>
   )
 }
 
@@ -207,14 +242,18 @@ export default function HeaderSearch() {
 
   return (
     <div className="flex items-center gap-1.5 min-w-0 w-full justify-center" style={{ WebkitAppRegion: 'no-drag' }}>
-      <button
-        onClick={() => nav('/')}
-        title={t("Home")}
-        aria-label={t("Home")}
-        className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors bg-elevated hover:bg-card ${onHome ? 'text-text' : 'text-muted hover:text-text'}`}
-      >
-        <Home size={15} strokeWidth={onHome ? 2.4 : 1.8} />
-      </button>
+      <div className="relative flex flex-shrink-0 items-center gap-1.5">
+        <ScanProgressBar />
+        <RescanButton />
+        <button
+          onClick={() => nav('/')}
+          title={t("Home")}
+          aria-label={t("Home")}
+          className={`${HEADER_ICON} ${headerIconTone(false)}`}
+        >
+          <Home size={15} strokeWidth={onHome ? 2.4 : 2} />
+        </button>
+      </div>
 
       <div className="relative min-w-0" style={{ flex: '0 1 474px' }} data-tour="search">
         <div
@@ -324,7 +363,10 @@ export default function HeaderSearch() {
         </AnimatePresence>
       </div>
 
-      <CastButton />
+      <div className="flex flex-shrink-0 items-center gap-0.5">
+        <CastButton />
+        <HeaderPlayerControls />
+      </div>
     </div>
   )
 }

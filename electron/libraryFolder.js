@@ -88,6 +88,40 @@ function escapeLike(value) {
   return String(value).replace(/[\\%_]/g, character => '\\' + character)
 }
 
+// The songs under one folder of the music folder (relative path, '/'-separated),
+// as a WHERE clause for the track list; null for none or a path outside it.
+function folderFilter(db, relativePath) {
+  if (typeof relativePath !== 'string' || !relativePath) return null
+  const configuredRoot = db.prepare("SELECT value FROM settings WHERE key = 'music_folder'").get()?.value
+  if (!configuredRoot) return null
+  const rootPath = path.resolve(String(configuredRoot))
+  const targetPath = path.resolve(rootPath, relativePath.slice(0, 4096))
+  if (targetPath === rootPath || isOutside(rootPath, targetPath)) return null
+  const { prefix, upperBound } = getPathPrefixBounds(targetPath)
+  return { sql: 'file_path >= ? AND file_path < ?', params: [prefix, upperBound] }
+}
+
+// Each child folder's cover: the artwork of the first song inside it that has one.
+function getChildFolderCovers(db, targetPath) {
+  const covers = new Map()
+  if (!db || typeof db.prepare !== 'function') return covers
+  const { prefix, upperBound } = getPathPrefixBounds(targetPath)
+  try {
+    const rows = db.prepare(
+      "SELECT id, file_path, artwork_path FROM tracks WHERE file_path >= ? AND file_path < ? AND artwork_path IS NOT NULL AND artwork_path != '' AND file_path NOT LIKE 'ghost://%' ORDER BY file_path ASC"
+    ).all(prefix, upperBound) || []
+    for (const row of rows) {
+      const relativeTrackPath = path.relative(targetPath, row.file_path)
+      const separator = relativeTrackPath.indexOf(path.sep)
+      if (separator <= 0) continue
+      const childName = relativeTrackPath.slice(0, separator)
+      const childKey = process.platform === 'win32' ? childName.toLowerCase() : childName
+      if (!covers.has(childKey)) covers.set(childKey, { trackId: row.id, artworkPath: row.artwork_path })
+    }
+  } catch {}
+  return covers
+}
+
 function getLibraryFolders(db, relativePath = '', search = '') {
   const configuredRoot = db.prepare("SELECT value FROM settings WHERE key = 'music_folder'").get()?.value
   if (!configuredRoot) {
@@ -131,13 +165,15 @@ function getLibraryFolders(db, relativePath = '', search = '') {
     folderTrackCounts.set(childKey, (folderTrackCounts.get(childKey) || 0) + 1)
   }
 
+  const covers = getChildFolderCovers(db, targetPath)
   const folders = entries
     .filter(entry => entry.isDirectory())
     .map(entry => {
       const fullPath = path.join(targetPath, entry.name)
       const childRelative = path.relative(rootPath, fullPath).split(path.sep).join('/')
       const childKey = process.platform === 'win32' ? entry.name.toLowerCase() : entry.name
-      return { name: entry.name, path: childRelative, trackCount: folderTrackCounts.get(childKey) || 0 }
+      const cover = covers.get(childKey)
+      return { name: entry.name, path: childRelative, trackCount: folderTrackCounts.get(childKey) || 0, coverTrackId: cover?.trackId || null, coverPath: cover?.artworkPath || null }
     })
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' }))
 
@@ -209,5 +245,5 @@ function getLibraryFolders(db, relativePath = '', search = '') {
   }
 }
 
-module.exports = { findFolderArtwork, getLibraryFolders }
+module.exports = { findFolderArtwork, getLibraryFolders, folderFilter }
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, Heart, Mic2, PanelRight, Maximize2, ListMusic, Plus, Moon, X, Radio, Gem, Cast } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { useNavigate } from 'react-router-dom'
@@ -9,12 +9,11 @@ import { useTranslation } from '../i18n'
 import { navigateToTrackAlbum } from '../playbackContext'
 import { navigateToTrackArtist } from '../artistLink'
 import Waveform from './Waveform'
+import { showToast } from './Toaster'
 import { useAppearanceFlag } from '../appearanceFlags'
-import Modal from './Modal'
 import { trackArtURL, isStreamed, streamLabel } from '../onlineTracks'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
-import AudioOutputPicker from './AudioOutputPicker'
 import MixingMark from './MixingMark'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
@@ -33,66 +32,28 @@ export default function PlayerBar() {
     togglePlay, next, prev, setProgress, setVolume, toggleShuffle, toggleRepeat,
     toggleLyricsButton, toggleRightSidebar, toggleFullscreen, toggleQueueButton,
     likedIds, setLiked, audioRef, cfAudioRef, activeAudioElement,
-    sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer,
-    toggleMiniPlayer,
   } = usePlayerStore(useShallow(({
     currentTrack, isPlaying, isBuffering, progress, duration, volume, shuffle, repeat,
     showRightSidebar, showQueue, showLyricsPanel, sidePanelView, exclusiveSidePanels,
     togglePlay, next, prev, setProgress, setVolume, toggleShuffle, toggleRepeat,
     toggleLyricsButton, toggleRightSidebar, toggleFullscreen, toggleQueueButton,
     likedIds, setLiked, audioRef, cfAudioRef, activeAudioElement,
-    sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer,
-    toggleMiniPlayer,
   }) => ({
     currentTrack, isPlaying, isBuffering, progress, duration, volume, shuffle, repeat,
     showRightSidebar, showQueue, showLyricsPanel, sidePanelView, exclusiveSidePanels,
     togglePlay, next, prev, setProgress, setVolume, toggleShuffle, toggleRepeat,
     toggleLyricsButton, toggleRightSidebar, toggleFullscreen, toggleQueueButton,
     likedIds, setLiked, audioRef, cfAudioRef, activeAudioElement,
-    sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer,
-    toggleMiniPlayer,
   })))
   const { user, openAddToPlaylist } = useAppStore()
   const [likeAnim, setLikeAnim] = useState(false)
   const [keepCommaArtists, setKeepCommaArtists] = useState([])
   const scrubbing = useRef(false)
   const [localProg, setLocalProg] = useState(null)
-  const [showSleepTimer, setShowSleepTimer] = useState(false)
-  const [sleepTimerDisplay, setSleepTimerDisplay] = useState(null)
   const menu = useContextMenu()
   const display = localProg ?? progress
   const isLiked = currentTrack && likedIds.has(currentTrack.id)
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat
-
-  useEffect(() => {
-    if (!sleepTimerEndTime) {
-      setSleepTimerDisplay(null)
-      return
-    }
-    
-    const updateDisplay = () => {
-      const remaining = sleepTimerEndTime - Date.now()
-      if (remaining <= 0) {
-        setSleepTimerDisplay(null)
-        return
-      }
-      const minutes = Math.floor(remaining / 60000)
-      const seconds = Math.floor((remaining % 60000) / 1000)
-      setSleepTimerDisplay(`${minutes}:${seconds.toString().padStart(2, '0')}`)
-    }
-    
-    updateDisplay()
-    const interval = setInterval(updateDisplay, 1000)
-    return () => clearInterval(interval)
-  }, [sleepTimerEndTime])
-
-  useEffect(() => {
-    return () => {
-      if (sleepTimerEndTime && Date.now() >= sleepTimerEndTime) {
-        cancelSleepTimer()
-      }
-    }
-  }, [])
 
   useEffect(() => {
     api.getKeepCommaArtists().then(artists => {
@@ -133,9 +94,27 @@ export default function PlayerBar() {
   }
 
   const hasAlbum = !!currentTrack?.album
-  const handleTitleClick = () => {
-    if (!hasAlbum) return
-    navigateToTrackAlbum(nav, currentTrack)
+  // A click on the title copies "Artist - Title".
+  const copyTrackName = () => {
+    if (!currentTrack) return
+    const text = [currentTrack.artist, currentTrack.title].filter(Boolean).join(' - ')
+    Promise.resolve(navigator.clipboard?.writeText(text))
+      .then(() => showToast(`Copied: ${text}`))
+      .catch(() => showToast('Could not copy to the clipboard'))
+  }
+
+  // The wheel anywhere on the bar: volume in 1% steps; over the seek bar: 1 s steps.
+  const onBarWheel = (e) => {
+    if (!e.deltaY) return
+    const step = e.deltaY < 0 ? 1 : -1
+    const { volume: v, setVolume: set } = usePlayerStore.getState()
+    set(Math.max(0, Math.min(1, Math.round((v + step * 0.01) * 100) / 100)))
+  }
+  const onSeekWheel = (e) => {
+    e.stopPropagation()
+    if (!e.deltaY || !duration) return
+    const { progress: p, setProgressWithAudioUpdate } = usePlayerStore.getState()
+    setProgressWithAudioUpdate(Math.max(0, Math.min(duration, p + (e.deltaY < 0 ? 1 : -1))))
   }
 
   const openTrackMenu = (event) => {
@@ -166,8 +145,9 @@ export default function PlayerBar() {
       <div data-player-bar className={glass
         ? 'absolute inset-x-3 bottom-3 z-30 h-20 rounded-2xl border border-white/10 flex items-center px-4 gap-4 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-lg backdrop-saturate-150'
         : 'h-20 border-t border-border flex items-center px-4 gap-4 flex-shrink-0 z-10'}
-        style={glass ? { backgroundColor: 'rgba(var(--surface-rgb), 0.55)' } : { backgroundColor: 'rgba(var(--surface-rgb), 0.9)', backdropFilter: 'blur(12px)' }}>
-        <div className="flex items-center gap-3 w-60 min-w-0">
+        style={glass ? { backgroundColor: 'rgba(var(--surface-rgb), 0.55)' } : { backgroundColor: 'rgba(var(--surface-rgb), 0.9)', backdropFilter: 'blur(12px)' }}
+        onWheel={onBarWheel}>
+        <div className="flex flex-1 items-center gap-3 min-w-0">
         <button onClick={toggleFullscreen} disabled={!currentTrack}
           className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
           {/* Not "wait": with the window minimized no animation runs, and a
@@ -188,16 +168,16 @@ export default function PlayerBar() {
           {/* The new song's title in at once (fading in), never waiting on the old one's way out. */}
             <motion.div key={currentTrack?.id||'none'} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
               <div className="flex items-center gap-2 min-w-0">
-                {hasAlbum ? (
+                {currentTrack ? (
                   <button
-                    onClick={handleTitleClick}
+                    onClick={copyTrackName}
                     onContextMenu={openTrackMenu}
-                    title={`Go to album: ${currentTrack.album}`}
-                    className="text-sm font-medium truncate text-text hover:text-accent hover:underline transition-colors text-left min-w-0">
+                    title="Copy “Artist - Title”"
+                    className="text-lg leading-7 font-medium truncate text-text hover:text-accent transition-colors text-left min-w-0">
                     {currentTrack.title}
                   </button>
                 ) : (
-                   <p onContextMenu={openTrackMenu} className="text-sm font-medium truncate text-text">{currentTrack?.title || '—'}</p>
+                   <p className="text-lg leading-7 font-medium truncate text-text">—</p>
                 )}
                 {!!currentTrack?.explicit && (
                   <span className="px-1.5 py-0.5 rounded border border-border bg-card text-[10px] font-display uppercase tracking-wide text-muted flex-shrink-0">
@@ -208,7 +188,7 @@ export default function PlayerBar() {
               {currentTrack ? (
                 <div className="min-w-0">
                   <button onClick={handleArtistClick} onContextMenu={openTrackMenu}
-                    className="text-xs text-muted hover:text-accent transition-colors truncate max-w-full block text-left">
+                    className="text-sm leading-5 text-muted hover:text-accent transition-colors truncate max-w-full block text-left">
                     {currentTrack.artist}
                   </button>
                   {castDevice && (
@@ -226,46 +206,14 @@ export default function PlayerBar() {
                     </span>
                   )}
                 </div>
-              ) : <p className="text-xs text-muted">No track playing</p>}
-              {quality && (
-                // The Audio Quality page's pill (same colours), what it means on hover.
-                <button onClick={() => nav('/quality', { state: { tier: qualityTier } })}
-                  title={`${quality.info.label}: ${quality.info.desc}${quality.format ? ` (${quality.format})` : ''}${quality.info.hint ? `\n${quality.info.hint}` : ''}`}
-                  aria-label={`Audio quality: ${quality.info.label}, ${quality.info.desc}`}
-                  className={`mt-1 block rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase leading-[14px] tracking-wide transition-opacity hover:opacity-80 ${quality.info.className}`}>
-                  {quality.info.label}
-                </button>
-              )}
+              ) : <p className="text-sm leading-5 text-muted">No track playing</p>}
             </motion.div>
         </div>
 
-        {currentTrack && (
-          <div className="relative flex-shrink-0">
-            <motion.button onClick={toggleLike} whileTap={{ scale: 0.75 }}
-              className={`w-5 h-5 flex items-center justify-center leading-none transition-colors ${isLiked ? 'text-accent' : 'text-text/90 hover:text-text'}`}>
-              <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
-            </motion.button>
-            <AnimatePresence>
-              {likeAnim && (
-                <motion.div initial={{ scale: 0.5, opacity: 1 }} animate={{ scale: 2.8, opacity: 0 }} exit={{}}
-                  transition={{ duration: 0.5 }}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <Heart size={16} className="text-accent" fill="currentColor" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-        {currentTrack && (
-          <button onClick={() => openAddToPlaylist(currentTrack)} title={t("Add to playlist")}
-            className="flex-shrink-0 text-text/90 hover:text-accent transition-colors">
-            <Plus size={14} />
-          </button>
-        )}
         {streamed && <SaveToLibraryButton key={currentTrack.id} track={currentTrack} className="text-text/90" />}
         </div>
 
-        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+        <div className="flex flex-[0_1_40rem] flex-col items-center gap-1.5 min-w-0">
         <div className="relative flex items-center gap-4">
           {/* Beside the buttons (not over the seek bar), without moving them. */}
           <MixingMark className="absolute left-full top-1/2 ml-4 -translate-y-1/2 whitespace-nowrap pointer-events-none" />
@@ -278,9 +226,10 @@ export default function PlayerBar() {
           <button onClick={next} className="text-text/90 hover:text-text transition-colors" title={t("Next")}><SkipForward size={18} fill="currentColor" /></button>
           <button onClick={toggleRepeat} className={`transition-colors ${repeat !== 'none' ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t(repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all')}><RepeatIcon size={15} /></button>
         </div>
-        <div className="relative flex items-center gap-2 w-full max-w-md">
+        <div className="relative flex items-center gap-2 w-full max-w-[36rem]">
           <span className="text-xs text-muted w-8 text-right font-display">{fmt(display)}</span>
           <div className="flex-1 h-1 bg-elevated rounded-full cursor-pointer group relative overflow-hidden"
+            onWheel={onSeekWheel}
             onMouseMove={handleScrub}
             onMouseDown={e => { scrubbing.current = true; handleScrub(e) }}
             onMouseUp={() => { scrubbing.current = false; setLocalProg(null) }}
@@ -298,33 +247,14 @@ export default function PlayerBar() {
         </div>
         </div>
 
-        <div className="flex items-center gap-2 w-[370px] min-w-0 justify-end">
+        <div className="flex flex-1 items-center gap-2 min-w-0 justify-end">
           {currentTrack && showWaveform && (
             <div className="min-w-0 shrink basis-[120px] overflow-hidden">
               <Waveform isPlaying={isPlaying} className="w-full" />
             </div>
           )}
-          {!castDevice && <AudioOutputPicker />}
-          <button onClick={toggleLyricsButton} className={`transition-colors ${(exclusiveSidePanels ? (showRightSidebar && sidePanelView === 'lyrics') : showLyricsPanel) ? 'text-accent' : 'text-text/90 hover:text-accent'}`} title={t("Lyrics")}><Mic2 size={16} /></button>
-          <button onClick={toggleQueueButton} className={`transition-colors ${(exclusiveSidePanels ? (showRightSidebar && sidePanelView === 'queue') : showQueue) ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t("Queue")}><ListMusic size={16} /></button>
           <button onClick={toggleRightSidebar} className={`transition-colors ${showRightSidebar ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t("Now Playing")}>< PanelRight size={16} /></button>
-          <button onClick={toggleMiniPlayer} disabled={!currentTrack} className="text-text/90 hover:text-accent transition-colors disabled:opacity-30" title={t("Mini Player")}><Radio size={15} /></button>
           <button onClick={toggleFullscreen} disabled={!currentTrack} className="text-text/90 hover:text-text transition-colors disabled:opacity-30" title={t("Fullscreen")}><Maximize2 size={15} /></button>
-          
-          <div className="relative flex items-center justify-center">
-            <button 
-              onClick={() => setShowSleepTimer(!showSleepTimer)} 
-              className={`flex items-center justify-center transition-colors ${sleepTimerEndTime ? 'text-accent' : 'text-text/90 hover:text-text'}`} 
-              title={sleepTimerEndTime ? `${t("Sleep Timer")}: ${sleepTimerDisplay}` : t("Sleep Timer")}
-            >
-              <Moon size={16} />
-            </button>
-            {sleepTimerEndTime && (
-              <span className="absolute -top-2 -right-3 text-[8px] text-accent font-mono bg-surface px-1 rounded-full">
-                {sleepTimerDisplay}
-              </span>
-            )}
-          </div>
           
           <div className="flex items-center gap-1.5 ml-1">
             <button onClick={() => setVolume(volume > 0 ? 0 : 0.8)} className="text-text/90 hover:text-text transition-colors">
@@ -337,50 +267,6 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      <Modal open={showSleepTimer} onClose={() => setShowSleepTimer(false)} title={t("Sleep Timer")} width="max-w-xs">
-        <div className="space-y-3">
-          <p className="text-xs text-muted">
-            Music will stop after the selected time. Use this if you would like the app to stop while you are sleeping. 
-          </p>
-          
-          <div className="grid grid-cols-2 gap-2">
-            {[5, 10, 15, 30, 45, 60].map(mins => (
-              <button
-                key={mins}
-                onClick={() => { setSleepTimer(mins); setShowSleepTimer(false) }}
-                className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  sleepTimerMinutes === mins 
-                    ? 'bg-accent text-base' 
-                    : 'bg-card border border-border text-muted hover:text-white hover:border-accent/30'
-                }`}
-              >
-                {mins} min
-              </button>
-            ))}
-          </div>
-          
-          {sleepTimerEndTime && (
-            <div className="pt-3 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-accent">Timer active: {sleepTimerDisplay}</span>
-                <button 
-                  onClick={() => { cancelSleepTimer(); setShowSleepTimer(false) }}
-                  className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
-                >
-                  <X size={12} /> Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          
-          <button 
-            onClick={() => setShowSleepTimer(false)}
-            className="w-full py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </Modal>
       <ContextMenu menu={menu} />
     </>
   )

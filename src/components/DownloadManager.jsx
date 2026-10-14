@@ -69,7 +69,7 @@ export function DownloadsButton() {
       aria-label={label}
       aria-expanded={panelOpen}
       aria-haspopup="dialog"
-      className={`relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors ${panelOpen ? 'bg-accent/15 text-accent' : batch.length ? (settled && failed.length ? 'text-red-400 hover:bg-elevated' : 'text-accent hover:bg-elevated') : 'text-muted hover:bg-elevated hover:text-text'}`}
+      className={`relative flex h-7 w-7 flex-shrink-0 items-center justify-center transition-colors ${panelOpen ? 'text-accent' : batch.length ? (settled && failed.length ? 'text-red-400' : 'text-accent') : 'text-text/90 hover:text-text'}`}
     >
       {batch.length ? (
         <>

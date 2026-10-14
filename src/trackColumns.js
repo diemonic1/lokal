@@ -1,7 +1,8 @@
 // Widths are in rem, including gaps, so larger text uses the compact layout
 // sooner. Header and rows use the exact same template, never content-sized cells.
 export const TRACK_COLUMN_OPTIONS = [
-  ['number', 'Track number'],
+  ['number', 'Row number'],
+  ['tracknum', 'Track number'],
   ['artwork', 'Artwork'],
   ['artist', 'Artist'],
   ['source', 'Source'],
@@ -20,7 +21,9 @@ export const TRACK_COLUMN_OPTIONS = [
 // A flex column takes a share of the room left (its width is a weight, so it
 // keeps its proportion as the window changes); a fixed one is a width in rem.
 export const TRACK_COLUMN_DEFS = {
-  number: { label: 'Track number', fixed: 2, min: 1.5 },
+  number: { label: 'Row number', fixed: 2, min: 1.5 },
+  // The track number from the file's tags (the row number above is just its place in the list).
+  tracknum: { label: 'Track number', fixed: 2.5, min: 1.5 },
   title: { label: 'Title', flex: 3, min: 11 },
   album: { label: 'Album', flex: 2, min: 8 },
   source: { label: 'Source', fixed: 2, min: 1.5 },
@@ -30,14 +33,14 @@ export const TRACK_COLUMN_DEFS = {
   added: { label: 'Date added', fixed: 5.5, min: 4 },
   time: { label: 'Duration', fixed: 3, min: 2.5 },
 }
-export const DEFAULT_COLUMN_ORDER = ['number', 'title', 'album', 'source', 'quality', 'genre', 'comment', 'added', 'time']
+export const DEFAULT_COLUMN_ORDER = ['number', 'tracknum', 'title', 'album', 'source', 'quality', 'genre', 'comment', 'added', 'time']
 export const ALWAYS_SHOWN = new Set(['title', 'album'])
 export const MAX_FIXED_WIDTH = 30
 
 export const ROW_SIZE = { min: 0.75, max: 1.5, step: 0.05, initial: 1 }
 
 export function trackColumnDefaults(showQuality = false, playlist = false) {
-  return { number: true, artwork: true, artist: true, source: true, quality: showQuality, genre: false, comment: false, added: playlist, time: true, actions: true, grip: true }
+  return { number: true, tracknum: false, artwork: true, artist: true, source: true, quality: showQuality, genre: false, comment: false, added: playlist, time: true, actions: true, grip: true }
 }
 
 export function trackColumnPreferences(saved, showQuality = false, playlist = false) {
@@ -91,6 +94,7 @@ export function trackColumnLayout(width, columns, { playlist = false, actionSlot
   fit('album', TRACK_COLUMN_DEFS.album.min)
   fit('time', fixedWidth('time'), columns.time)
   fit('number', fixedWidth('number'), columns.number)
+  fit('tracknum', fixedWidth('tracknum'), columns.tracknum)
   fit('genre', TRACK_COLUMN_DEFS.genre.min, columns.genre)
   fit('comment', TRACK_COLUMN_DEFS.comment.min, columns.comment)
   fit('added', fixedWidth('added'), columns.added)

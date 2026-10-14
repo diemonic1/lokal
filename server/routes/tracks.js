@@ -556,7 +556,7 @@ router.get('/missing', (req, res) => {
 
 router.get('/', (req, res) => {
   const db = getDB()
-  const { sort = 'added_at DESC', limit = 500, offset = 0, id, artistName, album, albumArtist, source, genre, quality, includeGhosts, problems } = req.query
+  const { sort = 'added_at DESC', limit = 500, offset = 0, id, artistName, album, albumArtist, source, genre, quality, includeGhosts, problems, folder } = req.query
   if (album) {
     const params = [album]
     let sql = "SELECT * FROM tracks WHERE album = ? AND file_path NOT LIKE 'ghost://%'"
@@ -580,6 +580,8 @@ router.get('/', (req, res) => {
   if (genreWhere) { where.push(genreWhere.sql); params.push(...genreWhere.params) }
   const qualityWhere = typeof quality === 'string' && quality ? require('../../electron/quality').tierFilter(db, quality) : null
   if (qualityWhere) { where.push(qualityWhere.sql); params.push(...qualityWhere.params) }
+  const folderWhere = require('../../electron/libraryFolder').folderFilter(db, typeof folder === 'string' ? folder : '')
+  if (folderWhere) { where.push(folderWhere.sql); params.push(...folderWhere.params) }
   res.json(require('../../electron/trackErrors').listTracks(db, { sort, limit, offset, problems }, { where, params, exists: fs.existsSync }))
 })
 

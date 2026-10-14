@@ -142,10 +142,10 @@ router.put('/keep-comma-artists', (req, res) => {
 })
 
 router.post('/scan', async (req, res) => {
-  const { folder } = req.body
+  const { folder, full } = req.body
   const target = folder || DEFAULT_MUSIC_PATH
   res.json({ scanning: true, folder: target })
-  scanFolder(target).catch(console.error)
+  scanFolder(target, { full: !!full }).catch(console.error)
 })
 
 router.post('/clear-tracks', (req, res) => {

@@ -19,8 +19,8 @@ export default function TitleBar() {
   const onSettings = useLocation().pathname === '/settings'
   return (
     <div
-      className={`${desktop ? 'titlebar' : ''} relative z-40 h-[35px] grid items-center gap-3 px-3 border-b border-border flex-shrink-0`}
-      style={{ gridTemplateColumns: 'minmax(max-content, 1fr) minmax(0, 520px) minmax(0, 1fr)', backgroundColor: 'rgb(var(--surface-rgb) / 0.85)', backdropFilter: 'blur(12px)' }}
+      className={`${desktop ? 'titlebar' : ''} relative z-40 h-[35px] grid items-center gap-3 px-3 pt-2 flex-shrink-0`}
+      style={{ gridTemplateColumns: 'minmax(max-content, 1fr) minmax(0, 660px) minmax(0, 1fr)', backgroundColor: 'rgb(var(--surface-rgb) / 0.85)', backdropFilter: 'blur(12px)' }}
     >
       <div className="flex min-w-0 items-center gap-1">
         {/* A narrow window keeps the buttons, not the name. */}
@@ -32,7 +32,7 @@ export default function TitleBar() {
           title="Settings"
           aria-label="Settings"
           aria-current={onSettings ? 'page' : undefined}
-          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors ${onSettings ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-elevated hover:text-text'}`}
+          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center transition-colors ${onSettings ? 'text-accent' : 'text-text/90 hover:text-text'}`}
         >
           <Settings size={15} />
         </button>
@@ -42,7 +42,7 @@ export default function TitleBar() {
 
       <HeaderSearch />
 
-      <div className="flex items-center gap-1 justify-end">
+      <div className="-mt-2 flex items-center gap-1 justify-end">
         {desktop && (
           <>
             <button

@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electron', {
   log: (level, message) => ipcRenderer.send('app-log', { level, message }),
   openLogs: () => ipcRenderer.send('open-logs'),
   updaterDownload: () => invoke('updater:download'),
-  scanFolder: (f) => invoke('scanner:scan', f),
+  scanFolder: (f, o) => invoke('scanner:scan', f, o),
   resolveFileToPlay: (f) => invoke('scanner:resolveFileToPlay', f),
   getReplayGain: (trackId) => invoke('player:getReplayGain', trackId),
   onOpenFileRequest: (fn) => on('player:openFile', (_, filePath) => fn(filePath)),

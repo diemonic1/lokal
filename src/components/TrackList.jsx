@@ -100,7 +100,7 @@ function SortableHeader({ column, label, children, sort, onSortChange, className
   </button>
 }
 
-export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null }) {
+export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null }) {
   const { t } = useTranslation()
   const resolvedPlaybackRef = useRef(0)
   const resolvedToastRef = useRef(null)
@@ -849,8 +849,11 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
 
       <div className="mb-1 flex items-center justify-between gap-3 px-2">
         {toolbarStart || <span />}
-        <TrackColumnPicker columns={columns} playlist={!!playlistId}
-          onChange={(key, value) => setColumn(profile, key, value)} onReset={() => resetColumns(profile)} />
+        <div className="flex items-center gap-1">
+          {toolbarEnd}
+          <TrackColumnPicker columns={columns} playlist={!!playlistId}
+            onChange={(key, value) => setColumn(profile, key, value)} onReset={() => resetColumns(profile)} />
+        </div>
       </div>
       <div data-track-header className="grid grid-cols-[var(--tl-columns)] items-center gap-2 pl-1 pr-4 py-1.5 text-xs text-muted uppercase tracking-widest border-b border-border font-display mb-0.5">
         {layout.grip && <span />}
@@ -858,6 +861,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           const extra = extraByKey[key]
           const cell = extra ? <span className="truncate text-right tracking-normal">{extra.label}</span>
             : key === 'number' ? <SortableHeader column="number" label="playlist number" sort={sort} onSortChange={onSortChange} className="justify-center text-center">#</SortableHeader>
+            : key === 'tracknum' ? <span className="text-center" title="Track number">Trk</span>
             : key === 'title' ? <span>{layout.album ? 'Title' : 'Title / Album'}</span>
             : key === 'album' ? <span className="truncate">Album</span>
             : key === 'source' ? <span className="flex justify-center" title={t("Source")}><Globe size={12} aria-hidden="true" /><span className="sr-only">{t("Source")}</span></span>
@@ -994,6 +998,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 </button>
               )
             })()}</React.Fragment>
+                case 'tracknum': return <span key={key} data-track-column="tracknum" className="text-center text-xs text-muted font-display">{track.track_num || ''}</span>
                 case 'genre': return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={track.genre || undefined}>{track.genre || ''}</p>
                 case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
