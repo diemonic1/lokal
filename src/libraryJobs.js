@@ -3,6 +3,7 @@
 // app so the Downloads panel can show and start them.
 import { create } from 'zustand'
 import { api } from './api.js'
+import { translate } from './i18n'
 
 export const useLibraryJobs = create(() => ({
   // Index Lyrics: { running, done, total, found, title?, cancelled? } or null before any.
@@ -43,7 +44,7 @@ export async function readGenresStatus() {
 
 export async function startGenres() {
   if (useLibraryJobs.getState().genres?.running) return
-  const status = await Promise.resolve(api.fetchMissingGenres()).catch(error => ({ error: error?.message || 'Could not start' }))
+  const status = await Promise.resolve(api.fetchMissingGenres()).catch(error => ({ error: error?.message || translate('Could not start') }))
   useLibraryJobs.setState({ genres: status?.error ? { error: status.error } : { ...status, started: true } })
   if (!status?.error) readGenresStatus()
 }

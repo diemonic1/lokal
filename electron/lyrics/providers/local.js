@@ -10,6 +10,7 @@
 const fs = require('fs')
 const path = require('path')
 const { fromPrivateTag, PRIVATE_TAG } = require('../embedded')
+const { lyricsFromMeta } = require('../fileLyrics')
 
 let mm = null
 function metadata() {
@@ -37,7 +38,6 @@ function readSidecar(filePath) {
 }
 
 const PRIVATE_IDS = new Set([`TXXX:${PRIVATE_TAG}`, PRIVATE_TAG, `----:com.apple.iTunes:${PRIVATE_TAG}`])
-const LYRIC_IDS = new Set(['USLT', 'ULT', 'LYRICS', 'UNSYNCEDLYRICS', '©lyr', 'Lyrics'])
 
 function nativeTags(meta) {
   return Object.values(meta?.native || {}).flat().filter(Boolean)
@@ -63,16 +63,10 @@ function privateLyrics(meta) {
   return values.length > 1 ? fromPrivateTag(values.join('/')) : null
 }
 
+// Synced text wins over plain: a USLT holding LRC, else SYLT (as LRC), else
+// the first plain text -- a file can carry several lyrics frames.
 function embeddedText(meta) {
-  const lyrics = meta?.common?.lyrics
-  let parts = (Array.isArray(lyrics) ? lyrics : lyrics ? [lyrics] : [])
-    .map(tagText)
-    .filter(s => s && s.trim())
-  // Some versions of music-metadata don't surface ID3 USLT as common.lyrics.
-  if (!parts.length) {
-    parts = nativeTags(meta).filter(t => LYRIC_IDS.has(t.id)).map(t => tagText(t.value)).filter(s => s && s.trim())
-  }
-  return parts.length ? parts[0] : null
+  return lyricsFromMeta(meta)
 }
 
 /** The file's own ISRC tag, if it has one. Cheap: skips covers. */

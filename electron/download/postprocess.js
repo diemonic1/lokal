@@ -290,13 +290,15 @@ async function finishFile(filePath, { db, settings = {}, url, meta = null, kind 
     : { ...info, title: clean ? stripArtistPrefix(info.title, info.artist) : info.title }
 
   let lyrics = null
-  if (settings.download_embed_lyrics !== '0' && !info.hasLyrics && lookupInfo.title && lookupInfo.artist && db) {
+  if (settings.download_embed_lyrics === '1' && !info.hasLyrics && lookupInfo.title && lookupInfo.artist && db) {
     const controller = new AbortController()
     lyrics = await withTimeout(findLyrics(db, lookupInfo, controller.signal), LYRICS_TIMEOUT_MS)
     controller.abort()
   }
 
-  const changes = { cleanTitle: clean && !fromTitle, squareCover: isYouTube(url) }
+  // Covers and lyrics go into the file only when the user turned that on.
+  const embedCover = settings.download_embed_cover === '1'
+  const changes = { cleanTitle: clean && !fromTitle, squareCover: embedCover && isYouTube(url) }
   if (fromTitle) { changes.title = fromTitle.title; changes.artist = fromTitle.artist }
   if (lyrics) {
     changes.lyrics = toPortableLyrics(lyrics)
@@ -337,10 +339,10 @@ async function finishKnownFile(filePath, info, { db, settings, known, outputDir,
   if (!info.album && known.album) changes.album = known.album
   // Year, track and disc numbers, ISRC, genre: only where the file has none.
   for (const key of ['year', 'track', 'disc', 'isrc', 'genre']) if (known[key]) changes[key] = known[key]
-  const cover = known.cover ? await fetchCover(known.cover) : null
+  const cover = known.cover && settings.download_embed_cover === '1' ? await fetchCover(known.cover) : null
   if (cover) { changes.coverBytes = cover.bytes; changes.coverMime = cover.mime }
 
-  if (settings.download_embed_lyrics !== '0' && !info.hasLyrics && tags.title && tags.artist && db) {
+  if (settings.download_embed_lyrics === '1' && !info.hasLyrics && tags.title && tags.artist && db) {
     const controller = new AbortController()
     const lyrics = await withTimeout(findLyrics(db, { ...info, ...tags }, controller.signal), LYRICS_TIMEOUT_MS)
     controller.abort()

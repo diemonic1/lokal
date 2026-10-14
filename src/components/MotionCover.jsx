@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { seamlessLoop } from '../seamlessLoop'
+import { useTranslation } from '../i18n'
 
 const COVER_FADE = 0.8 // s: the end of a moving cover fading into its start
 
@@ -41,6 +42,7 @@ if (typeof window !== 'undefined') {
  * @param off       turned off for this song (motionCoverPrefs.js): the still cover only
  */
 export default function MotionCover({ trackId, className = '', onActive, only, style, off = false }) {
+  const { t } = useTranslation()
   const [clip, setClip] = useState(null)
   const [ready, setReady] = useState(false)
   const [revision, setRevision] = useState(0)
@@ -101,7 +103,7 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
   }), [])
 
   if (!clip) return null
-  const title = { apple: 'Moving cover from Apple Music', tidal: 'Moving cover from Tidal', spotify: 'Spotify Canvas' }[clip.source] || 'Moving cover'
+  const title = { apple: t('Moving cover from Apple Music'), tidal: t('Moving cover from Tidal'), spotify: 'Spotify Canvas' }[clip.source] || t('Moving cover')
   if (canvas) {
     return (
       <video

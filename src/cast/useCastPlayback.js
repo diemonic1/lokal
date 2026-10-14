@@ -13,6 +13,7 @@ import { usePlayerStore, setOutputRoute } from '../store/player'
 import { useCastStore } from './castStore'
 import { castWindow, windowKey, castPosition, locate, receiverLyrics, UP_NEXT } from './castWindow'
 import { showToast } from '../components/Toaster'
+import { translate } from '../i18n'
 import { loadMusicVideo, useVideoOffsets } from '../musicVideo'
 
 const SYNC_DELAY_MS = 120 // a burst of queue changes (a drag, an album added) is one update
@@ -275,7 +276,10 @@ export function useCastPlayback(helpers) {
       if (!live) return
       const state = player()
       if (String(info?.trackId) !== String(state.currentTrack?.id)) return
-      showToast(`Couldn't play "${state.currentTrack?.title || 'this song'}" on ${live.device?.name || 'the TV'}${info?.message ? `: ${info.message}` : ''}`)
+      const vars = { title: state.currentTrack?.title || translate('this song'), device: live.device?.name, message: info?.message }
+      showToast(live.device?.name
+        ? translate(info?.message ? "Couldn't play \"{title}\" on {device}: {message}" : "Couldn't play \"{title}\" on {device}", vars)
+        : translate(info?.message ? "Couldn't play \"{title}\" on the TV: {message}" : "Couldn't play \"{title}\" on the TV", vars))
       const before = state.currentTrack
       state.autoNext()
       if (player().currentTrack === before) usePlayerStore.setState({ isPlaying: false })
@@ -373,8 +377,9 @@ export function useCastPlayback(helpers) {
         progress: position,
         volume: session.localVolume ?? state.volume,
       })
-      if (reason === 'lost') showToast(`Lost the connection to ${session.device?.name || 'the TV'}. Paused here.`)
-      else if (reason === 'stopped') showToast(`Casting to ${session.device?.name || 'the TV'} ended. Paused here.`)
+      const name = session.device?.name
+      if (reason === 'lost') showToast(name ? translate('Lost the connection to {device}. Paused here.', { device: name }) : translate('Lost the connection to the TV. Paused here.'))
+      else if (reason === 'stopped') showToast(name ? translate('Casting to {device} ended. Paused here.', { device: name }) : translate('Casting to the TV ended. Paused here.'))
     }
 
     // ------------------------------------------------------------ wiring

@@ -6,8 +6,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { api } from '../api'
 import PlaylistCover from './PlaylistCover'
 import { plural } from '../plural'
+import { useTranslation } from '../i18n'
 
 export default function AddToPlaylistModal() {
+  const { t } = useTranslation()
   const { addToPlaylistTrack, addToPlaylistTrackIds, closeAddToPlaylist, user } = useAppStore()
   const { likedIds, setLiked } = usePlayerStore(useShallow(({ likedIds, setLiked }) => ({ likedIds, setLiked })))
   const [playlists, setPlaylists] = useState([])
@@ -33,7 +35,7 @@ export default function AddToPlaylistModal() {
       await api.addToPlaylist(playlist.id, track.id)
     }
     setAdded(s => new Set([...s, playlist.id]))
-    showToast(`Added ${addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1} track(s) to "${playlist.name}"`)
+    showToast(t('Added {n} track(s) to "{name}"', { n: addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1, name: playlist.name }))
     window.dispatchEvent(new CustomEvent('lokal:playlist-updated', { detail: { playlistId: playlist.id } }))
   }
 
@@ -42,12 +44,12 @@ export default function AddToPlaylistModal() {
       for (const tid of addToPlaylistTrackIds) {
         await api.toggleLike(tid, user?.id)
       }
-      showToast(`Added ${plural(addToPlaylistTrackIds.length, 'track')} to Liked Songs`)
+      showToast(t('Added {tracks} to Liked Songs', { tracks: plural(addToPlaylistTrackIds.length, 'track') }))
     } else if (track) {
       const r = await api.toggleLike(track.id, user?.id, track)
       const liked = typeof r === 'boolean' ? r : r?.liked ?? false
       setLiked(track.id, liked)
-      showToast(liked ? 'Added to Liked Songs' : 'Removed from Liked Songs')
+      showToast(liked ? t('Added to Liked Songs') : t('Removed from Liked Songs'))
     }
   }
 
@@ -63,7 +65,7 @@ export default function AddToPlaylistModal() {
       }
       setPlaylists(prev => [...prev, pl])
       setAdded(s => new Set([...s, pl.id]))
-      showToast(`Added ${addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1} track(s) to "${pl.name}"`)
+      showToast(t('Added {n} track(s) to "{name}"', { n: addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1, name: pl.name }))
       window.dispatchEvent(new Event('lokal:playlist-created'))
     }
     setNewName(''); setCreating(false)
@@ -86,9 +88,9 @@ export default function AddToPlaylistModal() {
 
               <div className="flex items-center justify-between p-5 border-b border-border">
                 <div className="min-w-0">
-                  <p className="text-xs font-display text-muted uppercase tracking-widest">Add to Playlist</p>
+                  <p className="text-xs font-display text-muted uppercase tracking-widest">{t('Add to Playlist')}</p>
                   {trackCount > 1 ? (
-                    <p className="text-sm text-white mt-0.5 truncate font-medium">{plural(trackCount, 'track')} selected</p>
+                    <p className="text-sm text-white mt-0.5 truncate font-medium">{t('{tracks} selected', { tracks: plural(trackCount, 'track') })}</p>
                   ) : (
                     <>
                       <p className="text-sm text-white mt-0.5 truncate font-medium">{track?.title}</p>
@@ -96,7 +98,7 @@ export default function AddToPlaylistModal() {
                     </>
                   )}
                 </div>
-                <button onClick={closeAddToPlaylist} className="text-muted hover:text-white transition-colors ml-3 flex-shrink-0">
+                <button onClick={closeAddToPlaylist} aria-label={t('Close')} title={t('Close')} className="text-muted hover:text-white transition-colors ml-3 flex-shrink-0">
                   <X size={16} />
                 </button>
               </div>
@@ -106,7 +108,7 @@ export default function AddToPlaylistModal() {
                 <div className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
                   <Heart size={15} className={track && likedIds.has(track?.id) ? 'text-accent' : 'text-muted'} fill={track && likedIds.has(track?.id) ? 'currentColor' : 'none'} />
                 </div>
-                <span className="text-sm text-white">Liked Songs</span>
+                <span className="text-sm text-white">{t('Liked Songs')}</span>
                 {track && likedIds.has(track?.id) && <Check size={14} className="text-accent ml-auto" />}
               </button>
 
@@ -114,7 +116,7 @@ export default function AddToPlaylistModal() {
                 <div className="flex gap-2">
                   <input value={newName} onChange={e => setNewName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && createAndAdd()}
-                    placeholder="New playlist name…"
+                    placeholder={t('New playlist name…')}
                     className="flex-1 bg-card border border-border rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-accent/60 placeholder:text-muted/60" />
                   <motion.button onClick={createAndAdd} disabled={!newName.trim() || creating}
                     whileTap={{ scale: 0.9 }}
@@ -126,7 +128,7 @@ export default function AddToPlaylistModal() {
 
               <div className="max-h-56 overflow-y-auto p-2">
                 {!playlists.length && (
-                  <p className="text-center text-muted text-xs py-5">No playlists yet. Create one above.</p>
+                  <p className="text-center text-muted text-xs py-5">{t('No playlists yet. Create one above.')}</p>
                 )}
                 {playlists.map(pl => {
                   const done = added.has(pl.id)
@@ -148,7 +150,7 @@ export default function AddToPlaylistModal() {
               </div>
 
               <div className="p-3 pt-1">
-                <button onClick={closeAddToPlaylist} className="w-full py-2 text-sm text-muted hover:text-white transition-colors">Done</button>
+                <button onClick={closeAddToPlaylist} className="w-full py-2 text-sm text-muted hover:text-white transition-colors">{t('Done')}</button>
               </div>
             </motion.div>
           </motion.div>

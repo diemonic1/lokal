@@ -6,6 +6,7 @@ import AutoHeight from './AutoHeight'
 import { api, peekSettings } from '../api'
 import { ARTIST_SOURCES } from '../artistSources'
 import { plural } from '../plural'
+import { useTranslation } from '../i18n'
 
 function stripHtml(value) {
   return String(value || '').replace(/<[^>]*>/g, '').trim()
@@ -19,6 +20,7 @@ const sourceLabel = (source) => ARTIST_SOURCES.find(([id]) => id === source)?.[1
 const byRank = (rank, extra = () => 0) => (a, b) => ((rank[a.source] ?? 9) + extra(a)) - ((rank[b.source] ?? 9) + extra(b))
 
 export default function ArtistManageModal({ artist, open, onClose, onChanged }) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('edit')
   const [lookupSource, setLookupSource] = useState('either')
   const [name, setName] = useState(artist?.name || '')
@@ -140,10 +142,10 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
       const results = await api.artistSearchMetadata(query, { source })
       const items = Array.isArray(results) ? results : []
       setLookupResults(items)
-      if (!items.length) setLookupError('No matches found.')
+      if (!items.length) setLookupError(t('No matches found.'))
     } catch {
       setLookupResults([])
-      setLookupError('Lookup failed.')
+      setLookupError(t('Lookup failed.'))
     }
     setLookupLoading(false)
   }
@@ -178,7 +180,7 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
       await api.artistRefreshMetadata(artist.id, { force: true, overwrite: true, source: lookupSource })
       onChanged?.()
     } catch {
-      setLookupError('Automatic match failed.')
+      setLookupError(t('Automatic match failed.'))
     }
     setAutoMatching(false)
   }
@@ -193,7 +195,7 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
   }
 
   const doDelete = async () => {
-    if (!confirm(`Delete artist "${artist.name}"? This does NOT delete tracks, just the artist entry.`)) return
+    if (!confirm(t('Delete artist "{name}"? This does NOT delete tracks, just the artist entry.', { name: artist.name }))) return
     await api.artistDelete(artist.id)
     onChanged?.()
     onClose?.()
@@ -204,10 +206,10 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
     : null
 
   return (
-    <Modal open={open} onClose={onClose} title={`Manage: ${artist.name}`} width="max-w-lg">
+    <Modal open={open} onClose={onClose} title={t('Manage: {name}', { name: artist.name })} width="max-w-lg">
       {}
       <div className="flex gap-1 mb-5 p-0.5 bg-card rounded-lg border border-border">
-        {[['edit', 'Edit'], ['lookup', 'Lookup'], ['merge', 'Merge'], ['danger', 'Danger Zone']].map(([id, label]) => (
+        {[['edit', t('Edit')], ['lookup', t('Lookup')], ['merge', t('Merge')], ['danger', t('Danger Zone')]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className={`flex-1 py-1.5 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? (id === 'danger' ? 'bg-red-500/20 text-red-400' : 'bg-accent text-base') : 'text-muted hover:text-white'}`}>
             {label}
           </button>
@@ -232,25 +234,25 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
             </button>
             <input ref={fileRef} type="file" accept="image/*" onChange={onFileChange} className="hidden" />
             <div className="space-y-2">
-              <p className="text-xs text-muted">Click to change artist image</p>
+              <p className="text-xs text-muted">{t('Click to change artist image')}</p>
               <button onClick={useLocalFallback} disabled={saving} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors disabled:opacity-40">
-                <Undo2 size={12} /> Use local track artwork fallback
+                <Undo2 size={12} /> {t('Use local track artwork fallback')}
               </button>
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">Name</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Name')}</label>
             <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors" />
           </div>
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">Bio</label>
-            <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Artist biography..." className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors resize-none" />
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Bio')}</label>
+            <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder={t('Artist biography...')} className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors resize-none" />
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">Cancel</button>
+            <button onClick={onClose} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">{t('Cancel')}</button>
             <button onClick={saveEdit} disabled={saving} className="flex-1 py-2.5 bg-accent text-base rounded-xl text-sm font-medium hover:bg-accent-dim transition-colors disabled:opacity-40">
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('Saving…') : t('Save')}
             </button>
           </div>
         </div>
@@ -258,7 +260,7 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
 
       {tab === 'lookup' && (
         <div className="space-y-4">
-          <p className="text-xs text-muted leading-relaxed">Pick a photo and a bio separately, from any source. Artists who share a name are listed apart: the line under each name says who it is. What you pick is kept as your choice.</p>
+          <p className="text-xs text-muted leading-relaxed">{t('Pick a photo and a bio separately, from any source. Artists who share a name are listed apart: the line under each name says who it is. What you pick is kept as your choice.')}</p>
           <div className="grid grid-cols-3 gap-1 p-0.5 bg-card rounded-lg border border-border">
             {ARTIST_SOURCES.map(([id, label]) => (
               <button
@@ -266,34 +268,34 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
                 onClick={() => { setLookupSource(id); runLookup(id) }}
                 className={`min-w-0 truncate px-1 py-1.5 !text-[10px] font-display uppercase tracking-wide rounded transition-colors ${lookupSource === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
           <button onClick={tryAutoMatch} disabled={autoMatching || saving} className="w-full py-2.5 rounded-xl border border-border text-sm text-muted hover:text-white hover:border-accent/40 transition-colors disabled:opacity-40">
-            {autoMatching ? 'Trying to match...' : 'Try auto match'}
+            {autoMatching ? t('Trying to match...') : t('Try auto match')}
           </button>
           <div className="flex gap-2">
             <input
               value={lookupQuery}
               onChange={e => setLookupQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') runLookup() }}
-              placeholder="Search artist name..."
+              placeholder={t('Search artist name...')}
               className="flex-1 bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors"
             />
             <button onClick={() => runLookup()} disabled={lookupLoading || !lookupQuery.trim()} className="px-4 py-2.5 rounded-xl bg-accent text-base text-sm font-medium hover:bg-accent-dim transition-colors disabled:opacity-40">
-              <Search size={14} className="inline mr-1.5" />Search
+              <Search size={14} className="inline mr-1.5" />{t('Search')}
             </button>
           </div>
           {lookupError && <p className="text-xs text-amber-300">{lookupError}</p>}
           <div className="space-y-5 max-h-[26rem] overflow-y-auto pr-1">
-            {lookupLoading && <p className="text-xs text-muted">Searching...</p>}
+            {lookupLoading && <p className="text-xs text-muted">{t('Searching...')}</p>}
             {!lookupLoading && !lookupResults.length && !lookupError && (
-              <p className="text-xs text-muted">Search for a better artist match.</p>
+              <p className="text-xs text-muted">{t('Search for a better artist match.')}</p>
             )}
             {!lookupLoading && photoResults.length > 0 && (
               <section>
-                <h3 className="text-xs font-display text-muted uppercase tracking-widest mb-2">Photos</h3>
+                <h3 className="text-xs font-display text-muted uppercase tracking-widest mb-2">{t('Photos')}</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {photoResults.map(result => {
                     const picked = pickedImage === resultKey(result)
@@ -319,7 +321,7 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
             )}
             {!lookupLoading && bioResults.length > 0 && (
               <section>
-                <h3 className="text-xs font-display text-muted uppercase tracking-widest mb-2">Bios</h3>
+                <h3 className="text-xs font-display text-muted uppercase tracking-widest mb-2">{t('Bios')}</h3>
                 <div className="space-y-2">
                   {bioResults.map(result => {
                     const key = resultKey(result)
@@ -336,11 +338,11 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
                         <div className="flex items-center gap-3">
                           <button onClick={() => applyLookup(result, 'bio')} disabled={saving || picked}
                             className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-60 ${picked ? 'bg-accent/20 text-accent' : 'bg-accent text-base hover:bg-accent-dim'}`}>
-                            {picked ? <><Check size={12} /> Using this bio</> : 'Use this bio'}
+                            {picked ? <><Check size={12} /> {t('Using this bio')}</> : t('Use this bio')}
                           </button>
                           {result.bio.length > 180 && (
                             <button onClick={() => setOpenBio(expanded ? null : key)} className="text-xs text-muted hover:text-white transition-colors">
-                              {expanded ? 'Less' : 'Read more'}
+                              {expanded ? t('Less') : t('Read more')}
                             </button>
                           )}
                         </div>
@@ -356,37 +358,37 @@ export default function ArtistManageModal({ artist, open, onClose, onChanged }) 
 
       {tab === 'merge' && (
         <div className="space-y-4">
-          <p className="text-xs text-muted leading-relaxed">Merge <strong className="text-white">{artist.name}</strong> into another artist. All tracks will be reassigned. This cannot be undone.</p>
+          <p className="text-xs text-muted leading-relaxed">{t('Merge')} <strong className="text-white">{artist.name}</strong> {t('into another artist. All tracks will be reassigned. This cannot be undone.')}</p>
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">Search artists</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Search artists')}</label>
             <input
               value={mergeSearch}
               onChange={e => setMergeSearch(e.target.value)}
-              placeholder="Search by artist name..."
+              placeholder={t('Search by artist name...')}
               className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors mb-3"
             />
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">Merge into</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Merge into')}</label>
             <select value={mergeTarget} onChange={e => setMergeTarget(e.target.value)} className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-accent/60 transition-colors">
-              <option value="">Select target artist…</option>
+              <option value="">{t('Select target artist…')}</option>
               {mergeOptions.map(a => (
                 <option key={a.id} value={a.id}>{a.name} ({plural(a.track_count, 'track')})</option>
               ))}
             </select>
             <p className="text-xs text-muted mt-2">
-              {mergeLoading && !mergeOptions.length ? 'Loading artists...' : mergeOptions.length ? `Showing ${mergeOptions.length} matching artists` : 'No matching artists found'}
+              {mergeLoading && !mergeOptions.length ? t('Loading artists...') : mergeOptions.length ? t('Showing {n} matching artists', { n: mergeOptions.length }) : t('No matching artists found')}
             </p>
           </div>
           <button onClick={doMerge} disabled={!mergeTarget || saving} className="w-full py-2.5 bg-orange-500/20 border border-orange-500/40 text-orange-300 rounded-xl text-sm font-medium hover:bg-orange-500/30 transition-colors disabled:opacity-40">
-            <Merge size={14} className="inline mr-2" />Merge Artists
+            <Merge size={14} className="inline mr-2" />{t('Merge Artists')}
           </button>
         </div>
       )}
 
       {tab === 'danger' && (
         <div className="space-y-4">
-          <p className="text-xs text-muted leading-relaxed">Delete the artist entry for <strong className="text-white">{artist.name}</strong>. Tracks will remain in your library but this artist profile will be removed.</p>
+          <p className="text-xs text-muted leading-relaxed">{t('Delete the artist entry for')} <strong className="text-white">{artist.name}</strong>. {t('Tracks will remain in your library but this artist profile will be removed.')}</p>
           <button onClick={doDelete} className="w-full py-2.5 bg-red-500/15 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/25 transition-colors flex items-center justify-center gap-2">
-            <Trash2 size={14} /> Delete Artist Profile
+            <Trash2 size={14} /> {t('Delete Artist Profile')}
           </button>
         </div>
       )}

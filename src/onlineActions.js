@@ -6,12 +6,13 @@ import { libraryDownloadMessage, saveTracksToLibrary } from './onlineTracks.js'
 import { playRecommendationPool } from './recommendationPlayback.js'
 import { playbackFallbackMessage, resolveRecommendationTracks } from './recommendations.js'
 import { showLoadingToast, showToast } from './components/Toaster.jsx'
+import { translate } from './i18n'
 
 /** Play `tracks` from `selected` (or the first), finding each in the playback sources. */
 export async function playOnline(tracks, { selected, name, path, isCurrent = () => true } = {}) {
   const first = selected || tracks[0]
   if (!first) return false
-  const toast = showLoadingToast(`Finding “${first.title}”…`)
+  const toast = showLoadingToast(translate('Finding “{title}”…', { title: first.title }))
   let detail = ''
   try {
     const started = await playRecommendationPool(tracks, {
@@ -20,23 +21,23 @@ export async function playOnline(tracks, { selected, name, path, isCurrent = () 
       onProgress: message => { if (isCurrent()) toast.update(message) },
       onProviderFailure: failure => { if (isCurrent()) { if (failure.detail) detail = failure.detail; toast.update(playbackFallbackMessage(failure)) } },
     })
-    toast.close(isCurrent() && started === false ? detail ? `Could not play “${first.title}”. ${detail}` : `No playable source was found for “${first.title}”.` : '')
+    toast.close(isCurrent() && started === false ? detail ? translate('Could not play “{title}”. {detail}', { title: first.title, detail }) : translate('No playable source was found for “{title}”.', { title: first.title }) : '')
     return started
   } catch {
-    toast.close(isCurrent() ? `Could not load “${first.title}”.` : '')
+    toast.close(isCurrent() ? translate('Could not load “{title}”.', { title: first.title }) : '')
     return false
   }
 }
 
 /** Find `tracks` in the playback sources (without preparing streams). */
 export async function resolveOnline(tracks, { label, isCurrent = () => true } = {}) {
-  const toast = showLoadingToast(`Finding ${label || (tracks.length === 1 ? `“${tracks[0].title}”` : `${tracks.length} songs`)}…`)
+  const toast = showLoadingToast(label ? translate('Finding {label}…', { label }) : tracks.length === 1 ? translate('Finding “{title}”…', { title: tracks[0].title }) : translate('Finding {n} song…|Finding {n} songs…', { n: tracks.length }))
   try {
     const rows = await resolveRecommendationTracks(tracks, api, { isCurrent, prepareStreams: false, onProgress: message => { if (isCurrent()) toast.update(message) } })
-    toast.close(!rows.length && isCurrent() ? `No playable source was found for ${label || 'these songs'}.` : '')
+    toast.close(!rows.length && isCurrent() ? (label ? translate('No playable source was found for {label}.', { label }) : translate('No playable source was found for these songs.')) : '')
     return isCurrent() ? rows : []
   } catch {
-    toast.close(isCurrent() ? `Could not load ${label || 'these songs'}.` : '')
+    toast.close(isCurrent() ? (label ? translate('Could not load {label}.', { label }) : translate('Could not load these songs.')) : '')
     return []
   }
 }

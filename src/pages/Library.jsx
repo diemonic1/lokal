@@ -7,6 +7,7 @@ import { api, peekSettings } from '../api'
 import { useCachedState, usePageReady } from '../pageCache'
 import { useLibraryFolder } from '../libraryNav'
 import { useTranslation } from '../i18n'
+import { TRACK_CHANGED, readTrack, placeTrack } from '../trackChanged'
 
 const LIBRARY_PAGE_SIZE = 50
 
@@ -40,6 +41,7 @@ const SORT_OPTIONS = [
   ['duration DESC', 'Longest'],
   ['track_num ASC', 'Track number', '↑'],
   ['track_num DESC', 'Track number', '↓'],
+  ['lyrics ASC', 'Lyrics'],
 ]
 const SORTS = SORT_OPTIONS.map(([value]) => value)
 const SOURCES = ['all', 'local', 'yt', 'sc', 'addon', 'soulseek', 'web']
@@ -115,6 +117,27 @@ export default function Library() {
     return () => window.removeEventListener('lokal:refresh', handleRefresh)
   }, [folder, sort, source, genre, quality, problemsOnly])
 
+  // One song edited (tags, lyrics in its file): read just it again and put it
+  // where the current sort and filters put it -- or out, if it no longer matches.
+  const hasMoreRef = useRef(hasMore)
+  hasMoreRef.current = hasMore
+  useEffect(() => {
+    const onChanged = async (e) => {
+      const trackId = e.detail?.trackId
+      if (trackId == null) return
+      const filters = { sort, ...(folder ? { folder } : {}), ...(source !== 'all' ? { source } : {}), ...(genre ? { genre } : {}), ...(quality ? { quality } : {}), ...(problemsOnly ? { problems: true } : {}) }
+      const fresh = await readTrack(trackId, filters)
+      setTracks(prev => {
+        if (!fresh && !prev.some(row => String(row?.id) === String(trackId))) return prev
+        const next = placeTrack(prev, trackId, fresh, sort, hasMoreRef.current)
+        offsetRef.current += next.length - prev.length
+        return next
+      })
+    }
+    window.addEventListener(TRACK_CHANGED, onChanged)
+    return () => window.removeEventListener(TRACK_CHANGED, onChanged)
+  }, [folder, sort, source, genre, quality, problemsOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // The genres to pick from: every one in the library, on opening and after a refresh.
   const loadGenres = () => Promise.resolve(api.getAllGenres())
     .then(list => { if (Array.isArray(list)) setGenres(list.filter(g => typeof g === 'string' && g.trim())) })
@@ -170,7 +193,7 @@ export default function Library() {
           <option value="local">{t("Music folder")}</option>
           <option value="yt">YouTube</option>
           <option value="sc">SoundCloud</option>
-          <option value="addon">Addons</option>
+          <option value="addon">{t('Addons')}</option>
           <option value="soulseek">Soulseek</option>
           <option value="web">{t("Other sites")}</option>
         </select>
@@ -183,12 +206,12 @@ export default function Library() {
         <select value={quality} onChange={e => setQuality(e.target.value)} aria-label={t("Quality")} className={`${CONTROL} w-full ${controlTone(!!quality)}`}>
           <option value="">{t("All qualities")}</option>
           <option value="hires">Hi-res</option>
-          <option value="lossless">Lossless</option>
-          <option value="high">High</option>
-          <option value="low">Low</option>
-          <option value="suspect">Suspect</option>
+          <option value="lossless">{t('Lossless')}</option>
+          <option value="high">{t('High')}</option>
+          <option value="low">{t('Low')}</option>
+          <option value="suspect">{t('Suspect')}</option>
         </select>
-        <label title="Only songs that can't be played: their file is missing, or playing them failed" className={`flex cursor-pointer items-center gap-2.5 rounded-lg py-1 text-sm ${problemsOnly ? 'text-accent' : 'text-text'}`}>
+        <label title={t("Only songs that can't be played: their file is missing, or playing them failed")} className={`flex cursor-pointer items-center gap-2.5 rounded-lg py-1 text-sm ${problemsOnly ? 'text-accent' : 'text-text'}`}>
           <input type="checkbox" checked={problemsOnly} onChange={e => setProblemsOnly(e.target.checked)} className="accent-accent" />{t("Songs with errors")}
         </label>
       </div>
@@ -223,7 +246,7 @@ export default function Library() {
       {loaded && !loading && !tracks.length && (
         <div className="text-center py-24 text-muted">
           <Music size={48} className="mx-auto mb-4 opacity-20" />
-          <p>{problemsOnly ? t('No songs with errors: everything here can be played.') : source === 'all' && !genre && !quality ? (musicFolderSet ? t('This folder is empty.') : t('No tracks yet — pick your music folder above.')) : quality ? t('No songs of this quality with these filters.') : genre ? `No ${genre} songs${source === 'all' ? '' : ' from this source'}.` : t('No songs from this source.')}</p>
+          <p>{problemsOnly ? t('No songs with errors: everything here can be played.') : source === 'all' && !genre && !quality ? (musicFolderSet ? t('This folder is empty.') : t('No tracks yet — pick your music folder above.')) : quality ? t('No songs of this quality with these filters.') : genre ? (source === 'all' ? t('No {genre} songs.', { genre }) : t('No {genre} songs from this source.', { genre })) : t('No songs from this source.')}</p>
           {genre && (
             <button onClick={() => setGenre('')} className="mt-3 text-xs text-accent transition-colors hover:text-accent/70">{t("Show all genres")}</button>
           )}

@@ -5,6 +5,7 @@ import Modal from './Modal'
 import FadeImg from './FadeImg'
 import { api } from '../api'
 import { peekCache, writeCache } from '../pageCache'
+import { useTranslation } from '../i18n'
 
 // The library, kept between openings: the list is there at once next time
 // (and still refreshed quietly).
@@ -12,6 +13,7 @@ const LIBRARY_KEY = 'add-songs:library'
 const SKELETON_ROWS = 7
 
 export default function AddTracksToPlaylistModal({ open, onClose, playlistId, existingTrackIds = [], onAdded }) {
+  const { t } = useTranslation()
   const [tracks, setTracks] = useState(() => peekCache(LIBRARY_KEY) || [])
   const [loaded, setLoaded] = useState(() => !!peekCache(LIBRARY_KEY))
   // The rows (with their artwork) mount once the window has finished opening,
@@ -42,7 +44,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
     let alive = true
     Promise.resolve(api.getTracks({ limit: 5000 })).then(result => {
       if (!alive) return
-      if (!Array.isArray(result)) throw new Error(result?.error || 'Could not read your library.')
+      if (!Array.isArray(result)) throw new Error(result?.error || t('Could not read your library.'))
       writeCache(LIBRARY_KEY, result)
       setTracks(result)
       setLoaded(true)
@@ -50,7 +52,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
       if (!alive) return
       // With a cached library the list stays usable; without one, say so.
       if (peekCache(LIBRARY_KEY)) setLoaded(true)
-      else setLoadError(e?.message || 'Could not read your library.')
+      else setLoadError(e?.message || t('Could not read your library.'))
     })
     return () => { alive = false }
   }, [open, attempt])
@@ -83,7 +85,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
     if (!playlistId || addingId || added.has(trackId)) return
     setAddingId(trackId)
     setError('')
-    const result = await Promise.resolve(api.addToPlaylist(playlistId, trackId)).catch(e => ({ error: e?.message || 'Could not add it' }))
+    const result = await Promise.resolve(api.addToPlaylist(playlistId, trackId)).catch(e => ({ error: e?.message || t('Could not add it') }))
     setAddingId(null)
     if (result?.error) { setError(result.error); return }
     setAdded(current => new Set(current).add(trackId))
@@ -102,7 +104,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
   const showRows = loaded && entered
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Songs" width="max-w-2xl" onEntered={() => setEntered(true)}>
+    <Modal open={open} onClose={onClose} title={t('Add Songs')} width="max-w-2xl" onEntered={() => setEntered(true)}>
       <div className="space-y-4">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -110,7 +112,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tracks, artists, or albums"
+            placeholder={t('Search tracks, artists, or albums')}
             className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white outline-none focus:border-accent/50"
           />
         </div>
@@ -121,10 +123,10 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
           {loadError && !loaded ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted">
               <AlertCircle size={26} className="text-red-400/80" />
-              <p className="max-w-xs text-sm">Couldn't read your library: {loadError}</p>
+              <p className="max-w-xs text-sm">{t("Couldn't read your library: {error}", { error: loadError })}</p>
               <button onClick={() => setAttempt(n => n + 1)}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-white transition-colors hover:border-accent/40">
-                <RefreshCw size={12} /> Try again
+                <RefreshCw size={12} /> {t('Try again')}
               </button>
             </div>
           ) : !showRows ? (
@@ -144,7 +146,7 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
               {!filteredTracks.length && (
                 <div className="text-center py-10 text-muted">
                   <Music size={28} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">{query.trim() ? 'No matching tracks available to add.' : 'Every song in your library is already here.'}</p>
+                  <p className="text-sm">{query.trim() ? t('No matching tracks available to add.') : t('Every song in your library is already here.')}</p>
                 </div>
               )}
               {filteredTracks.map(track => {
@@ -165,11 +167,11 @@ export default function AddTracksToPlaylistModal({ open, onClose, playlistId, ex
                     <button
                       onClick={() => addTrack(track.id)}
                       disabled={done || addingId === track.id}
-                      aria-label={done ? `${track.title} added` : `Add ${track.title}`}
+                      aria-label={done ? t('{title} added', { title: track.title }) : t('Add {title}', { title: track.title })}
                       className={`flex w-[5.5rem] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${done ? 'border-green-400/25 bg-green-500/10 text-green-300' : 'border-accent/30 bg-accent/15 text-accent hover:bg-accent/20 disabled:opacity-50'}`}
                     >
                       {done ? <Check size={12} /> : <Plus size={12} />}
-                      {done ? 'Added' : addingId === track.id ? 'Adding…' : 'Add'}
+                      {done ? t('Added') : addingId === track.id ? t('Adding…') : t('Add')}
                     </button>
                   </div>
                 )

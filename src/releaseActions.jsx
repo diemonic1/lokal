@@ -16,6 +16,8 @@ import { usePlayerStore, useAppStore } from './store/player'
 import { makeAlbumContext } from './playbackContext'
 import { addToPlaylistMany, addToQueueMany, libraryTracks, playNextMany } from './trackActions'
 import { openRadio } from './radioActions'
+import { useTranslation } from './i18n'
+import { plural } from './plural'
 
 /** An artist's page from their name ("/artist/a-the-beatles"). */
 export function artistPath(name) {
@@ -35,6 +37,7 @@ export const releaseKey = (album) => `${String(album.title || '').toLowerCase()}
  */
 export function useReleaseActions({ onDeleted, goToArtist = true } = {}) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const menu = useContextMenu()
   const [deleteRequest, setDeleteRequest] = useState(null)
 
@@ -55,25 +58,25 @@ export function useReleaseActions({ onDeleted, goToArtist = true } = {}) {
 
   const askDelete = (albums) => withTracks(albums, (all) => {
     const tracks = libraryTracks(all)
-    if (tracks.length) setDeleteRequest({ tracks, what: albums.length === 1 ? albums[0].title : `${albums.length} releases` })
+    if (tracks.length) setDeleteRequest({ tracks, what: albums.length === 1 ? albums[0].title : plural(albums.length, 'release') })
   })
 
   /** The menu for `albums` (right click). */
   const menuItems = (albums) => {
-    const count = albums.length > 1 ? ` ${albums.length} releases` : ''
+    const many = albums.length > 1
     const one = albums.length === 1 ? albums[0] : null
     const run = (use) => () => withTracks(albums, use)
     return [
-      { label: `Play${count}`, icon: Play, onSelect: run(tracks => tracks.length && usePlayerStore.getState().playQueue(tracks, 0, one ? makeAlbumContext(one) : null)) },
-      { label: 'Play next', icon: Clock, onSelect: run(playNextMany) },
-      { label: 'Add to queue', icon: ListEnd, onSelect: run(addToQueueMany) },
-      { label: 'Add to playlist…', icon: Plus, onSelect: run(addToPlaylistMany) },
+      { label: many ? t('Play {n} release|Play {n} releases', { n: albums.length }) : t('Play'), icon: Play, onSelect: run(tracks => tracks.length && usePlayerStore.getState().playQueue(tracks, 0, one ? makeAlbumContext(one) : null)) },
+      { label: t('Play next'), icon: Clock, onSelect: run(playNextMany) },
+      { label: t('Add to queue'), icon: ListEnd, onSelect: run(addToQueueMany) },
+      { label: t('Add to playlist…'), icon: Plus, onSelect: run(addToPlaylistMany) },
       one && { separator: true },
-      one && { label: 'Open', icon: ExternalLink, onSelect: () => navigate('/albums', { state: { album: one } }) },
-      one && goToArtist && { label: 'Go to artist', icon: User, onSelect: () => navigate(artistPath(one.album_artist || one.artists)) },
-      one && { label: 'Start album radio', icon: Radio, onSelect: () => openRadio(navigate, { title: one.title, artist: one.album_artist || one.artists, type: 'album' }, useAppStore.getState().user?.id) },
+      one && { label: t('Open'), icon: ExternalLink, onSelect: () => navigate('/albums', { state: { album: one } }) },
+      one && goToArtist && { label: t('Go to artist'), icon: User, onSelect: () => navigate(artistPath(one.album_artist || one.artists)) },
+      one && { label: t('Start album radio'), icon: Radio, onSelect: () => openRadio(navigate, { title: one.title, artist: one.album_artist || one.artists, type: 'album' }, useAppStore.getState().user?.id) },
       { separator: true },
-      { label: albums.length > 1 ? `Delete${count} from library` : 'Delete from library', icon: Trash2, danger: true, onSelect: () => askDelete(albums) },
+      { label: many ? t('Delete {n} release from library|Delete {n} releases from library', { n: albums.length }) : t('Delete from library'), icon: Trash2, danger: true, onSelect: () => askDelete(albums) },
     ].filter(Boolean)
   }
 
@@ -81,11 +84,11 @@ export function useReleaseActions({ onDeleted, goToArtist = true } = {}) {
   const barActions = (albums) => {
     const run = (use) => () => withTracks(albums, use)
     return [
-      { label: 'Play', icon: Play, onClick: run(tracks => tracks.length && usePlayerStore.getState().playQueue(tracks, 0, null)) },
-      { label: 'Play next', icon: Clock, onClick: run(playNextMany) },
-      { label: 'Add to queue', icon: ListEnd, onClick: run(addToQueueMany) },
-      { label: 'Add to playlist', icon: Plus, onClick: run(addToPlaylistMany) },
-      { label: 'Delete', icon: Trash2, danger: true, onClick: () => askDelete(albums) },
+      { label: t('Play'), icon: Play, onClick: run(tracks => tracks.length && usePlayerStore.getState().playQueue(tracks, 0, null)) },
+      { label: t('Play next'), icon: Clock, onClick: run(playNextMany) },
+      { label: t('Add to queue'), icon: ListEnd, onClick: run(addToQueueMany) },
+      { label: t('Add to playlist'), icon: Plus, onClick: run(addToPlaylistMany) },
+      { label: t('Delete'), icon: Trash2, danger: true, onClick: () => askDelete(albums) },
     ]
   }
 

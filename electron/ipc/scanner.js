@@ -5,6 +5,7 @@ const crypto = require('crypto')
 const https = require('https')
 const http = require('http')
 const mm = require('../musicMetadata')
+const { lyricsFromMeta, isSyncedText } = require('../lyrics/fileLyrics')
 const quality = require('../quality')
 const { findFolderArtwork, getLibraryFolders } = require('../libraryFolder')
 const { getDB, getStorageDir, importAppData, resetAppData } = require('./db')
@@ -324,26 +325,36 @@ function pickPreferredArtist(common) {
   return rawArtist
 }
 
+// Lyrics in the file's tags, for the song list's Lyrics column.
+function lyricsKindOf(meta) {
+  const text = lyricsFromMeta(meta)
+  return text ? (isSyncedText(text) ? 'sync' : 'plain') : ''
+}
+
 // The comment tag as text: music-metadata gives strings or { text } entries.
 function commentText(common) {
   const list = Array.isArray(common?.comment) ? common.comment : common?.comment ? [common.comment] : []
   return list.map(c => (typeof c === 'string' ? c : c?.text || '')).map(c => c.trim()).filter(Boolean).join(' / ')
 }
 
-// Songs indexed before the comment column existed (or with an unreadable
-// tag) have it NULL: read just that for them, once. '' marks "read, none".
+// Songs indexed before the comment / lyrics columns existed (or with an
+// unreadable tag) have them NULL: read just those for them, once. '' marks
+// "read, none".
 async function backfillComments(db) {
   let rows
-  try { rows = db.prepare("SELECT id, file_path FROM tracks WHERE comment IS NULL AND file_path NOT LIKE 'ghost://%'").all() } catch { return 0 }
-  const save = db.prepare('UPDATE tracks SET comment = ? WHERE id = ?')
+  try { rows = db.prepare("SELECT id, file_path FROM tracks WHERE (comment IS NULL OR lyrics_kind IS NULL) AND file_path NOT LIKE 'ghost://%'").all() } catch { return 0 }
+  const save = db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?')
   let done = 0
   for (const row of rows) {
     let comment = ''
+    let lyrics = ''
     try {
       if (!fs.existsSync(row.file_path)) continue
-      comment = commentText((await mm.parseFile(row.file_path, { duration: false, skipCovers: true })).common)
+      const meta = await mm.parseFile(row.file_path, { duration: false, skipCovers: true })
+      comment = commentText(meta.common)
+      lyrics = lyricsKindOf(meta)
     } catch {}
-    save.run(comment, row.id)
+    save.run(comment, lyrics, row.id)
     done++
   }
   return done
@@ -470,7 +481,7 @@ async function runScan(folderPath, { full = false } = {}) {
           console.warn(`[scanFolder] Failed to link artist ${aid} to track ${trackId}:`, linkErr.message)
         }
       }
-      db.prepare('UPDATE tracks SET comment = ? WHERE id = ?').run(item.comment ?? '', trackId)
+      db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(item.comment ?? '', item.lyrics_kind ?? null, trackId)
       applyPendingImportedMetadataToTrack(db, trackId)
       resolveGhostsByIsrc(db, trackId)
     }
@@ -532,7 +543,7 @@ async function runScan(folderPath, { full = false } = {}) {
       if (getSkipDrumKit() && isDrumKit(title, c.album, c.genre?.[0])) { console.log(`[scanFolder] Skipped: ${filePath} - Drumkit pattern detected`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
       const artwork = await extractArtwork(meta, trackId, folderArtwork)
       const replaygain = c.replaygain_track_gain || null
-      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), quality: quality.qualityFields(meta) })
+      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), quality: quality.qualityFields(meta) })
       if (batch.length >= BATCH) { await insertBatch(batch); batch = [] }
     } catch { scanStatus.errors++ }
     scanStatus.done++; emit('scanner:progress', { ...scanStatus })
@@ -1249,6 +1260,14 @@ function registerScannerHandlers(ipcMain) {
   const { BrowserWindow } = require('electron')
   ipcMain.handle('scanner:scan', async (e, folder, opts) => { mainWindow = BrowserWindow.fromWebContents(e.sender); return scanFolder(folder || DEFAULT_MUSIC_PATH, { full: !!opts?.full }) })
   ipcMain.handle('scanner:status', () => scanStatus)
+  // Songs indexed before the Lyrics column existed get it filled in once, in
+  // the background, without waiting for the next scan.
+  setTimeout(() => {
+    if (scanStatus.scanning) return
+    backfillComments(getDB())
+      .then(read => { if (read) console.log(`[scanner] Read comment/lyrics tags for ${read} track(s)`) })
+      .catch(e => console.warn('[scanner] Tag backfill skipped:', e.message))
+  }, 20000)
   ipcMain.handle('scanner:getLibraryFolders', (_, relativePath, search) => getLibraryFolders(getDB(), relativePath, search))
   ipcMain.handle('scanner:resolveFileToPlay', async (_, filePath) => {
     const db = getDB()
@@ -2012,7 +2031,7 @@ async function indexSingleFile(filePath, opts = {}) {
         console.warn(`[indexSingleFile] Failed to link artist ${aid} to track ${trackId}:`, linkErr.message)
       }
     }
-    db.prepare('UPDATE tracks SET comment = ? WHERE id = ?').run(commentText(c), trackId)
+    db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(commentText(c), lyricsKindOf(meta), trackId)
     applyPendingImportedMetadataToTrack(db, trackId)
     if (!opts.deferGhostResolution) resolveGhostsByIsrc(db, trackId)
   })

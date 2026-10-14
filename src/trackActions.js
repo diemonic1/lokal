@@ -7,6 +7,7 @@ import { showToast } from './components/Toaster'
 import { plural } from './plural'
 import { isGhostTrack, isPlayable } from './onlineTracks'
 import { api } from './api'
+import { translate } from './i18n'
 
 // Import placeholders can't be played; streamed songs can.
 const isPlaceholder = (track) => !track?.id || !isPlayable(track)
@@ -22,7 +23,7 @@ export function playNextMany(tracks) {
   if (!list.length) return
   const { playNext } = usePlayerStore.getState()
   for (let i = list.length - 1; i >= 0; i -= 1) playNext(list[i])
-  showToast(list.length === 1 ? `Playing next: ${list[0].title || 'Unknown track'}` : `${plural(list.length, 'track')} will play next`)
+  showToast(list.length === 1 ? translate('Playing next: {title}', { title: list[0].title || translate('Unknown track') }) : translate('{tracks} will play next', { tracks: plural(list.length, 'track') }))
 }
 
 export function addToQueueMany(tracks) {
@@ -30,7 +31,7 @@ export function addToQueueMany(tracks) {
   if (!list.length) return
   const { addToQueue } = usePlayerStore.getState()
   for (const track of list) addToQueue(track)
-  showToast(list.length === 1 ? `Added to queue: ${list[0].title || 'Unknown track'}` : `Added ${plural(list.length, 'track')} to queue`)
+  showToast(list.length === 1 ? translate('Added to queue: {title}', { title: list[0].title || translate('Unknown track') }) : translate('Added {tracks} to queue', { tracks: plural(list.length, 'track') }))
 }
 
 export function addToPlaylistMany(tracks) {

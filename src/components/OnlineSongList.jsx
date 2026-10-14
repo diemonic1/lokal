@@ -20,6 +20,7 @@ import { openRadio } from '../radioActions'
 import { recommendationKey } from '../recommendations'
 import { useAppStore } from '../store/player'
 import { losslessMenuItem } from '../quality'
+import { useTranslation } from '../i18n'
 
 /** A song to tell its album or artist by (an addon's own result, when it's from one). */
 const anchorOf = track => {
@@ -40,6 +41,7 @@ const time = seconds => {
  */
 export default function OnlineSongList({ tracks, onPlay, numbered = false, showAlbum = false, highlightTitle = '', markOwned = false }) {
   const nav = useNavigate()
+  const { t } = useTranslation()
   const menu = useContextMenu()
   const userId = useAppStore(state => state.user?.id)
   const highlight = recommendationKey(highlightTitle)
@@ -52,16 +54,16 @@ export default function OnlineSongList({ tracks, onPlay, numbered = false, showA
   const openMenu = (event, track) => {
     const own = !isOnlineTrack(track)
     menu.open(event, [
-      { label: 'Play', icon: Play, onSelect: () => onPlay(track) },
-      { label: 'Play next', icon: Clock, onSelect: () => withResolved(track, playNextMany) },
-      { label: 'Add to queue', icon: ListEnd, onSelect: () => withResolved(track, addToQueueMany) },
-      { label: 'Add to playlist…', icon: Plus, onSelect: () => withResolved(track, addToPlaylistMany) },
-      !own && { label: 'Download song', icon: Download, onSelect: () => downloadOnline([track]) },
+      { label: t('Play'), icon: Play, onSelect: () => onPlay(track) },
+      { label: t('Play next'), icon: Clock, onSelect: () => withResolved(track, playNextMany) },
+      { label: t('Add to queue'), icon: ListEnd, onSelect: () => withResolved(track, addToQueueMany) },
+      { label: t('Add to playlist…'), icon: Plus, onSelect: () => withResolved(track, addToPlaylistMany) },
+      !own && { label: t('Download song'), icon: Download, onSelect: () => downloadOnline([track]) },
       own && losslessMenuItem(track, Gem),
       { separator: true },
-      track.album && { label: 'Go to album', icon: Disc3, onSelect: () => (own ? navigateToTrackAlbum(nav, track) : nav(trackAlbumPath(track), { state: { artwork: track.artwork_url || null, highlightTitle: track.title, anchor: anchorOf(track) } })) },
-      track.artist && { label: 'Go to artist', icon: User, onSelect: () => (own ? nav(artistPath(track.artist)) : nav(artistPath(track.artists?.[0] || track.artist), { state: { name: track.artists?.[0] || track.artist, anchor: anchorOf(track) } })) },
-      { label: 'Start radio', icon: Radio, onSelect: () => openRadio(nav, track, userId) },
+      track.album && { label: t('Go to album'), icon: Disc3, onSelect: () => (own ? navigateToTrackAlbum(nav, track) : nav(trackAlbumPath(track), { state: { artwork: track.artwork_url || null, highlightTitle: track.title, anchor: anchorOf(track) } })) },
+      track.artist && { label: t('Go to artist'), icon: User, onSelect: () => (own ? nav(artistPath(track.artist)) : nav(artistPath(track.artists?.[0] || track.artist), { state: { name: track.artists?.[0] || track.artist, anchor: anchorOf(track) } })) },
+      { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, track, userId) },
     ])
   }
 
@@ -75,7 +77,7 @@ export default function OnlineSongList({ tracks, onPlay, numbered = false, showA
             key={`${index}-${track.title}`}
             role="button"
             tabIndex={0}
-            aria-label={`${track.title} by ${track.artist}`}
+            aria-label={t('{title} by {artist}', { title: track.title, artist: track.artist })}
             onDoubleClick={() => onPlay(track)}
             onKeyDown={event => { if (event.key === 'Enter') onPlay(track) }}
             onContextMenu={event => openMenu(event, track)}
@@ -87,7 +89,7 @@ export default function OnlineSongList({ tracks, onPlay, numbered = false, showA
               {numbered
                 ? <span className={`text-xs tabular-nums group-hover:opacity-0 ${marked ? 'text-accent' : 'text-muted'}`}>{track.track_num || track.trackNumber || index + 1}</span>
                 : <div className="h-8 w-8 overflow-hidden rounded group-hover:opacity-40"><DiscoveryImage item={track} src={track.artwork_url} lookup className="h-full w-full object-cover" /></div>}
-              <button onClick={() => onPlay(track)} aria-label={`Play ${track.title}`} className="absolute inset-0 flex items-center justify-center text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"><Play size={14} fill="currentColor" /></button>
+              <button onClick={() => onPlay(track)} aria-label={t('Play {title}', { title: track.title })} className="absolute inset-0 flex items-center justify-center text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"><Play size={14} fill="currentColor" /></button>
             </div>
             <div className="min-w-0">
               <p className={`truncate text-sm ${marked ? 'text-accent' : 'text-white'}`}>{track.title}</p>
@@ -95,8 +97,8 @@ export default function OnlineSongList({ tracks, onPlay, numbered = false, showA
             </div>
             {showAlbum && <p className="hidden truncate text-xs text-muted @lg:block">{track.album || ''}</p>}
             <span className="flex items-center justify-end gap-3">
-              {own && <span title="In your library" className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent"><CheckCircle2 size={11} /> In library</span>}
-              {markOwned && !own && <button type="button" onClick={event => { event.stopPropagation(); downloadOnline([track]) }} title={`Download ${track.title}`} aria-label={`Download ${track.title}`} className="text-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100 focus:opacity-100"><Download size={14} /></button>}
+              {own && <span title={t('In your library')} className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent"><CheckCircle2 size={11} /> {t('In library')}</span>}
+              {markOwned && !own && <button type="button" onClick={event => { event.stopPropagation(); downloadOnline([track]) }} title={t('Download {title}', { title: track.title })} aria-label={t('Download {title}', { title: track.title })} className="text-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100 focus:opacity-100"><Download size={14} /></button>}
               <span className="text-xs tabular-nums text-subtle">{time(track.duration)}</span>
             </span>
           </div>

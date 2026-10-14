@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Search, Languages, RotateCcw, Check, ChevronDown, Loader2 } from 'lucide-react'
+import { Mic2, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown } from 'lucide-react'
 import LyricsSearchDrawer from './LyricsSearchDrawer'
 import LyricBreakDots from './LyricBreakDots'
 import { api } from '../api'
 import { useLyricSubline } from '../lyrics/useLyricSubline'
-import { announceLyricsChanged } from '../lyricLine'
+import { announceLyricsChanged, announceLyricsFileChanged } from '../lyricLine'
+import { announceTrackChanged } from '../trackChanged'
 import { usePlayerStore } from '../store/player'
+import { useTranslation } from '../i18n'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
 import {
   canGrow, growLetters, unitProgress, unitLift, activeRows, focusRow, stillSinging, lineEndOf, groupUnits, withOutroBreak,
@@ -285,8 +287,27 @@ const TOOLBAR_FADE = 'transition-[opacity,color,background-color] duration-300 g
 
 const SYNC_LABEL = { syllable: 'Syllable synced', line: 'Line synced', none: 'Not synced' }
 
-function SourceMenu({ sources, current, attempts, busy, onPick, onRefresh, onSearch, hidden = false }) {
+// A thin bar sliding back and forth: this source is still being asked.
+function SearchBar() {
+  return (
+    <span className="relative block h-[2px] w-full overflow-hidden rounded-full bg-white/[0.08]">
+      <motion.span
+        className="absolute inset-y-0 w-1/3 rounded-full bg-accent/70"
+        animate={{ left: ['-33%', '100%'] }}
+        transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+      />
+    </span>
+  )
+}
+
+const FOUND = new Set(['syllable', 'line', 'none'])
+
+function SourceMenu({ sources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, hidden = false }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // "Insert into track" asks once more before writing to the file.
+  const [confirmId, setConfirmId] = useState(null)
+  useEffect(() => { if (!open) setConfirmId(null) }, [open])
   const ref = useRef(null)
   // The toolbar hid (full screen idle): the menu goes with it rather than
   // staying up, unclickable, over the lyrics.
@@ -305,10 +326,10 @@ function SourceMenu({ sources, current, attempts, busy, onPick, onRefresh, onSea
       <button
         onClick={() => setOpen(o => !o)}
         className={`flex max-w-full items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${TOOLBAR_FADE}`}
-        title={label ? `Lyrics source: ${label}` : 'Lyrics source'}
+        title={label ? t('Lyrics source: {source}', { source: label }) : t('Lyrics source')}
       >
-        {busy ? <Loader2 size={11} className="flex-shrink-0 animate-spin" /> : null}
-        <span className="min-w-0 max-w-[9rem] truncate">{label || 'Source'}</span>
+        {busy || searching ? <Loader2 size={11} className="flex-shrink-0 animate-spin" /> : null}
+        <span className="min-w-0 max-w-[9rem] truncate">{label || (searching ? t('Searching...') : t('Source'))}</span>
         <ChevronDown size={11} className="flex-shrink-0" />
       </button>
       <AnimatePresence>
@@ -320,29 +341,58 @@ function SourceMenu({ sources, current, attempts, busy, onPick, onRefresh, onSea
             transition={{ duration: 0.14 }}
             className="absolute right-0 top-full mt-1.5 z-30 w-64 rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-1"
           >
-            <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/35">Try another source</p>
+            <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/35">{t('Try another source')}</p>
             {sources.map(s => {
               const status = attempts?.[s.id]
-              const note = status === 'syllable' ? 'Syllable' : status === 'line' ? 'Line' : status === 'none' ? 'Plain' : status === 'miss' ? 'Not found' : ''
+              const note = status === 'syllable' ? t('Syllable') : status === 'line' ? t('Line') : status === 'none' ? t('Plain') : status === 'miss' ? t('Not found') : ''
+              // Still being asked: a full search running (the file itself is
+              // read first, so it's never pending), or this one picked.
+              const pending = pickingId === s.id || (searching && s.id !== 'local' && (!enabled || enabled.includes(s.id)))
+              const embeddable = canEmbed && s.id !== 'local' && FOUND.has(status) && !pending
+              const embedding = embeddingId === s.id
+              const confirming = confirmId === s.id
               return (
-                <button
-                  key={s.id}
-                  onClick={() => { setOpen(false); onPick(s.id) }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-white/80 hover:bg-white/[0.08]"
-                >
-                  <span className="w-3.5">{s.id === current ? <Check size={12} className="text-accent" /> : null}</span>
-                  <span className="flex-1 truncate">{s.label}</span>
-                  {note && <span className={`text-[10px] ${status === 'miss' ? 'text-white/25' : 'text-white/45'}`}>{note}</span>}
-                </button>
+                <div key={s.id} className="flex items-center gap-1 rounded-lg hover:bg-white/[0.08]">
+                  <button
+                    onClick={() => { setOpen(false); onPick(s.id) }}
+                    className="flex-1 min-w-0 flex flex-col gap-1 px-2.5 py-1.5 text-left text-xs text-white/80"
+                  >
+                    <span className="flex w-full items-center gap-2">
+                      <span className="w-3.5 flex-shrink-0">{s.id === current ? <Check size={12} className="text-accent" /> : null}</span>
+                      <span className="flex-1 truncate">{s.label}</span>
+                      {pending
+                        ? <span className="text-[10px] text-white/35">{t('Searching...')}</span>
+                        : note && <span className={`text-[10px] ${status === 'miss' ? 'text-white/25' : 'text-white/45'}`}>{note}</span>}
+                    </span>
+                    {pending && <span className="block pl-5"><SearchBar /></span>}
+                  </button>
+                  {embeddable && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (embeddingId) return
+                        if (!confirming) { setConfirmId(s.id); return }
+                        setConfirmId(null)
+                        onEmbed?.(s.id)
+                      }}
+                      title={t('Insert into track')}
+                      className={`mr-1 flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] transition-colors ${confirming ? 'bg-accent text-black' : 'text-white/45 hover:text-white hover:bg-white/[0.1]'}`}
+                    >
+                      {embedding ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
+                      {confirming ? t('Insert into track') : null}
+                    </button>
+                  )}
+                </div>
               )
             })}
             <div className="h-px bg-white/10 my-1" />
-            <button onClick={() => { setOpen(false); onRefresh() }} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-white/70 hover:bg-white/[0.08]">
-              <RotateCcw size={12} /> Search all sources again
+            {/* The menu stays open, so the bars show each source being searched. */}
+            <button onClick={() => onRefresh()} disabled={searching} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-white/70 hover:bg-white/[0.08] disabled:opacity-50">
+              {searching ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} {t('Search all sources again')}
             </button>
             {onSearch && (
               <button onClick={() => { setOpen(false); onSearch() }} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-white/70 hover:bg-white/[0.08]">
-                <Search size={12} /> Search manually...
+                <Search size={12} /> {t('Search manually...')}
               </button>
             )}
           </motion.div>
@@ -393,7 +443,9 @@ export default function LyricsPanel({
   // seconds without the mouse moving.
   toolbarHidden = false,
 }) {
+  const { t } = useTranslation()
   const setProgressWithAudioUpdate = usePlayerStore(s => s.setProgressWithAudioUpdate)
+  const syncTrack = usePlayerStore(s => s.syncTrack)
   const now = useLyricClock(progress)
   const [result, setResult] = useState(() => (track?.id && hasCachedLyrics(track.id) ? peekLyrics(track.id) : null))
   // The song `result` is for: right after the song changes, until the new
@@ -404,8 +456,14 @@ export default function LyricsPanel({
   // panel never flashes "no lyrics" before its request has even started.
   const [loading, setLoading] = useState(() => !!track?.id && !hasCachedLyrics(track.id))
   const [sourceBusy, setSourceBusy] = useState(false)
+  // The source being asked from the menu, a full re-search running, and the
+  // source whose lyrics are being written into the file.
+  const [pickingId, setPickingId] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [embeddingId, setEmbeddingId] = useState(null)
   const [notice, setNotice] = useState('')
   const [sources, setSources] = useState([])
+  const [enabledSources, setEnabledSources] = useState(null)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [focusIdx, setFocusIdx] = useState(-1)
   const [liveKey, setLiveKey] = useState('')
@@ -442,6 +500,7 @@ export default function LyricsPanel({
     const seq = ++requestSeq.current
     const trackId = track.id
     if (!quiet) setLoading(true)
+    setRefreshing(!!opts.refresh)
     setNotice('')
     api.getLyrics(track.id, track.title, track.artist, track.album, track.duration, track.file_path, opts)
       .then(r => {
@@ -456,7 +515,7 @@ export default function LyricsPanel({
         lastScrollIdx.current = -1
       })
       .catch(() => { if (seq === requestSeq.current && !quiet) setBoundResult(trackId, null) })
-      .finally(() => { if (seq === requestSeq.current) setLoading(false) })
+      .finally(() => { if (seq === requestSeq.current) { setLoading(false); setRefreshing(false) } })
   }, [track?.id, track?.title, track?.artist, track?.album, track?.duration, track?.file_path, setBoundResult])
 
   // Manual search. The fullscreen views bring their own drawer (onSearchRequest);
@@ -480,6 +539,9 @@ export default function LyricsPanel({
     // A source request for the previous song won't clear its own spinner
     // (its answer is dropped as stale), so clear it here.
     setSourceBusy(false)
+    setPickingId(null)
+    setRefreshing(false)
+    setEmbeddingId(null)
     const cached = trackKey != null && hasCachedLyrics(trackKey)
     // Cached: its lines show right away (even if the previous song was still
     // loading); otherwise the loading state until this song's answer.
@@ -487,10 +549,18 @@ export default function LyricsPanel({
     load({}, cached)
   }, [trackKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The file's own lyrics changed (here or in the tag editor): read them again.
+  useEffect(() => {
+    if (trackKey == null) return undefined
+    const onChanged = (e) => { if (String(e.detail?.trackId) === String(trackKey)) load({}, true) }
+    window.addEventListener('lokal:lyrics-file-changed', onChanged)
+    return () => window.removeEventListener('lokal:lyrics-file-changed', onChanged)
+  }, [trackKey, load])
+
   useEffect(() => { if (!loading) onLyricsAvailable?.(lines.length > 0) }, [loading, lines.length, onLyricsAvailable])
 
   useEffect(() => {
-    api.getLyricsSources?.().then(s => setSources(s?.providers || [])).catch(() => {})
+    api.getLyricsSources?.().then(s => { setSources(s?.providers || []); setEnabledSources(Array.isArray(s?.enabled) ? s.enabled : null) }).catch(() => {})
     const on = () => setIsOnline(true)
     const off = () => setIsOnline(false)
     window.addEventListener('online', on)
@@ -655,6 +725,8 @@ export default function LyricsPanel({
     if (!track?.id) return
     const seq = ++requestSeq.current
     setSourceBusy(true)
+    setPickingId(id)
+    setRefreshing(false)
     api.getLyricsFrom(id, track.id, track.title, track.artist, track.album, track.duration, track.file_path)
       .then(r => {
         if (seq !== requestSeq.current) return
@@ -664,13 +736,38 @@ export default function LyricsPanel({
           lastScrollIdx.current = -1
         } else {
           const label = sources.find(s => s.id === id)?.label || id
-          setNotice(`${label} doesn't have this song`)
+          setNotice(t("{source} doesn't have this song", { source: label }))
           setResult(prev => (prev ? { ...prev, attempts: { ...(prev.attempts || {}), ...(r?.attempts || {}) } } : prev))
           setTimeout(() => setNotice(''), 3500)
         }
       })
       .catch(() => {})
-      .finally(() => { if (seq === requestSeq.current) setSourceBusy(false) })
+      .finally(() => { if (seq === requestSeq.current) { setSourceBusy(false); setPickingId(null) } })
+  }
+
+  // "Insert into track": that source's lyrics go into the file's tags (LRC +
+  // SYLT when synced, plain text otherwise). Then the file is read again.
+  const hasFile = !!track?.file_path && !/^(ghost|https?):/i.test(String(track.file_path))
+  const embedSource = (id) => {
+    if (!track?.id || embeddingId) return
+    const trackId = track.id
+    const label = sources.find(s => s.id === id)?.label || id
+    const say = (text) => { setNotice(text); setTimeout(() => setNotice(''), 4000) }
+    setEmbeddingId(id)
+    api.embedLyricsFrom(id, trackId, track.title, track.artist, track.album, track.duration)
+      .then(r => {
+        if (currentTrackId.current !== trackId) return
+        if (r?.ok) {
+          say(t('Lyrics from {source} saved into the file', { source: label }))
+          if (r.lyricsKind) syncTrack({ ...track, lyrics_kind: r.lyricsKind })
+          announceLyricsFileChanged(trackId)
+          announceTrackChanged(trackId)
+        } else {
+          say(r?.error === 'no-lyrics' ? t("{source} doesn't have this song", { source: label }) : t("Couldn't save the lyrics: {error}", { error: r?.error || '?' }))
+        }
+      })
+      .catch(e => say(t("Couldn't save the lyrics: {error}", { error: e?.message || '?' })))
+      .finally(() => setEmbeddingId(null))
   }
 
   // ---- render
@@ -678,7 +775,9 @@ export default function LyricsPanel({
   const sourceLabel = sources.find(s => s.id === result?.source)?.label || result?.source
   const attribution = result?.attribution
   const hasContributors = !!(attribution?.uploader || attribution?.maker)
-  const showToolbar = lines.length > 0
+  const searching = loading || refreshing
+  // The source menu also shows while searching, so its bars can be watched.
+  const showToolbar = lines.length > 0 || (searching && sources.length > 0)
 
   return (
     <div className="relative w-full h-full">
@@ -692,28 +791,34 @@ export default function LyricsPanel({
           // views already have their own header there, so they go without.
           style={fullscreen ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
         >
-          <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'}`} inert={toolbarHidden}>
-            <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={`Show translation (${translateTarget})`}>
+          <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
               {translationBusy ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
-              Translate
+              {t('Translate')}
             </Pill>
             {canRomanize && (
-              <Pill active={subline === 'romanization'} onClick={() => toggleSub('romanization')} title="Show pronunciation in Latin letters">
+              <Pill active={subline === 'romanization'} onClick={() => toggleSub('romanization')} title={t('Show pronunciation in Latin letters')}>
                 {romanizationBusy ? <Loader2 size={11} className="animate-spin" /> : <span className="font-semibold leading-none">Aa</span>}
-                Romanize
+                {t('Romanize')}
               </Pill>
             )}
           </div>
           <div className="flex-1" />
           <div className={`flex min-w-0 items-center justify-end gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'}`} inert={toolbarHidden}>
-            {sources.length > 0 && result?.source && (
+            {sources.length > 0 && (result?.source || searching) && (
               <SourceMenu
                 sources={sources}
-                current={result.source}
-                attempts={result.attempts}
-                busy={sourceBusy}
+                enabled={enabledSources}
+                current={result?.source || null}
+                attempts={result?.attempts}
+                busy={sourceBusy || !!embeddingId}
+                searching={searching}
+                pickingId={pickingId}
+                canEmbed={hasFile}
+                embeddingId={embeddingId}
+                onEmbed={embedSource}
                 onPick={pickSource}
-                onRefresh={() => load({ refresh: true })}
+                onRefresh={() => load({ refresh: true }, lines.length > 0)}
                 onSearch={requestSearch}
                 hidden={toolbarHidden}
               />
@@ -732,7 +837,7 @@ export default function LyricsPanel({
             // sidebar, and framer's own transform overrode the centring.
             className="absolute top-11 right-4 z-30 max-w-[calc(100%-2rem)] w-max px-3 py-1.5 rounded-2xl bg-black/75 backdrop-blur-md border border-white/10 text-[11px] leading-snug text-white/85 text-right"
           >
-            {notice || (translationState === 'same-language' ? 'Already in your language' : translationState === 'unavailable' && wantTranslation ? 'Translation unavailable right now' : 'Romanization unavailable right now')}
+            {notice || (translationState === 'same-language' ? t('Already in your language') : translationState === 'unavailable' && wantTranslation ? t('Translation unavailable right now') : t('Romanization unavailable right now'))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -761,18 +866,18 @@ export default function LyricsPanel({
             <div className="h-full min-h-[240px] flex flex-col items-center justify-center gap-3 text-white/35 select-none pt-24">
               <Mic2 size={fullscreen ? 40 : 28} />
               {result?.instrumental ? (
-                <p className={fullscreen ? 'text-sm' : 'text-xs'}>Instrumental — nothing to sing along to.</p>
+                <p className={fullscreen ? 'text-sm' : 'text-xs'}>{t('Instrumental — nothing to sing along to.')}</p>
               ) : !isOnline ? (
-                <p className={fullscreen ? 'text-sm' : 'text-xs'}>You're offline. Lyrics will load once you're back online.</p>
+                <p className={fullscreen ? 'text-sm' : 'text-xs'}>{t("You're offline. Lyrics will load once you're back online.")}</p>
               ) : (
                 <>
-                  <p className={fullscreen ? 'text-sm' : 'text-xs'}>No lyrics found</p>
+                  <p className={fullscreen ? 'text-sm' : 'text-xs'}>{t('No lyrics found')}</p>
                   <div className="flex items-center gap-3">
                     <button onClick={requestSearch} className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors">
-                      <Search size={12} /> Search manually
+                      <Search size={12} /> {t('Search manually')}
                     </button>
                     <button onClick={() => load({ refresh: true })} className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors">
-                      <RotateCcw size={12} /> Try again
+                      <RotateCcw size={12} /> {t('Try again')}
                     </button>
                   </div>
                 </>
@@ -784,7 +889,7 @@ export default function LyricsPanel({
             <>
               <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '3.5rem', minHeight: synced ? '5rem' : undefined }} />
               {!synced && (
-                <p className="px-3 pb-3 text-[11px] text-white/35">These lyrics aren't time-synced{isAutoSynced ? ' — following along roughly' : ''}.</p>
+                <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
               )}
               {lines.map((line, i) => (
                 <Row
@@ -810,14 +915,14 @@ export default function LyricsPanel({
               <div style={{ height: fullscreen ? '55vh' : 0 }} />
               {sourceLabel && (
                 <p className="px-3 pb-10 text-[11px] text-white/30">
-                  Lyrics via {sourceLabel}{result?.sync ? ` · ${SYNC_LABEL[result.sync] || ''}` : ''}
-                  {translationFrom ? ` · ${translationFrom === 'source' ? 'Apple Music translation' : `Translated to ${translateTarget}`}` : ''}
-                  {attribution?.provider && <span className="block mt-1">Provided by {attribution.provider}</span>}
+                  {t('Lyrics via {source}', { source: sourceLabel })}{result?.sync ? ` · ${SYNC_LABEL[result.sync] ? t(SYNC_LABEL[result.sync]) : ''}` : ''}
+                  {translationFrom ? ` · ${translationFrom === 'source' ? t('Apple Music translation') : t('Translated to {language}', { language: translateTarget })}` : ''}
+                  {attribution?.provider && <span className="block mt-1">{t('Provided by {provider}', { provider: attribution.provider })}</span>}
                   {hasContributors && (
                     <span className="block mt-1">
-                      {attribution.uploader && <>Uploaded by <a href={attribution.uploader.url} target="_blank" rel="noreferrer" className="hover:text-white/60 underline underline-offset-2">{attribution.uploader.name}</a></>}
+                      {attribution.uploader && <>{t('Uploaded by')} <a href={attribution.uploader.url} target="_blank" rel="noreferrer" className="hover:text-white/60 underline underline-offset-2">{attribution.uploader.name}</a></>}
                       {attribution.uploader && attribution.maker && ' · '}
-                      {attribution.maker && <>made by <a href={attribution.maker.url} target="_blank" rel="noreferrer" className="hover:text-white/60 underline underline-offset-2">{attribution.maker.name}</a></>}
+                      {attribution.maker && <>{t('made by')} <a href={attribution.maker.url} target="_blank" rel="noreferrer" className="hover:text-white/60 underline underline-offset-2">{attribution.maker.name}</a></>}
                     </span>
                   )}
                 </p>

@@ -12,6 +12,7 @@ import SourceIcon from './SourceIcon'
 import { DEFAULT_FIND_ON_SOURCES, orderedFindOnSources, buildFindOnRequest } from '../findOnSources'
 import { downloadUrlFor, isGhostTrack, providerLabel as labelOf, saveToLibrary, streamRef, sourceRefKey } from '../onlineTracks'
 import { libraryCopy, useLibraryIndex } from '../libraryIndex'
+import { useTranslation } from '../i18n'
 
 const SAVING = new Set(['queued', 'downloading', 'finishing'])
 
@@ -27,6 +28,7 @@ const SAVING = new Set(['queued', 'downloading', 'finishing'])
  */
 export default function SaveToLibraryButton({ track, getTrack, source, meta, size = 14, className = '', offerUpgrade = false, replaceTrackId = null }) {
   const nav = useNavigate()
+  const { t } = useTranslation()
   const ref = streamRef(track) || source
   const url = ref && (ref.provider === 'yt' || ref.provider === 'sc')
     ? downloadUrlFor({ file_path: `ghost://${ref.provider === 'sc' ? 'soundcloud' : 'youtube'}/online/${ref.id}` })
@@ -106,7 +108,7 @@ export default function SaveToLibraryButton({ track, getTrack, source, meta, siz
   }, [menu, findSources])
 
   if (!ref && !getTrack) return null
-  const providerLabel = ref ? (findSources.find(source => source.id === ref.provider)?.label || labelOf(ref.provider)) : 'your playback sources'
+  const providerLabel = ref ? (findSources.find(source => source.id === ref.provider)?.label || labelOf(ref.provider)) : null
 
   const resolveTrack = async () => getTrack ? await getTrack() : track
 
@@ -123,7 +125,7 @@ export default function SaveToLibraryButton({ track, getTrack, source, meta, siz
     const clickedKey = refKey
     const target = await resolveTrack().catch(() => null)
     const result = target?.file_path && !isGhostTrack(target) ? { alreadyInLibrary: true }
-      : target ? await saveToLibrary(target, { replaceTrackId: replaceTrackId || undefined }).catch(e => ({ error: e.message })) : { error: 'Could not save this song' }
+      : target ? await saveToLibrary(target, { replaceTrackId: replaceTrackId || undefined }).catch(e => ({ error: e.message })) : { error: t('Could not save this song') }
     if (keyRef.current !== clickedKey) return
     if (result?.alreadyInLibrary) {
       // Nothing to download: the song is in the library, and this streamed
@@ -147,12 +149,12 @@ export default function SaveToLibraryButton({ track, getTrack, source, meta, siz
     nav('/search', { state: { findOn: request } })
   }
 
-  const label = state === 'upgrade' ? 'In your library in low quality: click to download this version (it replaces the file if it\'s better)'
-    : ownedOnly ? 'In your library (right-click to download it anyway)'
-    : state === 'saved' ? 'Saved to library'
-    : state === 'saving' ? 'Saving to your library…'
-      : state === 'failed' ? `Couldn't save${error ? `: ${error}` : ''}. Click to try again`
-        : `Save to library (right-click to find on another source)`
+  const label = state === 'upgrade' ? t('In your library in low quality: click to download this version (it replaces the file if it\'s better)')
+    : ownedOnly ? t('In your library (right-click to download it anyway)')
+    : state === 'saved' ? t('Saved to library')
+    : state === 'saving' ? t('Saving to your library…')
+      : state === 'failed' ? (error ? t("Couldn't save: {error}. Click to try again", { error }) : t("Couldn't save. Click to try again"))
+        : t('Save to library (right-click to find on another source)')
   const Icon = state === 'saved' ? Check : state === 'failed' ? AlertCircle : state === 'upgrade' ? ArrowUpCircle : Download
   const color = state === 'upgrade' ? 'text-amber-300/80 hover:text-accent'
     : state === 'saved' ? 'text-accent' : state === 'saving' ? 'text-accent animate-pulse' : state === 'failed' ? 'text-red' : 'text-muted hover:text-accent'
@@ -187,7 +189,7 @@ export default function SaveToLibraryButton({ track, getTrack, source, meta, siz
         >
           <button role="menuitem" onClick={() => saveFromSource({ force: true })} disabled={state === 'saving' || (state === 'saved' && !ownedOnly)}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-text hover:bg-card disabled:opacity-50">
-            <Download size={14} className="text-muted" /> Download from {providerLabel}
+            <Download size={14} className="text-muted" /> {providerLabel ? t('Download from {source}', { source: providerLabel }) : t('Download from your playback sources')}
           </button>
           <div role="separator" className="my-1 h-px bg-border" />
           {findSources.map(source => (
@@ -196,7 +198,7 @@ export default function SaveToLibraryButton({ track, getTrack, source, meta, siz
               {source.addon && source.icon
                 ? <img src={source.icon} alt="" className="h-3.5 w-3.5 shrink-0 rounded-sm object-cover" referrerPolicy="no-referrer" />
                 : <SourceIcon source={source.id} size={14} colored />}
-              <span className="truncate">Find on {source.label}…</span>
+              <span className="truncate">{t('Find on {source}…', { source: source.label })}</span>
             </button>
           ))}
         </div>,

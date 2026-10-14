@@ -15,6 +15,8 @@ import { api } from '../api'
 import { inferTitleFromUrl, linkKind, splitLink } from '../downloadLinks'
 import { DownloadRow } from './DownloadManager'
 import DownloadNotices from './DownloadNotices'
+import { translate, useTranslation } from '../i18n'
+import { plural } from '../plural'
 
 function sourceOf(link) {
   try {
@@ -25,7 +27,7 @@ function sourceOf(link) {
     if (/(^|\.)bandcamp\.com$/.test(host)) return { label: 'Bandcamp' }
     return { label: host }
   } catch {
-    return { label: 'Link' }
+    return { label: translate('Link') }
   }
 }
 
@@ -35,15 +37,16 @@ function choicesFor(link) {
   if (kind === 'both') {
     const { song, list } = splitLink(link)
     return [
-      { id: 'song', kind: 'single', url: song, label: 'This song', icon: Disc3, title: inferTitleFromUrl(song, 'Song') },
-      { id: 'list', kind: 'playlist', url: list, label: 'Whole playlist', icon: ListMusic, title: inferTitleFromUrl(list, 'Playlist / Album') },
+      { id: 'song', kind: 'single', url: song, label: translate('This song'), icon: Disc3, title: inferTitleFromUrl(song, 'Song') },
+      { id: 'list', kind: 'playlist', url: list, label: translate('Whole playlist'), icon: ListMusic, title: inferTitleFromUrl(list, 'Playlist / Album') },
     ]
   }
-  if (kind === 'single') return [{ id: 'song', kind: 'single', url: link, label: 'Download song', icon: Download, title: inferTitleFromUrl(link, 'Song') }]
-  return [{ id: 'all', kind: 'playlist', url: link, label: 'Download all', icon: Download, title: inferTitleFromUrl(link, 'Playlist / Album') }]
+  if (kind === 'single') return [{ id: 'song', kind: 'single', url: link, label: translate('Download song'), icon: Download, title: inferTitleFromUrl(link, 'Song') }]
+  return [{ id: 'all', kind: 'playlist', url: link, label: translate('Download all'), icon: Download, title: inferTitleFromUrl(link, 'Playlist / Album') }]
 }
 
 export default function LinkDownload({ link }) {
+  const { t } = useTranslation()
   const source = sourceOf(link)
   const kind = linkKind(link)
   const choices = choicesFor(link)
@@ -92,16 +95,16 @@ export default function LinkDownload({ link }) {
   const saveAsPlaylist = () => window.dispatchEvent(new CustomEvent('lokal:playlist-import', { detail: { source: 'link', url: listUrl } }))
 
   const started = choices.map(jobFor).filter(Boolean)
-  const what = kind === 'single' ? 'Song' : kind === 'both' ? 'Song from a playlist' : 'Playlist, album or channel'
+  const what = kind === 'single' ? t('Song') : kind === 'both' ? t('Song from a playlist') : t('Playlist, album or channel')
   const main = info[choices[0].url]
   const cover = !coverFailed && main?.thumbnail
   // A song from a playlist: the playlist's name under it.
   const fromList = kind === 'both' ? info[listUrl]?.title : null
 
   return (
-    <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-3" aria-label="Download a link">
+    <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-3" aria-label={t('Download a link')}>
       <h2 className="text-xs font-display text-muted uppercase tracking-widest flex items-center gap-2">
-        <Link2 size={12} /> Link
+        <Link2 size={12} /> {t('Link')}
       </h2>
       <div className="rounded-2xl border border-border bg-elevated/60 p-4">
         <div className="flex items-center gap-4">
@@ -115,10 +118,10 @@ export default function LinkDownload({ link }) {
             <p className="mt-0.5 truncate text-xs text-muted">
               <span className="text-accent/90">{what}</span>
               {main?.author ? ` · ${main.author}` : ''}
-              {main?.count && kind !== 'single' ? ` · ${main.count.toLocaleString()} ${main.count === 1 ? 'song' : 'songs'}` : ''}
+              {main?.count && kind !== 'single' ? ` · ${plural(main.count, 'song')}` : ''}
               {` · ${source.label}`}
             </p>
-            <p className="mt-0.5 truncate text-[11px] text-subtle">{fromList ? `From ${fromList}` : link}</p>
+            <p className="mt-0.5 truncate text-[11px] text-subtle">{fromList ? t('From {name}', { name: fromList }) : link}</p>
           </div>
           <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
             {choices.map((choice, i) => {
@@ -129,7 +132,7 @@ export default function LinkDownload({ link }) {
                   key={choice.id}
                   onClick={() => start(choice)}
                   disabled={!!job || !!pending}
-                  title={i === 0 ? 'Enter in the search box does this too' : undefined}
+                  title={i === 0 ? t('Enter in the search box does this too') : undefined}
                   className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-default ${i === 0 ? 'bg-accent text-[rgb(var(--bg-rgb))] hover:bg-accent/85 disabled:bg-accent/30' : 'border border-border text-text hover:border-accent/50 disabled:opacity-40'}`}
                 >
                   {pending === choice.id ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Icon size={13} />}
@@ -140,11 +143,11 @@ export default function LinkDownload({ link }) {
             {listUrl && (
               <button
                 onClick={saveAsPlaylist}
-                title="Add it to your playlists without downloading; songs you don't have stream"
+                title={t("Add it to your playlists without downloading; songs you don't have stream")}
                 className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-semibold text-text transition-colors hover:border-accent/50"
               >
                 <ListPlus size={13} />
-                Save as playlist
+                {t('Save as playlist')}
               </button>
             )}
           </div>
@@ -157,7 +160,7 @@ export default function LinkDownload({ link }) {
         )}
         {!started.length && (
           <p className="mt-3 text-[11px] text-muted">
-            Saved to your music folder and added to the library, with lyrics and a square cover.{main ? '' : ` The real ${kind === 'single' ? 'title' : 'name'} is filled in from ${source.label} once it starts.`}
+            {t('Saved to your music folder and added to the library, with lyrics and a square cover.')}{main ? '' : ` ${kind === 'single' ? t('The real title is filled in from {source} once it starts.', { source: source.label }) : t('The real name is filled in from {source} once it starts.', { source: source.label })}`}
           </p>
         )}
       </div>

@@ -63,9 +63,10 @@ function Highlighted({ text, typed }) {
 
 /** A short bar left of Home while the library is being scanned (laid over, so nothing moves). */
 function ScanProgressBar() {
+  const { t } = useTranslation()
   const { scanning, done, total } = useScanProgress()
   if (!scanning) return null
-  const label = total ? `Scanning tags… ${done}/${total}` : 'Scanning tags…'
+  const label = total ? t('Scanning tags… {done}/{total}', { done, total }) : t('Scanning tags…')
   return (
     <div role="progressbar" aria-label={label} title={label} aria-valuemin={0} aria-valuemax={total || undefined} aria-valuenow={total ? done : undefined}
       className="absolute right-full top-1/2 mr-2 h-1 w-14 -translate-y-1/2 overflow-hidden rounded-full bg-border">
@@ -294,9 +295,9 @@ export default function HeaderSearch() {
             onContextMenu={event => {
               const current = readFlowSettings(userId || 'guest').mood
               moodMenu.open(event, FLOW_MOODS.map(item => ({
-                label: item.label, // "Flow" first, then the moods by name
+                label: t(item.label), // "Flow" first, then the moods by name
                 icon: MOOD_ICONS[item.id],
-                hint: item.id === current ? 'Current' : undefined,
+                hint: item.id === current ? t('Current') : undefined,
                 onSelect: () => playRandom(item.id),
               })))
             }}
@@ -326,11 +327,11 @@ export default function HeaderSearch() {
             >
               <div className="flex items-center justify-between px-4 py-2 border-b border-border">
                 <span className="text-xs text-muted flex items-center gap-2">
-                  <Clock size={11} /> {query.trim() ? 'Matching searches' : 'Recent searches'}
+                  <Clock size={11} /> {query.trim() ? t('Matching searches') : t('Recent searches')}
                 </span>
                 {!query.trim() && (
                   <button onClick={() => { clearRecentSearches(); setDropdownOpen(false) }} className="text-xs text-muted hover:text-text transition-colors">
-                    Clear
+                    {t('Clear')}
                   </button>
                 )}
               </div>
@@ -350,7 +351,7 @@ export default function HeaderSearch() {
                     <button
                       onClick={(e) => { e.stopPropagation(); removeRecentSearch(entry.query) }}
                       title={t("Remove from history")}
-                      aria-label={`Remove ${entry.query} from history`}
+                      aria-label={t('Remove {query} from history', { query: entry.query })}
                       className="opacity-0 group-hover/row:opacity-100 w-6 h-6 rounded-full flex items-center justify-center text-muted hover:text-text"
                     >
                       <X size={13} />

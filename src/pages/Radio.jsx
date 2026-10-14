@@ -9,12 +9,14 @@ import { trackArtURL } from '../onlineTracks'
 import FadeImg from '../components/FadeImg'
 import { showToast } from '../components/Toaster'
 import { api } from '../api'
+import { useTranslation } from '../i18n'
 
 // A radio starts playing once this many of its songs are found (or the seed,
 // when it's the song already playing); the rest join the queue as they come.
 const START_WITH = 3
 
 export default function Radio() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAppStore()
@@ -22,7 +24,7 @@ export default function Radio() {
   const extendQueue = usePlayerStore(s => s.extendQueue)
   const continueAsQueue = usePlayerStore(s => s.continueAsQueue)
   const seed = location.state?.seed || location.state?.tracks?.[0]
-  const name = location.state?.name || 'Song Radio'
+  const name = location.state?.name || t('Song Radio')
   const [tracks, setTracks] = useState(() => location.state?.tracks || [])
   const [building, setBuilding] = useState(false)
   const [emptyMessage, setEmptyMessage] = useState('')
@@ -73,7 +75,7 @@ export default function Radio() {
         if (!list.length) {
           const message = emptyRadioMessage(buildSeed)
           setEmptyMessage(message)
-          showToast(message)
+          showToast(t(message))
         }
       })
       .catch(() => { if (isCurrent()) setEmptyMessage(emptyRadioMessage(buildSeed)) })
@@ -108,24 +110,24 @@ export default function Radio() {
   const playRadio = () => { if (tracks.length) playQueue(tracks, 0, newContext()) }
 
   const save = async () => {
-    const playlist = await saveAsPlaylist(`${seed?.title || seed?.artist || 'Song'} Radio`, tracks, { userId: user?.id, description: 'Generated radio from Lokal' }).catch(() => null)
-    showToast(playlist ? 'Radio saved as a playlist' : 'Could not save radio')
+    const playlist = await saveAsPlaylist(t('{name} Radio', { name: seed?.title || seed?.artist || t('Song') }), tracks, { userId: user?.id, description: t('Generated radio from Lokal') }).catch(() => null)
+    showToast(playlist ? t('Radio saved as a playlist') : t('Could not save radio'))
   }
 
   const heroArt = trackArtURL(seed)
   return <div className="min-h-full p-6 pb-10"><div className="mx-auto max-w-5xl space-y-7">
-    <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-muted hover:text-white"><ArrowLeft size={15} />Back</button>
-    <div className="flex flex-col gap-5 @md:flex-row @md:items-end"><div className="h-36 w-36 overflow-hidden rounded-xl bg-card shadow-xl">{heroArt ? <FadeImg src={heroArt} className="h-full w-full object-cover" /> : <RadioIcon size={38} className="m-12 text-accent" />}</div><div><p className="text-[11px] font-display uppercase tracking-[0.3em] text-accent">Radio</p><h1 className="mt-2 text-3xl font-medium text-white">{name}</h1><p className="mt-2 text-sm text-muted">A continuous mix based on {seed?.title || seed?.artist || 'your selection'}.</p><div className="mt-4 flex gap-2"><button type="button" onClick={playRadio} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-medium text-black disabled:opacity-40"><Play size={15} fill="currentColor" />Play radio</button><button type="button" onClick={regenerate} disabled={building} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/75"><RefreshCw size={15} className={building ? 'animate-spin' : ''} />Regenerate</button><button type="button" onClick={save} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/75 disabled:opacity-40"><ListPlus size={15} />Save</button></div></div></div>
+    <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-muted hover:text-white"><ArrowLeft size={15} />{t('Back')}</button>
+    <div className="flex flex-col gap-5 @md:flex-row @md:items-end"><div className="h-36 w-36 overflow-hidden rounded-xl bg-card shadow-xl">{heroArt ? <FadeImg src={heroArt} className="h-full w-full object-cover" /> : <RadioIcon size={38} className="m-12 text-accent" />}</div><div><p className="text-[11px] font-display uppercase tracking-[0.3em] text-accent">{t('Radio')}</p><h1 className="mt-2 text-3xl font-medium text-white">{name}</h1><p className="mt-2 text-sm text-muted">{t('A continuous mix based on {name}.', { name: seed?.title || seed?.artist || t('your selection') })}</p><div className="mt-4 flex gap-2"><button type="button" onClick={playRadio} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-medium text-black disabled:opacity-40"><Play size={15} fill="currentColor" />{t('Play radio')}</button><button type="button" onClick={regenerate} disabled={building} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/75"><RefreshCw size={15} className={building ? 'animate-spin' : ''} />{t('Regenerate')}</button><button type="button" onClick={save} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/75 disabled:opacity-40"><ListPlus size={15} />{t('Save')}</button></div></div></div>
     {building && (
       <p className="flex items-center gap-2 text-sm text-muted" aria-live="polite">
         <Loader2 size={14} className="animate-spin" />
         {tracks.length
-          ? `Building your radio… ${tracks.length} song${tracks.length === 1 ? '' : 's'} so far${playing ? ', playing' : ''}`
-          : 'Building your radio… finding the first songs'}
+          ? (playing ? t('Building your radio… {n} song so far, playing|Building your radio… {n} songs so far, playing', { n: tracks.length }) : t('Building your radio… {n} song so far|Building your radio… {n} songs so far', { n: tracks.length }))
+          : t('Building your radio… finding the first songs')}
       </p>
     )}
     {!building && emptyMessage && !tracks.length && (
-      <div className="rounded-xl border border-border bg-card/40 px-4 py-6 text-center text-sm text-muted">{emptyMessage}</div>
+      <div className="rounded-xl border border-border bg-card/40 px-4 py-6 text-center text-sm text-muted">{t(emptyMessage)}</div>
     )}
     {tracks.length > 0 && <TrackList tracks={tracks} reduceMotion />}
   </div></div>

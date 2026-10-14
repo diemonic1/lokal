@@ -9,6 +9,7 @@ export const TRACK_COLUMN_OPTIONS = [
   ['quality', 'Quality'],
   ['genre', 'Genre'],
   ['comment', 'Comment'],
+  ['lyrics', 'Lyrics'],
   ['added', 'Date added'],
   ['time', 'Duration'],
   ['actions', 'Quick actions'],
@@ -30,17 +31,19 @@ export const TRACK_COLUMN_DEFS = {
   quality: { label: 'Quality', fixed: 4.5, min: 3.5 },
   genre: { label: 'Genre', flex: 1.2, min: 5 },
   comment: { label: 'Comment', flex: 1.5, min: 6 },
+  // Lyrics in the file's tags: "sync", "plain" or nothing.
+  lyrics: { label: 'Lyrics', fixed: 3, min: 2.5 },
   added: { label: 'Date added', fixed: 5.5, min: 4 },
   time: { label: 'Duration', fixed: 3, min: 2.5 },
 }
-export const DEFAULT_COLUMN_ORDER = ['number', 'tracknum', 'title', 'album', 'source', 'quality', 'genre', 'comment', 'added', 'time']
+export const DEFAULT_COLUMN_ORDER = ['number', 'tracknum', 'title', 'album', 'source', 'quality', 'genre', 'comment', 'lyrics', 'added', 'time']
 export const ALWAYS_SHOWN = new Set(['title', 'album'])
 export const MAX_FIXED_WIDTH = 30
 
 export const ROW_SIZE = { min: 0.75, max: 1.5, step: 0.05, initial: 1 }
 
 export function trackColumnDefaults(showQuality = false, playlist = false) {
-  return { number: true, tracknum: false, artwork: true, artist: true, source: true, quality: showQuality, genre: false, comment: false, added: playlist, time: true, actions: true, grip: true }
+  return { number: true, tracknum: false, artwork: true, artist: true, source: true, quality: showQuality, genre: false, comment: false, lyrics: false, added: playlist, time: true, actions: true, grip: true }
 }
 
 export function trackColumnPreferences(saved, showQuality = false, playlist = false) {
@@ -97,6 +100,7 @@ export function trackColumnLayout(width, columns, { playlist = false, actionSlot
   fit('tracknum', fixedWidth('tracknum'), columns.tracknum)
   fit('genre', TRACK_COLUMN_DEFS.genre.min, columns.genre)
   fit('comment', TRACK_COLUMN_DEFS.comment.min, columns.comment)
+  fit('lyrics', fixedWidth('lyrics'), columns.lyrics)
   fit('added', fixedWidth('added'), columns.added)
   fit('grip', 1, playlist && columns.grip)
   const extraActions = actionSlots * 1.25 + 1.5

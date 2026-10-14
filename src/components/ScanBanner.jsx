@@ -34,7 +34,7 @@ export default function ScanBanner() {
     // server's folder, or a path typed in when there's none yet.
     const f = api.isElectron
       ? await api.openFolder()
-      : folder || window.prompt('Path to your music folder on the server')?.trim()
+      : folder || window.prompt(t('Path to your music folder on the server'))?.trim()
     if (!f) return
     setFolder(f)
     api.scanFolder(f).then(refreshAfterRequest)
@@ -47,18 +47,18 @@ export default function ScanBanner() {
         <p className="text-xs text-muted mt-0.5 font-display truncate">{folder || (folderKnown ? t('Not set') : '\u00a0')}</p>
         {progress && !progress.complete && (
           <div className="mt-2 space-y-1">
-            <p className="text-xs text-accent">Scanning… {progress.done}/{progress.total} · {progress.skipped || 0} skipped</p>
+            <p className="text-xs text-accent">{t('Scanning… {done}/{total} · {skipped} skipped', { done: progress.done, total: progress.total, skipped: progress.skipped || 0 })}</p>
             <div className="h-0.5 bg-border rounded-full w-48 overflow-hidden">
               <motion.div className="h-full bg-accent rounded-full" animate={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : '0%' }} />
             </div>
           </div>
         )}
-        {progress?.complete && <p className="text-xs text-accent mt-1">✓ {plural(progress.done - (progress.skipped || 0), 'track')} indexed</p>}
+        {progress?.complete && <p className="text-xs text-accent mt-1">✓ {t('{tracks} indexed', { tracks: plural(progress.done - (progress.skipped || 0), 'track') })}</p>}
       </div>
       <div className="flex gap-2 flex-shrink-0">
         {folder && (
           <button onClick={() => api.scanFolder(folder, { full: true }).then(refreshAfterRequest)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted hover:text-white transition-colors">
-            <RefreshCw size={12} /> Rescan
+            <RefreshCw size={12} /> {t('Rescan')}
           </button>
         )}
         <button onClick={scan} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-base text-xs font-medium hover:bg-accent/80 transition-colors">

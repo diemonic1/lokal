@@ -106,8 +106,8 @@ export default function Search() {
     if (!query.trim() || link) { doSearch(''); return }
     searchSeqRef.current++
     setSearching(true)
-    const t = setTimeout(() => doSearch(query), 200)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => doSearch(query), 200)
+    return () => clearTimeout(timer)
   }, [query, link, doSearch])
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function Search() {
         if (entry.id === item.id) start = list.length
         list.push(tracks[i])
       })
-      if (start >= 0) playQueue(list, start, { type: 'search', name: 'Recent' })
+      if (start >= 0) playQueue(list, start, { type: 'search', name: t('Recent') })
     } else if (item.type === 'album') {
       nav('/albums', { state: { album: item } })
     }
@@ -215,7 +215,7 @@ export default function Search() {
           {recentItems.length > 0 && (
             <section>
               <h2 className="text-xs font-display text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Clock size={12} /> Recent
+                <Clock size={12} /> {t('Recent')}
               </h2>
               <div className="grid grid-cols-3 @sm:grid-cols-5 gap-3">
                 {recentItems.map((item, i) => (
@@ -261,10 +261,10 @@ export default function Search() {
                         <p className="text-[10px] text-muted truncate w-full max-w-full">{item.artist}</p>
                       )}
                       {item.type === 'artist' && (
-                        <p className="text-[10px] text-muted">Artist</p>
+                        <p className="text-[10px] text-muted">{t('Artist')}</p>
                       )}
                       {item.type === 'album' && (
-                        <p className="text-[10px] text-muted">Album</p>
+                        <p className="text-[10px] text-muted">{t('Album')}</p>
                       )}
                     </div>
                   </motion.button>
@@ -290,9 +290,9 @@ export default function Search() {
         <>
           {correction && correction.from === query.trim() && (
             <p role="status" className="text-sm text-muted">
-              Showing results for <button type="button" onClick={() => setQuery(correction.to)} className="font-medium italic text-white hover:underline">{correction.to}</button>
+              {t('Showing results for')} <button type="button" onClick={() => setQuery(correction.to)} className="font-medium italic text-white hover:underline">{correction.to}</button>
               <span className="mx-2 text-subtle">·</span>
-              <button type="button" onClick={() => { exactRef.current = correction.from; doSearch(correction.from) }} className="hover:text-white hover:underline">Search for “{correction.from}” instead</button>
+              <button type="button" onClick={() => { exactRef.current = correction.from; doSearch(correction.from) }} className="hover:text-white hover:underline">{t('Search for “{query}” instead', { query: correction.from })}</button>
             </p>
           )}
 
@@ -363,7 +363,7 @@ export default function Search() {
                         <p className="text-xs text-muted truncate">{track.artist}{track.album ? ` · ${track.album}` : ''}</p>
                       </div>
                       <div className="flex items-center gap-2 text-accent flex-shrink-0">
-                        <span className="text-[10px] font-display uppercase tracking-[0.22em]">Play</span>
+                        <span className="text-[10px] font-display uppercase tracking-[0.22em]">{t('Play')}</span>
                         <Play size={13} fill="currentColor" />
                       </div>
                     </div>
@@ -377,7 +377,7 @@ export default function Search() {
           {query && !searching && !tracks.length && !artists.length && !albums.length && !lyricMatches.length && (
             <div className="flex items-center gap-3 py-3 text-muted">
               <Music size={18} className="opacity-40" />
-              <p className="text-sm">Nothing in your library for "{correction?.from === query.trim() ? correction.to : query}"</p>
+              <p className="text-sm">{t('Nothing in your library for "{query}"', { query: correction?.from === query.trim() ? correction.to : query })}</p>
             </div>
           )}
 

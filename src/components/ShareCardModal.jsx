@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react'
 import { Copy, Download, Check, Loader2 } from 'lucide-react'
 import Modal from './Modal'
 import { renderShareCard } from '../shareCard'
+import { useTranslation } from '../i18n'
 
 const safeName = (name) => String(name || 'lokal').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'lokal'
 
 export default function ShareCardModal() {
+  const { t } = useTranslation()
   const [spec, setSpec] = useState(null)
   const [card, setCard] = useState(null) // { url, blob } | { error }
   const [copied, setCopied] = useState(false)
@@ -57,26 +59,26 @@ export default function ShareCardModal() {
   }
 
   return (
-    <Modal open={!!spec} onClose={close} title={`Share ${String(spec?.kind || '').toLowerCase()}`} width="max-w-md">
+    <Modal open={!!spec} onClose={close} title={t(`Share ${String(spec?.kind || '').toLowerCase()}`)} width="max-w-md">
       <div className="space-y-4">
         <div className="mx-auto aspect-[4/5] w-full max-w-[340px] overflow-hidden rounded-xl border border-border bg-card">
           {card?.url
-            ? <img src={card.url} alt={`Share card for ${spec?.title || ''}`} className="h-full w-full object-cover" />
+            ? <img src={card.url} alt={t('Share card for {name}', { name: spec?.title || '' })} className="h-full w-full object-cover" />
             : (
               <div className="flex h-full w-full items-center justify-center text-xs text-muted">
-                {card?.error ? card.error : <Loader2 size={18} className="animate-spin" />}
+                {card?.error ? t(card.error) : <Loader2 size={18} className="animate-spin" />}
               </div>
             )}
         </div>
-        {card?.copyError && <p className="text-center text-[11px] text-muted">{card.copyError}</p>}
+        {card?.copyError && <p className="text-center text-[11px] text-muted">{t(card.copyError)}</p>}
         <div className="flex gap-2">
           <button onClick={copy} disabled={!card?.blob}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-white/85 hover:text-white disabled:opacity-40">
-            {copied ? <Check size={15} className="text-accent" /> : <Copy size={15} />} {copied ? 'Copied' : 'Copy image'}
+            {copied ? <Check size={15} className="text-accent" /> : <Copy size={15} />} {copied ? t('Copied') : t('Copy image')}
           </button>
           <button onClick={save} disabled={!card?.url}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base hover:bg-accent-dim disabled:opacity-40">
-            <Download size={15} /> Save image
+            <Download size={15} /> {t('Save image')}
           </button>
         </div>
       </div>

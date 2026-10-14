@@ -50,7 +50,7 @@ function SleepTimerButton() {
         type="button"
         onClick={() => setOpen(!open)}
         className={`${HEADER_ICON} ${headerIconTone(!!sleepTimerEndTime)}`}
-        title={sleepTimerEndTime ? `${t("Sleep Timer")}: ${display}` : t("Sleep Timer")}
+        title={sleepTimerEndTime ? t('Sleep Timer: {time}', { time: display }) : t("Sleep Timer")}
         aria-label={t("Sleep Timer")}
       >
         <Moon size={15} />
@@ -65,7 +65,7 @@ function SleepTimerButton() {
     <Modal open={open} onClose={() => setOpen(false)} title={t("Sleep Timer")} width="max-w-xs">
       <div className="space-y-3">
         <p className="text-xs text-muted">
-          Music will stop after the selected time. Use this if you would like the app to stop while you are sleeping.
+          {t('Music will stop after the selected time. Use this if you would like the app to stop while you are sleeping.')}
         </p>
         <div className="grid grid-cols-2 gap-2">
           {[5, 10, 15, 30, 45, 60].map(mins => (
@@ -78,19 +78,19 @@ function SleepTimerButton() {
                   : 'bg-card border border-border text-muted hover:text-white hover:border-accent/30'
               }`}
             >
-              {mins} min
+              {t('{n} min', { n: mins })}
             </button>
           ))}
         </div>
         {sleepTimerEndTime && (
           <div className="pt-3 border-t border-border">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-accent">Timer active: {display}</span>
+              <span className="text-sm text-accent">{t('Timer active: {time}', { time: display })}</span>
               <button
                 onClick={() => { cancelSleepTimer(); setOpen(false) }}
                 className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
               >
-                <X size={12} /> Cancel
+                <X size={12} /> {t('Cancel')}
               </button>
             </div>
           </div>
@@ -99,7 +99,7 @@ function SleepTimerButton() {
           onClick={() => setOpen(false)}
           className="w-full py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors"
         >
-          Close
+          {t('Close')}
         </button>
       </div>
     </Modal>

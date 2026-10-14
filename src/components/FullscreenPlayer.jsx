@@ -17,6 +17,7 @@ import { startCoverFlight } from '../coverFlight'
 import { QueueContent } from './QueuePanel'
 import LyricsFullscreen, { FULLSCREEN_SWITCH, FULLSCREEN_IN, FULLSCREEN_OUT } from './LyricsFullscreen'
 import { api, wordSyncEnabled } from '../api'
+import { useTranslation } from '../i18n'
 import { contextLabel, isContextNavigable, navigateToContext } from '../playbackContext'
 import { trackArtURL } from '../onlineTracks'
 
@@ -57,6 +58,7 @@ function CoverIcon({ onClick, label, pressed, dim = false, children }) {
 
 /** Volume as a slim glass pill up the cover's edge: drag (or click) along it. */
 function VolumePill({ volume, onChange }) {
+  const { t } = useTranslation()
   const ref = useRef(null)
   const setFrom = (clientY) => {
     const r = ref.current?.getBoundingClientRect()
@@ -79,8 +81,8 @@ function VolumePill({ volume, onChange }) {
   // light over the glass.
   const covered = volume > 0.12
   return (
-    <div ref={ref} role="slider" tabIndex={0} aria-label="Volume" aria-orientation="vertical"
-      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(volume * 100)} title={`Volume ${Math.round(volume * 100)}%`}
+    <div ref={ref} role="slider" tabIndex={0} aria-label={t('Volume')} aria-orientation="vertical"
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(volume * 100)} title={t('Volume {n}%', { n: Math.round(volume * 100) })}
       onPointerDown={start} onKeyDown={keys}
       className={`relative h-44 w-7 cursor-pointer overflow-hidden rounded-full border border-white/[0.14] bg-white/[0.06] backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)] outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${COVER_FADE}`}>
       <div className="absolute inset-x-0 bottom-0 bg-white/60" style={{ height: `${Math.round(volume * 100)}%` }} />
@@ -95,6 +97,7 @@ function fmt(s) {
 }
 
 function SearchDrawer({ track, onClose, onSelect }) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState(track?.title || '')
   const [artist, setArtist] = useState(track?.artist || '')
   const [results, setResults] = useState([])
@@ -151,27 +154,27 @@ function SearchDrawer({ track, onClose, onSelect }) {
           className="absolute top-5 left-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
           <X size={15} />
         </button>
-        <h3 className="text-sm font-medium text-white">Search Lyrics</h3>
+        <h3 className="text-sm font-medium text-white">{t('Search Lyrics')}</h3>
       </div>
 
       <div className="p-4 space-y-3 border-b border-white/10">
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider">Title</label>
+          <label className="text-xs text-white/40 uppercase tracking-wider">{t('Title')}</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Track title"
+            placeholder={t('Track title')}
             className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-accent/50"
           />
         </div>
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider">Artist</label>
+          <label className="text-xs text-white/40 uppercase tracking-wider">{t('Artist')}</label>
           <input
             type="text"
             value={artist}
             onChange={(e) => setArtist(e.target.value)}
-            placeholder="Artist name"
+            placeholder={t('Artist name')}
             className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-accent/50"
           />
         </div>
@@ -180,14 +183,14 @@ function SearchDrawer({ track, onClose, onSelect }) {
           disabled={!title || !artist || loading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent text-base rounded-lg text-sm font-medium hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Searching...' : <><Search size={14} /> Search</>}
+          {loading ? t('Searching...') : <><Search size={14} /> {t('Search')}</>}
         </button>
         {error && <p className="text-xs text-red-400">{error}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
         {results.length === 0 && !loading && !error && (
-          <p className="text-xs text-white/30 text-center py-8">Enter title and artist to search</p>
+          <p className="text-xs text-white/30 text-center py-8">{t('Enter title and artist to search')}</p>
         )}
         {results.map((r, i) => (
           <button
@@ -204,7 +207,7 @@ function SearchDrawer({ track, onClose, onSelect }) {
               <div className="flex flex-col items-end gap-1">
                 <span className="text-xs text-white/40">{formatDuration(r.duration)}</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded ${r.syncedLyrics ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/40'}`}>
-                  {r.syncedLyrics ? 'Synced' : 'Unsynced'}
+                  {r.syncedLyrics ? t('Synced') : t('Unsynced')}
                 </span>
               </div>
             </div>
@@ -216,6 +219,7 @@ function SearchDrawer({ track, onClose, onSelect }) {
 }
 
 export default function FullscreenPlayer() {
+  const { t } = useTranslation()
   const {
     showFullscreen, toggleFullscreen, currentTrack, isPlaying,
     progress, duration, volume, shuffle, repeat,
@@ -663,16 +667,16 @@ export default function FullscreenPlayer() {
           <div className={`absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-start gap-4 px-5 pt-5 ${chromeHidden ? 'pointer-events-none' : ''}`}
             onMouseEnter={() => { overChromeRef.current = true }} onMouseLeave={() => { overChromeRef.current = false }}>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={toggleFullscreen} title="Close" aria-label="Close full-screen player"
+              <button onClick={toggleFullscreen} title={t('Close')} aria-label={t('Close full-screen player')}
                 className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
                 <X size={15} />
               </button>
               {/* Straight to full-screen lyrics (the view to come back from
                   has a Player button). */}
               {currentTrack && (
-                <button onClick={() => switchFullscreenView('lyrics')} title="Switch to full-screen lyrics"
+                <button onClick={() => switchFullscreenView('lyrics')} title={t('Switch to full-screen lyrics')}
                   className={`h-9 px-3.5 flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs text-white/80 hover:text-white backdrop-blur-sm ${chromeFade}`}>
-                  <Maximize2 size={13} /> Lyrics
+                  <Maximize2 size={13} /> {t('Lyrics')}
                 </button>
               )}
             </div>
@@ -684,7 +688,7 @@ export default function FullscreenPlayer() {
                 {canOpenContext ? (
                   <button
                     onClick={openContext}
-                    title={`Go to ${playbackContext.name}`}
+                    title={t('Go to {name}', { name: playbackContext.name })}
                     className="mt-1 max-w-full truncate text-sm font-medium text-white/85 hover:text-white hover:underline transition-colors">
                     {playbackContext.name}
                   </button>
@@ -693,7 +697,7 @@ export default function FullscreenPlayer() {
                 )}
               </div>
             )}
-            <button onClick={toggleScreen} title={screenFull ? 'Exit full screen' : 'Fill the whole screen'} aria-label={screenFull ? 'Exit full screen' : 'Fill the whole screen'}
+            <button onClick={toggleScreen} title={screenFull ? t('Exit full screen') : t('Fill the whole screen')} aria-label={screenFull ? t('Exit full screen') : t('Fill the whole screen')}
               className={`col-start-3 justify-self-end w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
               {screenFull ? <Minimize size={15} /> : <Expand size={15} />}
             </button>
@@ -738,7 +742,7 @@ export default function FullscreenPlayer() {
                   <div data-shown={controlsShown} className="group/controls absolute inset-0 z-10 flex flex-col justify-between">
                     <div className={`absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40 pointer-events-none ${COVER_FADE}`} />
                     <div className="relative flex items-center justify-center gap-3 pt-5">
-                      <CoverButton onClick={toggleLike} label={isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs'} active={isLiked}>
+                      <CoverButton onClick={toggleLike} label={isLiked ? t('Remove from Liked Songs') : t('Add to Liked Songs')} active={isLiked}>
                         <Heart size={19} fill={isLiked ? 'currentColor' : 'none'} />
                         <AnimatePresence>
                           {likeAnim && (
@@ -749,36 +753,36 @@ export default function FullscreenPlayer() {
                           )}
                         </AnimatePresence>
                       </CoverButton>
-                      <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label="Add to a playlist"><ListPlus size={19} /></CoverButton>
-                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? 'Hide the queue' : 'Show the queue'} active={fullscreenPanel === 'queue'}><ListMusic size={19} /></CoverButton>
-                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? 'Hide the lyrics' : 'Show the lyrics'} active={fullscreenPanel === 'lyrics'}><Mic2 size={19} /></CoverButton>
+                      <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label={t('Add to a playlist')}><ListPlus size={19} /></CoverButton>
+                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? t('Hide the queue') : t('Show the queue')} active={fullscreenPanel === 'queue'}><ListMusic size={19} /></CoverButton>
+                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? t('Hide the lyrics') : t('Show the lyrics')} active={fullscreenPanel === 'lyrics'}><Mic2 size={19} /></CoverButton>
                       {clipNow && (
-                        <CoverButton onClick={() => setCoverOff(!coverOff)} label={coverOff ? `Show ${clipName}` : `Hide ${clipName}`} active={coverOff}>
+                        <CoverButton onClick={() => setCoverOff(!coverOff)} label={clipName === 'Canvas' ? (coverOff ? t('Show Canvas') : t('Hide Canvas')) : (coverOff ? t('Show Moving Cover') : t('Hide Moving Cover'))} active={coverOff}>
                           {coverOff ? <Film size={19} /> : <ImageIcon size={19} />}
                         </CoverButton>
                       )}
                     </div>
                     <div className={`relative flex items-center justify-center gap-8 pb-7 ${COVER_FADE}`}>
-                      <CoverIcon onClick={toggleShuffle} label="Shuffle" pressed={shuffle} dim={!shuffle}>
+                      <CoverIcon onClick={toggleShuffle} label={t('Shuffle')} pressed={shuffle} dim={!shuffle}>
                         <Shuffle size={22} className={shuffle ? 'text-accent' : ''} />
                       </CoverIcon>
-                      <CoverIcon onClick={prev} label="Previous">
+                      <CoverIcon onClick={prev} label={t('Previous')}>
                         <SkipBack size={32} fill="currentColor" />
                       </CoverIcon>
-                      <CoverIcon onClick={togglePlay} label={isPlaying ? 'Pause' : 'Play'}>
+                      <CoverIcon onClick={togglePlay} label={isPlaying ? t('Pause') : t('Play')}>
                         {isPlaying ? <Pause size={44} fill="currentColor" strokeWidth={0} /> : <Play size={44} fill="currentColor" strokeWidth={0} className="translate-x-0.5" />}
                       </CoverIcon>
-                      <CoverIcon onClick={() => next(false)} label="Next">
+                      <CoverIcon onClick={() => next(false)} label={t('Next')}>
                         <SkipForward size={32} fill="currentColor" />
                       </CoverIcon>
-                      <CoverIcon onClick={toggleRepeat} label="Repeat" pressed={repeat !== 'none'} dim={repeat === 'none'}>
+                      <CoverIcon onClick={toggleRepeat} label={t('Repeat')} pressed={repeat !== 'none'} dim={repeat === 'none'}>
                         <RepeatIcon size={22} className={repeat !== 'none' ? 'text-accent' : ''} />
                       </CoverIcon>
                     </div>
                     {/* The music video, mid left edge (opposite the volume). */}
                     {musicVideo && (
                       <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                        <CoverButton onClick={showMusicVideo} label="Play the music video"><Clapperboard size={19} /></CoverButton>
+                        <CoverButton onClick={showMusicVideo} label={t('Play the music video')}><Clapperboard size={19} /></CoverButton>
                       </div>
                     )}
                     {/* Volume, up the right edge. */}
@@ -794,7 +798,7 @@ export default function FullscreenPlayer() {
               <MixingMark className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none !text-white/80" />
               <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
               <div ref={barRef} className="group/bar relative h-3.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-white/20 backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
-                onPointerDown={startScrub} role="slider" aria-label="Position" aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
+                onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                 <div className="absolute inset-y-0 left-0 bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
               </div>
               <span className="w-11 text-sm tabular-nums text-white/75">{fmt(duration)}</span>
@@ -823,10 +827,10 @@ export default function FullscreenPlayer() {
                 ) : (
                   <>
                     <div className={`absolute right-6 top-[4.5rem] z-10 flex items-center gap-1 transition-opacity duration-300 ${chromeHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                      <button onClick={toggleLyricsFullscreen} className="p-2 text-white/40 hover:text-white transition-colors" title="Expand lyrics" aria-label="Expand lyrics">
+                      <button onClick={toggleLyricsFullscreen} className="p-2 text-white/40 hover:text-white transition-colors" title={t('Expand lyrics')} aria-label={t('Expand lyrics')}>
                         <Maximize2 size={15} />
                       </button>
-                      <button onClick={() => setShowSearch(true)} className="p-2 text-white/40 hover:text-white transition-colors" title="Search lyrics" aria-label="Search lyrics">
+                      <button onClick={() => setShowSearch(true)} className="p-2 text-white/40 hover:text-white transition-colors" title={t('Search lyrics')} aria-label={t('Search lyrics')}>
                         <Search size={15} />
                       </button>
                     </div>

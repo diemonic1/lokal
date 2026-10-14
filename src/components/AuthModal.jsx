@@ -4,6 +4,7 @@ import { Eye, EyeOff, User, Lock, Sparkles } from 'lucide-react'
 import Modal from './Modal'
 import { useAppStore } from '../store/player'
 import { api } from '../api'
+import { useTranslation } from '../i18n'
 
 function Field({ label, type = 'text', value, onChange, placeholder, icon: Icon, rightSlot }) {
   return (
@@ -26,6 +27,7 @@ function Field({ label, type = 'text', value, onChange, placeholder, icon: Icon,
 
 export default function AuthModal() {
   const { showAuthModal, authMode, closeAuth, setUser, openAuth } = useAppStore()
+  const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', displayName: '', password: '' })
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -78,19 +80,19 @@ export default function AuthModal() {
               {authMode === 'login' ? <User size={18} className="text-accent" /> : <Sparkles size={18} className="text-accent" />}
             </div>
             <h2 className="font-display text-lg text-white">
-              {authMode === 'login' ? 'Welcome back' : 'Create account'}
+              {authMode === 'login' ? t('Welcome back') : t('Create account')}
             </h2>
-            <p className="text-xs text-muted mt-1">{authMode === 'login' ? 'Sign in to your profile' : 'Set up your local profile'}</p>
+            <p className="text-xs text-muted mt-1">{authMode === 'login' ? t('Sign in to your profile') : t('Set up your local profile')}</p>
           </div>
 
-          <Field label="Username" value={form.username} onChange={set('username')} placeholder="sipbuu" icon={User} />
+          <Field label={t('Username')} value={form.username} onChange={set('username')} placeholder="sipbuu" icon={User} />
 
           {authMode === 'register' && (
-            <Field label="Display Name" value={form.displayName} onChange={set('displayName')} placeholder="Your name" />
+            <Field label={t('Display Name')} value={form.displayName} onChange={set('displayName')} placeholder={t('Your name')} />
           )}
 
           <Field
-            label="Password" type={showPass ? 'text' : 'password'}
+            label={t('Password')} type={showPass ? 'text' : 'password'}
             value={form.password} onChange={set('password')} placeholder="••••••••" icon={Lock}
             rightSlot={
               <button type="button" onClick={() => setShowPass(v => !v)} className="text-muted hover:text-white transition-colors">
@@ -110,16 +112,16 @@ export default function AuthModal() {
             disabled={loading || !form.username || !form.password}
             className="w-full py-2.5 bg-accent text-base rounded-xl text-sm font-medium hover:bg-accent-dim transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-2"
           >
-            {loading ? 'Please wait…' : authMode === 'login' ? 'Sign In' : 'Create Account'}
+            {loading ? t('Please wait…') : authMode === 'login' ? t('Sign In') : t('Create Account')}
           </button>
 
           <p className="text-xs text-center text-muted pt-1">
-            {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            {authMode === 'login' ? t("Don't have an account?") : t('Already have an account?')}{' '}
             <button type="button" onClick={switchMode} className="text-accent hover:text-accent-dim transition-colors">
-              {authMode === 'login' ? 'Create one' : 'Sign in'}
+              {authMode === 'login' ? t('Create one') : t('Sign in')}
             </button>
             .<br />
-            <span className="text-muted/70">Your account is stored locally and not sent anywhere.</span>
+            <span className="text-muted/70">{t('Your account is stored locally and not sent anywhere.')}</span>
           </p>
           
         </motion.form>

@@ -2,6 +2,8 @@
 // summary on its page (the rules themselves are applied by
 // electron/playlists/smart.js).
 
+import { translate } from './i18n'
+
 const TEXT_OPS = [['contains', 'contains'], ['is', 'is'], ['not', 'is not'], ['excludes', "doesn't contain"]]
 const NUMBER_OPS = [['gte', 'at least'], ['lte', 'at most'], ['eq', 'exactly']]
 
@@ -75,15 +77,16 @@ const folderName = (path) => String(path || '').replace(/[\\/]+$/, '').split(/[\
 export function describeRule(rule) {
   const spec = SMART_FIELDS[rule?.field]
   if (!spec) return ''
-  const op = spec.ops.find(([id]) => id === rule.op)?.[1] || ''
-  if (spec.input === 'none') return `${spec.label}: ${op}`
-  if (rule.op === 'never') return `${spec.label}: never`
+  const label = translate(spec.label)
+  const op = translate(spec.ops.find(([id]) => id === rule.op)?.[1] || '')
+  if (spec.input === 'none') return `${label}: ${op}`
+  if (rule.op === 'never') return `${label}: ${translate('never')}`
   let value = rule.value
-  if (spec.input === 'select') value = spec.options.find(([id]) => id === rule.value)?.[1] || rule.value
+  if (spec.input === 'select') value = translate(spec.options.find(([id]) => id === rule.value)?.[1] || '') || rule.value
   if (spec.input === 'folder') value = folderName(rule.value)
-  if (spec.input === 'days') value = `${rule.value} ${spec.suffix?.[rule.op] || 'days'}`
-  if (spec.unit) value = `${rule.value} ${spec.unit}`
-  return `${spec.label} ${op} ${value}`
+  if (spec.input === 'days') value = `${rule.value} ${translate(spec.suffix?.[rule.op] || 'days')}`
+  if (spec.unit) value = `${rule.value} ${translate(spec.unit)}`
+  return `${label} ${op} ${value}`
 }
 
 /** One line for the playlist's page: "Genre is Jazz · Added in the last 30 days · 50 songs, random". */
@@ -91,10 +94,10 @@ export function describeRules(rules) {
   const read = readRules(rules)
   if (!read) return ''
   const parts = read.rules.filter(ruleComplete).map(describeRule)
-  const joined = parts.length ? parts.join(read.match === 'any' ? ' or ' : ' · ') : 'Your whole library'
+  const joined = parts.length ? parts.join(read.match === 'any' ? ` ${translate('or')} ` : ' · ') : translate('Your whole library')
   const sort = SMART_SORTS.find(([id]) => id === read.sort)?.[1]
-  const limit = read.limit ? `${read.limit} songs` : ''
-  return [joined, [limit, read.sort === 'random' ? 'random' : sort && `by ${sort.toLowerCase()}`].filter(Boolean).join(', ')].filter(Boolean).join(' — ')
+  const limit = read.limit ? translate('{n} songs', { n: read.limit }) : ''
+  return [joined, [limit, read.sort === 'random' ? translate('random') : sort && translate('by {sort}', { sort: translate(sort).toLowerCase() })].filter(Boolean).join(', ')].filter(Boolean).join(' — ')
 }
 
 /** Open the smart playlist editor: a new one, or `playlist`'s rules. */

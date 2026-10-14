@@ -80,8 +80,11 @@ function toResult(providerId, output, names = {}) {
 
 /**
  * @param query   { title, artist, album, duration, filePath, isrc?, keepCommaArtists? }
- * @param options { order?, enabled?, prioritizeSyllable?, only?: providerId, signal? }
- * @returns { result, attempts } -- result may be null; attempts lists what each source said.
+ * @param options { order?, enabled?, prioritizeSyllable?, only?: providerId, signal?,
+ *                  exclude?: providerId[], exhaustive?: bool }
+ *   exhaustive: every source is heard out (none cut short by an earlier
+ *   winner), so attempts covers them all and results holds each one's answer.
+ * @returns { result, attempts, results } -- result may be null; attempts lists what each source said.
  */
 async function lookup(query, options = {}) {
   const controller = new AbortController()
@@ -96,8 +99,11 @@ async function lookup(query, options = {}) {
     searchTitle: forLyricsSearch(query.title),
     searchArtist: artistForSearch(query.artist, query.keepCommaArtists),
   }
-  const sequence = options.only ? [options.only].filter(id => BY_ID[id]) : sequenceFor(options.order, options.enabled)
+  const exclude = new Set(options.exclude || [])
+  const sequence = (options.only ? [options.only].filter(id => BY_ID[id]) : sequenceFor(options.order, options.enabled))
+    .filter(id => !exclude.has(id))
   const attempts = {}
+  const results = {}
 
   // Settle the recording first.
   if (!q.isrc && q.filePath) q.isrc = await withTimeout(readIsrc(q.filePath), 1500)
@@ -126,12 +132,19 @@ async function lookup(query, options = {}) {
       }
     })().then(result => {
       attempts[id] = result ? (result.instrumental ? 'instrumental' : result.sync) : 'miss'
+      if (result) results[id] = result
       return result
     })
     started.set(id, job)
     return job
   }
-  for (const id of sequence) if (!LAZY.has(id)) start(id)
+  for (const id of sequence) if (options.exhaustive || !LAZY.has(id)) start(id)
+
+  // Exhaustive: wait for every source before answering (and before the abort below).
+  const settle = async (answer) => {
+    if (options.exhaustive) await Promise.allSettled([...started.values()])
+    return answer
+  }
 
   let lineSynced = null
   let plain = null
@@ -142,15 +155,15 @@ async function lookup(query, options = {}) {
       const result = await start(id)
       if (!result) continue
       if (result.instrumental) { instrumental = instrumental || result; continue }
-      if (result.sync === 'syllable') return { result, attempts }
+      if (result.sync === 'syllable') return await settle({ result, attempts, results })
       if (result.sync === 'line') {
-        if (!options.prioritizeSyllable) return { result, attempts }
+        if (!options.prioritizeSyllable) return await settle({ result, attempts, results })
         lineSynced = lineSynced || result
         continue
       }
       plain = plain || result
     }
-    return { result: lineSynced || plain || instrumental, attempts }
+    return await settle({ result: lineSynced || plain || instrumental, attempts, results })
   } finally {
     controller.abort()
   }
@@ -167,4 +180,4 @@ function parseImported(content, type) {
   return finish(parsed.lines, { source: 'imported', doc: parsed.doc, language: parsed.doc?.language || null })
 }
 
-module.exports = { lookup, parseImported, forLyricsSearch, artistForSearch, sequenceFor, PROVIDERS, DEFAULT_ORDER }
+module.exports = { lookup, toResult, parseImported, forLyricsSearch, artistForSearch, sequenceFor, PROVIDERS, DEFAULT_ORDER }

@@ -15,11 +15,13 @@ import { downloadGhostResult } from '../ghostDownloads'
 import { mapLimited } from '../recommendations'
 import { bestReplacement, losslessCandidates, replacementSources, searchReplacements } from '../losslessReplacements'
 import { plural } from '../plural'
+import { useTranslation } from '../i18n'
 
 const SEARCHES_AT_ONCE = 3
 const fmtTime = s => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`
 
 export default function BulkLosslessModal() {
+  const { t } = useTranslation()
   const [batch, setBatch] = useState(null) // { eligible, skipped }
   const [sources, setSources] = useState(null) // null: loading; { usable, setup }
   const [rows, setRows] = useState({}) // id -> { status: 'searching' | 'found' | 'none', match, checked, result, error }
@@ -99,32 +101,32 @@ export default function BulkLosslessModal() {
   }
 
   return (
-    <Modal open onClose={close} title={`Get ${plural(eligible.length, 'song')} in lossless`} width="max-w-2xl">
+    <Modal open onClose={close} title={t('Get {songs} in lossless', { songs: plural(eligible.length, 'song') })} width="max-w-2xl">
       <div className="space-y-3">
         <p className="text-xs leading-relaxed text-muted">
-          Each song is looked up on your addon sources. The closest lossless copy is ticked when its length matches yours; tick the others yourself if they're right.
-          Replacing downloads them, and each one replaces its song's file, keeping its playlists, likes and plays.
-          {skipped > 0 && ` ${plural(skipped, 'selected song')} ${skipped === 1 ? 'is' : 'are'} left out (already lossless, streamed or missing).`}
+          {t("Each song is looked up on your addon sources. The closest lossless copy is ticked when its length matches yours; tick the others yourself if they're right.")}
+          {' '}{t("Replacing downloads them, and each one replaces its song's file, keeping its playlists, likes and plays.")}
+          {skipped > 0 && ` ${t('{n} selected song is left out (already lossless, streamed or missing).|{n} selected songs are left out (already lossless, streamed or missing).', { n: skipped.toLocaleString(), count: skipped })}`}
         </p>
 
         {sources?.setup.map(source => <AddonSetupNotice key={source.id} source={source} />)}
         {sources && !sources.usable.length && !sources.setup.length && (
-          <p className="rounded-xl border border-border bg-card/40 px-3 py-2.5 text-xs text-muted">No addon sources installed. Add one in Settings → Addons to upgrade songs from it, or use More on a song for stores and Soulseek.</p>
+          <p className="rounded-xl border border-border bg-card/40 px-3 py-2.5 text-xs text-muted">{t('No addon sources installed. Add one in Settings → Addons to upgrade songs from it, or use More on a song for stores and Soulseek.')}</p>
         )}
 
         {!!eligible.length && (
           <div className="flex items-center gap-3 text-[11px] text-muted">
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              {sources === null || searching ? <><Loader2 size={11} className="animate-spin" />Searching {searched}/{eligible.length}…</> : sources.usable.length ? `${plural(matches, 'match', 'matches')} found for ${plural(eligible.length, 'song')}` : ''}
+              {sources === null || searching ? <><Loader2 size={11} className="animate-spin" />{t('Searching {done}/{total}…', { done: searched, total: eligible.length })}</> : sources.usable.length ? t('{matches} found for {songs}', { matches: plural(matches, 'match', 'matches'), songs: plural(eligible.length, 'song') }) : ''}
             </span>
             {withMatch.length > 0 && (
-              <button type="button" onClick={() => tickAll(!allTicked)} className="flex-shrink-0 hover:text-white">{allTicked ? 'Untick all' : 'Tick all'}</button>
+              <button type="button" onClick={() => tickAll(!allTicked)} className="flex-shrink-0 hover:text-white">{allTicked ? t('Untick all') : t('Tick all')}</button>
             )}
           </div>
         )}
 
         <div className="max-h-[50vh] space-y-1 overflow-y-auto pr-1">
-          {!eligible.length && <p className="py-6 text-center text-sm text-muted">None of these songs can be upgraded: they're already lossless, streamed or missing.</p>}
+          {!eligible.length && <p className="py-6 text-center text-sm text-muted">{t("None of these songs can be upgraded: they're already lossless, streamed or missing.")}</p>}
           {eligible.map(track => {
             const row = rows[track.id] || {}
             const match = row.match
@@ -132,40 +134,40 @@ export default function BulkLosslessModal() {
               <div key={track.id} className="flex items-center gap-3 rounded-xl border border-border bg-card/50 px-3 py-2">
                 <input type="checkbox" checked={!!row.checked} disabled={!match || row.result === 'queued' || replacing}
                   onChange={event => setChecked(track.id, event.target.checked)}
-                  aria-label={`Replace ${track.title}`} className="h-3.5 w-3.5 flex-shrink-0 accent-[rgb(var(--accent-rgb))] disabled:opacity-30" />
+                  aria-label={t('Replace {title}', { title: track.title })} className="h-3.5 w-3.5 flex-shrink-0 accent-[rgb(var(--accent-rgb))] disabled:opacity-30" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-white">{track.title}<span className="text-muted"> · {track.artist}</span></p>
                   <p className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted">
-                    <span className="flex-shrink-0">{formatLabel(track) || 'Quality not read'}</span>
+                    <span className="flex-shrink-0">{formatLabel(track) || t('Quality not read')}</span>
                     <span className="flex-shrink-0 text-muted/50">→</span>
-                    {row.status === 'searching' || (!row.status && sources?.usable.length) ? <span className="inline-flex items-center gap-1"><Loader2 size={10} className="animate-spin" />Searching</span>
+                    {row.status === 'searching' || (!row.status && sources?.usable.length) ? <span className="inline-flex items-center gap-1"><Loader2 size={10} className="animate-spin" />{t('Searching')}</span>
                       : match ? <span className="inline-flex min-w-0 items-center gap-1 truncate">
                           {match.source.icon ? <img src={match.source.icon} alt="" className="h-3 w-3 flex-shrink-0 rounded-sm object-cover" referrerPolicy="no-referrer" /> : <Blocks size={10} className="flex-shrink-0 text-accent" />}
                           <span className="truncate">{[match.source.label, match.item.quality, match.item.duration ? fmtTime(match.item.duration) : ''].filter(Boolean).join(' · ')}</span>
-                          {match.lengthUnknown && <span className="flex-shrink-0 text-muted" title="This copy's length (or yours) isn't known: check it before ticking">· length unknown</span>}
-                          {match.lengthDiffers && <span className="inline-flex flex-shrink-0 items-center gap-0.5 text-yellow-200" title={`This copy is ${fmtTime(match.item.duration)} long; yours is ${fmtTime(track.duration)}`}><AlertTriangle size={10} />length differs</span>}
+                          {match.lengthUnknown && <span className="flex-shrink-0 text-muted" title={t("This copy's length (or yours) isn't known: check it before ticking")}>· {t('length unknown')}</span>}
+                          {match.lengthDiffers && <span className="inline-flex flex-shrink-0 items-center gap-0.5 text-yellow-200" title={t('This copy is {found} long; yours is {yours}', { found: fmtTime(match.item.duration), yours: fmtTime(track.duration) })}><AlertTriangle size={10} />{t('length differs')}</span>}
                         </span>
-                      : row.status === 'none' ? <span className="truncate">{row.error || 'No close match on your addon sources'}</span>
+                      : row.status === 'none' ? <span className="truncate">{row.error || t('No close match on your addon sources')}</span>
                       : null}
                   </p>
                 </div>
-                {row.result === 'queued' ? <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] text-accent"><Check size={12} />Downloading</span>
-                  : row.result === 'failed' ? <span className="max-w-[9rem] flex-shrink-0 truncate text-[11px] text-red" title={row.error}>{row.error || 'Failed'}</span>
+                {row.result === 'queued' ? <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] text-accent"><Check size={12} />{t('Downloading')}</span>
+                  : row.result === 'failed' ? <span className="max-w-[9rem] flex-shrink-0 truncate text-[11px] text-red" title={row.error}>{row.error || t('Failed')}</span>
                   : null}
-                <button type="button" onClick={() => openLossless(track)} title="Stores, Soulseek and every match for this song"
-                  className="flex-shrink-0 rounded-lg border border-border px-2 py-1 text-[11px] text-muted hover:border-accent/40 hover:text-white">More</button>
+                <button type="button" onClick={() => openLossless(track)} title={t('Stores, Soulseek and every match for this song')}
+                  className="flex-shrink-0 rounded-lg border border-border px-2 py-1 text-[11px] text-muted hover:border-accent/40 hover:text-white">{t('More')}</button>
               </div>
             )
           })}
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border pt-3">
-          {queued > 0 && <p className="mr-auto text-[11px] text-muted">{plural(queued, 'download')} started. Each song is replaced when its download finishes.</p>}
-          <button type="button" onClick={close} className="rounded-lg px-3 py-2 text-xs text-muted hover:text-white">{queued ? 'Done' : 'Cancel'}</button>
+          {queued > 0 && <p className="mr-auto text-[11px] text-muted">{t('{downloads} started. Each song is replaced when its download finishes.', { downloads: plural(queued, 'download') })}</p>}
+          <button type="button" onClick={close} className="rounded-lg px-3 py-2 text-xs text-muted hover:text-white">{queued ? t('Done') : t('Cancel')}</button>
           <button type="button" onClick={replace} disabled={!ticked.length || replacing}
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-[rgb(var(--bg-rgb))] disabled:opacity-40">
             {replacing ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-            {ticked.length ? `Replace ${plural(ticked.length, 'song')}` : 'Replace'}
+            {ticked.length ? t('Replace {songs}', { songs: plural(ticked.length, 'song') }) : t('Replace')}
           </button>
         </div>
       </div>

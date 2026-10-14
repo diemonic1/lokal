@@ -9,6 +9,7 @@
 import React, { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { X, Search } from 'lucide-react'
+import { useTranslation } from '../i18n'
 
 function formatDuration(d) {
   if (!d) return '--:--'
@@ -16,6 +17,7 @@ function formatDuration(d) {
 }
 
 export default function LyricsSearchDrawer({ track, session: outerSession, onSessionChange: outerChange, onClose, onSelect, variant = 'side' }) {
+  const { t } = useTranslation()
   const [innerSession, setInnerSession] = useState(() => ({ title: track?.title || '', artist: track?.artist || '', results: [], loading: false, error: null }))
   const session = outerSession || innerSession
   const onSessionChange = outerChange || ((patch) => setInnerSession(s => ({ ...s, ...patch })))
@@ -67,10 +69,10 @@ export default function LyricsSearchDrawer({ track, session: outerSession, onSes
         : 'absolute top-0 right-0 h-full w-80 bg-black/95 backdrop-blur-xl border-l border-white/10 z-20 flex flex-col'}
     >
       <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <button onClick={onClose} className="p-1 text-white/40 hover:text-white transition-colors" title="Close">
+        <button onClick={onClose} className="p-1 text-white/40 hover:text-white transition-colors" title={t('Close')}>
           <X size={18} />
         </button>
-        <h3 className="text-sm font-medium text-white">Search Lyrics</h3>
+        <h3 className="text-sm font-medium text-white">{t('Search Lyrics')}</h3>
         <div className="w-5" />
       </div>
 
@@ -79,22 +81,22 @@ export default function LyricsSearchDrawer({ track, session: outerSession, onSes
         className="p-4 space-y-3 border-b border-white/10"
       >
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider">Title</label>
+          <label className="text-xs text-white/40 uppercase tracking-wider">{t('Title')}</label>
           <input
             type="text"
             value={title}
             onChange={(e) => onSessionChange({ title: e.target.value })}
-            placeholder="Track title"
+            placeholder={t('Track title')}
             className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-accent/50"
           />
         </div>
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider">Artist</label>
+          <label className="text-xs text-white/40 uppercase tracking-wider">{t('Artist')}</label>
           <input
             type="text"
             value={artist}
             onChange={(e) => onSessionChange({ artist: e.target.value })}
-            placeholder="Artist name"
+            placeholder={t('Artist name')}
             className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-accent/50"
           />
         </div>
@@ -103,7 +105,7 @@ export default function LyricsSearchDrawer({ track, session: outerSession, onSes
           disabled={!title || !artist || loading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent text-base rounded-lg text-sm font-medium hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Searching...' : <><Search size={14} /> Search</>}
+          {loading ? t('Searching...') : <><Search size={14} /> {t('Search')}</>}
         </button>
         {error && <p className="text-xs text-red-400">{error}</p>}
       </form>
@@ -111,7 +113,7 @@ export default function LyricsSearchDrawer({ track, session: outerSession, onSes
       <div className="flex-1 overflow-y-auto p-2">
         {results.length === 0 && !loading && !error && (
           <p className="text-xs text-white/30 text-center py-8">
-            {session?.searched ? 'Nothing found. Try a shorter title.' : 'Enter title and artist to search'}
+            {session?.searched ? t('Nothing found. Try a shorter title.') : t('Enter title and artist to search')}
           </p>
         )}
         {results.map((r, i) => (
@@ -129,7 +131,7 @@ export default function LyricsSearchDrawer({ track, session: outerSession, onSes
               <div className="flex flex-col items-end gap-1">
                 <span className="text-xs text-white/40">{formatDuration(r.duration)}</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded ${r.syncedLyrics ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/40'}`}>
-                  {r.syncedLyrics ? 'Synced' : 'Unsynced'}
+                  {r.syncedLyrics ? t('Synced') : t('Unsynced')}
                 </span>
               </div>
             </div>

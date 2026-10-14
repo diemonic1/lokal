@@ -3,6 +3,8 @@
 // sidebar's "new recap" badge; the backend (electron/ipc/recaps.js) turns
 // { scope, weekStart | month, year, tz } into the same time range.
 
+import { getLanguage, translate } from './i18n'
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -42,12 +44,35 @@ export function periodEnd(period) {
   return new Date()
 }
 
+// Month names in the app's language (English as before; others from Intl).
+function monthName(index) {
+  const language = getLanguage()
+  if (language === 'en') return MONTHS[index]
+  try {
+    const name = new Date(2000, index, 1).toLocaleDateString(language, { month: 'long' })
+    return name.charAt(0).toUpperCase() + name.slice(1)
+  } catch { return MONTHS[index] }
+}
+function shortMonthName(index) {
+  const language = getLanguage()
+  if (language === 'en') return SHORT_MONTHS[index]
+  try { return new Date(2000, index, 1).toLocaleDateString(language, { month: 'short' }) } catch { return SHORT_MONTHS[index] }
+}
+/** "Sep 21" in the app's language ("21 сент." in Russian). */
+function shortDayText(date) {
+  try { return date.toLocaleDateString(getLanguage(), { day: 'numeric', month: 'short' }) } catch { return `${SHORT_MONTHS[date.getMonth()]} ${date.getDate()}` }
+}
+
 /** "Sep 21–27" or "Sep 29 – Oct 5" (the week's Monday to Sunday). */
 function weekRangeText(period, withYear = false) {
   const start = weekStartDate(period)
   const end = new Date(start)
   end.setDate(end.getDate() + 6)
   const sameMonth = start.getMonth() === end.getMonth()
+  if (getLanguage() !== 'en') {
+    const text = sameMonth ? `${start.getDate()}–${shortDayText(end)}` : `${shortDayText(start)} – ${shortDayText(end)}`
+    return withYear ? `${text} ${end.getFullYear()}` : text
+  }
   const text = sameMonth
     ? `${SHORT_MONTHS[start.getMonth()]} ${start.getDate()}–${end.getDate()}`
     : `${SHORT_MONTHS[start.getMonth()]} ${start.getDate()} – ${SHORT_MONTHS[end.getMonth()]} ${end.getDate()}`
@@ -56,11 +81,10 @@ function weekRangeText(period, withYear = false) {
 
 /** "Week of Sep 21–27, 2026 Recap", "September 2026 Recap", "2026 Recap". */
 export function periodTitle(period) {
-  if (!period) return 'Recap'
-  if (period.scope === 'week') return `Week of ${weekRangeText(period, true)} Recap`
-  const soFar = period.partial ? ' So Far' : ''
-  if (period.scope === 'month') return `${MONTHS[period.month - 1]} ${period.year}${soFar} Recap`
-  return `${period.year}${soFar} Recap`
+  if (!period) return translate('Recap')
+  if (period.scope === 'week') return translate('Week of {range} Recap', { range: weekRangeText(period, true) })
+  if (period.scope === 'month') return translate(period.partial ? '{month} {year} So Far Recap' : '{month} {year} Recap', { month: monthName(period.month - 1), year: period.year })
+  return translate(period.partial ? '{year} So Far Recap' : '{year} Recap', { year: period.year })
 }
 
 /**
@@ -74,11 +98,10 @@ export function periodPlaylistText(period) {
   if (period.scope === 'week') {
     const thursday = weekStartDate(period)
     thursday.setDate(thursday.getDate() + 3)
-    return `${MONTHS[thursday.getMonth()]} ${thursday.getFullYear()} - Week ${Math.ceil(thursday.getDate() / 7)}`
+    return translate('{month} {year} - Week {n}', { month: monthName(thursday.getMonth()), year: thursday.getFullYear(), n: Math.ceil(thursday.getDate() / 7) })
   }
-  const soFar = period.partial ? ' so far' : ''
-  if (period.scope === 'month') return `${MONTHS[period.month - 1]} ${period.year}${soFar}`
-  return `${period.year}${soFar}`
+  if (period.scope === 'month') return translate(period.partial ? '{month} {year} so far' : '{month} {year}', { month: monthName(period.month - 1), year: period.year })
+  return period.partial ? translate('{year} so far', { year: period.year }) : `${period.year}`
 }
 
 /** "J-Pop - September 2026 - Week 3": a playlist made from part of a recap. */
@@ -91,8 +114,8 @@ export function recapPlaylistName(subject, period) {
 export function periodLabel(period) {
   if (!period) return ''
   if (period.scope === 'week') return weekRangeText(period)
-  if (period.scope === 'month') return `${SHORT_MONTHS[period.month - 1]} ${period.year}`
-  return `Year ${period.year}`
+  if (period.scope === 'month') return `${shortMonthName(period.month - 1)} ${period.year}`
+  return translate('Year {year}', { year: period.year })
 }
 
 function withText(period) {

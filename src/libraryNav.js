@@ -2,7 +2,7 @@
 // both remembered across launches.
 
 import { useEffect, useState } from 'react'
-import { Home, Library, BarChart2, Disc3, Users, AudioWaveform, Clapperboard } from 'lucide-react'
+import { Home, Library, BarChart2, Disc3, Users, AudioWaveform, Clapperboard, ScrollText } from 'lucide-react'
 
 export const TABS = [
   { icon: Home, label: 'Home', path: '/' },
@@ -12,6 +12,7 @@ export const TABS = [
   { icon: Users, label: 'Artists', path: '/artists', tour: 'artists' },
   { icon: Clapperboard, label: 'Videos', path: '/videos' },
   { icon: AudioWaveform, label: 'Audio Quality', path: '/quality' },
+  { icon: ScrollText, label: 'Lyrics Analysis', path: '/lyrics-analysis' },
 ]
 
 const TAB_KEY = 'lokal-last-tab'

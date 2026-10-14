@@ -7,9 +7,9 @@ import { useCachedState, usePageReady } from '../pageCache'
 import { useAppStore, usePlayerStore } from '../store/player'
 import TrackList from '../components/TrackList'
 import FadeImg from '../components/FadeImg'
-import { latestPeriod, listenerTimeZone, nextPeriodBoundary, periodPlace, periodQuery, recapPlaylistName, recapTree, treePeriods, markRecapOpened } from '../recapPeriods'
+import { latestPeriod, listenerTimeZone, nextPeriodBoundary, periodLabel, periodPlace, periodQuery, periodTitle, recapPlaylistName, recapTree, treePeriods, markRecapOpened } from '../recapPeriods'
 import { plural } from '../plural'
-import { filteredGenres, fmtDate, fmtHour, fmtMinutes, trackArt } from '../recapText'
+import { filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionLabel, trackArt } from '../recapText'
 import RecapStory from '../components/RecapStory'
 import { showToast } from '../components/Toaster'
 import { saveAsPlaylist } from '../trackActions'
@@ -65,8 +65,9 @@ function CoverMosaic({ tracks = [] }) {
 
 /** A small round action button (play, save as playlist). */
 function RoundAction({ onClick, label, disabled, accent, children }) {
+  const { t } = useTranslation()
   return (
-    <button onClick={(event) => { event.stopPropagation(); onClick() }} disabled={disabled} title={label} aria-label={label}
+    <button onClick={(event) => { event.stopPropagation(); onClick() }} disabled={disabled} title={t(label)} aria-label={t(label)}
       className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-40 ${accent ? 'border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-base' : 'border-border bg-card text-muted hover:border-accent/40 hover:text-white'}`}>
       {children}
     </button>
@@ -74,6 +75,7 @@ function RoundAction({ onClick, label, disabled, accent, children }) {
 }
 
 function SessionCard({ session, onPlay, onSave }) {
+  const { t } = useTranslation()
   const genres = filteredGenres(session.topGenres || []).slice(0, 3)
   const topArtist = session.topArtists?.[0]
   const duration = fmtMinutes(session.durationMinutes || 0)
@@ -86,7 +88,7 @@ function SessionCard({ session, onPlay, onSave }) {
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-base font-display text-white">{session.label}</p>
+              <p className="truncate text-base font-display text-white">{sessionLabel(session)}</p>
               <p className="mt-1 text-xs text-muted">{fmtDate(session.start)}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -98,7 +100,7 @@ function SessionCard({ session, onPlay, onSave }) {
           <div className="mt-4 grid grid-cols-3 gap-2">
             {[['Time', duration], ['Tracks', session.trackCount || 0], ['Skips', session.skippedCount || 0]].map(([label, value]) => (
               <div key={label} className="rounded-lg border border-border/70 bg-card px-3 py-2">
-                <div className="text-[10px] uppercase tracking-widest text-muted">{label}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted">{t(label)}</div>
                 <div className="mt-1 truncate text-sm text-white">{value}</div>
               </div>
             ))}
@@ -116,7 +118,7 @@ function SessionCard({ session, onPlay, onSave }) {
           </div>
         </div>
 
-        <button onClick={onPlay} disabled={!hasTracks} title="Play this session" aria-label={`Play ${session.label}`}
+        <button onClick={onPlay} disabled={!hasTracks} title={t('Play this session')} aria-label={t('Play {name}', { name: sessionLabel(session) })}
           className="hidden transition-opacity hover:opacity-90 @sm:block">
           <CoverMosaic tracks={session.tracks} />
         </button>
@@ -140,14 +142,14 @@ function RankedList({ title, items, nameKey, emptyText, busyKey, onPlay, onSave 
           const busy = busyKey === `${nameKey}:${name}`
           return (
             <div key={name || index} className="group/row flex items-center gap-1 rounded-lg bg-card pr-1 transition-colors hover:bg-white/[0.06]">
-              <button onClick={() => onPlay(name)} disabled={busy} title={`${t("Play")} ${name}`} aria-label={`${t("Play")} ${name}`}
+              <button onClick={() => onPlay(name)} disabled={busy} title={t('Play {name}', { name })} aria-label={t('Play {name}', { name })}
                 className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left disabled:opacity-60">
                 <span className="w-4 flex-shrink-0 text-xs text-muted">{index + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-sm text-white">{name}</span>
                 <span className="flex-shrink-0 text-xs text-muted group-hover/row:hidden">{plural(item.plays, 'play')}</span>
                 <Play size={13} fill="currentColor" className="hidden flex-shrink-0 text-accent group-hover/row:block" />
               </button>
-              <button onClick={() => onSave(name)} disabled={busy} title={`${t("Save")} ${name} ${t("as a playlist")}`} aria-label={`${t("Save")} ${name} ${t("as a playlist")}`}
+              <button onClick={() => onSave(name)} disabled={busy} title={t('Save {name} as a playlist', { name })} aria-label={t('Save {name} as a playlist', { name })}
                 className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40">
                 {busy ? <RefreshCw size={13} className="animate-spin" /> : <ListPlus size={14} />}
               </button>
@@ -221,7 +223,7 @@ function SourcesFilter({ value, onChange }) {
   return (
     <div role="group" aria-label={t("Songs counted")} className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card/70 p-0.5">
       {RECAP_SOURCES.map(([id, label, title]) => (
-        <button key={id} type="button" aria-pressed={value === id} title={title} onClick={() => onChange(id)}
+        <button key={id} type="button" aria-pressed={value === id} title={t(title)} onClick={() => onChange(id)}
           className={`rounded-md px-2.5 py-1 !text-[11px] transition-colors ${value === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
           {t(label)}
         </button>
@@ -478,11 +480,12 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   const heroArt = trackArt(heroTrack)
 
   // The share card: the period's top covers, its numbers and top artists.
+  const shownTitle = shownPeriod ? periodTitle(shownPeriod) : ''
   const shareRecap = () => {
     if (!recap) return
     openShareCard({
       kind: 'Recap',
-      title: shownPeriod?.title || 'My recap',
+      title: shownTitle || t('My recap'),
       subtitle: `${fmtDate(recap.from)} – ${fmtDate(recap.to)}`,
       art: coversOf(topTracks, 4),
       // Plays (each listen of 30 s or more) and tracks (different songs), as the page shows them.
@@ -490,7 +493,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
       list: (recap.topArtists || []).length
         ? { title: 'Top artists', items: recap.topArtists.slice(0, 5).map(item => [item.artist, plural(item.plays, 'play')]) }
         : { title: 'Top tracks', items: topTracks.slice(0, 5).map(track => [track.title, track.artist]) },
-      fileName: `Recap ${shownPeriod?.title || ''}`,
+      fileName: `${t('Recap')} ${shownTitle}`,
     })
   }
   // This recap's genres, counted the same way as its top artists.
@@ -498,7 +501,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
 
   /** Save `tracks` as a new playlist called `name`. Returns the name, or null. */
   const saveTracks = async (name, tracks) => {
-    const playlist = await saveAsPlaylist(name, tracks, { userId: user?.id, description: `From your ${shownPeriod?.title || 'listening recap'}` }).catch(() => null)
+    const playlist = await saveAsPlaylist(name, tracks, { userId: user?.id, description: shownTitle ? t('From your {name}', { name: shownTitle }) : t('From your listening recap') }).catch(() => null)
     return playlist ? name : null
   }
 
@@ -508,16 +511,16 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   const savePlaylist = async () => {
     // Not while another period loads: the tracks shown are still the old period's.
     if (loading || !replayQueue.length || !shownPeriod) return
-    setStatus('Creating playlist...')
-    const saved = await saveTracks(recapPlaylistName(`Top ${Math.min(replayQueue.length, 50)}`, shownPeriod), replayQueue.slice(0, 50))
-    setStatus(saved ? `Saved ${saved}` : 'Could not create playlist')
+    setStatus(t('Creating playlist...'))
+    const saved = await saveTracks(recapPlaylistName(t('Top {n}', { n: Math.min(replayQueue.length, 50) }), shownPeriod), replayQueue.slice(0, 50))
+    setStatus(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
   }
 
   const saveSession = async (session) => {
     if (loading) return
     // A session is one sitting: its own date says which one.
-    const saved = await saveTracks(`${session.label} - ${fmtDate(session.start)}`, session.tracks)
-    showToast(saved ? `Saved ${saved}` : 'Could not create playlist')
+    const saved = await saveTracks(`${sessionLabel(session)} - ${fmtDate(session.start)}`, session.tracks)
+    showToast(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
   }
 
   // An artist's or genre's songs in the recap on screen (fetched once each).
@@ -537,7 +540,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     setBusySubject(`${kind}:${name}`)
     try {
       const tracks = await subjectTracks(kind, name)
-      if (!tracks.length) showToast(`Couldn't load the songs for ${name}`)
+      if (!tracks.length) showToast(t("Couldn't load the songs for {name}", { name }))
       else await use(tracks)
     } finally {
       setBusySubject('')
@@ -547,7 +550,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     playQueue(tracks, 0, { type: 'recap', id: `${shownId}:${kind}:${name}`, name: recapPlaylistName(name, shownPeriod) }))
   const saveSubject = (kind, name) => withSubject(kind, name, async (tracks) => {
     const saved = await saveTracks(recapPlaylistName(name, shownPeriod), tracks)
-    showToast(saved ? `Saved ${saved}` : 'Could not create playlist')
+    showToast(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
   })
 
   return (
@@ -591,7 +594,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
             <div className="flex gap-2 overflow-x-auto pb-0.5">
               {tree.map(entry => (
                 <PeriodChip key={entry.year} active={selectedId === wholeOf(entry)?.id} context={navYear === entry.year && selectedId !== wholeOf(entry)?.id} onClick={() => pickYear(entry)} onPrefetch={() => prefetch(yearTarget(entry))}
-                  title={entry.period ? `The whole of ${entry.year}` : navYear === entry.year ? `${entry.year} so far` : `${entry.year} is still going: click again for the year so far`}>
+                  title={entry.period ? t('The whole of {year}', { year: entry.year }) : navYear === entry.year ? t('{year} so far', { year: entry.year }) : t('{year} is still going: click again for the year so far', { year: entry.year })}>
                   {entry.year}
                 </PeriodChip>
               ))}
@@ -605,8 +608,8 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
               <ChipRow key="month" label={t("Month")} contentKey={yearEntry.year} reduceMotion={reduceMotion}>
                 {yearEntry.months.map(entry => (
                   <PeriodChip key={entry.key} active={selectedId === wholeOf(entry)?.id} context={navMonth === entry.key && selectedId !== wholeOf(entry)?.id}
-                    dashed={!entry.period} title={entry.period ? undefined : navMonth === entry.key ? 'This month so far' : 'Still going: click again for the month so far'} onClick={() => pickMonth(entry)} onPrefetch={() => prefetch(monthTarget(entry))}>
-                    {SHORT_MONTH_NAMES[entry.month - 1]}
+                    dashed={!entry.period} title={entry.period ? undefined : navMonth === entry.key ? t('This month so far') : t('Still going: click again for the month so far')} onClick={() => pickMonth(entry)} onPrefetch={() => prefetch(monthTarget(entry))}>
+                    {t(SHORT_MONTH_NAMES[entry.month - 1])}
                   </PeriodChip>
                 ))}
               </ChipRow>
@@ -615,7 +618,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
               <ChipRow key="week" label={t("Week")} contentKey={monthEntry.key} reduceMotion={reduceMotion}>
                 {monthEntry.weeks.map(period => (
                   <PeriodChip key={period.id} active={selectedId === period.id} onClick={() => setSelectedId(period.id)} onPrefetch={() => prefetch(period)}>
-                    {period.label}
+                    {periodLabel(period)}
                   </PeriodChip>
                 ))}
               </ChipRow>
@@ -624,7 +627,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
         </div>
       ) : periodsError ? (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-elevated p-6 text-sm text-muted">
-          Couldn't load your listening days ({periodsError}).
+          {t("Couldn't load your listening days ({error}).", { error: periodsError })}
           <button onClick={loadPeriodList} className="rounded-lg border border-border px-3 py-1 text-xs hover:text-white">{t("Retry")}</button>
         </div>
       ) : (
@@ -656,12 +659,12 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
                   {fmtDate(recap.from)} - {fmtDate(recap.to)}
                   <button onClick={shareRecap} title={t("Share as a picture")}
                     className="ml-auto flex items-center gap-1.5 rounded-full border border-border bg-black/20 px-3 py-1 text-[10px] font-display uppercase tracking-widest text-muted transition-colors hover:border-accent/30 hover:text-white">
-                    <Share2 size={11} /> Share
+                    <Share2 size={11} /> {t('Share')}
                   </button>
                 </div>
-                <h2 className="mt-3 break-words text-3xl font-display text-white @sm:text-4xl">{shownPeriod?.title}</h2>
+                <h2 className="mt-3 break-words text-3xl font-display text-white @sm:text-4xl">{shownTitle}</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-                  You played {plural(recap.uniqueTracks || 0, 'track')} ({plural(recap.totalPlays, 'play')}) for {fmtMinutes(recap.totalMinutes)}, with {recap.sessions?.length || 0} sessions strong enough to name.
+                  {t('You played {tracks} ({plays}) for {time}, with {n} sessions strong enough to name.', { tracks: plural(recap.uniqueTracks || 0, 'track'), plays: plural(recap.totalPlays, 'play'), time: fmtMinutes(recap.totalMinutes), n: recap.sessions?.length || 0 })}
                 </p>
                 <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 @sm:grid-cols-2 @xl:grid-cols-4">
                   <Metric label="Minutes" value={fmtMinutes(recap.totalMinutes)} icon={Clock3} />
@@ -713,7 +716,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
                   <SessionCard
                     key={session.id || index}
                     session={session}
-                    onPlay={() => session.tracks?.length && playQueue(session.tracks, 0, { type: 'recap', id: `${shownId}:session:${session.id || index}`, name: `${session.label} - ${fmtDate(session.start)}` })}
+                    onPlay={() => session.tracks?.length && playQueue(session.tracks, 0, { type: 'recap', id: `${shownId}:session:${session.id || index}`, name: `${sessionLabel(session)} - ${fmtDate(session.start)}` })}
                     onSave={() => saveSession(session)}
                   />
                 ))}

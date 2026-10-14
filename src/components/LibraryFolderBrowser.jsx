@@ -126,7 +126,7 @@ export default function LibraryFolderBrowser({
         setError(result?.error || '')
       }).catch(err => {
         if (!active || requestId !== requestRef.current) return
-        setError(err?.message || 'Could not load this folder')
+        setError(err?.message || t('Could not load this folder'))
         onDataChange?.(null)
       }).finally(() => {
         if (active && requestId === requestRef.current) setLoading(false)
@@ -180,7 +180,7 @@ export default function LibraryFolderBrowser({
   }, [data, term, allVisibleTracks, visibleFolders.length, onDataChange])
 
   const segments = String(data?.relativePath || '').split('/').filter(Boolean)
-  const currentFolder = segments.length ? segments[segments.length - 1] : (data?.rootName || 'Music folder')
+  const currentFolder = segments.length ? segments[segments.length - 1] : (data?.rootName || t('Music folder'))
   const isCurrentPath = !!data && data.relativePath === folderPath
   const displayedError = error || (isCurrentPath ? data?.error : '')
   const canGoBack = historyIndex > 0 || segments.length > 0
@@ -189,7 +189,7 @@ export default function LibraryFolderBrowser({
   return (
     <div className="space-y-4">
       {isCurrentPath && data?.available && !data.error && (
-        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted" aria-label="Library folder path">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted" aria-label={t('Library folder path')}>
           <div className="mr-1 flex items-center gap-1">
             {canGoBack && (
               <button
@@ -268,7 +268,7 @@ export default function LibraryFolderBrowser({
                   <div className="w-full min-w-0 px-1">
                     <p className="truncate text-xs font-medium text-white" title={folder.name}>{folder.name}</p>
                     <p className="text-[11px] text-muted">
-                      {folder.trackCount != null ? `${folder.trackCount} ${folder.trackCount === 1 ? t('track') : t('tracks')}` : t('Folder')}
+                      {folder.trackCount != null ? t('{n} track|{n} tracks', { n: folder.trackCount }) : t('Folder')}
                     </p>
                   </div>
                 </motion.button>
@@ -289,7 +289,7 @@ export default function LibraryFolderBrowser({
                   <span className="min-w-0 flex-1 truncate text-sm text-white">{folder.name}</span>
                   {folder.trackCount != null && (
                     <span className="flex-shrink-0 text-xs text-muted">
-                      {folder.trackCount} {folder.trackCount === 1 ? t('track') : t('tracks')}
+                      {t('{n} track|{n} tracks', { n: folder.trackCount })}
                     </span>
                   )}
                   <ChevronRight size={14} className="flex-shrink-0 text-muted" />
@@ -386,7 +386,7 @@ export default function LibraryFolderBrowser({
           {term && !visibleFolders.length && !visibleTracks.length && !matchingDeepTracks.length && (
             <div className="rounded-xl border border-border bg-elevated px-5 py-16 text-center text-muted">
               <Search size={36} className="mx-auto mb-3 opacity-25" />
-              <p className="text-sm">{t("No folders or tracks match")} “{searchQuery}”.</p>
+              <p className="text-sm">{t('No folders or tracks match “{query}”.', { query: searchQuery })}</p>
               {onSearchQueryChange && (
                 <button
                   type="button"

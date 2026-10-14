@@ -1,5 +1,6 @@
 import { api } from './api.js'
 import { playbackSources, recommendationKey, timed, uniqueSongs } from './recommendations.js'
+import { translate } from './i18n'
 
 // A release title without edition labels: "I Am (Expanded Edition)" -> "i am".
 const releaseKey = title => recommendationKey(String(title || '').replace(/\s*[([][^)\]]*[)\]]/g, '')) || recommendationKey(title)
@@ -13,17 +14,17 @@ export async function loadDiscoveryCatalogue(options, client = api, { isCurrent 
   for (const source of sources) {
     if (excluded.has(source)) continue
     if (!isCurrent()) return { tracks: [] }
-    onProgress(`Loading ${options.type === 'album' ? options.album : options.artist} from ${source === 'youtube' ? 'YouTube Music' : 'Last.fm'}…`)
+    onProgress(translate('Loading {name} from {source}…', { name: options.type === 'album' ? options.album : options.artist, source: source === 'youtube' ? 'YouTube Music' : 'Last.fm' }))
     const result = await timed(() => client.discoveryCatalogue({ ...options, source }), timeoutMs).catch(() => null)
     if (!isCurrent()) return { tracks: [] }
     const tracks = uniqueSongs(result?.tracks)
     if (tracks.length) return { tracks: options.type === 'artist' ? tracks.slice(0, 24) : tracks, catalogueSource: source }
   }
-  if (!searchSources) return { tracks: [], error: options.type === 'album' ? `No catalogue has “${options.album}” by ${options.artist}.` : `No catalogue has songs by ${options.artist}.` }
+  if (!searchSources) return { tracks: [], error: options.type === 'album' ? translate('No catalogue has “{album}” by {artist}.', { album: options.album, artist: options.artist }) : translate('No catalogue has songs by {artist}.', { artist: options.artist }) }
   for (const source of await playbackSources(client, timeoutMs)) {
     if (excluded.has(source.id)) continue
     if (!isCurrent()) return { tracks: [] }
-    onProgress(`Searching ${source.label || source.id} for ${options.type === 'album' ? options.album : options.artist}…`)
+    onProgress(translate('Searching {source} for {name}…', { source: source.label || source.id, name: options.type === 'album' ? options.album : options.artist }))
     const result = await timed(() => client.onlineSearch([options.artist, options.type === 'album' ? options.album : ''].filter(Boolean).join(' '), source.id), timeoutMs).catch(() => null)
     if (!isCurrent()) return { tracks: [] }
     const tracks = uniqueSongs((result?.results || []).filter(track => {
@@ -36,5 +37,5 @@ export async function loadDiscoveryCatalogue(options, client = api, { isCurrent 
       return { tracks: options.type === 'artist' ? tracks.slice(0, 24) : tracks, catalogueSource: source.id }
     }
   }
-  return { tracks: [], error: options.type === 'album' ? `No matching album was found for “${options.album}” by ${options.artist} in your sources.` : `No matching songs were found for ${options.artist} in your sources.` }
+  return { tracks: [], error: options.type === 'album' ? translate('No matching album was found for “{album}” by {artist} in your sources.', { album: options.album, artist: options.artist }) : translate('No matching songs were found for {artist} in your sources.', { artist: options.artist }) }
 }

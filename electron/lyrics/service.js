@@ -13,8 +13,9 @@
 //            old LRCLIB-only answers get the chance to become syllable-synced.
 
 const { createHash } = require('node:crypto')
-const { lookup, parseImported, DEFAULT_ORDER } = require('./repository')
-const { describe } = require('./providers')
+const { lookup, toResult, parseImported, DEFAULT_ORDER } = require('./repository')
+const { describe, BY_ID } = require('./providers')
+const fileLyrics = require('./fileLyrics')
 const { finish, isUntimed } = require('./postprocess')
 const translation = require('./translate')
 
@@ -198,8 +199,30 @@ function instrumentalResult(db, trackId) {
   return { type: 'instrumental', sync: 'none', lines: [], source: 'instrumental-tag', instrumental: true }
 }
 
+/** The lyrics in the file itself (sidecar, Lokal's tag, USLT/SYLT...), finished; null when none. */
+async function readLocal(filePath) {
+  if (!filePath) return null
+  try {
+    const output = await BY_ID.local.fetch({ filePath })
+    const result = toResult('local', output)
+    return result && !result.instrumental && result.lines?.length ? result : null
+  } catch { return null }
+}
+
+// The last answer each source gave per track, so "Insert into track" writes
+// exactly what the user saw without asking the source again.
+const recentResults = new Map()
+const RECENT_MAX = 20
+function rememberResults(trackId, results) {
+  if (!trackId || !results) return
+  const prev = recentResults.get(trackId) || {}
+  recentResults.delete(trackId)
+  recentResults.set(trackId, { ...prev, ...results })
+  while (recentResults.size > RECENT_MAX) recentResults.delete(recentResults.keys().next().value)
+}
+
 /**
- * The lyrics for a track: cache first, then every configured source.
+ * The lyrics for a track: the file's own first, then cache, then every configured source.
  * @param args { trackId, title, artist, album, duration, filePath, refresh? }
  */
 async function getLyrics(db, args) {
@@ -213,11 +236,50 @@ async function getLyrics(db, args) {
   // lookup finds nothing better (every source down, say).
   let untimedFallback = null
 
-  if (!args.refresh) {
+  // Lyrics the file already has always come first: no source is asked
+  // online until the user says "search all sources again" (refresh). A
+  // source the user picked by hand (pinned) still shows over them.
+  const local = await readLocal(filePath)
+  const localAttempts = local ? { local: local.sync } : null
+
+  if (args.refresh) {
+    const { result, attempts, results } = await lookup(
+      { title, artist, album, duration: Number(duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
+      { ...settings, exclude: ['local'], exhaustive: true },
+    )
+    rememberResults(trackId, results)
+    const all = { ...attempts, ...(localAttempts || { local: filePath ? 'miss' : undefined }) }
+    if (!all.local) delete all.local
+    if (result && !result.instrumental) {
+      if (trackId) writeRow(db, trackId, filePath, result, { attempts: all })
+      return { ...result, attempts: all }
+    }
+    if (local) {
+      if (trackId) writeRow(db, trackId, filePath, local, { attempts: all })
+      return { ...local, attempts: all }
+    }
+    if (result?.instrumental) return result
+    if (trackId) writeRow(db, trackId, filePath, null, { attempts: all })
+    return trackId ? null : result
+  }
+
+  if (local) {
+    const row = trackId ? readRow(db, trackId, filePath) : null
+    const meta = row ? parseMeta(row) : null
+    // Lyrics the user imported or picked from a manual search stay shown.
+    if (meta?.pinned && String(row.source || '').startsWith('imported')) return fromRow(row, meta)
+    const attempts = { ...(meta?.attempts || {}), ...localAttempts }
+    if (trackId) writeRow(db, trackId, filePath, local, { attempts })
+    return { ...local, attempts }
+  }
+
+  {
     const row = readRow(db, trackId, filePath)
     if (row) {
       const meta = parseMeta(row)
-      if (meta) {
+      // Lyrics read from the file earlier, but the file has none now.
+      if (meta && row.source === 'local') { /* fall through to a fresh lookup */ }
+      else if (meta) {
         if (row.source === 'no-results') {
           const fresh = row.fetched_at && Date.now() - row.fetched_at < NEGATIVE_TTL_MS
           if (fresh && negativeSettingsKeys.get(db)?.get(row.track_id) === settings.settingsKey) return null
@@ -247,10 +309,11 @@ async function getLyrics(db, args) {
     }
   }
 
-  const { result, attempts } = await lookup(
+  const { result, attempts, results } = await lookup(
     { title, artist, album, duration: Number(duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
-    settings,
+    { ...settings, exclude: ['local'] },
   )
+  rememberResults(trackId, results)
   if (!trackId) return result
   if (result && !result.instrumental) {
     writeRow(db, trackId, filePath, result, { attempts })
@@ -277,6 +340,7 @@ async function getLyricsFrom(db, args, providerId) {
     { title: args.title, artist: args.artist, album: args.album, duration: Number(args.duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
     { only: providerId, spicyKey: settings.spicyKey, spotifyCookie: settings.spotifyCookie },
   )
+  if (result && !result.instrumental) rememberResults(args.trackId, { [providerId]: result })
   if (result && !result.instrumental && args.trackId) {
     // Merge this attempt into what the row already knew about the other sources.
     const previous = parseMeta(readRow(db, args.trackId, filePath) || {})
@@ -296,6 +360,57 @@ function importLyrics(db, trackId, content, type) {
   if (!result) return null
   writeRow(db, trackId, filePath, result, { pinned: true })
   return result
+}
+
+// ---------------------------------------------------------------- the file's own tags
+
+function fileOf(db, trackId) {
+  const filePath = trustedFilePath(db, trackId)
+  if (!filePath) throw new Error('This song has no local file')
+  return filePath
+}
+
+/** After the file's lyrics change: forget what was cached, so the file is read again. */
+function afterFileWrite(db, trackId, filePath, done) {
+  ensureSchema(db)
+  try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done?.empty ? '' : done?.synced ? 'sync' : 'plain', trackId) } catch {}
+  try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ? OR file_path = ?').run(trackId, filePath) } catch {}
+  try { db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId) } catch {}
+}
+
+/** The lyrics stored in the track's file, for the tag editor. */
+async function readFileLyrics(db, trackId) {
+  const filePath = fileOf(db, trackId)
+  const read = await fileLyrics.readFileLyrics(filePath)
+  return { ...read, sidecar: fileLyrics.sidecarFor(filePath) }
+}
+
+/** Saves text (LRC or plain; empty removes) into the track's file tags. */
+function writeFileLyrics(db, trackId, text) {
+  const filePath = fileOf(db, trackId)
+  const done = fileLyrics.writeFileLyrics(filePath, text, null)
+  afterFileWrite(db, trackId, filePath, done)
+  return { ...done, lyricsKind: done.empty ? '' : done.synced ? 'sync' : 'plain', sidecar: fileLyrics.sidecarFor(filePath) }
+}
+
+/** "Insert into track": one source's lyrics written into the file's tags. */
+async function embedFrom(db, args, providerId) {
+  const filePath = fileOf(db, args.trackId)
+  let result = recentResults.get(args.trackId)?.[providerId] || null
+  if (!result) {
+    const settings = readSettings(db)
+    const found = await lookup(
+      { title: args.title, artist: args.artist, album: args.album, duration: Number(args.duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
+      { only: providerId, spicyKey: settings.spicyKey, spotifyCookie: settings.spotifyCookie },
+    )
+    result = found.result
+  }
+  if (!result || result.instrumental || !result.lines?.length) return { ok: false, error: 'no-lyrics' }
+  const { text, privateTag } = fileLyrics.fromResult(result)
+  if (!text) return { ok: false, error: 'no-lyrics' }
+  const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
+  afterFileWrite(db, args.trackId, filePath, done)
+  return { ...done, lyricsKind: done.synced ? 'sync' : 'plain', source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 function clearCache(db, trackId) {
@@ -324,4 +439,4 @@ async function romanize(db, trackId, lines) {
   return translation.romanize(db, trackId, lines)
 }
 
-module.exports = { getLyrics, getLyricsFrom, importLyrics, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }
+module.exports = { getLyrics, getLyricsFrom, importLyrics, readFileLyrics, writeFileLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }

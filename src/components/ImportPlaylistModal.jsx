@@ -8,6 +8,7 @@ import { isGhostTrack } from '../onlineTracks'
 import { downloadGhostSongs, ghostDownloadMessage } from '../ghostDownloads'
 import { plural } from '../plural'
 import { FILE_PLATFORMS, formatDuration } from '../playlistImport'
+import { useTranslation, translate } from '../i18n'
 
 const input = 'w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-subtle outline-none focus:border-accent/60 transition-colors'
 const label = 'text-xs font-display text-muted uppercase tracking-widest block mb-1.5'
@@ -24,6 +25,7 @@ function Tab({ active, icon: Icon, children, onClick }) {
 }
 
 function LinkImport({ onDone, initialUrl = '' }) {
+  const { t } = useTranslation()
   const user = useAppStore(s => s.user)
   const [url, setUrl] = useState(initialUrl)
   const [reading, setReading] = useState(false)
@@ -61,8 +63,8 @@ function LinkImport({ onDone, initialUrl = '' }) {
   })
 
   const submit = async () => {
-    if (!name.trim()) { setError('Please enter a playlist name'); return }
-    if (!chosen.length) { setError('Pick at least one track'); return }
+    if (!name.trim()) { setError(t('Please enter a playlist name')); return }
+    if (!chosen.length) { setError(t('Pick at least one track')); return }
     setImporting(true)
     setError('')
     const result = await api.importLinkPlaylist({
@@ -79,31 +81,31 @@ function LinkImport({ onDone, initialUrl = '' }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className={label}>Playlist link</label>
+        <label className={label}>{t('Playlist link')}</label>
         <div className="flex gap-2">
           <input autoFocus value={url} onChange={e => setUrl(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') read() }}
             placeholder="https://www.youtube.com/playlist?list=…" className={input} />
           <button type="button" onClick={read} disabled={!url.trim() || reading} className={`${primary} flex flex-shrink-0 items-center gap-2`}>
-            {reading && <Loader2 size={14} className="animate-spin" />} Read
+            {reading && <Loader2 size={14} className="animate-spin" />} {t('Read')}
           </button>
         </div>
-        {reading && <p className="mt-1.5 text-[11px] text-muted">Reading the playlist… big ones (thousands of songs) can take a minute.</p>}
-        <p className="mt-1.5 text-[11px] text-muted">YouTube, YouTube Music, SoundCloud and Bandcamp playlists and albums. Nothing is downloaded; songs you don't own are added as streamable ghost songs.</p>
+        {reading && <p className="mt-1.5 text-[11px] text-muted">{t('Reading the playlist… big ones (thousands of songs) can take a minute.')}</p>}
+        <p className="mt-1.5 text-[11px] text-muted">{t("YouTube, YouTube Music, SoundCloud and Bandcamp playlists and albums. Nothing is downloaded; songs you don't own are added as streamable ghost songs.")}</p>
       </div>
 
       {preview && (
         <>
           <div>
-            <label className={label}>Playlist name</label>
+            <label className={label}>{t('Playlist name')}</label>
             <input value={name} onChange={e => setName(e.target.value)} className={input} />
           </div>
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <span className={`${label} mb-0`}>{plural(preview.total, 'track')} · {preview.matched} in library</span>
+              <span className={`${label} mb-0`}>{t('{tracks} · {n} in library', { tracks: plural(preview.total, 'track'), n: preview.matched })}</span>
               <span className="flex gap-3 text-[11px] text-muted">
-                <button type="button" className="hover:text-white" onClick={() => setSelected(new Set(preview.entries.map(e => e.key)))}>All</button>
-                <button type="button" className="hover:text-white" onClick={() => setSelected(new Set())}>None</button>
+                <button type="button" className="hover:text-white" onClick={() => setSelected(new Set(preview.entries.map(e => e.key)))}>{t('All')}</button>
+                <button type="button" className="hover:text-white" onClick={() => setSelected(new Set())}>{t('None')}</button>
               </span>
             </div>
             <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-card/60 divide-y divide-border/60">
@@ -115,22 +117,22 @@ function LinkImport({ onDone, initialUrl = '' }) {
                     : <span className="h-8 w-8 flex-shrink-0 rounded bg-card" />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs text-white">{entry.title}</span>
-                    <span className="block truncate text-[11px] text-muted">{entry.artist || 'Unknown Artist'}{entry.duration ? ` · ${formatDuration(entry.duration)}` : ''}</span>
+                    <span className="block truncate text-[11px] text-muted">{entry.artist || t('Unknown Artist')}{entry.duration ? ` · ${formatDuration(entry.duration)}` : ''}</span>
                   </span>
-                  <span className={`flex-shrink-0 text-[10px] ${entry.status === 'In library' ? 'text-accent' : 'text-subtle'}`}>{entry.status}</span>
+                  <span className={`flex-shrink-0 text-[10px] ${entry.status === 'In library' ? 'text-accent' : 'text-subtle'}`}>{t(entry.status)}</span>
                 </label>
               ))}
             </div>
             {(preview.skipped > 0 || preview.truncated) && (
               <p className="mt-1.5 text-[11px] text-muted">
-                {preview.skipped > 0 && `${plural(preview.skipped, 'deleted, private or duplicate video')} left out. `}
-                {preview.truncated && `Only the first ${Number(preview.limit || 0).toLocaleString()} tracks are read.`}
+                {preview.skipped > 0 && `${t('{videos} left out.', { videos: plural(preview.skipped, 'deleted, private or duplicate video') })} `}
+                {preview.truncated && t('Only the first {n} tracks are read.', { n: Number(preview.limit || 0).toLocaleString() })}
               </p>
             )}
           </div>
           <label className="flex cursor-pointer items-start gap-2.5 text-xs text-muted">
             <input type="checkbox" checked={downloadAfter} onChange={e => setDownloadAfter(e.target.checked)} className="mt-0.5" />
-            <span>Also download the {plural(ghostCount, 'song')} not in the library yet. Each file takes its ghost song's place in the playlist.{ghostCount > 200 ? ' That is a lot: they download a few at a time and can be cancelled from the download list.' : ''}</span>
+            <span>{t("Also download the {songs} not in the library yet. Each file takes its ghost song's place in the playlist.", { songs: plural(ghostCount, 'song') })}{ghostCount > 200 ? ` ${t('That is a lot: they download a few at a time and can be cancelled from the download list.')}` : ''}</span>
           </label>
         </>
       )}
@@ -139,7 +141,7 @@ function LinkImport({ onDone, initialUrl = '' }) {
 
       {preview && (
         <button type="button" onClick={submit} disabled={importing || !chosen.length} className={`${primary} w-full flex items-center justify-center gap-2`}>
-          {importing && <Loader2 size={14} className="animate-spin" />} Import {plural(chosen.length, 'track')}
+          {importing && <Loader2 size={14} className="animate-spin" />} {t('Import {tracks}', { tracks: plural(chosen.length, 'track') })}
         </button>
       )}
     </div>
@@ -149,16 +151,18 @@ function LinkImport({ onDone, initialUrl = '' }) {
 // The songs a file or list import couldn't match become ghost songs; this
 // downloads them from the playback sources once the playlist is made.
 function DownloadGhostsOption({ count, checked, onChange }) {
+  const { t } = useTranslation()
   if (!count) return null
   return (
     <label className="flex cursor-pointer items-start gap-2.5 text-xs text-muted">
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="mt-0.5" />
-      <span>Also download the {plural(count, 'song')} not in the library yet, from your playback sources (in the order set in Settings). Each file takes its ghost song's place in the playlist.{count > 200 ? ' That is a lot: they download a few at a time and can be cancelled from the download list.' : ''}</span>
+      <span>{t("Also download the {songs} not in the library yet, from your playback sources (in the order set in Settings). Each file takes its ghost song's place in the playlist.", { songs: plural(count, 'song') })}{count > 200 ? ` ${t('That is a lot: they download a few at a time and can be cancelled from the download list.')}` : ''}</span>
     </label>
   )
 }
 
 function FileImport({ onDone }) {
+  const { t } = useTranslation()
   const user = useAppStore(s => s.user)
   const [platform, setPlatform] = useState('spotify')
   const [downloadGhosts, setDownloadGhosts] = useState(false)
@@ -171,7 +175,7 @@ function FileImport({ onDone }) {
   const choose = async () => {
     setError('')
     const selected = await api.openFile({
-      filters: [{ name: 'Import Files', extensions: ['csv', 'json', 'm3u', 'm3u8', 'txt'] }],
+      filters: [{ name: t('Import Files'), extensions: ['csv', 'json', 'm3u', 'm3u8', 'txt'] }],
       multiple: true,
     })
     const paths = Array.isArray(selected) ? selected : (selected ? [selected] : [])
@@ -188,14 +192,14 @@ function FileImport({ onDone }) {
       setPreview(result)
       if (!name.trim()) setName(read[0].fileName.replace(/\.[^.]+$/, ''))
     } catch (e) {
-      setError('Error reading file: ' + e.message)
+      setError(t('Error reading file: {error}', { error: e.message }))
       setPreview(null)
     }
   }
 
   const submit = async () => {
-    if (!name.trim()) { setError('Please enter a playlist name'); return }
-    if (!files.length) { setError('Choose one or more CSV, JSON, or M3U files'); return }
+    if (!name.trim()) { setError(t('Please enter a playlist name')); return }
+    if (!files.length) { setError(t('Choose one or more CSV, JSON, or M3U files')); return }
     setImporting(true)
     setError('')
     const result = await api.importExternalPlaylist({
@@ -212,32 +216,32 @@ function FileImport({ onDone }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className={label}>Exported from</label>
+        <label className={label}>{t('Exported from')}</label>
         <select value={platform} onChange={e => setPlatform(e.target.value)} className={input}>
-          {FILE_PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          {FILE_PLATFORMS.map(p => <option key={p.id} value={p.id}>{t(p.label)}</option>)}
         </select>
       </div>
       <div>
-        <label className={label}>Files</label>
+        <label className={label}>{t('Files')}</label>
         <button type="button" onClick={choose} className={`${secondary} w-full flex items-center justify-center gap-2`}>
-          <FileUp size={14} /> {files.length ? (files.length === 1 ? files[0].fileName : `${files.length} files selected`) : 'Choose CSV, JSON, M3U or TXT files'}
+          <FileUp size={14} /> {files.length ? (files.length === 1 ? files[0].fileName : t('{n} files selected', { n: files.length })) : t('Choose CSV, JSON, M3U or TXT files')}
         </button>
-        <p className="mt-1.5 text-[11px] text-muted">Songs in your library are matched and their missing details filled in from the file. The rest become ghost songs.</p>
+        <p className="mt-1.5 text-[11px] text-muted">{t('Songs in your library are matched and their missing details filled in from the file. The rest become ghost songs.')}</p>
       </div>
       {preview && (
         <>
           <div>
-            <label className={label}>Playlist name</label>
+            <label className={label}>{t('Playlist name')}</label>
             <input value={name} onChange={e => setName(e.target.value)} className={input} />
           </div>
-          <p className="text-xs text-muted">{plural(preview.total, 'track')} found · {preview.matched} already in your library · {preview.ghostable} will be ghost songs</p>
+          <p className="text-xs text-muted">{t('{tracks} found · {matched} already in your library · {ghosts} will be ghost songs', { tracks: plural(preview.total, 'track'), matched: preview.matched, ghosts: preview.ghostable })}</p>
           <DownloadGhostsOption count={preview.ghostable} checked={downloadGhosts} onChange={setDownloadGhosts} />
         </>
       )}
       {error && <p className="text-xs text-red-400">{error}</p>}
       {preview && (
         <button type="button" onClick={submit} disabled={importing || !preview.total} className={`${primary} w-full flex items-center justify-center gap-2`}>
-          {importing && <Loader2 size={14} className="animate-spin" />} Import playlist
+          {importing && <Loader2 size={14} className="animate-spin" />} {t('Import playlist')}
         </button>
       )}
     </div>
@@ -248,6 +252,7 @@ function FileImport({ onDone }) {
 // a file (fileType 'txt'), so songs not in the library become ghost songs
 // instead of being dropped.
 function ListImport({ onDone }) {
+  const { t } = useTranslation()
   const user = useAppStore(s => s.user)
   const [name, setName] = useState('')
   const [list, setList] = useState('')
@@ -275,8 +280,8 @@ function ListImport({ onDone }) {
   }, [list]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
-    if (!name.trim()) { setError('Please enter a playlist name'); return }
-    if (!preview?.total) { setError('Add at least one song'); return }
+    if (!name.trim()) { setError(t('Please enter a playlist name')); return }
+    if (!preview?.total) { setError(t('Add at least one song')); return }
     setImporting(true)
     setError('')
     const result = await api.importExternalPlaylist({ name: name.trim(), userId: user?.id || 'guest', files: files(), sourcePlatform: 'generic' }).catch(e => ({ error: e.message }))
@@ -288,26 +293,26 @@ function ListImport({ onDone }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className={label}>Playlist name</label>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="My playlist" className={input} />
+        <label className={label}>{t('Playlist name')}</label>
+        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={t('My playlist')} className={input} />
       </div>
       <div>
-        <label className={label}>Songs, one per line</label>
+        <label className={label}>{t('Songs, one per line')}</label>
         <textarea value={list} onChange={e => setList(e.target.value)} rows={8}
           placeholder={'The Beatles - Hey Jude\nPink Floyd - Comfortably Numb\nStairway to Heaven'}
           className={`${input} resize-none font-mono text-xs leading-relaxed`} />
-        <p className="mt-1.5 text-[11px] text-muted">"Artist - Title", or just the title. Songs in your library are matched; the rest become ghost songs you can stream or download later.</p>
+        <p className="mt-1.5 text-[11px] text-muted">{t('"Artist - Title", or just the title. Songs in your library are matched; the rest become ghost songs you can stream or download later.')}</p>
       </div>
       {(preview || reading) && (
         <p className="flex items-center gap-2 text-xs text-muted">
           {reading && <Loader2 size={12} className="animate-spin" />}
-          {preview ? `${plural(preview.total, 'song')} · ${preview.matched} in your library · ${preview.ghostable} will be ghost songs` : 'Reading the list…'}
+          {preview ? t('{songs} · {matched} in your library · {ghosts} will be ghost songs', { songs: plural(preview.total, 'song'), matched: preview.matched, ghosts: preview.ghostable }) : t('Reading the list…')}
         </p>
       )}
       {preview && <DownloadGhostsOption count={preview.ghostable} checked={downloadGhosts} onChange={setDownloadGhosts} />}
       {error && <p className="text-xs text-red-400">{error}</p>}
       <button type="button" onClick={submit} disabled={importing || !preview?.total} className={`${primary} w-full flex items-center justify-center gap-2`}>
-        {importing && <Loader2 size={14} className="animate-spin" />} Import {preview?.total ? plural(preview.total, 'song') : 'playlist'}
+        {importing && <Loader2 size={14} className="animate-spin" />} {preview?.total ? t('Import {tracks}', { tracks: plural(preview.total, 'song') }) : t('Import playlist')}
       </button>
     </div>
   )
@@ -315,18 +320,19 @@ function ListImport({ onDone }) {
 
 /** In the background: the playlist's ghost songs, found and downloaded (ghostDownloads.js). */
 async function downloadPlaylistGhosts(playlistId) {
-  const toast = showLoadingToast('Finding the songs not in your library…')
+  const toast = showLoadingToast(translate('Finding the songs not in your library…'))
   try {
     const tracks = await api.getPlaylistTracks(playlistId)
     const ghosts = (Array.isArray(tracks) ? tracks : []).filter(isGhostTrack)
     const result = await downloadGhostSongs(ghosts, { onProgress: message => toast.update(message) })
     toast.close(ghostDownloadMessage(result))
   } catch {
-    toast.close("Couldn't download the playlist's songs.")
+    toast.close(translate("Couldn't download the playlist's songs."))
   }
 }
 
 export default function ImportPlaylistModal() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [source, setSource] = useState('link')
   const [session, setSession] = useState(0)
@@ -346,17 +352,17 @@ export default function ImportPlaylistModal() {
   const done = (result, { downloadGhosts = false } = {}) => {
     setOpen(false)
     window.dispatchEvent(new CustomEvent('lokal:playlist-created', { detail: { playlistId: result.playlistId } }))
-    showToast(`Imported ${plural(result.total || 0, 'track')}${result.ghosted ? ` (${result.ghosted} ghost)` : ''}`)
+    showToast(result.ghosted ? t('Imported {tracks} ({n} ghost)', { tracks: plural(result.total || 0, 'track'), n: result.ghosted }) : t('Imported {tracks}', { tracks: plural(result.total || 0, 'track') }))
     if (downloadGhosts && result.ghosted && result.playlistId) downloadPlaylistGhosts(result.playlistId)
   }
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title="Import playlist" width="max-w-lg">
+    <Modal open={open} onClose={() => setOpen(false)} title={t('Import playlist')} width="max-w-lg">
       <div className="space-y-4">
         <div className="flex gap-2">
-          <Tab active={source === 'link'} icon={Link2} onClick={() => setSource('link')}>From a link</Tab>
-          <Tab active={source === 'file'} icon={FileUp} onClick={() => setSource('file')}>From a file</Tab>
-          <Tab active={source === 'list'} icon={ListMusic} onClick={() => setSource('list')}>From a list</Tab>
+          <Tab active={source === 'link'} icon={Link2} onClick={() => setSource('link')}>{t('From a link')}</Tab>
+          <Tab active={source === 'file'} icon={FileUp} onClick={() => setSource('file')}>{t('From a file')}</Tab>
+          <Tab active={source === 'list'} icon={ListMusic} onClick={() => setSource('list')}>{t('From a list')}</Tab>
         </div>
         {source === 'link' ? <LinkImport key={`l${session}`} onDone={done} initialUrl={linkUrl} />
           : source === 'file' ? <FileImport key={`f${session}`} onDone={done} />

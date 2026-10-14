@@ -14,6 +14,7 @@
 // }
 
 import { api } from './api'
+import { translate } from './i18n'
 
 const W = 1080
 const H = 1350
@@ -179,7 +180,7 @@ export async function renderShareCard(spec) {
   ctx.textAlign = 'right'
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
   ctx.font = `400 24px ${mono}`
-  ctx.fillText(String(spec.kind || '').toUpperCase(), W - M, 100)
+  ctx.fillText(translate(String(spec.kind || '')).toUpperCase(), W - M, 100)
   ctx.letterSpacing = '0px'
 
   // The picture: a cover, a 2×2 mosaic, or a round artist photo.
@@ -238,7 +239,7 @@ export async function renderShareCard(spec) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
       ctx.font = `400 20px ${mono}`
       ctx.letterSpacing = '3px'
-      ctx.fillText(String(label).toUpperCase(), cx, y + 36)
+      ctx.fillText(translate(String(label)).toUpperCase(), cx, y + 36)
       ctx.letterSpacing = '0px'
     })
     y += 70
@@ -252,7 +253,7 @@ export async function renderShareCard(spec) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
     ctx.font = `400 20px ${mono}`
     ctx.letterSpacing = '3px'
-    ctx.fillText(String(spec.list.title || '').toUpperCase(), M, y)
+    ctx.fillText(translate(String(spec.list.title || '')).toUpperCase(), M, y)
     ctx.letterSpacing = '0px'
     y += 18
     for (let i = 0; i < items.length && y + 46 < H - 110; i++) {
@@ -279,7 +280,7 @@ export async function renderShareCard(spec) {
   ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
   ctx.font = `400 20px ${mono}`
   ctx.letterSpacing = '3px'
-  ctx.fillText('MADE WITH LOKAL', W / 2, H - 56)
+  ctx.fillText(translate('Made with Lokal').toUpperCase(), W / 2, H - 56)
   ctx.letterSpacing = '0px'
   return canvas
 }

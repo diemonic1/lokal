@@ -1,6 +1,8 @@
 // Audio quality of a track, for display (the backend keeps the same tiers,
 // electron/quality/index.js).
 
+import { translate } from './i18n'
+
 const OPUS_LIKE = /^(?:opus|vorbis)/i
 
 /** Short codec name: MP3, AAC, FLAC, ALAC, Opus... */
@@ -60,10 +62,10 @@ export function formatLabel(track) {
 export function verdictText(track) {
   const cutoff = Number(track?.spectral_cutoff) ? `${track.spectral_cutoff / 1000} kHz` : ''
   switch (track?.spectral_verdict) {
-    case 'ok': return 'Spectrum checked: full range, no sign of a lossy source.'
-    case 'lossy': return `Spectrum checked: nothing above ${cutoff}. Made from an MP3/AAC at 192 kbps or less.`
-    case 'likely-lossy': return `Spectrum checked: nothing above ${cutoff}, like a 256-320 kbps MP3. Some real masters stop there too.`
-    case 'inconclusive': return 'Spectrum checked: not enough high frequencies in this recording to tell.'
+    case 'ok': return translate('Spectrum checked: full range, no sign of a lossy source.')
+    case 'lossy': return translate('Spectrum checked: nothing above {cutoff}. Made from an MP3/AAC at 192 kbps or less.', { cutoff })
+    case 'likely-lossy': return translate('Spectrum checked: nothing above {cutoff}, like a 256-320 kbps MP3. Some real masters stop there too.', { cutoff })
+    case 'inconclusive': return translate('Spectrum checked: not enough high frequencies in this recording to tell.')
     default: return null
   }
 }
@@ -99,13 +101,13 @@ export function storeSearches({ artist, title }) {
   const e = encodeURIComponent(q)
   return [
     // Qobuz only answers searches under a locale, as a path (/search?q= doesn't work).
-    { store: 'Qobuz', kind: 'search', format: 'FLAC, up to 24-bit', url: `https://www.qobuz.com/${qobuzLocale()}/search/albums/${e}` },
-    { store: 'Bandcamp', kind: 'search', format: 'FLAC, when the artist sells there', url: `https://bandcamp.com/search?q=${e}&item_type=t` },
-    { store: '7digital', kind: 'search', format: 'FLAC for many releases', url: `https://us.7digital.com/search?q=${e}` },
+    { store: 'Qobuz', kind: 'search', format: translate('FLAC, up to 24-bit'), url: `https://www.qobuz.com/${qobuzLocale()}/search/albums/${e}` },
+    { store: 'Bandcamp', kind: 'search', format: translate('FLAC, when the artist sells there'), url: `https://bandcamp.com/search?q=${e}&item_type=t` },
+    { store: '7digital', kind: 'search', format: translate('FLAC for many releases'), url: `https://us.7digital.com/search?q=${e}` },
     // Not stores of downloads: where the releases, pressings and credits are
     // (Discogs' marketplace sells CDs and vinyl to rip).
-    { store: 'Discogs', kind: 'info', format: 'Releases, pressings, credits · CDs and vinyl for sale', url: `https://www.discogs.com/search/?q=${e}&type=all` },
-    { store: 'AllMusic', kind: 'info', format: 'Reviews, credits, discography', url: `https://www.allmusic.com/search/all/${e}` },
+    { store: 'Discogs', kind: 'info', format: translate('Releases, pressings, credits · CDs and vinyl for sale'), url: `https://www.discogs.com/search/?q=${e}&type=all` },
+    { store: 'AllMusic', kind: 'info', format: translate('Reviews, credits, discography'), url: `https://www.allmusic.com/search/all/${e}` },
   ]
 }
 
@@ -122,13 +124,13 @@ export function canGetLossless(track) {
 
 /** The "Get it in lossless…" menu item for a song, or null when it doesn't apply. */
 export function losslessMenuItem(track, icon) {
-  return canGetLossless(track) ? { label: 'Get it in lossless…', icon, onSelect: () => openLossless(track) } : null
+  return canGetLossless(track) ? { label: translate('Get it in lossless…'), icon, onSelect: () => openLossless(track) } : null
 }
 
 /** "Get N songs in lossless…" for a selection, or null when none of it can be upgraded. */
 export function losslessManyMenuItem(tracks, icon) {
   const count = (tracks || []).filter(canGetLossless).length
-  return count ? { label: `Get ${count} song${count === 1 ? '' : 's'} in lossless…`, icon, onSelect: () => openLosslessMany(tracks) } : null
+  return count ? { label: translate('Get {n} song in lossless…|Get {n} songs in lossless…', { n: count }), icon, onSelect: () => openLosslessMany(tracks) } : null
 }
 
 /** Open "Get it in lossless" for several songs at once (BulkLosslessModal, in App). */

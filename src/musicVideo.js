@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { api } from './api'
+import { translate } from './i18n'
 import { usePlayerStore } from './store/player'
 import { useDownloads } from './store/downloads'
 
@@ -86,7 +87,7 @@ export function useMusicVideo(track, enabled = true, prepare = false) {
     let current = true
     const token = request.current
     if (job.status !== 'done') {
-      setState(s => ({ ...s, pending: false, video: { ...s.video, downloadId: null, needsDownload: true, error: job.error || 'Music video download cancelled' } }))
+      setState(s => ({ ...s, pending: false, video: { ...s.video, downloadId: null, needsDownload: true, error: job.error || translate('Music video download cancelled') } }))
       return undefined
     }
     api.musicVideoPrepare(id).then(prepared => {

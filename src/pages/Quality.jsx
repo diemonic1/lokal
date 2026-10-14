@@ -97,7 +97,7 @@ export default function Quality() {
       setRowsFor(filter)
     } else {
       // A failed request keeps this filter's cached rows, and says so.
-      setRowsError(list?.error || 'Could not load this list')
+      setRowsError(list?.error || t('Could not load this list'))
     }
     setRowsLoaded(true)
     setLoading(false)
@@ -166,10 +166,10 @@ export default function Quality() {
   // Tiers: share of the tracks read. Suspect: out of the lossless files checked.
   const rollFrom = (n) => (summaryWasCached ? n : 0)
   const shareText = (tier) => {
-    if (tier === 'suspect') return checked > 0 ? <>of <AnimatedNumber value={checked} from={rollFrom(checked)} /> checked</> : 'Not checked yet'
+    if (tier === 'suspect') return checked > 0 ? <>{t('of')} <AnimatedNumber value={checked} from={rollFrom(checked)} /> {t('checked')}</> : t('Not checked yet')
     if (!known) return '—'
     const pct = Math.round(((tiers[tier] || 0) / known) * 100)
-    return <><AnimatedNumber value={pct} from={rollFrom(pct)} />% of tracks</>
+    return <><AnimatedNumber value={pct} from={rollFrom(pct)} />{t('% of tracks')}</>
   }
 
   return (
@@ -195,12 +195,12 @@ export default function Quality() {
                 <button onClick={() => start(() => api.qualityRead({ all: !unread }))}
                   title={unread ? t('Read codec, bitrate, sample rate, bit depth and ISRC of the tracks indexed before Lokal kept them') : t('Read every file again')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:text-white">
-                  <RefreshCw size={12} /> {unread ? `${t("Read details of")} ${unread.toLocaleString()} ${t("tracks")}` : t("Read all again")}
+                  <RefreshCw size={12} /> {unread ? t('Read details of {n} tracks', { n: unread.toLocaleString(), count: unread }) : t("Read all again")}
                 </button>
                 <button onClick={() => start(() => api.qualityCheck({}))} disabled={!summary?.unchecked}
                   title={t("Look at the spectrum of lossless files to spot ones made from MP3/AAC (needs ffmpeg, about 1.5 s a file)")}
                   className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-[rgb(var(--bg-rgb))] hover:bg-accent/80 disabled:opacity-40">
-                  <ScanLine size={12} /> {summary?.unchecked ? `${t("Check")} ${summary.unchecked.toLocaleString()} ${t("lossless files")}` : t("All lossless files checked")}
+                  <ScanLine size={12} /> {summary?.unchecked ? t('Check {n} lossless files', { n: summary.unchecked.toLocaleString(), count: summary.unchecked }) : t("All lossless files checked")}
                 </button>
               </>
             )}
@@ -208,7 +208,7 @@ export default function Quality() {
         </div>
         {message && <p className="mt-3 rounded-xl border border-red/25 bg-red/10 px-3 py-2 text-xs text-red">{message}</p>}
         {unread > 0 && !running && (
-          <p className="mt-3 text-xs text-muted">{unread.toLocaleString()} {t("tracks were added before Lokal kept their format: read their details to see them here.")}</p>
+          <p className="mt-3 text-xs text-muted">{t('{n} tracks were added before Lokal kept their format: read their details to see them here.', { n: unread.toLocaleString(), count: unread })}</p>
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2 @sm:grid-cols-3 @lg:grid-cols-5">
@@ -227,7 +227,7 @@ export default function Quality() {
             </button>
           ))}
           {rows.length > 0 && rowsFor === filter && (
-            <button onClick={() => playQueue(rows, 0, { type: 'quality', id: filter, name: `Audio quality: ${FILTERS.find(f => f[0] === filter)?.[1]}` })}
+            <button onClick={() => playQueue(rows, 0, { type: 'quality', id: filter, name: t('Audio quality: {list}', { list: t(FILTERS.find(f => f[0] === filter)?.[1]) }) })}
               className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted hover:text-white">
               <Play size={11} fill="currentColor" /> {t("Play these")}
             </button>
@@ -239,10 +239,10 @@ export default function Quality() {
         <ReadyWhen ready={rowsFor === filter || !!rowsError} />
         {filter === 'upgradable' && <p className="mb-3 text-xs text-muted">{t("Lossy files, and lossless files the spectrum check found were made from lossy ones. Lowest quality first.")}</p>}
 
-        {loading && rowsFor !== filter && <p className="flex items-center gap-2 py-6 text-xs text-muted"><Loader2 size={13} className="animate-spin" /> Loading…</p>}
+        {loading && rowsFor !== filter && <p className="flex items-center gap-2 py-6 text-xs text-muted"><Loader2 size={13} className="animate-spin" /> {t('Loading…')}</p>}
         {rowsError && (
           <p className="flex items-center gap-2 py-3 text-xs text-red">
-            {t("Couldn't load this list")} ({rowsError}).
+            {t("Couldn't load this list ({error}).", { error: rowsError })}
             <button onClick={loadRows} className="rounded-full border border-border px-2.5 py-0.5 text-muted hover:text-white">{t("Retry")}</button>
           </p>
         )}
@@ -254,14 +254,14 @@ export default function Quality() {
             const info = TIERS[tier]
             const verdict = verdictText(track)
             return (
-              <div key={track.id} onDoubleClick={() => playQueue(rows, i, { type: 'quality', id: filter, name: 'Audio quality' })}
+              <div key={track.id} onDoubleClick={() => playQueue(rows, i, { type: 'quality', id: filter, name: t('Audio quality') })}
                 className="group grid grid-cols-[1fr_auto] items-center gap-3 rounded-lg px-3 py-1.5 hover:bg-elevated"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 48px' }}>
                 <div className="min-w-0">
                   <p className="truncate text-sm text-white">{track.title}</p>
                   <p className="truncate text-xs text-muted" title={verdict || undefined}>
                     {track.artist}{track.album ? ` · ${track.album}` : ''}
-                    {tier === 'suspect' && track.spectral_cutoff ? <span className="text-red/80"> · nothing above {track.spectral_cutoff / 1000} kHz</span> : null}
+                    {tier === 'suspect' && track.spectral_cutoff ? <span className="text-red/80"> · {t('nothing above {n} kHz', { n: track.spectral_cutoff / 1000 })}</span> : null}
                   </p>
                 </div>
                 {/* Fixed-width columns: the format, badge and button sit at the
@@ -269,17 +269,17 @@ export default function Quality() {
                     content they moved with each list's widest format). */}
                 <div className="grid grid-cols-[4.75rem_auto] items-center gap-2.5 @sm:grid-cols-[10rem_4.75rem_auto]">
                   <span className="hidden truncate text-right text-[11px] text-muted tabular-nums @sm:block" title={formatLabel(track)}>{formatLabel(track)}</span>
-                  <span className={`justify-self-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${info.className}`}>{info.label}</span>
+                  <span className={`justify-self-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${info.className}`}>{t(info.label)}</span>
                   <button onClick={() => openLossless(track)} title={t("Get it in lossless")}
                     className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] text-muted opacity-70 transition-all hover:text-accent group-hover:opacity-100">
-                    <Gem size={12} /> Lossless
+                    <Gem size={12} /> {t('Lossless')}
                   </button>
                 </div>
               </div>
             )
           })}
         </div>
-        {rowsFor === filter && rows.length === PAGE && <p className="mt-3 text-center text-[11px] text-muted">{t("Showing the first")} {PAGE}.</p>}
+        {rowsFor === filter && rows.length === PAGE && <p className="mt-3 text-center text-[11px] text-muted">{t('Showing the first {n}.', { n: PAGE })}</p>}
         </SectionSwap>
       </section>
     </div>

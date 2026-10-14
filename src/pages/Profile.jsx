@@ -6,6 +6,7 @@ import { useAppStore, usePlayerStore } from '../store/player'
 import { showToast } from '../components/Toaster'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
+import { plural } from '../plural'
 import { navigateToTrackAlbum } from '../playbackContext'
 import { navigateToTrackArtist } from '../artistLink'
 import PlaylistCover from '../components/PlaylistCover'
@@ -53,9 +54,9 @@ export default function Profile() {
       const result = await api.getTracks({ genre, sort: 'play_count DESC', limit: 500 })
       const tracks = Array.isArray(result) ? result : []
       if (tracks.length) playQueue(tracks, 0, { type: 'genre', id: genre, name: genre })
-      else showToast(`No ${genre} songs in your library`)
+      else showToast(t('No {genre} songs in your library', { genre }))
     } catch {
-      showToast(`Could not play ${genre}`)
+      showToast(t('Could not play {name}', { name: genre }))
     } finally {
       setPlayingGenre(null)
     }
@@ -219,19 +220,19 @@ export default function Profile() {
   const avatarSrc = api.getAvatarSrc(user)
   const bannerSrc = bannerData || avatarSrc || ''
   const hours = stats ? Math.round((stats.totalMinutes || 0) / 60) : 0
-  const topArtist = stats?.topArtists?.[0]?.artist || 'No listening data yet'
+  const topArtist = stats?.topArtists?.[0]?.artist || t('No listening data yet')
   // Genres the way the recap counts them (not "Unknown" and the like).
   const topGenres = filteredGenres(stats?.topGenres || []).slice(0, 5)
   const topArtistImageSrc = topArtistProfile?.id && topArtistProfile?.image_path
     ? (api.isElectron ? `file://${topArtistProfile.image_path}` : `/api/artist-image/${encodeURIComponent(topArtistProfile.id)}`)
     : null
   const topTrackData = stats?.topTracks?.[0] || null
-  const topTrack = topTrackData ? `${topTrackData.title} · ${topTrackData.artist}` : 'No top track yet'
+  const topTrack = topTrackData ? `${topTrackData.title} · ${topTrackData.artist}` : t('No top track yet')
   const topTrackArt = topTrackData?.artwork_path
     ? (api.isElectron ? `file://${topTrackData.artwork_path}` : api.artworkURL(topTrackData.id))
     : null
-  const topArtistSupport = stats?.topArtists?.[0]?.plays ? `${stats.topArtists[0].plays} plays` : 'From your local listening history'
-  const topTrackSupport = topTrackData?.plays ? `${topTrackData.plays} plays` : 'Calculated from your local play activity'
+  const topArtistSupport = stats?.topArtists?.[0]?.plays ? t('{n} play|{n} plays', { n: stats.topArtists[0].plays }) : t('From your local listening history')
+  const topTrackSupport = topTrackData?.plays ? t('{n} play|{n} plays', { n: topTrackData.plays }) : t('Calculated from your local play activity')
 
   const saveBanner = (dataUrl) => {
     if (!user?.id) return
@@ -352,7 +353,7 @@ export default function Profile() {
 
       <div className="relative h-56 overflow-hidden group">
         {bannerSrc ? (
-          <img src={bannerSrc} alt="Banner" className="w-full h-full object-cover opacity-40" />
+          <img src={bannerSrc} alt={t('Banner')} className="w-full h-full object-cover opacity-40" />
         ) : (
           <div className="w-full h-full bg-gradient-to-b from-accent/8 to-transparent" />
         )}
@@ -360,17 +361,17 @@ export default function Profile() {
         <button
           onClick={() => bannerInputRef.current?.click()}
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20"
-          aria-label="Upload banner"
+          aria-label={t('Upload banner')}
         >
           <span className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/55 border border-white/10 text-xs text-white/80 backdrop-blur-sm">
-            <ImageIcon size={12} /> {uploadingBanner ? 'Uploading banner...' : 'Upload banner'}
+            <ImageIcon size={12} /> {uploadingBanner ? t('Uploading banner...') : t('Upload banner')}
           </span>
         </button>
         <div className="absolute bottom-5 inset-x-0 mx-auto w-full max-w-6xl px-8 flex items-end gap-5">
           <button onClick={() => avatarInputRef.current?.click()} className="relative flex-shrink-0 group/avatar">
             <div className="w-24 h-24 rounded-full border-2 border-border overflow-hidden bg-elevated flex items-center justify-center">
               {user.avatar_path ? (
-                <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
+                <img src={avatarSrc} alt={t('Profile')} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-3xl font-display text-accent">{(user.display_name || user.username)?.[0]?.toUpperCase()}</span>
               )}
@@ -382,7 +383,7 @@ export default function Profile() {
             </div>
           </button>
           <div>
-            <p className="text-xs font-display text-muted uppercase tracking-widest mb-1">Profile</p>
+            <p className="text-xs font-display text-muted uppercase tracking-widest mb-1">{t('Profile')}</p>
             <h1 className="text-3xl font-display text-white">{user.display_name || user.username}</h1>
             <p className="text-xs text-muted mt-1">@{user.username} · {t("local only")}</p>
           </div>
@@ -432,7 +433,7 @@ export default function Profile() {
                   disabled={savingBio}
                   className="px-4 py-2 bg-accent text-base rounded-full text-sm font-medium hover:bg-accent-dim disabled:opacity-50 transition-colors"
                 >
-                  {savingBio ? 'Saving...' : 'Save'}
+                  {savingBio ? t('Saving...') : t('Save')}
                 </button>
                 <button
                   onClick={() => {
@@ -441,13 +442,13 @@ export default function Profile() {
                   }}
                   className="px-4 py-2 bg-elevated border border-border text-white/80 rounded-full text-sm font-medium hover:text-white transition-colors"
                 >
-                  Cancel
+                  {t('Cancel')}
                 </button>
               </div>
             </div>
           ) : (
             <p className="text-sm text-muted leading-relaxed max-w-2xl whitespace-pre-line">
-              {normalizeBio(user.bio) || 'No bio set yet.'}
+              {normalizeBio(user.bio) || t('No bio set yet.')}
             </p>
           )}
         </section>
@@ -457,7 +458,7 @@ export default function Profile() {
             <h2 className="mb-4 text-xs font-display uppercase tracking-widest text-muted">{t("Snapshot")}</h2>
             <div className="grid grid-cols-2 gap-3">
               <StatTile icon={Music4} label={t("Total Plays")} value={statsLoading ? '...' : (stats?.totalPlays || 0).toLocaleString()} />
-              <StatTile icon={Clock3} label={t("Hours Listened")} value={statsLoading ? '...' : `${hours}h`} />
+              <StatTile icon={Clock3} label={t("Hours Listened")} value={statsLoading ? '...' : t('{h}h', { h: hours })} />
               <StatTile icon={Heart} label={t("Liked Tracks")} value={statsLoading ? '...' : String(stats?.likedCount || 0)} />
               <StatTile icon={TrendingUp} label={t("This Week")} value={statsLoading ? '...' : String(stats?.weeklyPlays || 0)} />
             </div>
@@ -485,7 +486,7 @@ export default function Profile() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
                           <span className="truncate text-sm text-white transition-colors hover:text-accent hover:underline hover:decoration-accent hover:underline-offset-4">{artistName}</span>
-                          <span className="flex-shrink-0 text-xs text-muted">{artist.plays} {t('plays')}</span>
+                          <span className="flex-shrink-0 text-xs text-muted">{t('{n} play|{n} plays', { n: artist.plays })}</span>
                         </div>
                         <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-border">
                           <motion.div
@@ -514,7 +515,7 @@ export default function Profile() {
               <div className="flex flex-col gap-3 @lg:flex-row @lg:items-center @lg:gap-5">
                 <h2 className="flex-shrink-0 text-xs font-display uppercase tracking-widest text-muted">{t("Top Genres")}</h2>
                 {/* Always there, so screen readers announce the change. */}
-                <span role="status" aria-live="polite" className="sr-only">{playingGenre ? `Loading ${playingGenre} songs` : ''}</span>
+                <span role="status" aria-live="polite" className="sr-only">{playingGenre ? t('Loading {genre} songs', { genre: playingGenre }) : ''}</span>
                 <div className="flex min-w-0 flex-wrap gap-2">
                   {topGenres.map((genre, index) => (
                     <button
@@ -522,8 +523,8 @@ export default function Profile() {
                       type="button"
                       onClick={() => playGenre(genre.genre)}
                       disabled={!!playingGenre}
-                      title={`Play ${genre.genre} (${genre.plays} plays)`}
-                      aria-label={`Play ${genre.genre}`}
+                      title={t('Play {name} ({plays})', { name: genre.genre, plays: plural(genre.plays, 'play') })}
+                      aria-label={t('Play {name}', { name: genre.genre })}
                       className="group flex max-w-full items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-display text-accent transition-colors hover:border-accent/60 hover:bg-accent/20 hover:!opacity-100 focus-visible:!opacity-100 disabled:cursor-default"
                       style={{ opacity: 1 - index * 0.15 }}
                     >
@@ -569,7 +570,7 @@ export default function Profile() {
             >
               <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
                 {topTrackArt ? (
-                  <img src={topTrackArt} alt="Top track" className="h-full w-full object-cover" />
+                  <img src={topTrackArt} alt={t('Top track')} className="h-full w-full object-cover" />
                 ) : (
                   <Music4 size={20} className="text-accent" />
                 )}
@@ -583,7 +584,7 @@ export default function Profile() {
                   className="mt-2 block max-w-full truncate text-left text-base text-white transition-colors hover:text-accent hover:underline hover:decoration-accent hover:underline-offset-4 disabled:cursor-default"
                   title={t("Open album")}
                 >
-                  {topTrackData?.title || 'No top track yet'}
+                  {topTrackData?.title || t('No top track yet')}
                 </button>
                 {topTrackData?.artist && (
                   <button
@@ -619,7 +620,7 @@ export default function Profile() {
                           type="button"
                           onClick={() => navigateToTrackAlbum(nav, track)}
                           className="block max-w-full truncate text-left text-sm text-white transition-colors hover:text-accent hover:underline hover:decoration-accent hover:underline-offset-4"
-                          title="Open album"
+                          title={t('Open album')}
                         >
                           {trackTitle}
                         </button>
@@ -628,7 +629,7 @@ export default function Profile() {
                             type="button"
                             onClick={() => navigateToTrackArtist(nav, track, keepCommaArtists)}
                             className="block max-w-full truncate text-left text-xs text-muted transition-colors hover:text-accent hover:underline hover:decoration-accent hover:underline-offset-4"
-                            title="Open artist"
+                            title={t('Open artist')}
                           >
                             {trackArtist}
                           </button>

@@ -17,7 +17,9 @@ import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform
 import { ChevronLeft, ChevronRight, Disc3, Pause, Play, Plus, Volume2, VolumeX, X } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
 import { plural } from '../plural'
-import { albumArt, artistAlbumName, daysText, filteredGenres, fmtHour, fmtMinutes, genreComment, hourComment, sessionComment, trackArt } from '../recapText'
+import { translate, useTranslation } from '../i18n'
+import { periodLabel, periodTitle } from '../recapPeriods'
+import { albumArt, artistAlbumName, daysText, filteredGenres, fmtHour, fmtMinutes, genreComment, hourComment, sessionComment, sessionLabel, trackArt } from '../recapText'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 
 const SOUND_KEY = 'lokal-recap-story-sound'
@@ -31,7 +33,8 @@ const CARD_WIDTH = `calc(${CARD_HEIGHT} * 9 / 16)`
 /** "11 pm": short enough for a headline. */
 function shortHour(hour) {
   const n = Number(hour)
-  return `${n % 12 || 12} ${n < 12 ? 'am' : 'pm'}`
+  // {hour24}: a 24-hour clock for the languages that use one.
+  return translate('{hour} {suffix}', { hour: n % 12 || 12, suffix: n < 12 ? 'am' : 'pm', hour24: n })
 }
 
 function readSound() {
@@ -49,33 +52,33 @@ function buildSlides(recap, period) {
   const topAlbum = topAlbums[0]
   const slides = [{
     key: 'overview',
-    eyebrow: (period?.label || 'your recap').toLowerCase(),
-    title: `${fmtMinutes(recap?.totalMinutes || 0)} of music.`,
-    body: `(that's about ${daysText(recap?.totalMinutes || 0)}... you okay?)`,
+    eyebrow: (period ? periodLabel(period) : translate('your recap')).toLowerCase(),
+    title: translate('{time} of music.', { time: fmtMinutes(recap?.totalMinutes || 0) }),
+    body: translate("(that's about {days}... you okay?)", { days: daysText(recap?.totalMinutes || 0) }),
     track: topTracks[0],
     duration: 6500,
   }]
   if (recap?.peakHour?.plays) slides.push({
     key: 'hour',
-    eyebrow: 'the chronology',
-    title: `your favorite hour was ${shortHour(recap.peakHour.hour)}.`,
+    eyebrow: translate('the chronology'),
+    title: translate('your favorite hour was {hour}.', { hour: shortHour(recap.peakHour.hour) }),
     body: hourComment(recap.peakHour.hour),
     track: topTracks[1] || topTracks[0],
     duration: 7000,
   })
   if (session?.tracks?.length) slides.push({
     key: 'session',
-    eyebrow: 'the vibe check',
-    title: `deep session: ${String(session.label || 'one long run').toLowerCase()}.`,
-    body: `${plural(session.trackCount, 'track')} over ${fmtMinutes(session.durationMinutes)}, mostly by ${session.topArtists?.[0]?.artist || 'your queue'}. ${sessionComment(session)}`,
+    eyebrow: translate('the vibe check'),
+    title: translate('deep session: {name}.', { name: (session.label ? sessionLabel(session) : translate('one long run')).toLowerCase() }),
+    body: translate('{tracks} over {time}, mostly by {artist}. {comment}', { tracks: plural(session.trackCount, 'track'), time: fmtMinutes(session.durationMinutes), artist: session.topArtists?.[0]?.artist || translate('your queue'), comment: sessionComment(session) }),
     track: session.tracks[0],
     session,
     duration: 8000,
   })
   if (topGenres[0]) slides.push({
     key: 'genre',
-    eyebrow: 'genre check',
-    title: `out of every genre, ${topGenres[0].genre.toLowerCase()} won.`,
+    eyebrow: translate('genre check'),
+    title: translate('out of every genre, {genre} won.', { genre: topGenres[0].genre.toLowerCase() }),
     body: genreComment(topGenres[0].genre),
     track: topTracks[2] || topTracks[0],
     genres: topGenres.slice(0, 5),
@@ -83,27 +86,27 @@ function buildSlides(recap, period) {
   })
   if (topArtist) slides.push({
     key: 'artist',
-    eyebrow: 'top artist',
-    title: `your favorite artist was ${topArtist.artist.toLowerCase()}.`,
-    body: `${plural(topArtist.plays, 'play')}, and ${artistAlbumName(topArtist, topAlbums, topTracks).toLowerCase()} kept dragging you back in.`,
+    eyebrow: translate('top artist'),
+    title: translate('your favorite artist was {artist}.', { artist: topArtist.artist.toLowerCase() }),
+    body: translate('{plays}, and {album} kept dragging you back in.', { plays: plural(topArtist.plays, 'play'), album: artistAlbumName(topArtist, topAlbums, topTracks).toLowerCase() }),
     track: topTracks.find(track => track.artist === topArtist.artist) || topTracks[0],
     artists: topArtists.slice(1, 4),
     duration: 7500,
   })
   if (topAlbum) slides.push({
     key: 'albums',
-    eyebrow: 'top albums',
-    title: `${topAlbum.album.toLowerCase()} was your soundtrack.`,
-    body: topAlbums[1] ? 'these almost took the crown:' : 'this era leaned more track-by-track.',
+    eyebrow: translate('top albums'),
+    title: translate('{album} was your soundtrack.', { album: topAlbum.album.toLowerCase() }),
+    body: topAlbums[1] ? translate('these almost took the crown:') : translate('this era leaned more track-by-track.'),
     track: topTracks.find(track => track.album === topAlbum.album) || topTracks[0],
     albums: topAlbums.slice(0, 5),
     duration: 8000,
   })
   slides.push({
     key: 'end',
-    eyebrow: 'the replay',
-    title: "now, let's replay this era.",
-    body: `your top ${Math.min((recap?.replayQueue || topTracks).length, 50)}, ready to play or keep.`,
+    eyebrow: translate('the replay'),
+    title: translate("now, let's replay this era."),
+    body: translate('your top {n}, ready to play or keep.', { n: Math.min((recap?.replayQueue || topTracks).length, 50) }),
     track: topTracks[0],
     duration: 0, // the last slide stays
   })
@@ -122,8 +125,9 @@ export default function RecapStory({ open, recap, ...props }) {
 }
 
 function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus }) {
+  const { t, language } = useTranslation()
   const reduceMotion = useReducedMotion()
-  const slides = useMemo(() => buildSlides(recap, period), [recap, period])
+  const slides = useMemo(() => buildSlides(recap, period), [recap, period, language]) // eslint-disable-line react-hooks/exhaustive-deps
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const [held, setHeld] = useState(false)
@@ -254,7 +258,7 @@ function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus })
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
-      aria-label={`${period?.title || 'Recap'} story`}
+      aria-label={t('{name} story', { name: period ? periodTitle(period) : t('Recap') })}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -293,24 +297,24 @@ function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus })
           </div>
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-[10px] font-display uppercase tracking-[0.24em] text-white/50">
-              lokal recap · {period?.label || ''}
+              {t('lokal recap')} · {period ? periodLabel(period) : ''}
             </p>
             {slide.duration > 0 && (
-              <StoryButton onClick={() => setPaused(value => !value)} label={paused ? 'Resume' : 'Pause'}>
+              <StoryButton onClick={() => setPaused(value => !value)} label={paused ? t('Resume') : t('Pause')}>
                 {paused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
               </StoryButton>
             )}
-            <StoryButton onClick={toggleSound} label={sound ? 'Turn the soundtrack off' : 'Turn the soundtrack on'} pressed={sound}>
+            <StoryButton onClick={toggleSound} label={sound ? t('Turn the soundtrack off') : t('Turn the soundtrack on')} pressed={sound}>
               {sound ? <Volume2 size={15} /> : <VolumeX size={15} />}
             </StoryButton>
-            <StoryButton onClick={onClose} label="Close story">
+            <StoryButton onClick={onClose} label={t('Close story')}>
               <X size={16} />
             </StoryButton>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <SideArrow label="Previous slide" disabled={index === 0} onClick={() => go(-1)}><ChevronLeft size={18} /></SideArrow>
+          <SideArrow label={t('Previous slide')} disabled={index === 0} onClick={() => go(-1)}><ChevronLeft size={18} /></SideArrow>
           <div
             onPointerDown={onPointerDown}
             onPointerUp={(event) => endPress(event, true)}
@@ -355,18 +359,18 @@ function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus })
                   className="mt-auto pt-[5cqw]"
                 >
                   <SlideVisual slide={slide} recap={recap} topTracks={topTracks} replayQueue={replayQueue}
-                    playAndClose={playAndClose} periodTitle={period?.title} onSavePlaylist={onSavePlaylist} playlistStatus={playlistStatus} />
+                    playAndClose={playAndClose} periodTitle={period ? periodTitle(period) : ''} onSavePlaylist={onSavePlaylist} playlistStatus={playlistStatus} />
                 </motion.div>
               </motion.div>
             </AnimatePresence>
             {(paused || held) && slide.duration > 0 && (
-              <div className="pointer-events-none absolute right-[5cqw] top-[5cqw] rounded-full bg-black/50 px-[2.5cqw] py-[1cqw] text-[2.6cqw] uppercase tracking-widest text-white/70">paused</div>
+              <div className="pointer-events-none absolute right-[5cqw] top-[5cqw] rounded-full bg-black/50 px-[2.5cqw] py-[1cqw] text-[2.6cqw] uppercase tracking-widest text-white/70">{t('paused')}</div>
             )}
           </div>
-          <SideArrow label="Next slide" disabled={index === last} onClick={() => go(1)}><ChevronRight size={18} /></SideArrow>
+          <SideArrow label={t('Next slide')} disabled={index === last} onClick={() => go(1)}><ChevronRight size={18} /></SideArrow>
         </div>
       </div>
-      <p className="sr-only" aria-live="polite">{`Slide ${index + 1} of ${slides.length}: ${slide.title}`}</p>
+      <p className="sr-only" aria-live="polite">{t('Slide {n} of {total}: {title}', { n: index + 1, total: slides.length, title: slide.title })}</p>
     </motion.div>
   )
 }
@@ -414,11 +418,12 @@ function TrackChip({ track }) {
 }
 
 function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, periodTitle, onSavePlaylist, playlistStatus }) {
+  const { t } = useTranslation()
   if (slide.key === 'overview') {
     const stats = [
-      [recap.totalPlays || 0, 'plays'],
-      [recap.uniqueTracks || 0, 'different tracks'],
-      [recap.uniqueArtists || 0, 'artists'],
+      [recap.totalPlays || 0, t('plays')],
+      [recap.uniqueTracks || 0, t('different tracks')],
+      [recap.uniqueArtists || 0, t('artists')],
     ]
     return (
       <div className="space-y-[5cqw]">
@@ -442,14 +447,14 @@ function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, perio
     return (
       <div className="space-y-[5cqw]">
         <div>
-          <div className="flex h-[42cqw] items-end gap-[0.7cqw]" aria-label="Plays by hour of the day" role="img">
+          <div className="flex h-[42cqw] items-end gap-[0.7cqw]" aria-label={t('Plays by hour of the day')} role="img">
             {hours.map((plays, hour) => (
               <div key={hour} className={`flex-1 rounded-t-[1cqw] ${hour === peak ? 'bg-accent' : 'bg-white/25'}`}
                 style={{ height: `${Math.max(plays ? 4 : 1.5, (plays / most) * 100)}%` }} title={`${fmtHour(hour)}: ${plural(plays, 'play')}`} />
             ))}
           </div>
           <div className="mt-[2cqw] grid grid-cols-4 text-[2.6cqw] text-white/40">
-            {['12 am', '6 am', '12 pm', '6 pm'].map(label => <span key={label}>{label}</span>)}
+            {[0, 6, 12, 18].map(hour => <span key={hour}>{shortHour(hour)}</span>)}
           </div>
         </div>
         <TrackChip track={slide.track} />
@@ -465,16 +470,16 @@ function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, perio
           {covers.map((track, i) => <Cover key={track.id || i} src={trackArt(track)} className="aspect-square rounded-[2.5cqw]" />)}
         </div>
         <div className="grid grid-cols-3 gap-[2cqw] text-center">
-          {[[fmtMinutes(session.durationMinutes), 'long'], [session.trackCount || 0, 'tracks'], [session.skippedCount || 0, 'skips']].map(([value, label]) => (
+          {[[fmtMinutes(session.durationMinutes), t('long')], [session.trackCount || 0, t('tracks')], [session.skippedCount || 0, t('skips')]].map(([value, label]) => (
             <div key={label} className="rounded-[3cqw] bg-white/[0.06] py-[2.5cqw]">
               <p className="font-display text-[4.6cqw]">{value}</p>
               <p className="text-[2.6cqw] text-white/45 lowercase">{label}</p>
             </div>
           ))}
         </div>
-        <button data-interactive onClick={() => playAndClose(session.tracks, session.label || 'Listening session')}
+        <button data-interactive onClick={() => playAndClose(session.tracks, session.label ? sessionLabel(session) : t('Listening session'))}
           className="flex w-full items-center justify-center gap-[2cqw] rounded-[4cqw] border border-white/10 bg-white/[0.08] py-[3cqw] text-[3.4cqw] hover:bg-white/[0.14]">
-          <Play size={14} fill="currentColor" /> play this session
+          <Play size={14} fill="currentColor" /> {t('play this session')}
         </button>
       </div>
     )
@@ -551,10 +556,10 @@ function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, perio
   const topArtist = recap.topArtists?.[0]?.artist
   const topGenre = filteredGenres(recap.topGenres || [])[0]?.genre
   const summary = [
-    ['listened', fmtMinutes(recap.totalMinutes || 0)],
-    ['top track', topTracks[0]?.title],
-    ['top artist', topArtist],
-    ['top genre', topGenre],
+    [t('listened'), fmtMinutes(recap.totalMinutes || 0)],
+    [t('top track'), topTracks[0]?.title],
+    [t('top artist'), topArtist],
+    [t('top genre'), topGenre],
   ].filter(([, value]) => value)
   return (
     <div className="space-y-[4cqw]">
@@ -567,13 +572,13 @@ function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, perio
         ))}
       </div>
       <div className="space-y-[2cqw]">
-        <button data-interactive onClick={() => playAndClose(replayQueue.slice(0, 50), `Top ${Math.min(replayQueue.length, 50)}${periodTitle ? ` · ${periodTitle}` : ''}`)}
+        <button data-interactive onClick={() => playAndClose(replayQueue.slice(0, 50), `${t('Top {n}', { n: Math.min(replayQueue.length, 50) })}${periodTitle ? ` · ${periodTitle}` : ''}`)}
           className="flex w-full items-center justify-center gap-[2cqw] rounded-[4cqw] bg-accent py-[3.6cqw] text-[3.6cqw] font-semibold text-base hover:bg-accent/85">
-          <Play size={15} fill="currentColor" /> play top {Math.min(replayQueue.length, 50)}
+          <Play size={15} fill="currentColor" /> {t('play top {n}', { n: Math.min(replayQueue.length, 50) })}
         </button>
         <button data-interactive onClick={onSavePlaylist}
           className="flex w-full items-center justify-center gap-[2cqw] rounded-[4cqw] border border-white/10 bg-white/[0.06] py-[3.6cqw] text-[3.6cqw] hover:bg-white/[0.1]">
-          <Plus size={15} /> add to my playlists
+          <Plus size={15} /> {t('add to my playlists')}
         </button>
         {playlistStatus && <p className="text-center text-[3cqw] text-accent" role="status">{playlistStatus}</p>}
       </div>

@@ -8,6 +8,7 @@ import { api } from './api.js'
 import { downloadBatchCurrent } from './downloadCancellation.js'
 import { isGhostTrack, saveToLibrary, streamRef, isAddonProvider, missingTrackCanRedownload } from './onlineTracks.js'
 import { mapLimited, playbackSources, resolveRecommendationTracks } from './recommendations.js'
+import { translate } from './i18n'
 
 /**
  * Download `ghosts` (a playlist's ghost tracks). Songs found in the library
@@ -89,7 +90,7 @@ export async function downloadGhostSongs(ghosts, { client = api, save = saveToLi
       result.failed++
     } finally {
       done++
-      onProgress?.(`Finding and queuing songs… ${done}/${list.length}`)
+      onProgress?.(translate('Finding and queuing songs… {done}/{total}', { done, total: list.length }))
     }
   }, concurrency)
   if (!isCurrent()) result.cancelled = true
@@ -100,13 +101,13 @@ export async function downloadGhostSongs(ghosts, { client = api, save = saveToLi
 /** What downloadGhostSongs did, in a sentence. */
 export function ghostDownloadMessage({ started, existing, failed, notFound, cancelled, declined }) {
   return [
-    cancelled && 'Stopped queuing songs',
-    started && `Started ${started} download${started === 1 ? '' : 's'}`,
-    existing && `${existing} already in your library`,
-    notFound && `${notFound} not found on your playback sources`,
-    failed && `${failed} unavailable`,
-    declined && `${declined} skipped`,
-  ].filter(Boolean).join('; ') || 'No songs to download.'
+    cancelled && translate('Stopped queuing songs'),
+    started && translate('Started {n} download|Started {n} downloads', { n: started }),
+    existing && translate('{n} already in your library', { n: existing }),
+    notFound && translate('{n} not found on your playback sources', { n: notFound }),
+    failed && translate('{n} unavailable', { n: failed }),
+    declined && translate('{n} skipped', { n: declined }),
+  ].filter(Boolean).join('; ') || translate('No songs to download.')
 }
 
 export function differentDuration(ghost, found) {
@@ -117,7 +118,7 @@ export function differentDuration(ghost, found) {
 /** A manually chosen source suggestion still belongs to its imported row. */
 export async function downloadGhostResult(ghost, item, { client = api, save = saveToLibrary, confirmDuration, isCurrent = () => true } = {}) {
   isCurrent = downloadBatchCurrent(isCurrent)
-  if (!ghost?.id || !item) return { error: 'Choose a song to replace first' }
+  if (!ghost?.id || !item) return { error: translate('Choose a song to replace first') }
   if (!isCurrent()) return { cancelled: true }
   const different = differentDuration(ghost, item)
   if (different && await confirmDuration?.(ghost, item) !== true) return { cancelled: true }
@@ -132,14 +133,14 @@ export async function downloadGhostResult(ghost, item, { client = api, save = sa
     expectedDuration: Number(item.duration) > 0 ? Number(item.duration) : ghost.duration,
   }
   if (item.provider === 'sc' || isAddonProvider(item.provider)) {
-    if (item.preview) return { error: 'This source only offers a preview' }
+    if (item.preview) return { error: translate('This source only offers a preview') }
     const saved = await client.onlineSave([item])
     if (!isCurrent()) return { cancelled: true }
     const track = Array.isArray(saved) ? saved[0] : null
-    if (!track?.id) return { error: saved?.error || 'Could not prepare the selected song' }
+    if (!track?.id) return { error: saved?.error || translate('Could not prepare the selected song') }
     return save(track, { ...replacement, isCurrent })
   }
-  if (!item.url) return { error: 'This result has no download link' }
+  if (!item.url) return { error: translate('This result has no download link') }
   return client.downloadYT(item.url, {
     title: item.title,
     thumbnail: item.thumbnail || undefined,
@@ -177,7 +178,7 @@ export async function repairMissingTracks(tracks, { client = api, onProgress, co
 
 export async function redownloadMissingTrack(track, { client = api } = {}) {
   const ref = String(track?.source_ref || '').match(/^([^:]+):(.+)$/)
-  if (!track?.missing || !ref) return { error: 'This song has no remembered download source.' }
+  if (!track?.missing || !ref) return { error: translate('This song has no remembered download source.') }
   const provider = ref[1]
   let url = null
   let addonSource
@@ -188,7 +189,7 @@ export async function redownloadMissingTrack(track, { client = api } = {}) {
     const resolved = await client.onlineDownloadUrl(provider, ref[2]).catch(() => null)
     url = resolved?.url || null
   }
-  if (!url) return { error: 'The original download source is unavailable.' }
+  if (!url) return { error: translate('The original download source is unavailable.') }
   return client.downloadYT(url, {
     title: [track.artist, track.title].filter(Boolean).join(' - '),
     thumbnail: track.artwork_url || undefined,

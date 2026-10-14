@@ -22,6 +22,15 @@ function registerLyricsHandlers(ipcMain) {
 
   ipcMain.handle('lyrics:clearCache', (_, trackId) => service.clearCache(db, trackId))
 
+  // Writing into the song's file happens only from these, i.e. when the user asks.
+  const safely = (fn) => async (...args) => {
+    try { return await fn(...args) } catch (e) { return { ok: false, error: e?.message || String(e) } }
+  }
+  ipcMain.handle('lyrics:readFile', safely((_, trackId) => service.readFileLyrics(db, trackId)))
+  ipcMain.handle('lyrics:writeFile', safely((_, trackId, text) => service.writeFileLyrics(db, trackId, text)))
+  ipcMain.handle('lyrics:embedFrom', safely((_, providerId, trackId, title, artist, album, duration) =>
+    service.embedFrom(db, { trackId, title, artist, album, duration }, providerId)))
+
   ipcMain.handle('lyrics:translate', (_, trackId, lines, targetLang) =>
     service.translate(db, trackId, lines, targetLang))
 
@@ -59,6 +68,33 @@ function registerLyricsHandlers(ipcMain) {
     } finally { indexJob = null }
   })
   ipcMain.handle('lyrics:cancelIndex', () => { if (indexJob) indexJob.cancelled = true })
+
+  // The Lyrics Analysis page: counts what every file in the music folder has
+  // in its lyrics tags. The last report is kept; "Refresh" counts again.
+  const analysis = require('../lyrics/analysis')
+  let analysisJob = null
+  let analysisProgress = { running: false }
+  ipcMain.handle('lyricsAnalysis:get', () => ({ report: analysis.savedReport(db), progress: analysisProgress }))
+  ipcMain.handle('lyricsAnalysis:run', async (event) => {
+    if (analysisJob) return { running: true }
+    const job = { cancelled: false }
+    analysisJob = job
+    analysis.clearReport(db)
+    const send = (payload) => {
+      analysisProgress = payload
+      try { if (!event.sender.isDestroyed()) event.sender.send('lyricsAnalysis:progress', payload) } catch {}
+    }
+    send({ running: true, done: 0, total: 0, folder: '' })
+    try {
+      const { AUDIO_EXTS } = require('./scanner')
+      const result = await analysis.runAnalysis(db, { exts: AUDIO_EXTS, onProgress: send, job })
+      send({ running: false, ...(result.ok ? {} : { error: result.error || null }) })
+      return result
+    } catch (e) {
+      send({ running: false, error: e?.message || String(e) })
+      return { ok: false, error: e?.message || String(e) }
+    } finally { analysisJob = null }
+  })
 }
 
 module.exports = { registerLyricsHandlers }

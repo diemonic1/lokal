@@ -1,10 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { api } from './api'
+import RU from './locales/ru/index.js'
 
 export const APP_LANGUAGES = [
   { code: 'en', name: 'English' }, { code: 'fr', name: 'Français' }, { code: 'de', name: 'Deutsch' },
   { code: 'es', name: 'Español' }, { code: 'it', name: 'Italiano' }, { code: 'pt-BR', name: 'Português (Brasil)' },
-  { code: 'nl', name: 'Nederlands' }, { code: 'pl', name: 'Polski' }, { code: 'sv', name: 'Svenska' },
+  { code: 'nl', name: 'Nederlands' }, { code: 'pl', name: 'Polski' }, { code: 'sv', name: 'Svenska' }, { code: 'ru', name: 'Русский' },
 ]
 const LOCALES = ['fr', 'de', 'es', 'it', 'pt-BR', 'nl', 'pl', 'sv']
 
@@ -56,6 +57,7 @@ const ROWS = {
   'History': ['Historique','Verlauf','Historial','Cronologia','Histórico','Geschiedenis','Historia','Historik'],
   'Version': ['Version','Version','Versión','Versione','Versão','Versie','Wersja','Version'],
   'Accent Color': ['Couleur d’accentuation','Akzentfarbe','Color de acento','Colore accento','Cor de destaque','Accentkleur','Kolor akcentu','Accentfärg'],
+  'Custom color': ['Couleur personnalisée','Eigene Farbe','Color personalizado','Colore personalizzato','Cor personalizada','Eigen kleur','Własny kolor','Egen färg'],
   'On': ['Activé','Ein','Activado','Attivo','Ativado','Aan','Wł.','På'],
   'Off': ['Désactivé','Aus','Desactivado','Disattivato','Desativado','Uit','Wył.','Av'],
   'Saved': ['Enregistré','Gespeichert','Guardado','Salvato','Salvo','Opgeslagen','Zapisano','Sparat'],
@@ -316,8 +318,50 @@ const ROWS = {
 const TRANSLATIONS = Object.fromEntries(Object.entries(ROWS).map(([phrase, values]) => [
   phrase, Object.fromEntries(LOCALES.map((locale, index) => [locale, values[index]])),
 ]))
+// Russian lives in its own files, keyed by the English phrase.
+for (const [phrase, value] of Object.entries(RU)) (TRANSLATIONS[phrase] ||= {}).ru = value
 
-const LanguageContext = createContext({ language: 'en', setLanguage: async () => false, t: value => value })
+// Russian plural form for a count: 0 (1, 21…), 1 (2–4, 22–24…), 2 (5–20, 25…).
+function ruPluralIndex(n) {
+  const abs = Math.abs(Math.trunc(Number(n) || 0))
+  const mod10 = abs % 10
+  const mod100 = abs % 100
+  if (mod10 === 1 && mod100 !== 11) return 0
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 1
+  return 2
+}
+
+/**
+ * The phrase in `language`. The key is the English text; `{name}` in it is
+ * filled from `vars`. Plurals: an English key "{n} track|{n} tracks" picks by
+ * `vars.n`, and its Russian entry is an array of three forms
+ * (1 трек, 2 трека, 5 треков).
+ */
+export function translatePhrase(language, phrase, vars) {
+  if (typeof phrase !== 'string') return phrase
+  const count = vars && (vars.count ?? vars.n)
+  let text = language === 'en' ? undefined : TRANSLATIONS[phrase]?.[language]
+  if (Array.isArray(text)) text = text[language === 'ru' ? ruPluralIndex(count) : (Number(count) === 1 ? 0 : text.length - 1)] ?? text[text.length - 1]
+  if (text === undefined || text === null || text === '') {
+    text = phrase
+    if (phrase.includes('|')) {
+      const [one, many] = phrase.split('|')
+      text = Number(count) === 1 ? one : (many ?? one)
+    }
+  }
+  if (vars) text = text.replace(/\{(\w+)\}/g, (match, key) => (vars[key] !== undefined && vars[key] !== null ? String(vars[key]) : match))
+  return text
+}
+
+// The language in use, for code outside React (toasts, menus built in plain modules).
+let currentLanguage = 'en'
+/** Translate outside a component; inside one, use useTranslation().t (it re-renders on a change). */
+export function translate(phrase, vars) {
+  return translatePhrase(currentLanguage, phrase, vars)
+}
+export const getLanguage = () => currentLanguage
+
+const LanguageContext = createContext({ language: 'en', setLanguage: async () => false, t: (phrase, vars) => translatePhrase('en', phrase, vars) })
 function readStoredLanguage() {
   try {
     const code = localStorage.getItem('lokal-app-language')
@@ -362,10 +406,8 @@ export function LanguageProvider({ children }) {
     }
   }, [])
 
-  const t = useCallback((phrase) => {
-    if (typeof phrase !== 'string' || language === 'en') return phrase
-    return TRANSLATIONS[phrase]?.[language] || phrase
-  }, [language])
+  currentLanguage = language
+  const t = useCallback((phrase, vars) => translatePhrase(language, phrase, vars), [language])
 
   return <LanguageContext.Provider value={{ language, setLanguage, t }}>{children}</LanguageContext.Provider>
 }

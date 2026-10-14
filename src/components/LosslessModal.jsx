@@ -14,10 +14,12 @@ import { TIERS, tierOf, isSuspect, formatLabel, verdictText, storeSearches } fro
 import { downloadGhostResult } from '../ghostDownloads'
 import { replacementSources, searchReplacements } from '../losslessReplacements'
 import AddonSetupNotice from './AddonSetupNotice'
+import { useTranslation } from '../i18n'
 
 const fmtTime = s => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`
 
 function LinkRow({ link }) {
+  const { t } = useTranslation()
   const Icon = link.kind === 'free' ? Gift : link.kind === 'search' ? Search : link.kind === 'info' ? BookOpen : ShoppingBag
   return (
     <button
@@ -27,7 +29,7 @@ function LinkRow({ link }) {
       <Icon size={14} className={link.kind === 'search' || link.kind === 'info' ? 'text-muted' : 'text-accent'} />
       <span className="min-w-0 flex-1">
         <span className="block text-sm text-white truncate">
-          {link.kind === 'search' || link.kind === 'info' ? `Search ${link.store}` : link.store}
+          {link.kind === 'search' || link.kind === 'info' ? t('Search {store}', { store: link.store }) : link.store}
           {link.release ? <span className="text-muted"> · {link.release}</span> : null}
         </span>
         <span className="block text-[11px] text-muted truncate">{link.format}</span>
@@ -39,6 +41,7 @@ function LinkRow({ link }) {
 
 export default function LosslessModal() {
   const nav = useNavigate()
+  const { t } = useTranslation()
   const [track, setTrack] = useState(null)
   const [links, setLinks] = useState(null) // null: loading
   const [check, setCheck] = useState(null) // { loading } | result | { error }
@@ -82,7 +85,7 @@ export default function LosslessModal() {
     const key = `${item.provider}:${item.id}`
     setReplacing(key)
     const result = await downloadGhostResult({ ...track, missing: true }, item, {
-      confirmDuration: (song, found) => window.confirm(`"${found.title}" on ${source.label} is ${fmtTime(found.duration)} long; yours is ${fmtTime(song.duration)}. Replace it anyway?`),
+      confirmDuration: (song, found) => window.confirm(t('"{title}" on {source} is {found} long; yours is {yours}. Replace it anyway?', { title: found.title, source: source.label, found: fmtTime(found.duration), yours: fmtTime(song.duration) })),
     }).catch(error => ({ error: error.message }))
     setReplacing('')
     if (result?.cancelled) return
@@ -108,12 +111,12 @@ export default function LosslessModal() {
   const runCheck = async () => {
     setCheck({ loading: true })
     const result = await Promise.resolve(api.qualityCheckOne(track.id)).catch(e => ({ error: e.message }))
-    setCheck(result || { error: 'No answer' })
+    setCheck(result || { error: t('No answer') })
     if (result && !result.error) window.dispatchEvent(new Event('lokal:quality-changed'))
   }
 
   return (
-    <Modal open={!!track} onClose={close} title="Get it in lossless" width="max-w-lg">
+    <Modal open={!!track} onClose={close} title={t('Get it in lossless')} width="max-w-lg">
       <div className="space-y-5 overflow-y-auto px-5 pb-5 pt-4 sm:px-6">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -121,7 +124,7 @@ export default function LosslessModal() {
             <p className="text-xs text-muted truncate">{track.artist}{track.album ? ` · ${track.album}` : ''}</p>
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${info.className}`}>{info.label}</span>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${info.className}`}>{t(info.label)}</span>
             {formatLabel(track) && <span className="text-[11px] text-muted">{formatLabel(track)}</span>}
           </div>
         </div>
@@ -130,32 +133,32 @@ export default function LosslessModal() {
           <div className="rounded-xl border border-border bg-card/40 px-3 py-2.5 text-xs">
             <div className="flex items-center gap-2">
               <Activity size={13} className="text-muted flex-shrink-0" />
-              <p className="min-w-0 flex-1 text-muted">{check?.error ? check.error : verdict || 'A FLAC made from an MP3 keeps the MP3\'s high-frequency cut-off. Check the spectrum to find out.'}</p>
+              <p className="min-w-0 flex-1 text-muted">{check?.error ? check.error : verdict || t('A FLAC made from an MP3 keeps the MP3\'s high-frequency cut-off. Check the spectrum to find out.')}</p>
               <button onClick={runCheck} disabled={check?.loading}
                 className="flex-shrink-0 rounded-lg border border-border px-2.5 py-1 text-[11px] text-muted hover:text-white disabled:opacity-50">
-                {check?.loading ? <Loader2 size={12} className="animate-spin" /> : verdict ? 'Check again' : 'Check'}
+                {check?.loading ? <Loader2 size={12} className="animate-spin" /> : verdict ? t('Check again') : t('Check')}
               </button>
             </div>
           </div>
         )}
 
         <div className="space-y-2">
-          <p className="text-[11px] font-display uppercase tracking-widest text-muted">Buy in lossless</p>
+          <p className="text-[11px] font-display uppercase tracking-widest text-muted">{t('Buy in lossless')}</p>
           {links?.exact?.map(link => <LinkRow key={link.url} link={link} />)}
           {storeSearches(track).map(link => <LinkRow key={link.url} link={link} />)}
-          {!links && <p className="flex items-center gap-2 text-[11px] text-muted"><Loader2 size={11} className="animate-spin" /> Looking for the exact release on MusicBrainz (a few seconds)…</p>}
+          {!links && <p className="flex items-center gap-2 text-[11px] text-muted"><Loader2 size={11} className="animate-spin" /> {t('Looking for the exact release on MusicBrainz (a few seconds)…')}</p>}
           {links && !links.exact?.length && (
             <p className="text-[11px] text-muted">
-              {links.identified ? 'MusicBrainz knows this recording but lists no lossless store for it.' : "MusicBrainz doesn't list a store for this song."}
+              {links.identified ? t('MusicBrainz knows this recording but lists no lossless store for it.') : t("MusicBrainz doesn't list a store for this song.")}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <p className="text-[11px] font-display uppercase tracking-widest text-muted">From your addon sources</p>
+          <p className="text-[11px] font-display uppercase tracking-widest text-muted">{t('From your addon sources')}</p>
           {setup.map(source => <AddonSetupNotice key={source.id} source={source} />)}
-          {online === null && <p className="flex items-center gap-2 text-[11px] text-muted"><Loader2 size={11} className="animate-spin" /> Searching your addon sources…</p>}
-          {online?.length === 0 && !setup.length && <p className="text-[11px] text-muted">No addon sources installed. Add one in Settings → Addons to download a lossless copy from it.</p>}
+          {online === null && <p className="flex items-center gap-2 text-[11px] text-muted"><Loader2 size={11} className="animate-spin" /> {t('Searching your addon sources…')}</p>}
+          {online?.length === 0 && !setup.length && <p className="text-[11px] text-muted">{t('No addon sources installed. Add one in Settings → Addons to download a lossless copy from it.')}</p>}
           {online?.map(({ source, items, error }) => (
             <div key={source.id} className="space-y-1.5">
               {items.map(item => {
@@ -168,15 +171,15 @@ export default function LosslessModal() {
                       <span className="block truncate text-[11px] text-muted">{[source.label, item.album, item.quality, item.duration ? fmtTime(item.duration) : ''].filter(Boolean).join(' · ')}</span>
                     </span>
                     {replaced === key
-                      ? <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] text-accent"><Check size={12} />Downloading</span>
-                      : <button onClick={() => replaceWith(item, source)} disabled={!!replacing || !!replaced} title="Download this copy; it replaces your file, keeping its playlists, likes and plays"
+                      ? <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] text-accent"><Check size={12} />{t('Downloading')}</span>
+                      : <button onClick={() => replaceWith(item, source)} disabled={!!replacing || !!replaced} title={t('Download this copy; it replaces your file, keeping its playlists, likes and plays')}
                           className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11px] text-text hover:border-accent/40 disabled:opacity-40">
-                          {replacing === key ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}Replace
+                          {replacing === key ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}{t('Replace')}
                         </button>}
                   </div>
                 )
               })}
-              {!items.length && <p className="text-[11px] text-muted">{source.label}: {error || 'no close match.'}</p>}
+              {!items.length && <p className="text-[11px] text-muted">{source.label}: {error || t('no close match.')}</p>}
             </div>
           ))}
         </div>
@@ -187,8 +190,8 @@ export default function LosslessModal() {
             className="w-full flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2 text-left transition-colors hover:border-accent/40 hover:bg-card">
             <Search size={14} className="text-accent" />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm text-white">Find a lossless file on Soulseek…</span>
-              <span className="block text-[11px] text-muted">The file you pick replaces this one, keeping its playlists, likes and plays.</span>
+              <span className="block text-sm text-white">{t('Find a lossless file on Soulseek…')}</span>
+              <span className="block text-[11px] text-muted">{t('The file you pick replaces this one, keeping its playlists, likes and plays.')}</span>
             </span>
           </button>
         </div>

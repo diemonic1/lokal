@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { usePlayerStore } from '../store/player'
+import { useTranslation } from '../i18n'
 
 export default function MixingMark({ className = '' }) {
+  const { t } = useTranslation()
   const mixing = usePlayerStore(state => state.mixing)
   const [, tick] = useState(0)
   // Gone when the transition's time is up, even if nothing else changes.
@@ -27,7 +29,7 @@ export default function MixingMark({ className = '' }) {
             <span className="mixing-ring mixing-ring-left" />
             <span className="mixing-ring mixing-ring-right" />
           </span>
-          {mixing.kind === 'crossfade' ? 'Crossfading' : 'AutoMix'}
+          {mixing.kind === 'crossfade' ? t('Crossfading') : 'AutoMix'}
         </motion.span>
       )}
     </AnimatePresence>

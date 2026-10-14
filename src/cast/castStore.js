@@ -4,6 +4,7 @@
 
 import { create } from 'zustand'
 import { api } from '../api'
+import { translate } from '../i18n'
 
 export const useCastStore = create((set, get) => ({
   available: api.castAvailable(),
@@ -77,7 +78,7 @@ function readTvView() {
 
 function friendly(error) {
   const message = String(error?.message || error?.error || error || '')
-  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') || 'Something went wrong'
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') || translate('Something went wrong')
 }
 
 /** Whether a device is a TV, a speaker or a group (the menu's icons). */

@@ -10,7 +10,8 @@ import { navigateToTrackAlbum } from '../playbackContext'
 import { navigateToTrackArtist } from '../artistLink'
 import Waveform from './Waveform'
 import { showToast } from './Toaster'
-import { useAppearanceFlag } from '../appearanceFlags'
+import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
+import CoverGradient from './CoverGradient'
 import { trackArtURL, isStreamed, streamLabel } from '../onlineTracks'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
@@ -24,6 +25,24 @@ function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toStr
 export default function PlayerBar() {
   const { t } = useTranslation()
   const glass = useAppearanceFlag('glass_player_bar')
+  const floating = useAppearanceFlag('player_bar_floating')
+  const showGradient = useAppearanceFlag('player_bar_gradient')
+  const gradientStrength = useAppearanceValue('player_bar_gradient_strength', 40)
+  const gradientSpeed = useAppearanceValue('player_bar_gradient_speed', 0)
+  // How see-through the glass is (0: solid colour, still blurred).
+  const glassTransparency = Math.max(0, Math.min(90, useAppearanceValue('player_bar_glass_transparency', 45)))
+  // How see-through the shade under the times and seek bar is (100: none).
+  const shadeTransparency = Math.max(0, Math.min(100, useAppearanceValue('player_bar_shade_transparency', 40)))
+  // The cover gradient reaches as far as the cover, title and artist do.
+  const infoRef = useRef(null)
+  const [infoWidth, setInfoWidth] = useState(0)
+  useEffect(() => {
+    const node = infoRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => setInfoWidth(node.getBoundingClientRect().width))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   const showWaveform = useAppearanceFlag('player_waveform')
   const nav = useNavigate()
   const {
@@ -99,8 +118,8 @@ export default function PlayerBar() {
     if (!currentTrack) return
     const text = [currentTrack.artist, currentTrack.title].filter(Boolean).join(' - ')
     Promise.resolve(navigator.clipboard?.writeText(text))
-      .then(() => showToast(`Copied: ${text}`))
-      .catch(() => showToast('Could not copy to the clipboard'))
+      .then(() => showToast(t('Copied: {text}', { text })))
+      .catch(() => showToast(t('Could not copy to the clipboard')))
   }
 
   // The wheel anywhere on the bar: volume in 1% steps; over the seek bar: 1 s steps.
@@ -120,8 +139,8 @@ export default function PlayerBar() {
   const openTrackMenu = (event) => {
     if (!currentTrack) return
     menu.open(event, [
-      { label: 'Start radio', icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
-      currentTrack.artist && { label: 'Start artist radio', icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
+      { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
+      currentTrack.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
       losslessMenuItem(currentTrack, Gem),
     ].filter(Boolean))
   }
@@ -138,16 +157,21 @@ export default function PlayerBar() {
 
   return (
     <>
-      {/* Glass (Settings > Appearance > Player Bar), like the downloads popup:
-          a card floating over the bottom of the pages, which scroll on
-          underneath it (App leaves --player-space for it). Off: the plain
-          strip below the pages. */}
-      <div data-player-bar className={glass
-        ? 'absolute inset-x-3 bottom-3 z-30 h-20 rounded-2xl border border-white/10 flex items-center px-4 gap-4 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-lg backdrop-saturate-150'
-        : 'h-20 border-t border-border flex items-center px-4 gap-4 flex-shrink-0 z-10'}
-        style={glass ? { backgroundColor: 'rgba(var(--surface-rgb), 0.55)' } : { backgroundColor: 'rgba(var(--surface-rgb), 0.9)', backdropFilter: 'blur(12px)' }}
+      {/* Settings > Appearance > Player Bar:
+          Floating -- a card over the bottom of the pages, which scroll on
+          underneath it (App leaves --player-space for it); off, the strip
+          docked below the pages.
+          Glass -- see-through and blurring what's behind; off, solid. */}
+      <div data-player-bar className={`${floating
+        ? 'absolute inset-x-3 bottom-3 z-30 rounded-2xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.45)]'
+        : 'relative border-t border-border flex-shrink-0 z-10'} h-20 flex items-center px-4 gap-4 ${glass ? 'backdrop-blur-lg backdrop-saturate-150' : ''}`}
+        style={{
+          backgroundColor: glass ? `rgb(var(--surface-rgb) / ${(1 - glassTransparency / 100).toFixed(2)})` : 'rgb(var(--surface-rgb))',
+          '--cover-gradient-width': infoWidth ? `${Math.round(infoWidth + 16 + 48)}px` : undefined,
+        }}
         onWheel={onBarWheel}>
-        <div className="flex flex-1 items-center gap-3 min-w-0">
+        {showGradient && <CoverGradient trackId={currentTrack?.id} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
+        <div ref={infoRef} className="relative flex flex-1 items-center gap-3 min-w-0">
         <button onClick={toggleFullscreen} disabled={!currentTrack}
           className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
           {/* Not "wait": with the window minimized no animation runs, and a
@@ -172,7 +196,7 @@ export default function PlayerBar() {
                   <button
                     onClick={copyTrackName}
                     onContextMenu={openTrackMenu}
-                    title="Copy “Artist - Title”"
+                    title={t('Copy “Artist - Title”')}
                     className="text-lg leading-7 font-medium truncate text-text hover:text-accent transition-colors text-left min-w-0">
                     {currentTrack.title}
                   </button>
@@ -194,19 +218,19 @@ export default function PlayerBar() {
                   {castDevice && (
                     // Casting: where it plays; a click opens the Cast menu.
                     <button onClick={() => window.dispatchEvent(new Event('lokal:open-cast-menu'))}
-                      title={`Playing on ${castDevice.name}`}
+                      title={t('Playing on {name}', { name: castDevice.name })}
                       className="mt-1 flex max-w-full items-center gap-1 text-[9px] font-display uppercase tracking-wider text-accent hover:opacity-80">
                       <Cast size={10} className="flex-shrink-0" aria-hidden="true" />
-                      <span className="truncate">Playing on {castDevice.name}</span>
+                      <span className="truncate">{t('Playing on {name}', { name: castDevice.name })}</span>
                     </button>
                   )}
                   {streamed && !castDevice && (
-                    <span title={`Streaming from ${streamLabel(currentTrack)}, not in your library`} className="mt-1 block truncate text-[9px] font-display uppercase tracking-wider text-accent">
+                    <span title={t('Streaming from {source}, not in your library', { source: streamLabel(currentTrack) })} className="mt-1 block truncate text-[9px] font-display uppercase tracking-wider text-accent">
                       {streamLabel(currentTrack)}
                     </span>
                   )}
                 </div>
-              ) : <p className="text-sm leading-5 text-muted">No track playing</p>}
+              ) : <p className="text-sm leading-5 text-muted">{t('No track playing')}</p>}
             </motion.div>
         </div>
 
@@ -227,8 +251,15 @@ export default function PlayerBar() {
           <button onClick={toggleRepeat} className={`transition-colors ${repeat !== 'none' ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t(repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all')}><RepeatIcon size={15} /></button>
         </div>
         <div className="relative flex items-center gap-2 w-full max-w-[36rem]">
-          <span className="text-xs text-muted w-8 text-right font-display">{fmt(display)}</span>
-          <div className="flex-1 h-1 bg-elevated rounded-full cursor-pointer group relative overflow-hidden"
+          {/* Glass: a soft, blurred shade under the times and the seek bar, so
+              they stay readable over light pages behind the bar. */}
+          {glass && shadeTransparency < 100 && (
+            <div aria-hidden className="pointer-events-none absolute -inset-x-3 rounded-full"
+              style={{ backgroundColor: `rgb(var(--surface-rgb) / ${(1 - shadeTransparency / 100).toFixed(2)})`, filter: 'blur(10px)', top: 1, height: 12 }} />
+          )}
+          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 text-right font-display">{fmt(display)}</span>
+          {/* The unplayed part in the theme's text colour, toned down to grey. */}
+          <div className="flex-1 h-1 bg-text/25 rounded-full cursor-pointer group relative overflow-hidden"
             onWheel={onSeekWheel}
             onMouseMove={handleScrub}
             onMouseDown={e => { scrubbing.current = true; handleScrub(e) }}
@@ -243,7 +274,7 @@ export default function PlayerBar() {
               </div>
             )}
           </div>
-          <span className="text-xs text-muted w-8 font-display">{fmt(duration)}</span>
+          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 font-display">{fmt(duration)}</span>
         </div>
         </div>
 

@@ -180,7 +180,7 @@ export default function Playlist() {
   }
 
   const deletePlaylist = async () => {
-    if (!confirm('Delete this playlist?')) return
+    if (!confirm(t('Delete this playlist?'))) return
     await api.deletePlaylist(id)
     window.dispatchEvent(new CustomEvent('lokal:playlists-changed', {
       detail: { playlistId: id, action: 'deleted' },
@@ -244,18 +244,20 @@ export default function Playlist() {
   }
 
   const totalDuration = tracks.reduce((sum, track) => sum + (track.duration || 0), 0)
-  const fmt = (seconds) => `${Math.floor(seconds / 3600) > 0 ? `${Math.floor(seconds / 3600)}h ` : ''}${Math.floor((seconds % 3600) / 60)}m`
+  const fmt = (seconds) => Math.floor(seconds / 3600) > 0
+    ? t('{h}h {m}m', { h: Math.floor(seconds / 3600), m: Math.floor((seconds % 3600) / 60) })
+    : t('{m}m', { m: Math.floor((seconds % 3600) / 60) })
 
   // The share card: its photo (or the first four covers), name and first songs.
   const sharePlaylist = () => {
     const artists = new Set(tracks.map(track => String(track.artist || '').split(/\s*,\s*/)[0]).filter(Boolean))
     openShareCard({
-      kind: smart ? 'Smart playlist' : 'Playlist',
-      title: isLiked ? 'Liked Songs' : (playlist?.name || 'Playlist'),
+      kind: smart ? t('Smart playlist') : t('Playlist'),
+      title: isLiked ? t('Liked Songs') : (playlist?.name || t('Playlist')),
       subtitle: smart ? describeRules(playlist.smart_rules) : (playlist?.description || ''),
       art: playlist?.cover_path ? [{ path: playlist.cover_path, url: api.isElectron ? null : api.playlistCoverURL(id) }] : coversOf(tracks, 4),
-      stats: [['Songs', tracks.length.toLocaleString()], ['Length', fmt(totalDuration)], ['Artists', artists.size.toLocaleString()]],
-      list: { title: 'Songs', items: tracks.slice(0, 5).map(track => [track.title, track.artist]) },
+      stats: [[t('Songs'), tracks.length.toLocaleString()], [t('Length'), fmt(totalDuration)], [t('Artists'), artists.size.toLocaleString()]],
+      list: { title: t('Songs'), items: tracks.slice(0, 5).map(track => [track.title, track.artist]) },
     })
   }
 
@@ -267,7 +269,7 @@ export default function Playlist() {
 
   const uploadPlaylistPhoto = async () => {
     if (!api.isElectron || isLiked) return
-    const fp = await api.openFile([{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
+    const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
     if (!fp) return
     const dataUrl = await api.readFileAsDataURL(fp)
     if (!dataUrl) return
@@ -333,8 +335,8 @@ export default function Playlist() {
                 }}
                 className="bg-elevated border border-accent/50 rounded-lg px-3 py-1.5 text-xl text-white font-display outline-none"
               />
-              <button onClick={saveName} className="text-accent hover:text-accent/70 transition-colors"><Check size={18} /></button>
-              <button onClick={() => setEditingName(false)} className="text-muted hover:text-white transition-colors"><X size={18} /></button>
+              <button onClick={saveName} aria-label={t('Save')} title={t('Save')} className="text-accent hover:text-accent/70 transition-colors"><Check size={18} /></button>
+              <button onClick={() => setEditingName(false)} aria-label={t('Cancel')} title={t('Cancel')} className="text-muted hover:text-white transition-colors"><X size={18} /></button>
             </div>
           ) : (
             <div className="flex items-center gap-2 mb-1">
@@ -342,7 +344,7 @@ export default function Playlist() {
                 {isLiked ? t('Liked Songs') : (playlist?.name || t('Playlist'))}
               </h1>
               {!isLiked && (
-                <button onClick={() => setEditingName(true)} className="text-muted hover:text-white transition-colors flex-shrink-0">
+                <button onClick={() => setEditingName(true)} aria-label={t('Rename playlist')} title={t('Rename playlist')} className="text-muted hover:text-white transition-colors flex-shrink-0">
                   <Edit2 size={14} />
                 </button>
               )}
@@ -389,14 +391,14 @@ export default function Playlist() {
                 </button>
               </div>
             ) : (
-              <button type="button" onClick={() => setPlaylistSearchOpen(true)} aria-label="Search this playlist" title="Search this playlist" className={ICON_BUTTON}>
+              <button type="button" onClick={() => setPlaylistSearchOpen(true)} aria-label={t('Search this playlist')} title={t('Search this playlist')} className={ICON_BUTTON}>
                 <Search size={17} />
               </button>
             ))}
             <button type="button" onClick={shuffleTracks} disabled={!playableTracks.length} aria-label={t("Shuffle")} title={t("Shuffle")} className={ICON_BUTTON}>
               <Shuffle size={17} />
             </button>
-            <button type="button" onClick={sharePlaylist} disabled={!tracks.length} aria-label="Share as a picture" title="Share as a picture" className={ICON_BUTTON}>
+            <button type="button" onClick={sharePlaylist} disabled={!tracks.length} aria-label={t('Share as a picture')} title={t('Share as a picture')} className={ICON_BUTTON}>
               <Share2 size={17} />
             </button>
             {!isLiked && (
@@ -405,8 +407,8 @@ export default function Playlist() {
                   <button
                     type="button"
                     onClick={() => setShowResolveGhosts(true)}
-                    aria-label={`Ghost songs (${ghostTracks.length})`}
-                    title={`Ghost songs (${ghostTracks.length}): songs not in your library yet`}
+                    aria-label={t('Ghost songs ({n})', { n: ghostTracks.length })}
+                    title={t('Ghost songs ({n}): songs not in your library yet', { n: ghostTracks.length })}
                     className={`${ICON_BUTTON} relative !text-yellow-200 hover:!text-yellow-100`}
                   >
                     <AlertCircle size={17} />
@@ -440,16 +442,18 @@ export default function Playlist() {
         highlightRequestKey={highlightRequestKey}
       />
       {!!playlistSearch.trim() && !!tracks.length && !visibleTracks.length && (
-        <p role="status" className="py-12 text-center text-sm text-muted">No songs match “{playlistSearch}”.</p>
+        <p role="status" className="py-12 text-center text-sm text-muted">{t('No songs match “{query}”.', { query: playlistSearch })}</p>
       )}
 
       {!isLiked && !smart && tracks.length <= 300 && (tracks.length > 0 || recommendations.length > 0) && (
         <div className="mt-12 mb-6">
           <div className="flex items-center justify-between mb-4 px-2">
-            <h2 className="text-lg font-display text-white">Recommended Songs</h2>
+            <h2 className="text-lg font-display text-white">{t('Recommended Songs')}</h2>
             <button
               onClick={fetchRecommendations}
               disabled={loadingRecs}
+              aria-label={t('Refresh recommendations')}
+              title={t('Refresh recommendations')}
               className="p-2 hover:bg-elevated rounded-full transition-colors text-muted hover:text-white"
             >
               <RefreshCw size={16} className={loadingRecs ? 'animate-spin' : ''} />
@@ -472,7 +476,7 @@ export default function Playlist() {
       {loaded && !tracks.length && (
         <div className="text-center py-20 text-muted">
           <Music size={40} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm">{isLiked ? 'Like some tracks to see them here.' : smart ? 'No songs match these rules yet. Use Edit Rules to change them.' : 'This playlist is empty. Add songs to it with “Add to playlist” from any song’s menu.'}</p>
+          <p className="text-sm">{isLiked ? t('Like some tracks to see them here.') : smart ? t('No songs match these rules yet. Use Edit Rules to change them.') : t('This playlist is empty. Add songs to it with “Add to playlist” from any song’s menu.')}</p>
         </div>
       )}
 

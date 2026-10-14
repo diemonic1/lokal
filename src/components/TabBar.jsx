@@ -70,7 +70,7 @@ export default function TabBar() {
   return (
     <div
       role="tablist"
-      aria-label="Sections"
+      aria-label={t('Sections')}
       className="relative z-30 flex h-[34px] flex-shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border px-2 [scrollbar-width:none]"
       style={{ backgroundColor: 'rgb(var(--surface-rgb) / 0.85)', backdropFilter: 'blur(12px)' }}
     >
@@ -89,7 +89,7 @@ export default function TabBar() {
           >
             <Icon size={13} className="flex-shrink-0" />
             <span className="whitespace-nowrap">{t(label)}</span>
-            {badge && <span aria-label="(new)" className="h-1.5 w-1.5 rounded-full bg-accent" />}
+            {badge && <span aria-label={t('(new)')} className="h-1.5 w-1.5 rounded-full bg-accent" />}
           </button>
         )
       })}

@@ -4,20 +4,21 @@ import { CalendarRange, Clock3, Disc3, Music4, Play, Plus, Sparkles, Users, X, C
 import { api } from '../api'
 import { useAppStore, usePlayerStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
+import { translate, useTranslation } from '../i18n'
 
 function fmtMinutes(minutes) {
-  if (!minutes) return '0 min'
-  if (minutes < 60) return `${minutes} min`
+  if (!minutes) return translate('{n} min', { n: 0 })
+  if (minutes < 60) return translate('{n} min', { n: minutes })
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return mins ? `${hours}h ${mins}m` : `${hours}h`
+  return mins ? translate('{h}h {m}m', { h: hours, m: mins }) : translate('{h}h', { h: hours })
 }
 
 function fmtHour(hour) {
-  if (hour === null || hour === undefined || Number.isNaN(Number(hour))) return 'No peak yet'
+  if (hour === null || hour === undefined || Number.isNaN(Number(hour))) return translate('No peak yet')
   const suffix = Number(hour) >= 12 ? 'PM' : 'AM'
   const normalized = Number(hour) % 12 || 12
-  return `${normalized}:00 ${suffix}`
+  return translate('{hour}:00 {suffix}', { hour: normalized, suffix, hour24: Number(hour) })
 }
 
 function trackArt(track) {
@@ -26,6 +27,7 @@ function trackArt(track) {
 }
 
 export default function RecapStories({ open, onClose }) {
+  const { t } = useTranslation()
   const { user } = useAppStore()
   const { playTrack, playQueue } = usePlayerStore(useShallow(({ playTrack, playQueue }) => ({ playTrack, playQueue })))
   const [recap, setRecap] = useState(null)
@@ -123,11 +125,11 @@ export default function RecapStories({ open, onClose }) {
     if (!recap?.topTracks?.length) return
     const playlist = await api.createPlaylist('Dev Recap Top 50', user?.id)
     if (!playlist?.id) {
-      setPlaylistStatus('Could not create playlist')
+      setPlaylistStatus(t('Could not create playlist'))
       return
     }
     await api.addMultipleToPlaylist(playlist.id, recap.topTracks.map(track => track.id))
-    setPlaylistStatus('Saved Dev Recap Top 50')
+    setPlaylistStatus(t('Saved {name}', { name: 'Dev Recap Top 50' }))
     window.dispatchEvent(new CustomEvent('lokal:playlists-changed'))
   }
 
@@ -182,9 +184,9 @@ export default function RecapStories({ open, onClose }) {
 
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.24em] text-white/55">Dev Story Recap</div>
+                <div className="text-[10px] uppercase tracking-[0.24em] text-white/55">{t('Dev Story Recap')}</div>
                 <div className="mt-1 text-sm text-white/75">
-                  {recapSource === 'guest' ? 'Guest history fallback active.' : 'Prototype preview.'}
+                  {recapSource === 'guest' ? t('Guest history fallback active.') : t('Prototype preview.')}
                 </div>
               </div>
               <button
@@ -212,13 +214,13 @@ export default function RecapStories({ open, onClose }) {
                 >
                   {loading && (
                     <div className="flex h-full items-center justify-center text-sm text-white/60">
-                      Building your dev recap...
+                      {t('Building your dev recap...')}
                     </div>
                   )}
 
                   {!loading && !recap && (
                     <div className="flex h-full items-center justify-center text-sm text-white/60">
-                      No listening data yet.
+                      {t('No listening data yet.')}
                     </div>
                   )}
 
@@ -227,13 +229,13 @@ export default function RecapStories({ open, onClose }) {
                       <div>
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55">
                           <CalendarRange size={12} />
-                          All-Time Dev Snapshot
+                          {t('All-Time Dev Snapshot')}
                         </div>
                         <h1 className="mt-4 max-w-3xl text-4xl font-display leading-none text-white sm:text-6xl">
-                          {user?.display_name || user?.username || 'You'} in motion.
+                          {t('{name} in motion.', { name: user?.display_name || user?.username || t('You') })}
                         </h1>
                         <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68">
-                          Example
+                          {t('Example')}
                         </p>
                         <div className="mt-6 flex gap-3 overflow-hidden">
                           {heroStrip.map((track, index) => (
@@ -260,19 +262,19 @@ export default function RecapStories({ open, onClose }) {
 
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Minutes</div>
+                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Minutes')}</div>
                           <div className="mt-2 text-3xl font-display text-white">{recap.totalMinutes || 0}</div>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Artists</div>
+                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Artists')}</div>
                           <div className="mt-2 text-3xl font-display text-white">{recap.uniqueArtists || 0}</div>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Albums</div>
+                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Albums')}</div>
                           <div className="mt-2 text-3xl font-display text-white">{recap.uniqueAlbums || 0}</div>
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Tracks</div>
+                          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Tracks')}</div>
                           <div className="mt-2 text-3xl font-display text-white">{recap.uniqueTracks || 0}</div>
                         </div>
                       </div>
@@ -285,13 +287,13 @@ export default function RecapStories({ open, onClose }) {
                         <div>
                           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55">
                             <Clock3 size={12} />
-                            Listening Pulse
+                            {t('Listening Pulse')}
                           </div>
                           <h2 className="mt-4 text-3xl font-display text-white sm:text-5xl">
-                            Your library lives most at {fmtHour(recap.peakHour?.hour)}.
+                            {t('Your library lives most at {hour}.', { hour: fmtHour(recap.peakHour?.hour) })}
                           </h2>
                           <p className="mt-4 max-w-xl text-sm leading-7 text-white/68">
-                            Example
+                            {t('Example')}
                           </p>
                           <div className="mt-6 overflow-hidden rounded-[30px] border border-white/10 bg-black/20">
                             {trackArt(slides[1]?.track) ? (
@@ -303,8 +305,8 @@ export default function RecapStories({ open, onClose }) {
                             )}
                             <div className="flex items-center justify-between px-5 py-4">
                               <div>
-                                <div className="text-sm text-white">{slides[1]?.track?.title || 'No track'}</div>
-                                <div className="text-xs text-white/50">{slides[1]?.track?.artist || 'No artist'}</div>
+                                <div className="text-sm text-white">{slides[1]?.track?.title || t('No track')}</div>
+                                <div className="text-xs text-white/50">{slides[1]?.track?.artist || t('No artist')}</div>
                               </div>
                               <button
                                 onClick={() => slides[1]?.track && playTrack(slides[1].track, topTracks)}
@@ -318,27 +320,27 @@ export default function RecapStories({ open, onClose }) {
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Total Plays</div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Total Plays')}</div>
                             <div className="mt-2 text-2xl font-display text-white">{recap.totalPlays || 0}</div>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Liked Tracks</div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Liked Tracks')}</div>
                             <div className="mt-2 text-2xl font-display text-white">{recap.likedCount || 0}</div>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Listen Time</div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Listen Time')}</div>
                             <div className="mt-2 text-2xl font-display text-white">{fmtMinutes(recap.totalMinutes || 0)}</div>
                           </div>
                         </div>
                       </div>
                       <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-                        <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">Top Genres</div>
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">{t('Top Genres')}</div>
                         <div className="mt-4 grid gap-3">
                           {(recap.topGenres || []).slice(0, 5).map((genre, index) => (
                             <div key={genre.genre || index} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
                               <div className="flex items-center justify-between gap-3">
-                                <div className="text-sm text-white">{genre.genre || 'Unknown genre'}</div>
-                                <div className="text-xs text-white/50">{genre.plays} plays</div>
+                                <div className="text-sm text-white">{genre.genre || t('Unknown genre')}</div>
+                                <div className="text-xs text-white/50">{t('{n} play|{n} plays', { n: genre.plays })}</div>
                               </div>
                             </div>
                           ))}
@@ -352,12 +354,12 @@ export default function RecapStories({ open, onClose }) {
                       <div className="rounded-[30px] border border-white/10 bg-white/[0.04] p-6">
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/15 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55">
                           <Users size={12} />
-                          Artist Spotlight
+                          {t('Artist Spotlight')}
                         </div>
-                        <h2 className="mt-5 text-4xl font-display text-white">{slides[2]?.topArtist?.artist || 'No top artist yet'}</h2>
-                        <div className="mt-3 text-sm text-white/60">{slides[2]?.topArtist?.plays || 0} plays</div>
+                        <h2 className="mt-5 text-4xl font-display text-white">{slides[2]?.topArtist?.artist || t('No top artist yet')}</h2>
+                        <div className="mt-3 text-sm text-white/60">{t('{n} play|{n} plays', { n: slides[2]?.topArtist?.plays || 0 })}</div>
                         <p className="mt-6 max-w-lg text-sm leading-7 text-white/68">
-                          Example
+                          {t('Example')}
                         </p>
                         <div className="mt-6 grid grid-cols-3 gap-3">
                           {topTracks.filter(track => track.artist === slides[2]?.topArtist?.artist).slice(0, 3).map((track) => (
@@ -386,7 +388,7 @@ export default function RecapStories({ open, onClose }) {
                                 <div className="text-xs uppercase tracking-[0.18em] text-white/35">#{index + 1}</div>
                                 <div className="mt-1 text-lg text-white">{artist.artist}</div>
                               </div>
-                              <div className="text-sm text-white/55">{artist.plays} plays</div>
+                              <div className="text-sm text-white/55">{t('{n} play|{n} plays', { n: artist.plays })}</div>
                             </div>
                           </div>
                         ))}
@@ -398,10 +400,10 @@ export default function RecapStories({ open, onClose }) {
                     <div className="flex h-full flex-col">
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55">
                           <Music4 size={12} />
-                          Top Five Tracks
+                          {t('Top Five Tracks')}
                         </div>
                         <p className="mt-4 max-w-xl text-sm leading-7 text-white/68">
-                          Example
+                          {t('Example')}
                         </p>
                       <div className="mt-5 grid flex-1 gap-4 lg:grid-cols-5">
                         {topFive.map((track, index) => (
@@ -423,7 +425,7 @@ export default function RecapStories({ open, onClose }) {
                               <div className="text-[10px] uppercase tracking-[0.18em] text-white/35">#{index + 1}</div>
                               <div className="mt-2 line-clamp-2 text-sm text-white">{track.title}</div>
                               <div className="mt-1 line-clamp-1 text-xs text-white/55">{track.artist}</div>
-                              <div className="mt-4 text-xs text-accent">{track.plays} plays</div>
+                              <div className="mt-4 text-xs text-accent">{t('{n} play|{n} plays', { n: track.plays })}</div>
                             </div>
                           </button>
                         ))}
@@ -436,11 +438,11 @@ export default function RecapStories({ open, onClose }) {
                       <div className="flex flex-col rounded-[30px] border border-white/10 bg-black/20 p-5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55">
                           <Sparkles size={12} />
-                          Top 50
+                          {t('Top 50')}
                         </div>
-                        <h2 className="mt-4 text-3xl font-display text-white">Save your Top 50.</h2>
+                        <h2 className="mt-4 text-3xl font-display text-white">{t('Save your Top 50.')}</h2>
                         <p className="mt-3 text-sm leading-7 text-white/68">
-                          Example
+                          {t('Example')}
                         </p>
                         <div className="mt-6 overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.04]">
                           <div className="aspect-[4/3] bg-black/30">
@@ -457,10 +459,10 @@ export default function RecapStories({ open, onClose }) {
                               #{selectedTrackIndex + 1}
                             </div>
                             <div className="mt-2 text-xl font-display text-white">
-                              {topTracks[selectedTrackIndex]?.title || 'No track yet'}
+                              {topTracks[selectedTrackIndex]?.title || t('No track yet')}
                             </div>
                             <div className="mt-1 text-sm text-white/58">
-                              {topTracks[selectedTrackIndex]?.artist || 'No artist yet'}
+                              {topTracks[selectedTrackIndex]?.artist || t('No artist yet')}
                             </div>
                           </div>
                         </div>
@@ -471,7 +473,7 @@ export default function RecapStories({ open, onClose }) {
                             className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-medium text-base transition-colors hover:bg-accent/85"
                           >
                             <Play size={14} />
-                            Play Top 50
+                            {t('Play Top 50')}
                           </button>
                           <button
                             onClick={saveTopTracks}
@@ -479,7 +481,7 @@ export default function RecapStories({ open, onClose }) {
                             className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/78 transition-colors hover:text-white"
                           >
                             <Plus size={14} />
-                            Add Top 50 To Library
+                            {t('Add Top 50 To Library')}
                           </button>
                           {playlistStatus ? <div className="text-xs text-accent">{playlistStatus}</div> : null}
                         </div>
@@ -487,8 +489,8 @@ export default function RecapStories({ open, onClose }) {
 
                       <div className="overflow-hidden rounded-[30px] border border-white/10 bg-black/20">
                         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                          <div className="text-sm font-display uppercase tracking-[0.18em] text-white">Ranked List</div>
-                          <div className="text-xs text-white/45">Click a song to make it the active story soundtrack</div>
+                          <div className="text-sm font-display uppercase tracking-[0.18em] text-white">{t('Ranked List')}</div>
+                          <div className="text-xs text-white/45">{t('Click a song to make it the active story soundtrack')}</div>
                         </div>
                         <div className="max-h-[68vh] overflow-y-auto px-2 py-2">
                           {topTracks.map((track, index) => (
@@ -527,21 +529,21 @@ export default function RecapStories({ open, onClose }) {
             </div>
 
             <div className="mt-4 flex items-center justify-between text-xs text-white/45" data-recap-interactive="true">
-              <div>Tap right to advance. Tap left to go back.</div>
+              <div>{t('Tap right to advance. Tap left to go back.')}</div>
               <div className="flex items-center gap-3">
                 <button onClick={prevSlide} data-recap-interactive="true" className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/72 transition-colors hover:text-white">
                   <ChevronLeft size={14} />
-                  Prev
+                  {t('Prev')}
                 </button>
                 <button onClick={nextSlide} data-recap-interactive="true" className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/72 transition-colors hover:text-white">
-                  Next
+                  {t('Next')}
                   <ChevronRight size={14} />
                 </button>
               </div>
             </div>
 
-            <button className="absolute inset-y-20 left-0 z-0 w-1/3" onClick={prevSlide} aria-label="Previous story" />
-            <button className="absolute inset-y-20 right-0 z-0 w-1/3" onClick={nextSlide} aria-label="Next story" />
+            <button className="absolute inset-y-20 left-0 z-0 w-1/3" onClick={prevSlide} aria-label={t('Previous story')} />
+            <button className="absolute inset-y-20 right-0 z-0 w-1/3" onClick={nextSlide} aria-label={t('Next story')} />
           </div>
         </motion.div>
       )}

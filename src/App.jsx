@@ -38,6 +38,7 @@ import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import Recap from './pages/Recap'
 import Quality from './pages/Quality'
+import LyricsAnalysis from './pages/LyricsAnalysis'
 import Radio from './pages/Radio'
 import LosslessModal from './components/LosslessModal'
 import BulkLosslessModal from './components/BulkLosslessModal'
@@ -47,6 +48,7 @@ import ShareCardModal from './components/ShareCardModal'
 import { usePlayerStore, useAppStore } from './store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { api } from './api'
+import { translate, useTranslation } from './i18n'
 import { createDiscordPublisher } from './discord'
 import Toaster, { showLoadingToast, showToast } from './components/Toaster'
 import ReleaseRefreshBanner from './components/ReleaseRefreshBanner'
@@ -133,12 +135,12 @@ const SCROBBLE_RETRY_MS = 30 * 1000
 const CROSSFADE_READY_TIMEOUT_MS = 15 * 1000
 
 function formatRelativeDays(days) {
-  if (!Number.isFinite(days) || days <= 0) return 'up to date'
-  if (days < 30) return `${days} day${days === 1 ? '' : 's'} behind`
+  if (!Number.isFinite(days) || days <= 0) return translate('up to date')
+  if (days < 30) return translate('{n} day behind|{n} days behind', { n: days })
   const months = Math.floor(days / 30)
-  if (months < 12) return `${months} month${months === 1 ? '' : 's'} behind`
+  if (months < 12) return translate('{n} month behind|{n} months behind', { n: months })
   const years = Math.floor(months / 12)
-  return `${years} year${years === 1 ? '' : 's'} behind`
+  return translate('{n} year behind|{n} years behind', { n: years })
 }
 
 function getYtDlpDismissKey(status) {
@@ -327,6 +329,7 @@ function AnimatedRoutes() {
         <Route path="/downloader" element={<Navigate to="/search" replace state={location.state} />} />
         <Route path="/profile" element={<PageTransition><Profile /></PageTransition>} />
         <Route path="/quality" element={<PageTransition gated><Quality /></PageTransition>} />
+        <Route path="/lyrics-analysis" element={<PageTransition gated><LyricsAnalysis /></PageTransition>} />
         <Route path="/radio" element={<PageTransition gated><Radio /></PageTransition>} />
         <Route path="/recap" element={<PageTransition gated><Recap /></PageTransition>} />
         <Route path="/settings" element={<PageTransition gated><Settings /></PageTransition>} />
@@ -337,8 +340,9 @@ function AnimatedRoutes() {
 
 /** The app shell: header, sidebar, pages, side panels, player and overlays. */
 export default function App() {
-  // The glass player bar floats over the pages, which keep room for it.
-  const glassPlayerBar = useAppearanceFlag('glass_player_bar')
+  const { t } = useTranslation()
+  // The floating player bar sits over the pages, which keep room for it.
+  const floatingPlayerBar = useAppearanceFlag('player_bar_floating')
   // Pages lay out by the space they get between the sidebars (pageWidth.js).
   const pageWidthRef = usePageWidth()
   // Every launch reads the music folder's tags again (progress: the bar by Home).
@@ -374,8 +378,10 @@ export default function App() {
     el.pause()
     const isCurrent = () => streamRecoveryRef.current === recovery && usePlayerStore.getState().currentTrack === failedTrack && el === activeEl()
     const toast = showLoadingToast(reason === 'preview'
-      ? `${providerLabel(failedRef.provider)} only has a preview of “${failedTrack.title}”. Trying the next playback source.`
-      : `“${failedTrack.title}” couldn't play on ${providerLabel(failedRef.provider)}${detail ? ` (${detail})` : ''}. Trying the next playback source.`)
+      ? translate('{provider} only has a preview of “{title}”. Trying the next playback source.', { provider: providerLabel(failedRef.provider), title: failedTrack.title })
+      : detail
+        ? translate('“{title}” couldn\'t play on {provider} ({detail}). Trying the next playback source.', { title: failedTrack.title, provider: providerLabel(failedRef.provider), detail })
+        : translate('“{title}” couldn\'t play on {provider}. Trying the next playback source.', { title: failedTrack.title, provider: providerLabel(failedRef.provider) }))
     try {
       const [replacement] = await resolveRecommendationTracks([failedTrack], api, {
         reusePlayable: false, afterProvider: failedRef.provider, skipProviders: recovery.failed, isCurrent,
@@ -389,7 +395,7 @@ export default function App() {
         usePlayerStore.getState().replaceCurrentTrack(failedTrack.id, replacement)
       } else {
         if (['discovery', 'mix', 'flow'].includes(usePlayerStore.getState().playbackContext?.type)) {
-          toast.update(`“${failedTrack.title}” is unavailable. Trying the next song…`)
+          toast.update(translate('“{title}” is unavailable. Trying the next song…', { title: failedTrack.title }))
           if (await skipUnavailableRecommendation(failedTrack)) { setStreamError(null); return }
           if (!isCurrent()) return
         }
@@ -398,7 +404,7 @@ export default function App() {
         const message = 'No full-length stream was found in your playback sources.'
         setStreamError({ title: failedTrack.title, message })
         reportPlaybackError(failedTrack, message)
-        toast.close(message)
+        toast.close(translate(message))
       }
     } finally {
       toast.close()
@@ -661,7 +667,7 @@ export default function App() {
         await context.setSinkId(id)
         return { ok: true }
       } catch (e) {
-        return { ok: false, error: e?.message || 'Could not change audio output' }
+        return { ok: false, error: e?.message || translate('Could not change audio output') }
       }
     }
     const elements = [audioRef.current, cfAudioRef.current].filter(Boolean)
@@ -671,7 +677,7 @@ export default function App() {
       await Promise.all(settable.map(element => element.setSinkId(id)))
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e?.message || 'Could not change audio output' }
+      return { ok: false, error: e?.message || translate('Could not change audio output') }
     }
   }, [])
 
@@ -714,7 +720,7 @@ export default function App() {
       setChangelog(extracted);
     } catch (err) {
       console.error('[updater] Failed to fetch changelog:', err);
-      setChangelog('• Bug fixes and performance improvements\n• Stability updates');
+      setChangelog(translate('• Bug fixes and performance improvements\n• Stability updates'));
     } finally {
       setLoadingChangelog(false);
     }
@@ -1104,7 +1110,7 @@ export default function App() {
     window.__lokalSetOutputPrecision = async preferences => {
       saveOutputPreferences(preferences)
       initAudioCtx()
-      if (!nativeAudioRef.current) return { mode: 'auto', warning: 'Native output is only available in the desktop app.' }
+      if (!nativeAudioRef.current) return { mode: 'auto', warning: translate('Native output is only available in the desktop app.') }
       return nativeAudioRef.current.configure(preferences)
     }
     return () => {
@@ -1567,8 +1573,8 @@ export default function App() {
       const results = await syncLinkedPlaylists({ userId: useAppStore.getState().user?.id }).catch(() => [])
       const added = results.reduce((sum, result) => sum + (Number(result.added) || 0), 0)
       const failed = results.filter(result => result.error)
-      if (added) showToast(`Linked playlists synced: ${added} new song${added === 1 ? '' : 's'}.`)
-      if (failed.length) showToast(`${failed.length} linked playlist${failed.length === 1 ? '' : 's'} couldn't sync: ${failed[0].error}`)
+      if (added) showToast(translate('Linked playlists synced: {n} new song.|Linked playlists synced: {n} new songs.', { n: added }))
+      if (failed.length) showToast(translate('{n} linked playlist couldn\'t sync: {error}|{n} linked playlists couldn\'t sync: {error}', { n: failed.length, error: failed[0].error }))
     }, 15000)
     return () => clearTimeout(timer)
   }, [])
@@ -1577,7 +1583,7 @@ export default function App() {
   // successful verification is confirmed wherever the person is.
   useEffect(() => api.onAddonAuthChanged(status => {
     window.dispatchEvent(new Event('lokal:addons-changed'))
-    if (status?.authenticated) showToast('Addon access verified. It can now stream and download.')
+    if (status?.authenticated) showToast(translate('Addon access verified. It can now stream and download.'))
   }), [])
 
   // An online song that couldn't be streamed (shown as a small notice).
@@ -2507,7 +2513,7 @@ export default function App() {
               </div>
               <div>
                 <h4 className="text-xl font-black text-white tracking-tight">
-                  {isReady ? 'Update Ready' : isDownloading ? 'Downloading...' : 'Update Available'}
+                  {isReady ? t('Update Ready') : isDownloading ? t('Downloading...') : t('Update Available')}
                 </h4>
                 <p className="text-xs text-accent uppercase tracking-[0.2em] font-bold mt-1 opacity-80">
                   Lokal v{updateState.info?.version}
@@ -2539,7 +2545,7 @@ export default function App() {
             {isDownloading && (
               <div className="space-y-3 pt-4 border-t border-white/5">
                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                  <span className="text-muted">Downloading Package</span>
+                  <span className="text-muted">{t('Downloading Package')}</span>
                   <span className="text-accent">{Math.round(updateState.progress)}%</span>
                 </div>
                 <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-[2px]">
@@ -2557,7 +2563,7 @@ export default function App() {
                   onClick={handleStartDownload}
                   className="flex-1 py-4 bg-accent text-base text-sm font-bold rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all"
                 >
-                  Download Update
+                  {t('Download Update')}
                 </button>
               )}
               
@@ -2566,7 +2572,7 @@ export default function App() {
                   onClick={handleInstallUpdate}
                   className="flex-1 py-4 bg-white text-black text-sm font-black rounded-2xl hover:bg-gray-100 active:scale-[0.98] transition-all uppercase tracking-widest"
                 >
-                  Restart & Install
+                  {t('Restart & Install')}
                 </button>
               )}
 
@@ -2575,7 +2581,7 @@ export default function App() {
                   onClick={handleDismissUpdate}
                   className="px-6 py-4 bg-white/5 text-white text-sm font-bold rounded-2xl hover:bg-white/10 transition-all"
                 >
-                  Later
+                  {t('Later')}
                 </button>
               )}
             </div>
@@ -2591,7 +2597,7 @@ export default function App() {
     const isDownloading = ytDlpVersionState.downloadState === 'downloading'
     const isDone = ytDlpVersionState.downloadState === 'done'
     const summary = ytDlpVersionState.releasesBehind
-      ? `${ytDlpVersionState.releasesBehind} release${ytDlpVersionState.releasesBehind === 1 ? '' : 's'} behind`
+      ? t('{n} release behind|{n} releases behind', { n: ytDlpVersionState.releasesBehind })
       : formatRelativeDays(ytDlpVersionState.daysBehind)
     const latestDate = ytDlpVersionState.latestPublishedAt
       ? new Date(ytDlpVersionState.latestPublishedAt).toLocaleDateString()
@@ -2610,7 +2616,7 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <h4 className="text-xl font-black tracking-tight text-white">yt-dlp Update Recommended</h4>
+                <h4 className="text-xl font-black tracking-tight text-white">{t('yt-dlp Update Recommended')}</h4>
                 <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-yellow-200/80">{summary}</p>
               </div>
             </div>
@@ -2626,23 +2632,23 @@ export default function App() {
             <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
               <div className="flex items-center justify-between gap-4 text-sm">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Installed</p>
-                  <p className="mt-1 font-semibold text-white">{ytDlpVersionState.installedVersion || 'Unknown'}</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{t('Installed')}</p>
+                  <p className="mt-1 font-semibold text-white">{ytDlpVersionState.installedVersion || t('Unknown')}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Latest</p>
-                  <p className="mt-1 font-semibold text-white">{ytDlpVersionState.latestVersion || 'Unknown'}</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{t('Latest')}</p>
+                  <p className="mt-1 font-semibold text-white">{ytDlpVersionState.latestVersion || t('Unknown')}</p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted">
                 {ytDlpVersionState.source && <span className="rounded-full border border-white/10 px-2.5 py-1 uppercase tracking-[0.18em]">{ytDlpVersionState.source}</span>}
                 {Number.isFinite(ytDlpVersionState.daysBehind) && ytDlpVersionState.daysBehind > 0 && <span className="rounded-full border border-white/10 px-2.5 py-1">{formatRelativeDays(ytDlpVersionState.daysBehind)}</span>}
-                {latestDate && <span className="rounded-full border border-white/10 px-2.5 py-1">Latest released {latestDate}</span>}
+                {latestDate && <span className="rounded-full border border-white/10 px-2.5 py-1">{t('Latest released {date}', { date: latestDate })}</span>}
               </div>
             </div>
 
             <p className="text-sm leading-relaxed text-muted">
-              Older yt-dlp builds can break when sites change. Updating usually fixes downloader errors without changing your library.
+              {t('Older yt-dlp builds can break when sites change. Updating usually fixes downloader errors without changing your library.')}
             </p>
 
             {ytDlpVersionState.error && (
@@ -2653,7 +2659,7 @@ export default function App() {
 
             {ytDlpVersionState.downloadMessage && (
               <div className={`rounded-2xl border px-4 py-3 text-sm ${isDone ? 'border-green-500/20 bg-green-500/10 text-green-200' : 'border-white/10 bg-white/5 text-muted'}`}>
-                {ytDlpVersionState.downloadMessage}
+                {t(ytDlpVersionState.downloadMessage)}
                 {isDownloading && (
                   <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
                     {Number.isFinite(ytDlpVersionState.downloadPercent) ? (
@@ -2674,15 +2680,15 @@ export default function App() {
                   className="flex-1 rounded-2xl bg-accent py-4 text-sm font-bold text-[rgb(var(--bg-rgb))] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDownloading
-                    ? `Updating yt-dlp${Number.isFinite(ytDlpVersionState.downloadPercent) ? ` · ${ytDlpVersionState.downloadPercent}%` : '...'}`
-                    : 'Update yt-dlp'}
+                    ? (Number.isFinite(ytDlpVersionState.downloadPercent) ? t('Updating yt-dlp · {percent}%', { percent: ytDlpVersionState.downloadPercent }) : t('Updating yt-dlp...'))
+                    : t('Update yt-dlp')}
                 </button>
               )}
               <button
                 onClick={handleDismissYtDlpNotice}
                 className="rounded-2xl bg-white/5 px-6 py-4 text-sm font-bold text-white transition-all hover:bg-white/10"
               >
-                Later
+                {t('Later')}
               </button>
             </div>
           </div>
@@ -2694,7 +2700,7 @@ export default function App() {
   return (
     <Router initialEntries={[initialTabPath()]}>
       <NativeHistoryNavigation />
-      <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !glassPlayerBar ? undefined : { '--player-space': '104px' }}>
+      <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !floatingPlayerBar ? undefined : { '--player-space': '104px' }}>
         {/* Covers the window (overlays included) while it switches to or from
             the mini player: the window is resized behind it, so neither view
             is ever seen at the other's size. */}
@@ -2769,8 +2775,8 @@ export default function App() {
                   exit={{ opacity: 0, y: 12 }}
                   className="fixed bottom-28 right-6 z-[60] max-w-sm rounded-xl border border-border bg-elevated px-4 py-3 shadow-2xl"
                 >
-                  <p className="text-sm font-medium text-text truncate">Couldn't stream "{streamError.title}"</p>
-                  <p className="text-xs text-muted mt-1">{streamError.message}</p>
+                  <p className="text-sm font-medium text-text truncate">{t('Couldn\'t stream "{title}"', { title: streamError.title })}</p>
+                  <p className="text-xs text-muted mt-1">{t(streamError.message)}</p>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -86,7 +86,7 @@ function buildArgs({ kind, url, outputDir, settings, ffmpeg, format, archivePath
   const directAudio = !!addonSource && !isYouTube(url) && !isSoundCloud(url)
   const args = [
     ...audioArgs({ ...format, directAudio }),
-    ...(directAudio ? [] : ['--embed-thumbnail', '--embed-metadata']),
+    ...(directAudio ? [] : [...(settings?.download_embed_cover === '1' ? ['--embed-thumbnail'] : []), '--embed-metadata']),
     // What the video said about itself, before our metadata rewrites, printed
     // just ahead of the path so each file can be matched to its own details.
     // (`artists` is the source's own credit list, e.g. SoundCloud's publisher
@@ -109,7 +109,7 @@ function buildArgs({ kind, url, outputDir, settings, ffmpeg, format, archivePath
   // YouTube's stream links need a JavaScript runtime once cookies are given (jsRuntime.js).
   const runtime = isYouTube(url) ? jsRuntime() : { args: [], options: {} }
   args.push(...runtime.args)
-  if (isYouTube(url)) args.push('--convert-thumbnail', 'jpg')
+  if (isYouTube(url) && settings?.download_embed_cover === '1') args.push('--convert-thumbnail', 'jpg')
   if (ffmpeg && (ffmpeg.includes('/') || ffmpeg.includes('\\'))) args.push('--ffmpeg-location', path.dirname(ffmpeg))
   args.push(...extraArgs)
   // The URL goes last, after "--", so a "URL" that starts with "-" can never be

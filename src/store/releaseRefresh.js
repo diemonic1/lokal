@@ -3,6 +3,7 @@
 import { create } from 'zustand'
 import { api } from '../api.js'
 import { resolveLibraryReleaseTypes } from '../albumReleaseTypes.js'
+import { translate } from '../i18n'
 
 let job = null
 
@@ -25,7 +26,7 @@ export function startReleaseRefresh(albums, client = api) {
       refresh: true,
       onProgress: progress => useReleaseRefresh.setState(progress),
     }))
-    .catch(error => useReleaseRefresh.setState({ error: error.message || 'Could not refresh releases.' }))
+    .catch(error => useReleaseRefresh.setState({ error: error.message || translate('Could not refresh releases.') }))
     .finally(() => {
       job = null
       useReleaseRefresh.setState({ running: false, finishedAt: Date.now() })

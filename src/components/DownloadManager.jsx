@@ -23,6 +23,7 @@ import { ago, useReleaseCheck } from './ReleasesPanel'
 import { cancelVideoIndex, startVideoIndex, useVideoIndex } from '../videoIndex'
 import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex, startGenres, readGenresStatus } from '../libraryJobs'
 import { useDiscoveryArtists, loadDiscoveryArtists } from '../discoveryArtists'
+import { useTranslation } from '../i18n'
 
 // ------------------------------------------------------------------ ring
 
@@ -53,12 +54,13 @@ export function DownloadsButton() {
   const jobs = useDownloads(s => s.jobs)
   const panelOpen = useDownloads(s => s.panelOpen)
   const togglePanel = useDownloads(s => s.togglePanel)
+  const { t } = useTranslation()
   useEffect(() => { startDownloadSync() }, [])
   const { batch, active, failed, progress, settled } = batchOf(jobs)
-  const label = !batch.length ? 'Downloads'
+  const label = !batch.length ? t('Downloads')
     : settled
-      ? failed.length ? `Downloads: ${failed.length} failed` : 'Downloads finished'
-      : `Downloads: ${active.length} in progress`
+      ? failed.length ? t('Downloads: {n} failed', { n: failed.length }) : t('Downloads finished')
+      : t('Downloads: {n} in progress', { n: active.length })
   return (
     <button
       type="button"
@@ -85,14 +87,14 @@ export function DownloadsButton() {
 
 // ------------------------------------------------------------------ rows
 
-function statusText(job) {
+function statusText(job, t) {
   switch (job.status) {
-    case 'queued': return job.retryAt ? job.message || 'Retrying soon' : job.message && job.message !== 'Queued' ? job.message : 'Queued'
-    case 'downloading': return job.message || 'Downloading...'
-    case 'done': return job.message || 'Saved'
+    case 'queued': return job.retryAt ? job.message || t('Retrying soon') : job.message && job.message !== 'Queued' ? job.message : t('Queued')
+    case 'downloading': return job.message || t('Downloading...')
+    case 'done': return job.message || t('Saved')
     case 'error': return explainDownloadError(job.error).summary
-    case 'cancelled': return 'Cancelled'
-    case 'incomplete': return 'Stopped before finishing'
+    case 'cancelled': return t('Cancelled')
+    case 'incomplete': return t('Stopped before finishing')
     default: return job.status
   }
 }
@@ -117,6 +119,7 @@ function Artwork({ job, size = 40 }) {
 
 export function DownloadRow({ job, detailed = false }) {
   const { cancel, retry, remove } = useDownloads.getState()
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const active = isActive(job)
   const canRetry = job.status === 'error' || job.status === 'cancelled' || job.status === 'incomplete'
@@ -135,30 +138,30 @@ export function DownloadRow({ job, detailed = false }) {
           <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px]">
             {job.status === 'done' && <Check size={11} className="flex-shrink-0 text-green-400" />}
             {job.status === 'error' && <AlertCircle size={11} className="flex-shrink-0 text-red-400" />}
-            <span className={`truncate ${tone}`} title={failure?.detail || undefined}>{statusText(job)}</span>
+            <span className={`truncate ${tone}`} title={failure?.detail || undefined}>{statusText(job, t)}</span>
             {job.status === 'downloading' && job.speed ? <span className="flex-shrink-0 text-subtle">· {job.speed}</span> : null}
           </p>
-          {job.from ? <p className="mt-0.5 truncate text-[10.5px] uppercase tracking-[0.14em] text-subtle">from {job.from}</p> : null}
+          {job.from ? <p className="mt-0.5 truncate text-[10.5px] uppercase tracking-[0.14em] text-subtle">{t('from {source}', { source: t(job.from) })}</p> : null}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1">
           {job.status === 'downloading' && <span className="w-9 text-right text-[11px] tabular-nums text-muted">{Math.round(job.progress || 0)}%</span>}
           {job.lyricsCount > 0 && !active && (
-            <span title={`Lyrics added to ${job.lyricsCount} file${job.lyricsCount === 1 ? '' : 's'}`} className="text-accent/80"><Mic2 size={12} /></span>
+            <span title={t('Lyrics added to {n} file|Lyrics added to {n} files', { n: job.lyricsCount })} className="text-accent/80"><Mic2 size={12} /></span>
           )}
           {failure?.detail && (
-            <button onClick={() => setWhy(o => !o)} title={why ? 'Hide the details' : 'What went wrong'} aria-expanded={why}
+            <button onClick={() => setWhy(o => !o)} title={why ? t('Hide the details') : t('What went wrong')} aria-expanded={why}
               className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white"><Info size={13} /></button>
           )}
           {canRetry && (
-            <button onClick={() => retry(job.id)} title="Retry" className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white"><RotateCcw size={13} /></button>
+            <button onClick={() => retry(job.id)} title={t('Retry')} className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white"><RotateCcw size={13} /></button>
           )}
           {active ? (
-            <button onClick={() => cancel(job.id)} title="Cancel" className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white"><Square size={11} fill="currentColor" /></button>
+            <button onClick={() => cancel(job.id)} title={t('Cancel')} className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white"><Square size={11} fill="currentColor" /></button>
           ) : (
-            <button onClick={() => remove(job.id)} title="Remove from list" className="rounded-lg p-1.5 text-subtle transition-colors hover:bg-white/10 hover:text-white"><X size={13} /></button>
+            <button onClick={() => remove(job.id)} title={t('Remove from list')} className="rounded-lg p-1.5 text-subtle transition-colors hover:bg-white/10 hover:text-white"><X size={13} /></button>
           )}
           {detailed && (files.length > 0 || job.output) && (
-            <button onClick={() => setOpen(o => !o)} title="Details" className="rounded-lg p-1.5 text-subtle transition-colors hover:bg-white/10 hover:text-white">
+            <button onClick={() => setOpen(o => !o)} title={t('Details')} className="rounded-lg p-1.5 text-subtle transition-colors hover:bg-white/10 hover:text-white">
               <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
           )}
@@ -182,7 +185,7 @@ export function DownloadRow({ job, detailed = false }) {
 
       {detailed && open && (
         <div className="mt-3 space-y-2">
-          {job.totalTracks ? <p className="text-xs text-muted">{Math.min(job.currentTrack || 0, job.totalTracks)} / {job.totalTracks} tracks</p> : null}
+          {job.totalTracks ? <p className="text-xs text-muted">{t('{done} / {total} tracks', { done: Math.min(job.currentTrack || 0, job.totalTracks), total: job.totalTracks })}</p> : null}
           {files.length > 0 && (
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-border bg-black/15 p-2">
               {files.map((file, i) => (
@@ -192,7 +195,7 @@ export function DownloadRow({ job, detailed = false }) {
           )}
           {job.output && (
             <details>
-              <summary className="cursor-pointer text-xs text-muted">Log</summary>
+              <summary className="cursor-pointer text-xs text-muted">{t('Log')}</summary>
               <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-black/20 p-2 text-[11px] text-muted">{job.output}</pre>
             </details>
           )}
@@ -216,6 +219,7 @@ export function DownloadList({ jobs, detailed = false, empty = null }) {
 /** The playlists downloaded so far: download again (for what's new) or remove. */
 function DownloadedPlaylists() {
   const jobs = useDownloads(s => s.jobs)
+  const { t } = useTranslation()
   const [list, setList] = useState(() => peekCache('dl:playlists') || [])
   const [loaded, setLoaded] = useState(() => peekCache('dl:playlists') !== undefined)
   const [confirming, setConfirming] = useState(null) // a playlist's id, asked "Remove?"
@@ -231,11 +235,11 @@ function DownloadedPlaylists() {
   useEffect(() => { load() }, [])
 
   // Both answer { error } or throw when they fail: say so.
-  const attempt = (call) => Promise.resolve().then(call).then(result => result?.error || null, e => e?.message || 'Something went wrong')
+  const attempt = (call) => Promise.resolve().then(call).then(result => result?.error || null, e => e?.message || t('Something went wrong'))
   const redownload = async (id) => {
     setProblem('')
     const failed = await attempt(() => api.redownloadPlaylist(id))
-    if (failed) setProblem(`Couldn't download it again: ${failed}`)
+    if (failed) setProblem(t("Couldn't download it again: {error}", { error: failed }))
     useDownloads.getState().load()
     load()
   }
@@ -245,20 +249,20 @@ function DownloadedPlaylists() {
     setList(current => current.filter(playlist => playlist.id !== id))
     const failed = await attempt(() => api.deleteDownloadedPlaylist(id))
     // Reloading brings it back when it wasn't removed.
-    if (failed) setProblem(`Couldn't remove it: ${failed}`)
+    if (failed) setProblem(t("Couldn't remove it: {error}", { error: failed }))
     load()
   }
   const problemLine = problem ? <p role="alert" className="px-2 pb-1 text-[11px] text-red-400">{problem}</p> : null
 
   if (!list.length) {
-    return <>{problemLine}<p className="px-3 py-8 text-center text-xs text-muted">{loaded ? 'No playlists downloaded yet. Search for one, or paste its link.' : 'Loading…'}</p></>
+    return <>{problemLine}<p className="px-3 py-8 text-center text-xs text-muted">{loaded ? t('No playlists downloaded yet. Search for one, or paste its link.') : t('Loading…')}</p></>
   }
   return (
     <div className="space-y-0.5">
       {problemLine}
       {list.map(playlist => {
         const downloading = jobs.some(job => isActive(job) && job.kind === 'playlist' && (job.playlistId === playlist.id || (playlist.url && job.url === playlist.url)))
-        const title = displayTitle(playlist, 'Playlist')
+        const title = displayTitle(playlist, t('Playlist'))
         return (
           <div key={playlist.id} className="group flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.04]">
             <div className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/25">
@@ -270,18 +274,18 @@ function DownloadedPlaylists() {
             </div>
             {confirming === playlist.id ? (
               <div className="flex flex-shrink-0 items-center gap-1">
-                <button onClick={() => remove(playlist.id)} className="rounded-lg bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-300 transition-colors hover:bg-red-500/25">Remove</button>
-                <button onClick={() => setConfirming(null)} className="rounded-lg px-2 py-1 text-[11px] text-muted transition-colors hover:text-white">Keep</button>
+                <button onClick={() => remove(playlist.id)} className="rounded-lg bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-300 transition-colors hover:bg-red-500/25">{t('Remove')}</button>
+                <button onClick={() => setConfirming(null)} className="rounded-lg px-2 py-1 text-[11px] text-muted transition-colors hover:text-white">{t('Keep')}</button>
               </div>
             ) : (
               <div className="flex flex-shrink-0 items-center gap-1">
                 <button onClick={() => redownload(playlist.id)} disabled={downloading}
-                  title={downloading ? 'Downloading' : 'Download again (gets what was added since)'}
-                  aria-label={`Download ${title} again`}
+                  title={downloading ? t('Downloading') : t('Download again (gets what was added since)')}
+                  aria-label={t('Download {title} again', { title })}
                   className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40">
                   <RotateCcw size={13} className={downloading ? 'animate-spin' : ''} />
                 </button>
-                <button onClick={() => setConfirming(playlist.id)} title="Remove from this list" aria-label={`Remove ${title}`}
+                <button onClick={() => setConfirming(playlist.id)} title={t('Remove from this list')} aria-label={t('Remove {title}', { title })}
                   className="rounded-lg p-1.5 text-subtle transition-colors hover:bg-white/10 hover:text-red-300">
                   <Trash2 size={13} />
                 </button>
@@ -295,7 +299,9 @@ function DownloadedPlaylists() {
 }
 
 /** A job running outside the download queue: its progress, or how it last ended, and a button to run it. */
-function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onStop, onOpen, onRun, runLabel = 'Run', runDisabled = false, runTitle }) {
+function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onStop, onOpen, onRun, runLabel: runLabelProp, runDisabled = false, runTitle }) {
+  const { t } = useTranslation()
+  const runLabel = runLabelProp || t('Run')
   const [starting, setStarting] = useState(false)
   const run = async () => {
     if (starting) return
@@ -315,18 +321,18 @@ function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onSt
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
               <div className={`h-full bg-accent transition-[width] duration-300 ${total ? '' : 'w-1/3 animate-pulse'}`} style={total ? { width: `${percent}%` } : undefined} />
             </div>
-            <p className="mt-1 truncate text-[11px] tabular-nums text-muted" title={detail}>{total ? `${done}/${total}` : 'Starting…'}{detail ? ` · ${detail}` : ''}</p>
+            <p className="mt-1 truncate text-[11px] tabular-nums text-muted" title={detail}>{total ? `${done}/${total}` : t('Starting…')}{detail ? ` · ${detail}` : ''}</p>
           </>
-        ) : <p className="mt-0.5 truncate text-[11px] text-muted" title={detail}>{detail || 'Not running'}</p>}
+        ) : <p className="mt-0.5 truncate text-[11px] text-muted" title={detail}>{detail || t('Not running')}</p>}
       </button>
       {running && onStop && (
-        <button onClick={onStop} title="Stop" aria-label={`Stop ${label.toLowerCase()}`}
+        <button onClick={onStop} title={t('Stop')} aria-label={t('Stop {task}', { task: label.toLowerCase() })}
           className="flex-shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-white">
           <Square size={12} />
         </button>
       )}
       {!running && onRun && (
-        <button onClick={run} disabled={runDisabled || starting} title={runTitle || `${runLabel}: ${label}`} aria-label={`${runLabel} ${label.toLowerCase()}`}
+        <button onClick={run} disabled={runDisabled || starting} title={runTitle || `${runLabel}: ${label}`} aria-label={t('{action} {task}', { action: runLabel, task: label.toLowerCase() })}
           className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-default disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:text-muted">
           {starting ? <span className="h-2.5 w-2.5 animate-spin rounded-full border border-accent/30 border-t-accent" /> : <Play size={10} fill="currentColor" />}
           {runLabel}
@@ -378,6 +384,7 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
   const genres = useLibraryJobs(s => s.genres)
   const followed = useDiscoveryArtists(s => s.followed)
   const followedLoaded = useDiscoveryArtists(s => s.loaded)
+  const { t } = useTranslation()
   useEffect(() => {
     if (!followedLoaded) loadDiscoveryArtists().catch(() => {})
     readGenresStatus()
@@ -385,49 +392,49 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
   const checkReleases = () => useReleaseCheck.getState().start([...followed.values()].map(name => ({ name })))
 
   const lyricsDetail = lyrics?.running
-    ? `${plural(lyrics.found || 0, 'lyric')} found${lyrics.title ? ` · ${lyrics.title}` : ''}`
-    : lyrics ? `${lyrics.cancelled ? 'Stopped' : 'Done'} · lyrics for ${lyrics.found || 0} of ${plural(lyrics.done || 0, 'song')}` : 'Keeps every song\'s lyrics, so they open at once'
+    ? `${t('{items} found', { items: plural(lyrics.found || 0, 'lyric') })}${lyrics.title ? ` · ${lyrics.title}` : ''}`
+    : lyrics ? `${lyrics.cancelled ? t('Stopped') : t('Done')} · ${t('lyrics for {found} of {songs}', { found: lyrics.found || 0, songs: plural(lyrics.done || 0, 'song') })}` : t('Keeps every song\'s lyrics, so they open at once')
   const genresDetail = genres?.error ? genres.error
-    : genres?.running ? `${plural(genres.updated || 0, 'song')} filled in`
-      : genres?.total ? `Done · ${genres.updated || 0} of ${plural(genres.songs || 0, 'song')} filled in`
-        : genres?.started ? 'Every song already has a genre' : 'Looks up a genre for songs with none'
+    : genres?.running ? t('{songs} filled in', { songs: plural(genres.updated || 0, 'song') })
+      : genres?.total ? `${t('Done')} · ${t('{updated} of {songs} filled in', { updated: genres.updated || 0, songs: plural(genres.songs || 0, 'song') })}`
+        : genres?.started ? t('Every song already has a genre') : t('Looks up a genre for songs with none')
 
   const artistsDetail = artists?.running
-    ? `${plural(artists.bios || 0, 'bio')}, ${plural(artists.images || 0, 'picture')}${artists.failed ? ` · ${artists.failed} failed` : ''}`
-    : artists?.finishedAt ? `${artists.done < artists.total ? 'Stopped' : 'Done'} ${ago(artists.finishedAt)} · ${plural(artists.bios || 0, 'bio')}, ${plural(artists.images || 0, 'picture')} updated` : ''
+    ? `${plural(artists.bios || 0, 'bio')}, ${plural(artists.images || 0, 'picture')}${artists.failed ? ` · ${t('{n} failed', { n: artists.failed })}` : ''}`
+    : artists?.finishedAt ? `${artists.done < artists.total ? t('Stopped') : t('Done')} ${ago(artists.finishedAt)} · ${t('{bios}, {pictures} updated', { bios: plural(artists.bios || 0, 'bio'), pictures: plural(artists.images || 0, 'picture') })}` : ''
   const videosDetail = videos?.running
-    ? `${plural(videos.found || 0, 'video')} found${videos.title ? ` · ${videos.title}` : ''}`
-    : videos ? `${videos.cancelled ? 'Stopped' : 'Done'} · ${plural(videos.found || 0, 'video')} found for ${plural(videos.total || 0, 'song')}` : ''
+    ? `${t('{items} found', { items: plural(videos.found || 0, 'video') })}${videos.title ? ` · ${videos.title}` : ''}`
+    : videos ? `${videos.cancelled ? t('Stopped') : t('Done')} · ${t('{videos} found for {songs}', { videos: plural(videos.found || 0, 'video'), songs: plural(videos.total || 0, 'song') })}` : ''
 
   return (
     <div className="space-y-3">
       <section>
-        <p className="px-2 pb-1 pt-1 text-[10px] font-display uppercase tracking-[0.2em] text-subtle">Library jobs</p>
+        <p className="px-2 pb-1 pt-1 text-[10px] font-display uppercase tracking-[0.2em] text-subtle">{t('Library jobs')}</p>
         <div className="space-y-0.5">
-          <TaskRow icon={CalendarDays} label="Artist releases" running={!!releases} done={releases?.done} total={releases?.total}
-            detail={releases ? 'Checking for new releases' : releasesCheckedAt ? `Checked ${ago(releasesCheckedAt)}` : 'Not checked yet'}
+          <TaskRow icon={CalendarDays} label={t('Artist releases')} running={!!releases} done={releases?.done} total={releases?.total}
+            detail={releases ? t('Checking for new releases') : releasesCheckedAt ? t('Checked {when}', { when: ago(releasesCheckedAt) }) : t('Not checked yet')}
             onStop={stopReleases} onOpen={() => onNavigate('/home/releases')}
-            onRun={checkReleases} runLabel="Check" runDisabled={!followed.size} runTitle={followed.size ? `Check ${plural(followed.size, 'followed artist')} for new releases` : 'Follow artists first (Home → Releases)'} />
-          <TaskRow icon={UserRound} label="Artist info" running={!!artists?.running} done={artists?.done} total={artists?.total}
+            onRun={checkReleases} runLabel={t('Check')} runDisabled={!followed.size} runTitle={followed.size ? t('Check {artists} for new releases', { artists: plural(followed.size, 'followed artist') }) : t('Follow artists first (Home → Releases)')} />
+          <TaskRow icon={UserRound} label={t('Artist info')} running={!!artists?.running} done={artists?.done} total={artists?.total}
             detail={artistsDetail} onStop={cancelArtists} onOpen={() => onNavigate('/artists')}
-            onRun={startArtists} runLabel="Refresh" runTitle="Refresh every artist's bio and picture" />
+            onRun={startArtists} runLabel={t('Refresh')} runTitle={t("Refresh every artist's bio and picture")} />
           {api.isElectron && (
-            <TaskRow icon={ScanSearch} label="Music videos" running={!!videos?.running} done={videos?.done} total={videos?.total}
+            <TaskRow icon={ScanSearch} label={t('Music videos')} running={!!videos?.running} done={videos?.done} total={videos?.total}
               detail={videosDetail} onStop={cancelVideoIndex} onOpen={() => onNavigate('/videos')}
-              onRun={startVideoIndex} runLabel="Find" runTitle="Find the music video of every library song" />
+              onRun={startVideoIndex} runLabel={t('Find')} runTitle={t('Find the music video of every library song')} />
           )}
           {api.isElectron && (
-            <TaskRow icon={Mic2} label="Lyrics" running={!!lyrics?.running} done={lyrics?.done} total={lyrics?.total}
+            <TaskRow icon={Mic2} label={t('Lyrics')} running={!!lyrics?.running} done={lyrics?.done} total={lyrics?.total}
               detail={lyricsDetail} onStop={cancelLyricsIndex} onOpen={() => onNavigate('/settings', { state: { category: 'library' } })}
-              onRun={startLyricsIndex} runLabel="Index" runTitle="Fetch and keep the lyrics of every library song" />
+              onRun={startLyricsIndex} runLabel={t('Index')} runTitle={t('Fetch and keep the lyrics of every library song')} />
           )}
-          <TaskRow icon={Tags} label="Genres" running={!!genres?.running} done={genres?.done} total={genres?.total}
+          <TaskRow icon={Tags} label={t('Genres')} running={!!genres?.running} done={genres?.done} total={genres?.total}
             detail={genresDetail} onOpen={() => onNavigate('/settings', { state: { category: 'library' } })}
-            onRun={startGenres} runLabel="Fill in" runTitle="Look up a genre for every song that has none" />
+            onRun={startGenres} runLabel={t('Fill in')} runTitle={t('Look up a genre for every song that has none')} />
         </div>
       </section>
       <section>
-        <p className="px-2 pb-1 text-[10px] font-display uppercase tracking-[0.2em] text-subtle">Downloaded playlists</p>
+        <p className="px-2 pb-1 text-[10px] font-display uppercase tracking-[0.2em] text-subtle">{t('Downloaded playlists')}</p>
         <DownloadedPlaylists />
       </section>
     </div>
@@ -443,6 +450,7 @@ export function DownloadManagerPanel() {
   const jobs = useDownloads(s => s.jobs)
   const { closePanel, cancelAll, clearFinished } = useDownloads.getState()
   const requestFocus = useSearchStore(s => s.requestFocus)
+  const { t } = useTranslation()
   const nav = useNavigate()
   const [anchor, setAnchor] = useState({ top: 44, left: 12, width: PANEL_WIDTH, origin: 'top left' })
   const [tab, setTab] = useState('queue')
@@ -502,7 +510,7 @@ export function DownloadManagerPanel() {
         <motion.div
           ref={panelRef}
           role="dialog"
-          aria-label="Downloads"
+          aria-label={t('Downloads')}
           initial={{ opacity: 0, y: -6, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -511,8 +519,8 @@ export function DownloadManagerPanel() {
           className="fixed z-[80] flex flex-col overflow-hidden rounded-2xl border border-border shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
         >
           <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-            <div role="tablist" aria-label="Downloads" className="flex min-w-0 flex-1 items-center gap-1">
-              {[['queue', 'Queue'], ['others', 'Others']].map(([id, label]) => (
+            <div role="tablist" aria-label={t('Downloads')} className="flex min-w-0 flex-1 items-center gap-1">
+              {[['queue', t('Queue')], ['others', t('Others')]].map(([id, label]) => (
                 <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-display uppercase tracking-[0.16em] transition-colors ${tab === id ? 'bg-accent/15 text-accent' : 'text-muted hover:text-white'}`}>
                   {label}
@@ -523,22 +531,22 @@ export function DownloadManagerPanel() {
               ))}
             </div>
             {tab === 'queue' && active.length > 0 && (
-              <button onClick={cancelAll} className="whitespace-nowrap text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-white">Cancel all</button>
+              <button onClick={cancelAll} className="whitespace-nowrap text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-white">{t('Cancel all')}</button>
             )}
             {tab === 'queue' && finished.length > 0 && (
-              <button onClick={clearFinished} className="flex flex-shrink-0 items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-white"><Trash2 size={11} />Clear</button>
+              <button onClick={clearFinished} className="flex flex-shrink-0 items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-white"><Trash2 size={11} />{t('Clear')}</button>
             )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {tab === 'queue'
-              ? <DownloadList jobs={jobs} empty={<p className="px-3 py-8 text-center text-xs text-muted">Nothing downloading.</p>} />
+              ? <DownloadList jobs={jobs} empty={<p className="px-3 py-8 text-center text-xs text-muted">{t('Nothing downloading.')}</p>} />
               : <OthersTab artists={artistRefresh} cancelArtists={cancelArtistRefresh} startArtists={startArtistRefresh} onNavigate={(path, options) => { closePanel(); nav(path, options) }} />}
           </div>
           <button
             onClick={findMore}
             className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-left text-[11px] uppercase tracking-[0.18em] text-accent transition-colors hover:bg-white/[0.04]"
           >
-            <Search size={12} /> Find music to download
+            <Search size={12} /> {t('Find music to download')}
           </button>
         </motion.div>
       )}

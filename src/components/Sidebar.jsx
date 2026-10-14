@@ -89,7 +89,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      aria-label="Sidebar"
+      aria-label={t('Sidebar')}
       className={`relative border-r border-border flex flex-col h-full pb-[var(--player-space,0px)] flex-shrink-0 ${resizing ? '' : 'transition-[width] duration-200 ease-out'}`}
       style={{ width: collapsed ? collapsedWidth : width, backgroundColor: 'rgba(var(--surface-rgb), 0.85)', backdropFilter: 'blur(12px)' }}
     >
@@ -106,7 +106,7 @@ export default function Sidebar() {
       </button>
       </div>
 
-      <nav aria-label="Music folders" className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-1.5">
+      <nav aria-label={t('Music folders')} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-1.5">
         {folders.map(folder => {
           const active = onLibrary && folder.path === selected
           const src = coverSrc(folder)
@@ -137,7 +137,7 @@ export default function Sidebar() {
         <div
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize the sidebar"
+          aria-label={t('Resize the sidebar')}
           title={t("Drag to resize")}
           onPointerDown={startResize}
           onDoubleClick={() => setLeftSidebarWidth(LEFT_SIDEBAR_WIDTH.initial)}

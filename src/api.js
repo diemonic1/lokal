@@ -317,6 +317,10 @@ export const api = {
     : apiFetch(`/lyrics/${tid}/translate`, { method:'POST', body:{ lines, targetLang } }),
   importLyrics: (tid, c, t, fp) => isE() ? el().importLyrics(tid, c, t, fp) : apiFetch(`/lyrics/${tid}/import`, { method:'POST', body:{content:c,type:t,filePath:fp} }),
   clearLyricsCache: (tid) => isE() ? el().clearLyricsCache(tid) : apiFetch(`/lyrics/${tid}`, { method:'DELETE' }),
+  // The lyrics inside the track's own file (tags), read and written on request only.
+  readFileLyrics: (tid) => isE() ? el().readFileLyrics(tid) : apiFetch(`/lyrics/${tid}/file`),
+  writeFileLyrics: (tid, text) => isE() ? el().writeFileLyrics(tid, text) : apiFetch(`/lyrics/${tid}/file`, { method:'PUT', body:{ text } }),
+  embedLyricsFrom: (providerId, tid, ti, ar, al, dur) => isE() ? el().embedLyricsFrom(providerId, tid, ti, ar, al, dur) : apiFetch(`/lyrics/${tid}/embed/${encodeURIComponent(providerId)}`, { method:'POST', body:{ title:ti||'', artist:ar||'', album:al||'', duration:dur||'' } }),
   clearLyricsDb: () => isE() ? el().clearLyricsDb() : apiFetch('/lyrics/clear-all', { method:'POST' }),
   // Both keep the snapshot peekSettings() hands out, so a page can paint with
   // the real settings on its first frame instead of defaults.
@@ -505,6 +509,10 @@ export const api = {
   onMusicVideoIndexProgress: (fn) => isE() && el().onMusicVideoIndexProgress ? el().onMusicVideoIndexProgress((_, p) => fn(p)) : () => {},
   indexAllLyrics: () => isE() && el().indexAllLyrics ? el().indexAllLyrics() : Promise.resolve(null),
   cancelLyricsIndex: () => isE() && el().cancelLyricsIndex ? el().cancelLyricsIndex() : Promise.resolve(null),
+  // Lyrics Analysis page (desktop only: it reads every file in the music folder).
+  lyricsAnalysisGet: () => isE() && el().lyricsAnalysisGet ? el().lyricsAnalysisGet() : Promise.resolve({ report: null, progress: { running: false }, unsupported: true }),
+  lyricsAnalysisRun: () => isE() && el().lyricsAnalysisRun ? el().lyricsAnalysisRun() : Promise.resolve({ ok: false, error: 'Lyrics analysis works in the desktop app.' }),
+  onLyricsAnalysisProgress: (fn) => isE() && el().onLyricsAnalysisProgress ? el().onLyricsAnalysisProgress((_, p) => fn(p)) : () => {},
   onLyricsIndexProgress: (fn) => isE() && el().onLyricsIndexProgress ? el().onLyricsIndexProgress((_, p) => fn(p)) : () => {},
   playableFile: (fp) => isE() ? el().playableFile(fp) : Promise.resolve(null),
   soulseekStatus: () => isE() ? el().soulseekStatus() : apiFetch('/download/soulseek/status'),

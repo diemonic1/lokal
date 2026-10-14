@@ -1,3 +1,4 @@
+import { translate } from './i18n'
 const artistKey = value => String(value || '').normalize('NFKC').trim().toLowerCase()
 const releaseDate = release => String(release.release_date || release.releaseDate || release.year || '')
 
@@ -6,10 +7,10 @@ export async function loadArtistReleases(artist, client, { timeoutMs = 12000 } =
   try {
     const result = await Promise.race([
       Promise.resolve().then(() => client.discoveryCatalogue({ type: 'releases', artist, source: 'youtube' })),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Artist release lookup timed out.')), timeoutMs) }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(translate('Artist release lookup timed out.'))), timeoutMs) }),
     ])
     if (result?.error) throw new Error(result.error)
-    if (!Array.isArray(result?.albums)) throw new Error('Artist release catalogue unavailable.')
+    if (!Array.isArray(result?.albums)) throw new Error(translate('Artist release catalogue unavailable.'))
     return result.albums
   } finally { clearTimeout(timer) }
 }

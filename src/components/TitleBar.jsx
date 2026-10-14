@@ -2,6 +2,7 @@ import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Minus, Settings, Square, X } from 'lucide-react'
 import { api } from '../api'
+import { useTranslation } from '../i18n'
 import HeaderSearch from './HeaderSearch'
 import { DownloadManagerPanel, DownloadsButton } from './DownloadManager'
 
@@ -14,6 +15,7 @@ import { DownloadManagerPanel, DownloadsButton } from './DownloadManager'
  * the same bar without the window controls.
  */
 export default function TitleBar() {
+  const { t } = useTranslation()
   const desktop = api.isElectron
   const nav = useNavigate()
   const onSettings = useLocation().pathname === '/settings'
@@ -29,8 +31,8 @@ export default function TitleBar() {
           type="button"
           data-tour="settings"
           onClick={() => nav('/settings')}
-          title="Settings"
-          aria-label="Settings"
+          title={t('Settings')}
+          aria-label={t('Settings')}
           aria-current={onSettings ? 'page' : undefined}
           className={`flex h-7 w-7 flex-shrink-0 items-center justify-center transition-colors ${onSettings ? 'text-accent' : 'text-text/90 hover:text-text'}`}
         >

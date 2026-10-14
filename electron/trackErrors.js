@@ -31,7 +31,13 @@ function trackErrors(db) {
 // Sorts the library asks for; anything else falls back to the default
 // rather than reaching ORDER BY (the web route passes the query string).
 const SORT = /^(id|added_at|title|artist|album|album_artist|play_count|duration|year|last_modified|bitrate|track_num)(\s+(ASC|DESC))?$/i
-const safeSort = value => SORT.test(String(value || '').trim()) ? String(value).trim() : 'added_at DESC'
+// "lyrics": songs without lyrics in the file first, then plain, then synced.
+const LYRICS_SORT = "CASE lyrics_kind WHEN 'sync' THEN 2 WHEN 'plain' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
+const safeSort = value => {
+  const v = String(value || '').trim()
+  if (/^lyrics(\s+ASC)?$/i.test(v)) return LYRICS_SORT
+  return SORT.test(v) ? v : 'added_at DESC'
+}
 const truthy = value => value === true || value === 'true' || value === '1' || value === 1
 
 function listTracks(db, opts, { where, params, exists }) {

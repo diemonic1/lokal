@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react'
 import { createBreakDots, DOTS, R0, S0, PAD, WIDTH, HEIGHT } from '../lyrics/breakDots'
+import { useTranslation } from '../i18n'
 
 // Three droplets of liquid for an instrumental break. They run on the physics in
 // lyrics/breakDots.js and are drawn as one metaball: the droplets are blurred
@@ -23,6 +24,7 @@ function calmPreferred() {
 }
 
 export default function LyricBreakDots({ start, end, getTime, active = true, size = 0.4, align = 'start', pulses = null, label = 'Instrumental' }) {
+  const { t } = useTranslation()
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const modelRef = useRef(null)
   if (!modelRef.current) modelRef.current = createBreakDots()
@@ -70,7 +72,7 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
     <svg
       ref={svgRef}
       role="img"
-      aria-label={label}
+      aria-label={t(label)}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       width={`${WIDTH * scale}rem`}
       height={`${HEIGHT * scale}rem`}

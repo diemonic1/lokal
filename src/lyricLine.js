@@ -39,6 +39,16 @@ export function announceLyricsChanged(trackId) {
 }
 
 /**
+ * The lyrics inside a song's file changed (tag editor, "Insert into track"):
+ * every view reads them again, the lyrics panels included.
+ */
+export function announceLyricsFileChanged(trackId) {
+  if (trackId == null || typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('lokal:lyrics-file-changed', { detail: { trackId } }))
+  announceLyricsChanged(trackId)
+}
+
+/**
  * The index of the line to show at `t`: the last one started, or -1 before
  * the first and once a line has been over a while with nothing new yet.
  */

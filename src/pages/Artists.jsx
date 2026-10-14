@@ -51,6 +51,7 @@ function FallbackAvatar({ name }) {
 const FIRST_SCREEN_CARDS = 24
 
 function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = true }) {
+  const { t } = useTranslation()
   const imgSrc = getArtistImage(artist)
 
   return (
@@ -83,8 +84,8 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
         <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 group-has-[:focus-visible]:opacity-100">
           <button
             type="button"
-            aria-label={`Play ${artist.name}`}
-            title={`Play ${artist.name}`}
+            aria-label={t('Play {name}', { name: artist.name })}
+            title={t('Play {name}', { name: artist.name })}
             onClick={(event) => { event.stopPropagation(); onPlay?.() }}
             className="text-white transition-transform hover:scale-110 active:scale-95"
           >
@@ -94,7 +95,7 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
       </div>
       <div className="min-w-0 w-full">
         <p className="truncate text-sm font-medium text-white">{artist.name}</p>
-        <p className="truncate text-xs text-white/55">{artist.track_count} {artist.track_count === 1 ? 'track' : 'tracks'}</p>
+        <p className="truncate text-xs text-white/55">{t('{n} track|{n} tracks', { n: artist.track_count })}</p>
       </div>
     </motion.div>
   )
@@ -102,6 +103,7 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
 
 /** One artist as a list row: small avatar, full name (wraps instead of being cut), track count. */
 function ArtistRow({ artist, onClick, onPlay, onContextMenu }) {
+  const { t } = useTranslation()
   const imgSrc = getArtistImage(artist)
   return (
     <div
@@ -118,13 +120,13 @@ function ArtistRow({ artist, onClick, onPlay, onContextMenu }) {
       </div>
       <div className="min-w-0">
         <p className="break-words text-sm font-medium leading-snug text-text" title={artist.name}>{artist.name}</p>
-        <p className="text-xs text-muted">{artist.track_count} {artist.track_count === 1 ? 'track' : 'tracks'}</p>
+        <p className="text-xs text-muted">{t('{n} track|{n} tracks', { n: artist.track_count })}</p>
       </div>
       <button
         type="button"
         onClick={(event) => { event.stopPropagation(); onPlay?.() }}
-        title={`Play ${artist.name}`}
-        aria-label={`Play ${artist.name}`}
+        title={t('Play {name}', { name: artist.name })}
+        aria-label={t('Play {name}', { name: artist.name })}
         className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[rgb(var(--bg-rgb))] opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
       >
         <Play size={13} fill="currentColor" className="translate-x-px" />
@@ -314,18 +316,18 @@ export default function Artists() {
   const openArtistMenu = (event, artist) => {
     const isFollowed = followed.has(discoveryArtistKey(artist.name))
     menu.open(event, [
-      { label: 'Start artist radio', icon: Radio, onSelect: () => openRadio(navigate, { artist: artist.name, type: 'artist' }, user?.id) },
-      { label: 'Open artist', icon: Users, onSelect: () => navigate(`/artist/${artist.id}`) },
+      { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(navigate, { artist: artist.name, type: 'artist' }, user?.id) },
+      { label: t('Open artist'), icon: Users, onSelect: () => navigate(`/artist/${artist.id}`) },
       { separator: true },
-      { label: isFollowed ? 'Unfollow artist' : 'Follow artist', icon: isFollowed ? UserMinus : UserPlus, onSelect: () => setArtistFollowed(artist.name, !isFollowed).then(() => showToast(isFollowed ? `Unfollowed ${artist.name}` : `Following ${artist.name}`)).catch(error => showToast(error.message)) },
+      { label: isFollowed ? t('Unfollow artist') : t('Follow artist'), icon: isFollowed ? UserMinus : UserPlus, onSelect: () => setArtistFollowed(artist.name, !isFollowed).then(() => showToast(isFollowed ? t('Unfollowed {name}', { name: artist.name }) : t('Following {name}', { name: artist.name }))).catch(error => showToast(error.message)) },
     ])
   }
 
   const emptyMessage = useMemo(() => {
-    if (query.trim()) return followedOnly ? 'No followed artist matched that search.' : 'No artists matched that search.'
-    if (followedOnly) return "You don't follow any of your library's artists yet. Right-click one to follow it, or choose them in Home → Releases → Followed artists."
-    return 'No artists in your library yet.'
-  }, [query, followedOnly])
+    if (query.trim()) return followedOnly ? t('No followed artist matched that search.') : t('No artists matched that search.')
+    if (followedOnly) return t("You don't follow any of your library's artists yet. Right-click one to follow it, or choose them in Home → Releases → Followed artists.")
+    return t('No artists in your library yet.')
+  }, [query, followedOnly, t])
 
   const gridClass = density === 'compact'
     ? 'grid grid-cols-4 gap-3 @sm:grid-cols-6 @md:grid-cols-8 @lg:grid-cols-10'
@@ -348,7 +350,7 @@ export default function Artists() {
               </button>
               <button
                 onClick={() => setRefreshOpen(true)}
-                title={refreshStatus?.running ? `Refreshing artist info: ${refreshStatus.done}/${refreshStatus.total}` : 'Refresh artist info (pictures and bios)'}
+                title={refreshStatus?.running ? t('Refreshing artist info: {done}/{total}', { done: refreshStatus.done, total: refreshStatus.total }) : t('Refresh artist info (pictures and bios)')}
                 aria-label={t("Refresh artist info")}
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition-colors hover:border-white/25 hover:text-white"
               >
@@ -356,7 +358,7 @@ export default function Artists() {
               </button>
             </div>
             <p className="mt-3 text-sm text-muted">
-              {loading ? '\u00a0' : `${total.toLocaleString()} ${followedOnly ? 'followed ' : ''}artist${total === 1 ? '' : 's'}`}
+              {loading ? '\u00a0' : followedOnly ? t('{n} followed artist|{n} followed artists', { n: total.toLocaleString(), count: total }) : t('{n} artist|{n} artists', { n: total.toLocaleString(), count: total })}
             </p>
           </div>
 
@@ -364,9 +366,9 @@ export default function Artists() {
             <div role="radiogroup" aria-label={t("Which artists")} className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
               {[[false, 'All'], [true, 'Followed']].map(([value, label]) => (
                 <button key={label} role="radio" aria-checked={followedOnly === value} onClick={() => changeFollowedOnly(value)}
-                  title={value ? 'Only the artists you follow' : 'Every artist in your library'}
+                  title={value ? t('Only the artists you follow') : t('Every artist in your library')}
                   className={`h-8 rounded-lg px-3 text-sm transition-colors ${followedOnly === value ? 'bg-accent/20 text-accent' : 'text-muted hover:text-text'}`}>
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -385,8 +387,8 @@ export default function Artists() {
                   role="radio"
                   aria-checked={density === id}
                   onClick={() => changeView(id)}
-                  title={label}
-                  aria-label={label}
+                  title={t(label)}
+                  aria-label={t(label)}
                   className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${density === id ? 'bg-accent/20 text-accent' : 'text-muted hover:text-text'}`}
                 >
                   <Icon size={15} />
@@ -429,7 +431,7 @@ export default function Artists() {
 
         <section className="space-y-4">
           {!query.trim() && !followedOnly && topArtists.length > 0 && density !== 'list' && (
-            <h2 className="text-xs font-display text-muted uppercase tracking-widest">All Artists</h2>
+            <h2 className="text-xs font-display text-muted uppercase tracking-widest">{t('All Artists')}</h2>
           )}
           {loading ? (
             <div className="flex items-center justify-center py-24">
@@ -473,7 +475,7 @@ export default function Artists() {
               )}
               {(hasMore || loadingMore) && (
                 <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center">
-                  {loadingMore ? <Loader2 size={18} className="animate-spin text-muted" /> : <p className="text-xs text-muted/60">Scroll for more</p>}
+                  {loadingMore ? <Loader2 size={18} className="animate-spin text-muted" /> : <p className="text-xs text-muted/60">{t('Scroll for more')}</p>}
                 </div>
               )}
             </div>

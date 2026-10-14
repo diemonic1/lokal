@@ -5,6 +5,7 @@
 
 import { api } from './api.js'
 import { downloadBatchCurrent } from './downloadCancellation.js'
+import { translate } from './i18n'
 
 export const PROVIDER_LABELS = { yt: 'YouTube', sc: 'SoundCloud' }
 
@@ -141,10 +142,10 @@ export async function saveToLibrary(track, extra = {}) {
   if (ref && isAddonProvider(ref.provider)) {
     // An addon's link is only known once asked for (and may expire): get it now.
     const got = await api.onlineDownloadUrl(ref.provider, ref.id)
-    if (!got?.url) return { error: got?.error || 'The addon gave no download link' }
+    if (!got?.url) return { error: got?.error || translate('The addon gave no download link') }
     url = got.url
   }
-  if (!url) return { error: 'Not a streamed song' }
+  if (!url) return { error: translate('Not a streamed song') }
   if (!isCurrent()) return { cancelled: true }
   return api.downloadYT(url, {
     title: [track.artist, track.title].filter(Boolean).join(' - ') || undefined,
@@ -203,7 +204,7 @@ export async function saveTracksToLibrary(tracks, { isCurrent = () => true, onPr
     if (!key || seen.has(key)) continue
     seen.add(key)
     if (track.file_path && !isGhostTrack(track)) { result.existing++; continue }
-    onProgress?.(`Queuing download of “${track.title}”…`)
+    onProgress?.(translate('Queuing download of “{title}”…', { title: track.title }))
     const response = await save(track, { isCurrent }).catch(error => ({ error: error.message }))
     if (response?.cancelled) break
     if (response?.alreadyInLibrary) { result.existing++; refresh = true }
@@ -215,5 +216,5 @@ export async function saveTracksToLibrary(tracks, { isCurrent = () => true, onPr
 }
 
 export function libraryDownloadMessage({ started, existing, failed }) {
-  return [started && `Started ${started} download${started === 1 ? '' : 's'}`, existing && `${existing} already in your library`, failed && `${failed} unavailable`].filter(Boolean).join('; ') || 'No songs to download.'
+  return [started && translate('Started {n} download|Started {n} downloads', { n: started }), existing && translate('{n} already in your library', { n: existing }), failed && translate('{n} unavailable', { n: failed })].filter(Boolean).join('; ') || translate('No songs to download.')
 }

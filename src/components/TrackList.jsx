@@ -22,6 +22,7 @@ import { useSelection } from '../selection'
 import { addToPlaylistMany, addToQueueMany, libraryTracks, playNextMany } from '../trackActions'
 import { trackColumnLayout, trackColumnPreferences, TRACK_COLUMN_DEFS, MAX_FIXED_WIDTH } from '../trackColumns'
 import { useTrackColumnsStore } from '../store/trackColumns'
+import { TRACK_CHANGED, readTrack, announceTrackChanged } from '../trackChanged'
 import TrackColumnPicker from './TrackColumnPicker'
 import { TrackSourceIcon } from './SourceIcon'
 import { openRadio } from '../radioActions'
@@ -34,7 +35,7 @@ import HoverScrollTitle from './HoverScrollTitle'
 import { useGhostDownloadSources } from './useGhostDownloadSources'
 import { useGhostDurationConfirmation } from './useGhostDurationConfirmation'
 import { nextPlaylistSort } from '../playlistSorting'
-import { useTranslation } from '../i18n'
+import { useTranslation, translate } from '../i18n'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -80,20 +81,22 @@ function fmtAddedAt(ts) {
   const now = new Date()
   const diffMs = now - date
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays === 0) return translate('Today')
+  if (diffDays === 1) return translate('Yesterday')
+  if (diffDays < 7) return translate('{n}d ago', { n: diffDays })
   return date.toLocaleDateString()
 }
 
 function SortableHeader({ column, label, children, sort, onSortChange, className = '' }) {
+  const { t } = useTranslation()
   if (!onSortChange) return <span className={className}>{children}</span>
   const active = sort?.column === column
   const next = nextPlaylistSort(sort, column)
   const direction = next.direction === 'asc' ? 'ascending' : 'descending'
   const Arrow = sort?.direction === 'desc' ? ChevronDown : ChevronUp
-  return <button type="button" aria-label={`Sort by ${label} ${direction}`} aria-pressed={active}
-    title={`Sort by ${label} ${direction}`} data-sort-column={column} data-sort-direction={active ? sort.direction : undefined}
+  const sortLabel = t('Sort by {column} {direction}', { column: t(label), direction: t(direction) })
+  return <button type="button" aria-label={sortLabel} aria-pressed={active}
+    title={sortLabel} data-sort-column={column} data-sort-direction={active ? sort.direction : undefined}
     onClick={event => { event.stopPropagation(); onSortChange(next) }}
     className={`flex min-w-0 items-center gap-1 rounded uppercase hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent ${active ? 'text-accent' : ''} ${className}`}>
     <span className="truncate">{children}</span>{active && <Arrow size={11} className="shrink-0" aria-hidden="true" />}
@@ -228,6 +231,18 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
+  // A song edited elsewhere (its lyrics written from the lyrics panel...):
+  // this list shows its fresh details too, whatever page it's on.
+  useEffect(() => {
+    const onChanged = async (e) => {
+      const trackId = e.detail?.trackId
+      if (trackId == null || !tracks.some(track => String(track?.id) === String(trackId))) return
+      const fresh = await readTrack(trackId, { includeGhosts: true })
+      if (fresh) setTrackOverrides(prev => ({ ...prev, [fresh.id]: fresh }))
+    }
+    window.addEventListener(TRACK_CHANGED, onChanged)
+    return () => window.removeEventListener(TRACK_CHANGED, onChanged)
+  }, [tracks])
   const mergedTracks = tracks.map(track => trackOverrides[track.id] ? { ...track, ...trackOverrides[track.id] } : track)
   const navigate = useNavigate()
   const menu = useContextMenu()
@@ -433,7 +448,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
         setGhostLocalResults(Array.isArray(localResult?.tracks) ? localResult.tracks.slice(0, 8) : [])
       } catch (e) {
         if (sequence !== ghostSearchSequence.current) return
-        setGhostActionStatus('Search failed: ' + e.message)
+        setGhostActionStatus(t('Search failed: {error}', { error: e.message }))
       } finally {
         if (sequence !== ghostSearchSequence.current) return
         setGhostSearchLoading(false)
@@ -447,7 +462,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const refreshGhostMatches = async (queryOverride = '') => {
     const query = String(queryOverride || ghostQuery || ghostTrack?.title || '').trim()
     if (!query) {
-      setGhostActionStatus('Enter a search query first.')
+      setGhostActionStatus(t('Enter a search query first.'))
       return
     }
     const sequence = ++ghostSearchSequence.current
@@ -464,7 +479,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
       setGhostLocalResults(Array.isArray(localResult?.tracks) ? localResult.tracks.slice(0, 8) : [])
     } catch (e) {
       if (sequence !== ghostSearchSequence.current) return
-      setGhostActionStatus('Search failed: ' + e.message)
+      setGhostActionStatus(t('Search failed: {error}', { error: e.message }))
     } finally {
       if (sequence !== ghostSearchSequence.current) return
       setGhostSearchLoading(false)
@@ -477,20 +492,20 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const isGhostTrack = (track) => !track?.file_path || !isPlayable(track)
   const needsResolution = track => !!resolveTracks && isGhostTrack(track)
   const runResolved = async (list, action, selectedTrack) => {
-    const toast = resolveTracks ? showLoadingToast('Finding the selected songs…') : null
+    const toast = resolveTracks ? showLoadingToast(t('Finding the selected songs…')) : null
     try {
       const rows = resolveTracks ? await resolveTracks(list, { selectedTrack, onProgress: message => toast.update(message), onProviderFailure: failure => toast.update(playbackFallbackMessage(failure)) }) : list
-      if (!rows.length) { toast?.close('No playable matches were found.'); return }
+      if (!rows.length) { toast?.close(t('No playable matches were found.')); return }
       toast?.close()
       return await action(rows)
-    } catch { if (toast) toast.close('Could not resolve the selected tracks.'); else showToast('Could not resolve the selected tracks.') }
+    } catch { if (toast) toast.close(t('Could not resolve the selected tracks.')); else showToast(t('Could not resolve the selected tracks.')) }
   }
 
   const playResolved = (list, selected) => {
     const request = ++resolvedPlaybackRef.current
     const isCurrent = () => request === resolvedPlaybackRef.current
     resolvedToastRef.current?.close()
-    const toast = showLoadingToast(selected ? `Finding “${selected.title}”…` : 'Loading the selected songs…')
+    const toast = showLoadingToast(selected ? t('Finding “{title}”…', { title: selected.title }) : t('Loading the selected songs…'))
     resolvedToastRef.current = toast
     let detail = ''
     return playRecommendationPool(list, {
@@ -498,8 +513,8 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
       onProgress: message => { if (isCurrent()) toast.update(message) },
       onProviderFailure: failure => { if (isCurrent()) { detail = failure.detail || detail; toast.update(playbackFallbackMessage(failure)) } },
     }).then(started => {
-      toast.close(started === false && isCurrent() ? detail || 'No playable matches were found in this list.' : '')
-    }).catch(() => { toast.close(isCurrent() ? 'Could not resolve the selected tracks.' : '') })
+      toast.close(started === false && isCurrent() ? detail || t('No playable matches were found in this list.') : '')
+    }).catch(() => { toast.close(isCurrent() ? t('Could not resolve the selected tracks.') : '') })
       .finally(() => { if (isCurrent()) resolvedToastRef.current = null })
   }
 
@@ -535,7 +550,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const replaceArtwork = async (track, e) => {
     e.stopPropagation()
     if (!api.isElectron) return
-    const fp = await api.openFile([{ name: 'Images', extensions: ['jpg','jpeg','png','webp'] }])
+    const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg','jpeg','png','webp'] }])
     if (!fp) return
     const img = new Image(); img.src = `file://${fp}`
     img.onload = () => {
@@ -569,7 +584,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const askDelete = (list) => {
     if (resolveTracks) return
     const deletable = libraryTracks(list)
-    if (!deletable.length) { showToast('Streamed and imported songs aren\'t in your library to delete'); return }
+    if (!deletable.length) { showToast(t("Streamed and imported songs aren't in your library to delete")); return }
     setDeleteRequest({ tracks: deletable, title: deletable.length === 1 ? deletable[0].title : null })
   }
 
@@ -581,7 +596,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     try {
       for (const track of list) await onRemove(track)
     } catch (e) {
-      showToast(`Couldn't remove: ${e?.message || e}`)
+      showToast(t("Couldn't remove: {error}", { error: e?.message || e }))
     } finally {
       removingRef.current = false
       selection.clear()
@@ -597,23 +612,23 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   }
 
   const resolveDownloadTrack = async track => {
-    const toast = showLoadingToast(`Finding “${track.title}”…`)
+    const toast = showLoadingToast(t('Finding “{title}”…', { title: track.title }))
     try {
       const [row] = await resolveTracks([track], { prepareStreams: false, onProgress: message => toast.update(message), onProviderFailure: failure => toast.update(playbackFallbackMessage(failure)) })
-      toast.close(row ? '' : 'No matching source was found for this song.')
+      toast.close(row ? '' : t('No matching source was found for this song.'))
       return row
-    } catch { toast.close('Could not resolve this song.'); return null }
+    } catch { toast.close(t('Could not resolve this song.')); return null }
   }
 
   /** Download rows/selection, resolving metadata-only recommendations first. */
   const downloadSongs = async list => {
-    const toast = showLoadingToast('Preparing downloads…')
+    const toast = showLoadingToast(t('Preparing downloads…'))
     try {
       const rows = resolveTracks ? await resolveTracks(list, { prepareStreams: false, onProgress: message => toast.update(message), onProviderFailure: failure => toast.update(playbackFallbackMessage(failure)) }) : list
       const result = await saveTracksToLibrary(rows, { onProgress: message => toast.update(message) })
       result.failed += list.length - rows.length
       toast.close(libraryDownloadMessage(result))
-    } catch { toast.close('Could not download the selected songs.') }
+    } catch { toast.close(t('Could not download the selected songs.')) }
   }
 
   /**
@@ -627,29 +642,29 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     const ids = selection.contextSelect(track.id)
     const list = mergedTracks.filter(item => ids.includes(String(item.id)))
     const one = list.length === 1 ? list[0] : null
-    const count = list.length > 1 ? ` ${list.length} songs` : ''
+    const n = list.length
     const deletable = resolveTracks ? [] : libraryTracks(list)
     const oneGhost = one && (isGhostTrack(one) || one.missing)
     const liked = one && likedIds.has(one.id)
     menu.open(event, [
-      { label: one ? 'Play' : `Play${count}`, icon: Play, onSelect: () => (one ? handlePlay(one, { stopPropagation() {} }) : playMany(list)) },
-      { label: 'Play next', icon: Clock, onSelect: () => runResolved(list, playNextMany) },
-      { label: 'Add to queue', icon: ListEnd, onSelect: () => runResolved(list, addToQueueMany) },
-       { label: 'Add to playlist…', icon: Plus, onSelect: () => runResolved(list, addToPlaylistMany) },
-       one && { label: 'Start radio', icon: Radio, onSelect: () => openRadio(navigate, one, useAppStore.getState().user?.id) },
-      one && onQuickAdd && { label: 'Add to this playlist', icon: LibraryBig, onSelect: () => handleQuickAdd(one) },
-      one && (!oneGhost || needsResolution(one)) && { label: liked ? 'Remove from Liked Songs' : 'Like', icon: Heart, onSelect: () => toggleLike(one, { stopPropagation() {} }) },
-       list.some(item => isStreamed(item) || needsResolution(item)) && { label: resolveTracks || !one ? `Download${one ? ' song' : count}` : 'Save to library', icon: Download, onSelect: () => downloadSongs(list) },
-       one?.missing && { label: missingTrackCanRedownload(one) ? 'Redownload missing file' : 'Find replacement for missing file', icon: Download, onSelect: () => setGhostTrack(one) },
+      { label: one ? t('Play') : t('Play {n} songs', { n }), icon: Play, onSelect: () => (one ? handlePlay(one, { stopPropagation() {} }) : playMany(list)) },
+      { label: t('Play next'), icon: Clock, onSelect: () => runResolved(list, playNextMany) },
+      { label: t('Add to queue'), icon: ListEnd, onSelect: () => runResolved(list, addToQueueMany) },
+       { label: t('Add to playlist…'), icon: Plus, onSelect: () => runResolved(list, addToPlaylistMany) },
+       one && { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(navigate, one, useAppStore.getState().user?.id) },
+      one && onQuickAdd && { label: t('Add to this playlist'), icon: LibraryBig, onSelect: () => handleQuickAdd(one) },
+      one && (!oneGhost || needsResolution(one)) && { label: liked ? t('Remove from Liked Songs') : t('Like'), icon: Heart, onSelect: () => toggleLike(one, { stopPropagation() {} }) },
+       list.some(item => isStreamed(item) || needsResolution(item)) && { label: resolveTracks || !one ? (one ? t('Download song') : t('Download {n} songs', { n })) : t('Save to library'), icon: Download, onSelect: () => downloadSongs(list) },
+       one?.missing && { label: missingTrackCanRedownload(one) ? t('Redownload missing file') : t('Find replacement for missing file'), icon: Download, onSelect: () => setGhostTrack(one) },
       one && !oneGhost && losslessMenuItem(one, Gem),
       !one && losslessManyMenuItem(list, Gem),
       { separator: true },
-      one?.album && { label: 'Go to album', icon: Disc3, onSelect: () => navigateToTrackAlbum(navigate, one) },
-      !resolveTracks && (one ? { label: 'Edit info', icon: Edit2, onSelect: () => setEditingTrack(one) } : { label: `Edit${count}`, icon: Edit2, onSelect: () => setShowBatchEdit(true) }),
-      !resolveTracks && one && api.isElectron && { label: 'Replace artwork', icon: Camera, onSelect: () => replaceArtwork(one, { stopPropagation() {} }) },
+      one?.album && { label: t('Go to album'), icon: Disc3, onSelect: () => navigateToTrackAlbum(navigate, one) },
+      !resolveTracks && (one ? { label: t('Edit info'), icon: Edit2, onSelect: () => setEditingTrack(one) } : { label: t('Edit {n} songs', { n }), icon: Edit2, onSelect: () => setShowBatchEdit(true) }),
+      !resolveTracks && one && api.isElectron && { label: t('Replace artwork'), icon: Camera, onSelect: () => replaceArtwork(one, { stopPropagation() {} }) },
       { separator: true },
-      onRemove && { label: one ? 'Remove from this playlist' : `Remove${count} from this playlist`, icon: ListMinus, onSelect: () => removeMany(list) },
-      deletable.length > 0 && { label: deletable.length > 1 ? `Delete ${deletable.length} from library` : 'Delete from library', icon: Trash2, danger: true, onSelect: () => askDelete(deletable) },
+      onRemove && { label: one ? t('Remove from this playlist') : t('Remove {n} songs from this playlist', { n }), icon: ListMinus, onSelect: () => removeMany(list) },
+      deletable.length > 0 && { label: deletable.length > 1 ? t('Delete {n} from library', { n: deletable.length }) : t('Delete from library'), icon: Trash2, danger: true, onSelect: () => askDelete(deletable) },
     ].filter(Boolean).filter((item, index, all) => !(item.separator && (index === 0 || index === all.length - 1 || all[index - 1]?.separator))))
   }
 
@@ -786,46 +801,46 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
 
   const downloadGhostResult = async (item) => {
     if (!item) return
-    setGhostActionStatus('Starting download...')
+    setGhostActionStatus(t('Starting download...'))
     try {
       const result = await queueGhostResult(ghostTrack, item, { confirmDuration, isCurrent: ghostResolverOpen })
-      if (result?.cancelled) { setGhostActionStatus('Skipped.'); return }
+      if (result?.cancelled) { setGhostActionStatus(t('Skipped.')); return }
       if (result?.error) {
-        setGhostActionStatus('Download failed: ' + result.error)
+        setGhostActionStatus(t('Download failed: {error}', { error: result.error }))
         return
       }
-      setGhostActionStatus(result?.alreadyInLibrary ? 'Replaced with your library copy.' : 'Download started. This playlist entry will be replaced when it finishes.')
+      setGhostActionStatus(result?.alreadyInLibrary ? t('Replaced with your library copy.') : t('Download started. This playlist entry will be replaced when it finishes.'))
       if (result?.alreadyInLibrary) window.dispatchEvent(new Event('lokal:refresh'))
     } catch (e) {
-      setGhostActionStatus('Download failed: ' + e.message)
+      setGhostActionStatus(t('Download failed: {error}', { error: e.message }))
     }
   }
 
   const redownloadMissing = async () => {
     if (!ghostTrack?.missing) return
-    setGhostActionStatus('Starting redownload…')
+    setGhostActionStatus(t('Starting redownload…'))
     const result = await redownloadMissingTrack(ghostTrack).catch(error => ({ error: error.message }))
-    if (result?.error) setGhostActionStatus('Redownload failed: ' + result.error)
-    else setGhostActionStatus('Redownload started. The existing library entry will be repaired when it finishes.')
+    if (result?.error) setGhostActionStatus(t('Redownload failed: {error}', { error: result.error }))
+    else setGhostActionStatus(t('Redownload started. The existing library entry will be repaired when it finishes.'))
   }
 
   const assignGhostTrack = async (track) => {
     if (!ghostTrack?.id || !track?.id) return
-    setGhostActionStatus('Assigning track...')
+    setGhostActionStatus(t('Assigning track...'))
     try {
       const result = await api.resolveGhostTrack(ghostTrack.id, track.id)
       if (result?.error) {
-        setGhostActionStatus('Assign failed: ' + result.error)
+        setGhostActionStatus(t('Assign failed: {error}', { error: result.error }))
         return
       }
-      setGhostActionStatus('Assigned successfully.')
+      setGhostActionStatus(t('Assigned successfully.'))
       window.dispatchEvent(new Event('lokal:refresh'))
       if (playlistId) {
         window.dispatchEvent(new CustomEvent('lokal:playlist-updated', { detail: { playlistId } }))
       }
       setGhostTrack(null)
     } catch (e) {
-      setGhostActionStatus('Assign failed: ' + e.message)
+      setGhostActionStatus(t('Assign failed: {error}', { error: e.message }))
     }
   }
 
@@ -833,17 +848,17 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     <div ref={listRef} className="w-full min-w-0" style={{ '--tl-columns': layout.template }} onClick={handleContainerClick}>
       <SelectionBar
         open={selection.count > 0}
-        label={`${selection.count} selected`}
+        label={t('{n} selected', { n: selection.count })}
         onClear={selection.clear}
         actions={[
-          { label: 'Play', icon: Play, onClick: () => playMany(selectedTracks()) },
-          { label: 'Play next', icon: Clock, onClick: () => runResolved(selectedTracks(), playNextMany) },
-          { label: 'Add to queue', icon: ListEnd, onClick: () => runResolved(selectedTracks(), addToQueueMany) },
-          { label: 'Add to playlist', icon: Plus, onClick: () => runResolved(selectedTracks(), addToPlaylistMany) },
-          { label: 'Download', icon: Download, onClick: () => downloadSongs(selectedTracks()), hidden: !selectedTracks().some(track => isStreamed(track) || needsResolution(track)) },
-          { label: 'Edit', icon: Edit2, onClick: () => setShowBatchEdit(true), hidden: !!resolveTracks },
-          { label: 'Remove', icon: ListMinus, onClick: () => removeMany(selectedTracks()), hidden: !onRemove },
-          { label: 'Delete', icon: Trash2, danger: true, onClick: () => askDelete(selectedTracks()), hidden: !!resolveTracks || !libraryTracks(selectedTracks()).length },
+          { label: t('Play'), icon: Play, onClick: () => playMany(selectedTracks()) },
+          { label: t('Play next'), icon: Clock, onClick: () => runResolved(selectedTracks(), playNextMany) },
+          { label: t('Add to queue'), icon: ListEnd, onClick: () => runResolved(selectedTracks(), addToQueueMany) },
+          { label: t('Add to playlist'), icon: Plus, onClick: () => runResolved(selectedTracks(), addToPlaylistMany) },
+          { label: t('Download'), icon: Download, onClick: () => downloadSongs(selectedTracks()), hidden: !selectedTracks().some(track => isStreamed(track) || needsResolution(track)) },
+          { label: t('Edit'), icon: Edit2, onClick: () => setShowBatchEdit(true), hidden: !!resolveTracks },
+          { label: t('Remove'), icon: ListMinus, onClick: () => removeMany(selectedTracks()), hidden: !onRemove },
+          { label: t('Delete'), icon: Trash2, danger: true, onClick: () => askDelete(selectedTracks()), hidden: !!resolveTracks || !libraryTracks(selectedTracks()).length },
         ]}
       />
 
@@ -861,30 +876,31 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           const extra = extraByKey[key]
           const cell = extra ? <span className="truncate text-right tracking-normal">{extra.label}</span>
             : key === 'number' ? <SortableHeader column="number" label="playlist number" sort={sort} onSortChange={onSortChange} className="justify-center text-center">#</SortableHeader>
-            : key === 'tracknum' ? <span className="text-center" title="Track number">Trk</span>
-            : key === 'title' ? <span>{layout.album ? 'Title' : 'Title / Album'}</span>
-            : key === 'album' ? <span className="truncate">Album</span>
+            : key === 'tracknum' ? <span className="text-center" title={t('Track number')}>{t('Trk')}</span>
+            : key === 'title' ? <span>{layout.album ? t('Title') : t('Title / Album')}</span>
+            : key === 'album' ? <span className="truncate">{t('Album')}</span>
             : key === 'source' ? <span className="flex justify-center" title={t("Source")}><Globe size={12} aria-hidden="true" /><span className="sr-only">{t("Source")}</span></span>
-            : key === 'quality' ? <span className="text-center">Quality</span>
-            : key === 'genre' ? <span className="truncate tracking-normal">Genre</span>
-            : key === 'comment' ? <span className="truncate tracking-normal">Comment</span>
-            : key === 'added' ? <SortableHeader column="added" label="date added" sort={sort} onSortChange={onSortChange} className="justify-end truncate text-right tracking-normal">Date added</SortableHeader>
-            : key === 'time' ? <SortableHeader column="time" label="duration" sort={sort} onSortChange={onSortChange} className="justify-end text-right">Time</SortableHeader>
+            : key === 'quality' ? <span className="text-center">{t('Quality')}</span>
+            : key === 'genre' ? <span className="truncate tracking-normal">{t('Genre')}</span>
+            : key === 'comment' ? <span className="truncate tracking-normal">{t('Comment')}</span>
+            : key === 'lyrics' ? <span className="truncate tracking-normal">{t('Lyrics')}</span>
+            : key === 'added' ? <SortableHeader column="added" label="date added" sort={sort} onSortChange={onSortChange} className="justify-end truncate text-right tracking-normal">{t('Date added')}</SortableHeader>
+            : key === 'time' ? <SortableHeader column="time" label="duration" sort={sort} onSortChange={onSortChange} className="justify-end text-right">{t('Time')}</SortableHeader>
             : null
           return (
             <div key={key} data-col={key} className="relative grid min-w-0 items-center">
               {cell}
               {/* Drag the edge to resize this column (double-click: default width). */}
-              <span aria-hidden="true" title="Drag to resize" onPointerDown={e => startColumnResize(key, e)}
+              <span aria-hidden="true" title={t('Drag to resize')} onPointerDown={e => startColumnResize(key, e)}
                 onDoubleClick={e => { e.stopPropagation(); resetColumnWidth(key) }} onClick={e => e.stopPropagation()}
                 className="absolute -right-[7px] inset-y-[-4px] z-10 w-2.5 cursor-col-resize" />
             </div>
           )
         })}
-        <span className="sr-only">Actions</span>
+        <span className="sr-only">{t('Actions')}</span>
         <span aria-hidden="true" />
       </div>
-      {onSortChange && <span className="sr-only" role="status">Sorted by {sort?.column === 'added' ? 'date added' : sort?.column === 'time' ? 'duration' : 'playlist number'}, {sort?.direction === 'desc' ? 'descending' : 'ascending'}</span>}
+      {onSortChange && <span className="sr-only" role="status">{t('Sorted by {column}, {direction}', { column: t(sort?.column === 'added' ? 'date added' : sort?.column === 'time' ? 'duration' : 'playlist number'), direction: t(sort?.direction === 'desc' ? 'descending' : 'ascending') })}</span>}
 
       <div ref={rowsRef}>
       {topSpacerHeight > 0 && <div aria-hidden="true" style={{ height: topSpacerHeight }} />}
@@ -946,7 +962,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   <AlertCircle size={14} />
                 </button>
               ) : isHov || isCurrent ? (
-                <button onClick={e => handlePlay(track, e)} aria-label={`${t(isCurrent && isPlaying ? 'Pause' : 'Play')} ${track.title}`} className={isCurrent ? 'text-accent' : 'text-white'}>
+                <button onClick={e => handlePlay(track, e)} aria-label={t(isCurrent && isPlaying ? 'Pause {title}' : 'Play {title}', { title: track.title })} className={isCurrent ? 'text-accent' : 'text-white'}>
                   {isCurrent && isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />}
                 </button>
               ) : <span className={isCurrent ? 'text-accent' : ''}>{trackNumbers?.get(track.playlist_track_id ?? track.id) ?? trackIndex + 1}</span>}
@@ -954,11 +970,11 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 case 'title': return <React.Fragment key={key}><div className="min-w-0 flex items-center gap-2.5">
               {columns.artwork ? <div className="rounded flex-shrink-0 overflow-hidden bg-card relative" style={{ width: artworkSize, height: artworkSize }}>
                 {resolveTracks ? <DiscoveryImage item={track} src={src} className="w-full h-full object-cover" /> : src ? <img src={src} className="w-full h-full object-cover" alt="" loading="lazy" decoding="async" /> : <div className="w-full h-full flex items-center justify-center text-muted"><Music size={11} /></div>}
-                {!layout.number && <button onClick={e => handlePlay(track, e)} aria-label={`${isCurrent && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
+                {!layout.number && <button onClick={e => handlePlay(track, e)} aria-label={t(isCurrent && isPlaying ? 'Pause {title}' : 'Play {title}', { title: track.title })}
                   className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                   {isCurrent && isPlaying ? <Pause size={14} /> : <Play size={14} />}
                 </button>}
-              </div> : !layout.number && <button onClick={e => handlePlay(track, e)} aria-label={`${isCurrent && isPlaying ? 'Pause' : 'Play'} ${track.title}`} className="shrink-0 text-muted hover:text-accent">
+              </div> : !layout.number && <button onClick={e => handlePlay(track, e)} aria-label={t(isCurrent && isPlaying ? 'Pause {title}' : 'Play {title}', { title: track.title })} className="shrink-0 text-muted hover:text-accent">
                 {isCurrent && isPlaying ? <Pause size={14} /> : <Play size={14} />}
               </button>}
               <div className="min-w-0 flex-1">
@@ -992,14 +1008,15 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               const info = TIERS[tier]
               return (
                 <button onClick={e => { e.stopPropagation(); navigate('/quality', { state: { tier } }) }}
-                  title={`${info.label}: ${info.desc}${formatLabel(track) ? ` (${formatLabel(track)})` : ''}`}
+                  title={`${t(info.label)}: ${t(info.desc)}${formatLabel(track) ? ` (${formatLabel(track)})` : ''}`}
                   className={`justify-self-center rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase leading-[14px] tracking-wide transition-opacity hover:opacity-80 ${info.className}`}>
-                  {info.label}
+                  {t(info.label)}
                 </button>
               )
             })()}</React.Fragment>
                 case 'tracknum': return <span key={key} data-track-column="tracknum" className="text-center text-xs text-muted font-display">{track.track_num || ''}</span>
                 case 'genre': return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={track.genre || undefined}>{track.genre || ''}</p>
+                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{track.lyrics_kind === 'sync' || track.lyrics_kind === 'plain' ? track.lyrics_kind : ''}</span>
                 case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
                 case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>
@@ -1025,7 +1042,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 )}
                 {onQuickAdd && (
                   <div className="relative">
-                    <button onClick={e => handleQuickAdd(track, e)}
+                    <button onClick={e => handleQuickAdd(track, e)} title={t('Add to this playlist')} aria-label={t('Add to this playlist')}
                       className={`opacity-0 group-hover:opacity-100 transition-all ${quickAddAnim === track.id ? 'text-green-400' : 'text-muted hover:text-green-400'}`}>
                       {quickAddAnim === track.id ? <Check size={14} /> : <LibraryBig size={14} />}
                     </button>
@@ -1047,10 +1064,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   // On every row, so the columns line up; greyed out where it can't be used.
                   const upgradable = !isGhost && canGetLossless(track)
                   const unread = track.lossless === null || track.lossless === undefined
-                  const why = upgradable ? `Get it in lossless${unread ? ' (quality not read yet)' : formatLabel(track) ? ` (now ${formatLabel(track)})` : ''}`
-                    : track.missing ? 'Get it in lossless: the file is missing'
-                      : isStreamed(track) || isGhost ? 'Get it in lossless: save it to your library first'
-                        : `Already lossless${formatLabel(track) ? ` (${formatLabel(track)})` : ''}`
+                  const why = upgradable ? (unread ? t('Get it in lossless (quality not read yet)') : formatLabel(track) ? t('Get it in lossless (now {format})', { format: formatLabel(track) }) : t('Get it in lossless'))
+                    : track.missing ? t('Get it in lossless: the file is missing')
+                      : isStreamed(track) || isGhost ? t('Get it in lossless: save it to your library first')
+                        : formatLabel(track) ? t('Already lossless ({format})', { format: formatLabel(track) }) : t('Already lossless')
                   return (
                     <button onClick={e => { e.stopPropagation(); if (upgradable) openLossless(track) }}
                       aria-disabled={!upgradable} title={why} aria-label={why}
@@ -1072,7 +1089,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   <Edit2 size={14} />
                 </button>}
                 {onRemove && (
-                  <button onClick={e => { e.stopPropagation(); onRemove(track) }}
+                  <button onClick={e => { e.stopPropagation(); onRemove(track) }} title={t('Remove from this playlist')} aria-label={t('Remove from this playlist')}
                     className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all">
                     <Trash2 size={12} />
                   </button>
@@ -1108,7 +1125,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   setMenuFor(track.id)
                 }}
                 title={t("More")}
-                aria-label={`More for ${track.title || 'this song'}`}
+                aria-label={track.title ? t('More for {title}', { title: track.title }) : t('More for this song')}
                 aria-haspopup="menu"
                 aria-expanded={!!menu.state && menuFor === track.id}
                 aria-controls={menu.state && menuFor === track.id ? menuId : undefined}
@@ -1133,7 +1150,8 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           syncTrack(updatedTrack)
           setTrackOverrides(prev => ({ ...prev, [updatedTrack.id]: updatedTrack }))
           setEditingTrack(updatedTrack)
-          window.dispatchEvent(new Event('lokal:refresh'))
+          // Only this song changed: lists read just it again (not the whole library).
+          announceTrackChanged(updatedTrack.id)
         }}
       />
 
@@ -1162,8 +1180,8 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               </div>
               <div className="min-w-0">
                 <p className="text-sm text-white font-medium">{ghostTrack?.title}</p>
-                <p className="text-xs text-muted mt-1">{ghostTrack?.artist || 'Unknown Artist'}{ghostTrack?.album ? ` · ${ghostTrack.album}` : ''}</p>
-               <p className="text-xs text-muted mt-2">{ghostTrack?.missing ? 'This library entry points to a file that is no longer on disk. Redownload it from a known source or search for a replacement; the existing library entry will be repaired.' : 'This song was imported from another platform but Lokal could not match it to a local file yet. It stays in the playlist as a placeholder until you resolve it.'}</p>
+                <p className="text-xs text-muted mt-1">{ghostTrack?.artist || t('Unknown Artist')}{ghostTrack?.album ? ` · ${ghostTrack.album}` : ''}</p>
+               <p className="text-xs text-muted mt-2">{ghostTrack?.missing ? t('This library entry points to a file that is no longer on disk. Redownload it from a known source or search for a replacement; the existing library entry will be repaired.') : t('This song was imported from another platform but Lokal could not match it to a local file yet. It stays in the playlist as a placeholder until you resolve it.')}</p>
               </div>
             </div>
           </div>
@@ -1171,14 +1189,14 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           <div className="flex flex-wrap gap-2">
             {ghostTrack?.missing && /^((yt|sc):|a-[0-9a-f]{10}:)/.test(String(ghostTrack.source_ref || '')) && (
               <button onClick={redownloadMissing} className="px-3 py-2 rounded-lg bg-accent/15 border border-accent/25 text-accent text-sm hover:bg-accent/25 transition-colors flex items-center gap-2">
-                <Download size={14} /> Redownload original
+                <Download size={14} /> {t('Redownload original')}
               </button>
             )}
             <button
               onClick={() => refreshGhostMatches()}
               className="px-3 py-2 rounded-lg bg-card border border-border text-sm text-muted hover:text-white hover:border-accent/30 transition-colors flex items-center gap-2"
             >
-              <Search size={14} /> Refresh Matches
+              <Search size={14} /> {t('Refresh Matches')}
             </button>
           </div>
 
@@ -1194,15 +1212,15 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               onClick={() => refreshGhostMatches()}
               className="px-3 py-2 rounded-lg bg-accent/15 border border-accent/25 text-accent text-sm hover:bg-accent/25 transition-colors"
             >
-              Search
+              {t('Search')}
             </button>
           </div>
 
           <div className="rounded-xl border border-border bg-card/30 overflow-hidden">
-            <div className="px-4 py-3 border-b border-border text-xs uppercase tracking-widest text-muted font-display">Assign Existing Local Track</div>
+            <div className="px-4 py-3 border-b border-border text-xs uppercase tracking-widest text-muted font-display">{t('Assign Existing Local Track')}</div>
             <div className="divide-y divide-border">
               {ghostLocalLoading && (
-                <div className="px-4 py-6 text-sm text-muted">Searching local library…</div>
+                <div className="px-4 py-6 text-sm text-muted">{t('Searching local library…')}</div>
               )}
               {!ghostLocalLoading && ghostLocalResults.map((item) => (
                 <div key={item.id} className="px-4 py-3 flex items-center gap-3">
@@ -1214,21 +1232,21 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                     onClick={() => assignGhostTrack(item)}
                     className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/25 text-accent text-xs hover:bg-accent/25 transition-colors flex items-center gap-1.5"
                   >
-                    <Check size={12} /> Assign
+                    <Check size={12} /> {t('Assign')}
                   </button>
                 </div>
               ))}
               {!ghostLocalLoading && !ghostLocalResults.length && (
-                <div className="px-4 py-6 text-sm text-muted">No strong local matches yet. If you just downloaded the song, try Refresh Matches after indexing finishes.</div>
+                <div className="px-4 py-6 text-sm text-muted">{t('No strong local matches yet. If you just downloaded the song, try Refresh Matches after indexing finishes.')}</div>
               )}
             </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card/30 overflow-hidden">
-            <div className="px-4 py-3 border-b border-border text-xs uppercase tracking-widest text-muted font-display">Suggested Downloads<div className="mt-2 normal-case tracking-normal">{sourceChoice}</div></div>
+            <div className="px-4 py-3 border-b border-border text-xs uppercase tracking-widest text-muted font-display">{t('Suggested Downloads')}<div className="mt-2 normal-case tracking-normal">{sourceChoice}</div></div>
             <div className="divide-y divide-border">
               {ghostSearchLoading && (
-                <div className="px-4 py-6 text-sm text-muted">Searching…</div>
+                <div className="px-4 py-6 text-sm text-muted">{t('Searching…')}</div>
               )}
               {!ghostSearchLoading && ghostSearchResults.map((item) => (
                 <div key={item.id || item.url} className="px-4 py-3 flex items-center gap-3">
@@ -1240,12 +1258,12 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                     onClick={() => downloadGhostResult(item)}
                     className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/25 text-accent text-xs hover:bg-accent/25 transition-colors flex items-center gap-1.5"
                   >
-                    <Download size={12} /> Download & replace
+                    <Download size={12} /> {t('Download & replace')}
                   </button>
                 </div>
               ))}
               {!ghostSearchLoading && !ghostSearchResults.length && (
-                <div className="px-4 py-6 text-sm text-muted">No suggestions yet. Try another source or search query.</div>
+                <div className="px-4 py-6 text-sm text-muted">{t('No suggestions yet. Try another source or search query.')}</div>
               )}
             </div>
           </div>
@@ -1253,7 +1271,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           {ghostActionStatus && <p className="text-xs text-muted">{ghostActionStatus}</p>}
 
           <div className="flex gap-2">
-            <button onClick={() => setGhostTrack(null)} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">Close</button>
+            <button onClick={() => setGhostTrack(null)} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">{t('Close')}</button>
           </div>
         </div>
       </Modal>

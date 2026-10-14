@@ -108,11 +108,11 @@ export function QueueContent({ onClose, variant = 'panel' }) {
         <div className="px-8 pt-6 pb-3 flex-shrink-0 flex items-center justify-between">
           <div>
             <p className="text-xs font-display text-white/30 uppercase tracking-[0.2em]">
-              {shuffle ? 'Up Next (Shuffled)' : 'Queue'}
+              {shuffle ? t('Up Next (Shuffled)') : t('Queue')}
             </p>
             <p className="text-xs text-white/20 mt-0.5 truncate">
-              {displayQueue.length} track{displayQueue.length === 1 ? '' : 's'}
-              {shuffle ? ' · drag disabled' : ''}
+              {t('{n} track|{n} tracks', { n: displayQueue.length })}
+              {shuffle ? ` · ${t('drag disabled')}` : ''}
             </p>
           </div>
         </div>
@@ -120,10 +120,10 @@ export function QueueContent({ onClose, variant = 'panel' }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <div>
             <p className="text-xs font-display text-muted uppercase tracking-widest">
-              {shuffle ? 'Up Next (Shuffled)' : 'Queue'} ({displayQueue.length})
+              {shuffle ? t('Up Next (Shuffled)') : t('Queue')} ({displayQueue.length})
             </p>
             {shuffle && (
-              <p className="text-[10px] text-accent/70">Drag disabled in shuffle mode</p>
+              <p className="text-[10px] text-accent/70">{t('Drag disabled in shuffle mode')}</p>
             )}
           </div>
           {onClose && (
@@ -136,7 +136,7 @@ export function QueueContent({ onClose, variant = 'panel' }) {
 
       <div className="flex-1 overflow-y-auto p-2 pb-[calc(var(--player-space,0px)+0.5rem)]">
         {!displayQueue.length && (
-          <p className="text-xs text-muted text-center py-8">Queue is empty</p>
+          <p className="text-xs text-muted text-center py-8">{t('Queue is empty')}</p>
         )}
 
         {start > 0 && (
@@ -144,7 +144,7 @@ export function QueueContent({ onClose, variant = 'panel' }) {
             onClick={() => setExtra(prev => ({ ...prev, before: prev.before + PAGE }))}
             className="w-full text-xs text-muted hover:text-white py-2 transition-colors"
           >
-            Show earlier ({start})
+            {t('Show earlier ({n})', { n: start })}
           </button>
         )}
 
@@ -265,7 +265,7 @@ export function QueueContent({ onClose, variant = 'panel' }) {
             onClick={() => setExtra(prev => ({ ...prev, after: prev.after + PAGE }))}
             className="w-full text-xs text-muted hover:text-white py-2 transition-colors"
           >
-            Show more ({displayQueue.length - end})
+            {t('Show more ({n})', { n: displayQueue.length - end })}
           </button>
         )}
       </div>

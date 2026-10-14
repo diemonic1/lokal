@@ -6,20 +6,21 @@
 import { api } from './api'
 import { downloadGhostSongs, ghostDownloadMessage } from './ghostDownloads'
 import { plural } from './plural'
+import { translate } from './i18n'
 
 export async function syncPlaylist(playlistId, { userId, client = api, download = downloadGhostSongs, onProgress } = {}) {
   const result = await client.playlistSync(playlistId, userId).catch(error => ({ error: error.message }))
   if (result?.error) return { error: result.error }
   const added = Number(result?.added) || 0
   if (typeof window !== 'undefined' && added) window.dispatchEvent(new Event('lokal:refresh'))
-  if (!added) return { ...result, message: `Up to date with ${result.title || 'the linked playlist'}: no new songs.` }
+  if (!added) return { ...result, message: translate('Up to date with {title}: no new songs.', { title: result.title || translate('the linked playlist') }) }
   const ghosts = Array.isArray(result.ghosts) ? result.ghosts : []
   // The songs are already in the playlist: a failed download start is
   // reported with the sync, not thrown (launch sync carries on too).
   const downloads = ghosts.length ? await download(ghosts, { client, onProgress }).catch(error => ({ started: 0, existing: 0, notFound: 0, failed: ghosts.length, error: error?.message })) : null
-  const parts = [`Added ${plural(added, 'new song')}`]
-  if (result.matched) parts.push(`${result.matched} from your library`)
-  if (downloads) parts.push(downloads.error ? `downloads couldn't start: ${downloads.error}` : ghostDownloadMessage(downloads))
+  const parts = [translate('Added {songs}', { songs: plural(added, 'new song') })]
+  if (result.matched) parts.push(translate('{n} from your library', { n: result.matched }))
+  if (downloads) parts.push(downloads.error ? translate("downloads couldn't start: {error}", { error: downloads.error }) : ghostDownloadMessage(downloads))
   return { ...result, downloads, message: parts.join('; ') }
 }
 

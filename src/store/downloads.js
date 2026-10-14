@@ -4,6 +4,7 @@
 
 import { create } from 'zustand'
 import { api } from '../api'
+import { translate } from '../i18n'
 
 export const ACTIVE_STATUSES = new Set(['queued', 'downloading'])
 export const isActive = (job) => ACTIVE_STATUSES.has(job?.status)
@@ -82,7 +83,7 @@ export const useDownloads = create((set, get) => ({
   },
 
   cancel: async (id) => {
-    set(state => ({ jobs: state.jobs.map(j => j.id === id ? { ...j, message: 'Stopping...' } : j) }))
+    set(state => ({ jobs: state.jobs.map(j => j.id === id ? { ...j, message: translate('Stopping...') } : j) }))
     await api.cancelDownload(id)
     await get().load()
   },

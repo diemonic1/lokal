@@ -46,6 +46,21 @@ router.post('/:trackId/import', (req, res) => {
   res.json(service.importLyrics(getDB(), req.params.trackId, req.body?.content, req.body?.type))
 })
 
+router.get('/:trackId/file', async (req, res) => {
+  try { res.json(await service.readFileLyrics(getDB(), req.params.trackId)) } catch (e) { res.json({ ok: false, error: e.message }) }
+})
+
+router.put('/:trackId/file', (req, res) => {
+  try { res.json(service.writeFileLyrics(getDB(), req.params.trackId, String(req.body?.text ?? ''))) } catch (e) { res.json({ ok: false, error: e.message }) }
+})
+
+router.post('/:trackId/embed/:providerId', async (req, res) => {
+  const b = req.body || {}
+  try {
+    res.json(await service.embedFrom(getDB(), { trackId: req.params.trackId, title: b.title, artist: b.artist, album: b.album, duration: b.duration }, req.params.providerId))
+  } catch (e) { res.json({ ok: false, error: e.message }) }
+})
+
 router.delete('/:trackId', (req, res) => {
   res.json(service.clearCache(getDB(), req.params.trackId))
 })

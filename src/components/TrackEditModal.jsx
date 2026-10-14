@@ -5,6 +5,8 @@ import { api } from '../api'
 import Modal from './Modal'
 import GenreValueInput from './GenreValueInput'
 import { usePlayerStore } from '../store/player'
+import { useTranslation } from '../i18n'
+import { announceLyricsFileChanged } from '../lyricLine'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -25,6 +27,9 @@ function parseIntegerField(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+const LRC_STAMP = /\[\d+:\d{2}(?:[.:]\d{1,3})?\]/
+const hasLocalFile = (track) => !!track?.file_path && !/^(ghost|https?):/i.test(String(track.file_path))
+
 function parseNumberField(value) {
   const trimmed = String(value || '').trim()
   if (!trimmed) return null
@@ -33,6 +38,7 @@ function parseNumberField(value) {
 }
 
 export default function TrackEditModal({ track, open, onClose, onSave }) {
+  const { t } = useTranslation()
   const syncTrack = usePlayerStore(s => s.syncTrack)
   const [formData, setFormData] = useState({
     title: '',
@@ -63,6 +69,22 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   const [status, setStatus] = useState(null)
   const [artworkPreview, setArtworkPreview] = useState(null)
   const [genreOptions, setGenreOptions] = useState([])
+  // The lyrics inside the file's tags: one field, saved to USLT (and SYLT
+  // when it has LRC time stamps) on "Save Changes".
+  const [lyrics, setLyrics] = useState({ text: '', original: '', state: 'idle', sidecar: null, error: null })
+
+  useEffect(() => {
+    if (!open || !track?.id || !hasLocalFile(track)) { setLyrics({ text: '', original: '', state: 'none', sidecar: null, error: null }); return }
+    let active = true
+    setLyrics({ text: '', original: '', state: 'loading', sidecar: null, error: null })
+    api.readFileLyrics(track.id).then((r) => {
+      if (!active) return
+      if (!r || r.ok === false) { setLyrics({ text: '', original: '', state: 'error', sidecar: null, error: r?.error || null }); return }
+      const text = String(r.text || '')
+      setLyrics({ text, original: text, state: 'ready', sidecar: r.sidecar || null, error: null })
+    }).catch((e) => { if (active) setLyrics({ text: '', original: '', state: 'error', sidecar: null, error: e?.message || null }) })
+    return () => { active = false }
+  }, [open, track?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return
@@ -122,7 +144,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   const handleSelectArtwork = async () => {
     if (!api.isElectron) return
     
-    const fp = await api.openFile([{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
+    const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
     if (!fp) return
     
     const dataUrl = await api.readFileAsDataURL(fp)
@@ -135,7 +157,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         syncTrack(updatedTrack)
         if (onSave) onSave(updatedTrack)
       }
-      setStatus({ type: 'success', message: 'Artwork updated!' })
+      setStatus({ type: 'success', message: t('Artwork updated!') })
       setTimeout(() => setStatus(null), 2000)
     } catch (e) {
       setStatus({ type: 'error', message: e.message })
@@ -175,21 +197,43 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (String(formData.tempo) !== String(track.tempo ?? '')) updateData.tempo = parseNumberField(formData.tempo)
       if (String(formData.time_signature) !== String(track.time_signature ?? '')) updateData.time_signature = parseIntegerField(formData.time_signature)
       
-      if (Object.keys(updateData).length > 0) {
+      const lyricsChanged = lyrics.state === 'ready' && lyrics.text.trim() !== lyrics.original.trim()
+      let lyricsKind = null
+      if (lyricsChanged) {
+        const written = await api.writeFileLyrics(track.id, lyrics.text)
+        if (!written || written.ok === false) {
+          setStatus({ type: 'error', message: t("Couldn't save the lyrics: {error}", { error: written?.error || '?' }) })
+          setSaving(false)
+          return
+        }
+        setLyrics(prev => ({ ...prev, original: prev.text }))
+        announceLyricsFileChanged(track.id)
+        lyricsKind = written.lyricsKind ?? null
+      }
+      // The song list's Lyrics column follows what the file now holds.
+      const withLyrics = (row) => (lyricsKind == null ? row : { ...row, lyrics_kind: lyricsKind })
+
+      if (Object.keys(updateData).length === 0 && lyricsChanged) {
+        const updatedTrack = withLyrics(track)
+        syncTrack(updatedTrack)
+        if (onSave) onSave(updatedTrack)
+        setStatus({ type: 'success', message: t('Lyrics saved into the file') })
+        setTimeout(() => onClose(), 1000)
+      } else if (Object.keys(updateData).length > 0) {
         const result = await api.updateTrack(track.id, updateData)
         if (result?.error) {
           setStatus({ type: 'error', message: result.error })
         } else {
-          const updatedTrack = result?.track || { ...track, ...updateData }
+          const updatedTrack = withLyrics(result?.track || { ...track, ...updateData })
           syncTrack(updatedTrack)
-          setStatus({ type: 'success', message: 'Track updated!' })
+          setStatus({ type: 'success', message: t('Track updated!') })
           if (onSave) onSave(updatedTrack)
           setTimeout(() => {
             onClose()
           }, 1000)
         }
       } else {
-        setStatus({ type: 'success', message: 'No changes to save' })
+        setStatus({ type: 'success', message: t('No changes to save') })
         setTimeout(() => setStatus(null), 2000)
       }
     } catch (e) {
@@ -203,7 +247,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     if (!track) return
     
     setSaving(true)
-    setStatus({ type: 'loading', message: 'Searching iTunes for artwork...' })
+    setStatus({ type: 'loading', message: t('Searching iTunes for artwork...') })
     
     try {
       const result = await api.fetchExternalArtwork(track.id, track.title, track.artist)
@@ -212,10 +256,10 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         const updatedTrack = result?.track || { ...track, artwork_path: result.artworkPath }
         setArtworkPreview(api.isElectron ? `file://${updatedTrack.artwork_path}` : api.artworkURL(track.id))
         syncTrack(updatedTrack)
-        setStatus({ type: 'success', message: 'Artwork found and updated!' })
+        setStatus({ type: 'success', message: t('Artwork found and updated!') })
         if (onSave) onSave(updatedTrack)
       } else {
-        setStatus({ type: 'error', message: result?.error || 'No artwork found on iTunes' })
+        setStatus({ type: 'error', message: result?.error || t('No artwork found on iTunes') })
       }
     } catch (e) {
       setStatus({ type: 'error', message: e.message })
@@ -226,13 +270,13 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Edit Track" width="max-w-3xl">
+    <Modal open={open} onClose={onClose} title={t('Edit Track')} width="max-w-3xl">
       <div className="space-y-4">
         <div className="flex gap-4">
           <div className="flex-shrink-0">
             <div className="w-32 h-32 rounded-lg overflow-hidden bg-card border border-border relative group">
               {artworkPreview ? (
-                <img src={artworkPreview} alt="Artwork" className="w-full h-full object-cover" />
+                <img src={artworkPreview} alt={t('Artwork')} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted">
                   <Camera size={32} />
@@ -241,6 +285,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               <button 
                 onClick={handleSelectArtwork}
                 disabled={saving}
+                aria-label={t('Replace artwork')}
+                title={t('Replace artwork')}
                 className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <Camera size={24} className="text-white" />
@@ -252,56 +298,56 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               className="mt-2 w-full py-1.5 text-xs bg-card border border-border rounded-lg text-muted hover:text-accent hover:border-accent/30 transition-colors flex items-center justify-center gap-1"
             >
               {saving ? <RefreshCw size={12} className="animate-spin" /> : null}
-              iTunes Artwork
+              {t('iTunes Artwork')}
             </button>
           </div>
           
           <div className="flex-1 space-y-3">
             <div>
-              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Title</label>
+              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Title')}</label>
               <input 
                 value={formData.title}
                 onChange={(e) => handleChange('title', e.target.value)}
                 className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-                placeholder="Track title"
+                placeholder={t('Track title')}
               />
             </div>
             
             <div>
-              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Artist</label>
+              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Artist')}</label>
               <input 
                 value={formData.artist}
                 onChange={(e) => handleChange('artist', e.target.value)}
                 className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-                placeholder="Artist name"
+                placeholder={t('Artist name')}
               />
             </div>
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Album</label>
+          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Album')}</label>
           <input 
             value={formData.album}
             onChange={(e) => handleChange('album', e.target.value)}
             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-            placeholder="Album name"
+            placeholder={t('Album name')}
           />
         </div>
 
         <div>
-          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Album Artist</label>
+          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Album Artist')}</label>
           <input 
             value={formData.album_artist}
             onChange={(e) => handleChange('album_artist', e.target.value)}
             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-            placeholder="Album artist (if different)"
+            placeholder={t('Album artist (if different)')}
           />
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Track #</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Track #')}</label>
             <input 
               type="number"
               min="1"
@@ -312,7 +358,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             />
           </div>
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Year</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Year')}</label>
             <input 
               type="number"
               min="1900"
@@ -324,7 +370,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             />
           </div>
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Genre</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Genre')}</label>
             <GenreValueInput
               value={formData.genre}
               onChange={(value) => handleChange('genre', value)}
@@ -337,7 +383,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Genres</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Genres')}</label>
             <GenreValueInput
               value={formData.genres}
               onChange={(value) => handleChange('genres', value)}
@@ -348,12 +394,12 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             />
           </div>
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">Record Label</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Record Label')}</label>
             <input
               value={formData.record_label}
               onChange={(e) => handleChange('record_label', e.target.value)}
               className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-              placeholder="Label"
+              placeholder={t('Label')}
             />
           </div>
         </div>
@@ -367,76 +413,105 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               className="rounded border-border bg-card text-accent focus:ring-accent/40"
             />
             <div>
-              <p className="text-sm text-white">Explicit</p>
-              <p className="text-xs text-muted">Show the track with the explicit badge.</p>
+              <p className="text-sm text-white">{t('Explicit')}</p>
+              <p className="text-xs text-muted">{t('Show the track with the explicit badge.')}</p>
             </div>
           </label>
           <div className="rounded-xl border border-border bg-card px-3 py-3">
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-2">Instrumental</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-2">{t('Instrumental')}</label>
             <select
               value={formData.instrumental}
               onChange={(e) => handleChange('instrumental', e.target.value)}
               className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
             >
-              <option value="">Unknown</option>
-              <option value="1">Instrumental</option>
-              <option value="0">Has vocals</option>
+              <option value="">{t('Unknown')}</option>
+              <option value="1">{t('Instrumental')}</option>
+              <option value="0">{t('Has vocals')}</option>
             </select>
-            <p className="text-xs text-muted mt-2">Instrumental tracks skip LRCLIB and lyrics lookups.</p>
+            <p className="text-xs text-muted mt-2">{t('Instrumental tracks skip LRCLIB and lyrics lookups.')}</p>
           </div>
         </div>
 
+        {lyrics.state !== 'none' && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-display text-muted uppercase tracking-widest">{t('Lyrics')}</label>
+              {lyrics.state === 'ready' && lyrics.text.trim() && (
+                <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
+              )}
+            </div>
+            {lyrics.state === 'loading' ? (
+              <div className="w-full h-40 bg-card border border-border rounded-lg flex items-center justify-center text-muted"><RefreshCw size={16} className="animate-spin" /></div>
+            ) : lyrics.state === 'error' ? (
+              <p className="text-xs text-red-400">{t("Couldn't read the lyrics from the file")}{lyrics.error ? `: ${lyrics.error}` : ''}</p>
+            ) : (
+              <textarea
+                value={lyrics.text}
+                onChange={(e) => { const text = e.target.value; setLyrics(prev => ({ ...prev, text })) }}
+                spellCheck={false}
+                rows={25}
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50 font-mono resize-y"
+                placeholder={t('[00:12.30] A synced line, or plain text')}
+              />
+            )}
+            <p className="text-xs text-muted mt-1">{t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
+            {lyrics.sidecar && (
+              <p className="text-xs text-orange-400 mt-1">{t('A lyrics file next to the song ({file}) is shown instead of these.', { file: lyrics.sidecar.split(/[\\/]/).pop() })}</p>
+            )}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-border bg-card/70 p-4 space-y-3">
           <div>
-            <p className="text-xs font-display text-muted uppercase tracking-widest">Imported Audio Data</p>
+            <p className="text-xs font-display text-muted uppercase tracking-widest">{t('Imported Audio Data')}</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Danceability</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Danceability')}</label>
               <input value={formData.danceability} onChange={(e) => handleChange('danceability', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.522" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Energy</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Energy')}</label>
               <input value={formData.energy} onChange={(e) => handleChange('energy', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.992" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Key</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Key')}</label>
               <input value={formData.track_key} onChange={(e) => handleChange('track_key', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Loudness</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Loudness')}</label>
               <input value={formData.loudness} onChange={(e) => handleChange('loudness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="-3.076" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Mode</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Mode')}</label>
               <input value={formData.mode} onChange={(e) => handleChange('mode', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="1" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Speechiness</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Speechiness')}</label>
               <input value={formData.speechiness} onChange={(e) => handleChange('speechiness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.173" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Acousticness</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Acousticness')}</label>
               <input value={formData.acousticness} onChange={(e) => handleChange('acousticness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.0631" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Instrumentalness</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Instrumentalness')}</label>
               <input value={formData.instrumentalness} onChange={(e) => handleChange('instrumentalness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.743" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Liveness</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Liveness')}</label>
               <input value={formData.liveness} onChange={(e) => handleChange('liveness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.0724" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Valence</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Valence')}</label>
               <input value={formData.valence} onChange={(e) => handleChange('valence', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.701" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Tempo</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Tempo')}</label>
               <input value={formData.tempo} onChange={(e) => handleChange('tempo', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="73.528" />
             </div>
             <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">Time Signature</label>
+              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Time Signature')}</label>
               <input value={formData.time_signature} onChange={(e) => handleChange('time_signature', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="4" />
             </div>
           </div>
@@ -467,7 +542,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             onClick={onClose}
             className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <button 
             onClick={handleSave}
@@ -475,7 +550,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             className="flex-1 py-2.5 bg-accent text-base rounded-xl text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {saving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-            Save Changes
+            {t('Save Changes')}
           </button>
         </div>
       </div>

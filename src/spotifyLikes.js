@@ -12,6 +12,7 @@ import { api } from './api.js'
 import { resolveRecommendationTracks } from './recommendations.js'
 import { showToast } from './components/Toaster.jsx'
 import { likeBatch } from './spotifyLikeBatch.js'
+import { translate } from './i18n'
 
 const EVERY_MS = 3 * 60 * 1000
 const AT_MOST_EVERY_MS = 45 * 1000 // focusing the window again and again doesn't ask Spotify again and again
@@ -39,7 +40,7 @@ async function look() {
       like: row => Promise.resolve(api.setLike(row.id, userId || 'guest', true)).then(result => !!result?.liked),
     })
     if (through) await Promise.resolve(api.spotifyLikesAck({ userId, since, through })).catch(() => {})
-    if (liked) showToast(liked === 1 ? 'A song you liked on Spotify is in your Liked Songs' : `${liked} songs you liked on Spotify are in your Liked Songs`)
+    if (liked) showToast(liked === 1 ? translate('A song you liked on Spotify is in your Liked Songs') : translate('{n} songs you liked on Spotify are in your Liked Songs', { n: liked }))
   } finally {
     running = false
   }

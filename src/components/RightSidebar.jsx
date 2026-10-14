@@ -272,14 +272,14 @@ export default function RightSidebar() {
       const result = await api.toggleLike(currentTrack.id, user?.id, currentTrack)
       if (result?.error) throw new Error(result.error)
       if (useAppStore.getState().user?.id === user?.id) setLiked(currentTrack.id, typeof result === 'boolean' ? result : !!result?.liked)
-    } catch (error) { setBurst(null); showToast(error.message || 'Could not update this song’s like.') } finally { likeBusy.current = false }
+    } catch (error) { setBurst(null); showToast(error.message || t('Could not update this song’s like.')) } finally { likeBusy.current = false }
   }
 
   const openTrackMenu = (event) => {
     if (!currentTrack) return
     menu.open(event, [
-      { label: 'Start radio', icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
-      currentTrack.artist && { label: 'Start artist radio', icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
+      { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
+      currentTrack.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
       losslessMenuItem(currentTrack, Gem),
     ].filter(Boolean))
   }
@@ -297,7 +297,7 @@ export default function RightSidebar() {
       {canOpenContext ? (
         <button
           onClick={() => navigateToContext(nav, playbackContext, currentTrack?.id)}
-          title={`Go to ${playbackContext.name}`}
+          title={t('Go to {name}', { name: playbackContext.name })}
           className={`mt-0.5 block max-w-full truncate text-xs hover:underline text-left ${fx ? 'text-white/85 hover:text-white' : 'text-accent'}`}>
           {playbackContext.name}
         </button>
@@ -336,7 +336,7 @@ export default function RightSidebar() {
             title={t("Drag to resize")}
             onPointerDown={startResize}
             onDoubleClick={() => setSidePanelWidth(300)}
-            className="absolute left-0 inset-y-0 z-40 w-1.5 cursor-col-resize"
+            className="absolute left-0 top-0 bottom-[var(--player-space,0px)] z-40 w-1.5 cursor-col-resize"
           />
           {/* Fixed width, slides via transform instead of the width above --
               keeping backdrop-filter/background off the width-animating
@@ -353,7 +353,7 @@ export default function RightSidebar() {
           >
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0 border-b border-border">
             <div className="flex gap-0.5 p-0.5 bg-card rounded-lg border border-border/50">
-              {[['info', 'Details'], ['lyrics', 'Lyrics'], ['queue', 'Queue']].map(([id, label]) => (
+              {[['info', t('Details')], ['lyrics', t('Lyrics')], ['queue', t('Queue')]].map(([id, label]) => (
                 <button key={id} onClick={() => (id === 'queue' ? (tab === 'queue' ? null : toggleQueueButton()) : setSidePanelView(id))} aria-pressed={tab === id} className={`px-3 py-1 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
                   {label}
                 </button>
@@ -415,18 +415,18 @@ export default function RightSidebar() {
                         <button
                           onClick={() => navigateToTrackAlbum(nav, currentTrack)}
                           onContextMenu={openTrackMenu}
-                          title={`Go to album: ${currentTrack.album}`}
+                          title={t('Go to album: {album}', { album: currentTrack.album })}
                           className={fx ? 'text-lg font-semibold text-white leading-tight text-left hover:underline transition-colors max-w-full block drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]' : 'font-display text-white text-sm leading-tight text-left hover:text-accent hover:underline transition-colors truncate max-w-full block'}>
-                          {currentTrack?.title || 'Nothing playing'}
+                          {currentTrack?.title || t('Nothing playing')}
                         </button>
                       ) : (
-                        <p onContextMenu={openTrackMenu} className={fx ? 'text-lg font-semibold text-white leading-tight drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]' : 'font-display text-white text-sm leading-tight'}>{currentTrack?.title || 'Nothing playing'}</p>
+                        <p onContextMenu={openTrackMenu} className={fx ? 'text-lg font-semibold text-white leading-tight drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]' : 'font-display text-white text-sm leading-tight'}>{currentTrack?.title || t('Nothing playing')}</p>
                       )}
                       {currentTrack?.artist ? (
                         <button
                           onClick={() => navigateToTrackArtist(nav, currentTrack, keepCommaArtists)}
                           onContextMenu={openTrackMenu}
-                          title={`Go to artist: ${currentTrack.artist}`}
+                          title={t('Go to artist: {artist}', { artist: currentTrack.artist })}
                           className={fx ? 'text-sm text-white/70 mt-0.5 text-left hover:text-white hover:underline transition-colors truncate max-w-full block' : 'text-xs text-muted mt-0.5 text-left hover:text-accent hover:underline transition-colors truncate max-w-full block'}>
                           {currentTrack.artist}
                         </button>
@@ -442,13 +442,17 @@ export default function RightSidebar() {
                   {currentTrack && (() => {
                     const btn = `flex flex-1 items-center justify-center py-2.5 transition-colors ${fx ? 'text-white/75 hover:bg-white/10 hover:text-white' : 'text-muted hover:bg-white/[0.04] hover:text-white'}`
                     const actions = [
-                      { key: 'full', label: 'Full screen', icon: Disc3, onClick: toggleFullscreen },
-                      { key: 'lyrics', label: 'Lyrics, full screen', icon: Mic2, onClick: toggleLyricsFullscreen },
-                      musicVideo && { key: 'video', label: 'Music video', title: 'Play the official music video, in time with the song', icon: Clapperboard, onClick: showMusicVideo },
+                      { key: 'full', label: t('Full screen'), icon: Disc3, onClick: toggleFullscreen },
+                      { key: 'lyrics', label: t('Lyrics, full screen'), icon: Mic2, onClick: toggleLyricsFullscreen },
+                      musicVideo && { key: 'video', label: t('Music video'), title: t('Play the official music video, in time with the song'), icon: Clapperboard, onClick: showMusicVideo },
                       clipNow && {
                         key: 'clip', pressed: coverOff, icon: coverOff ? ImageOff : ImagePlay, onClick: () => setCoverOff(!coverOff),
-                        label: coverOff ? `Show ${clipName}` : `Hide ${clipName}`,
-                        title: coverOff ? `Show the ${clipName.toLowerCase()} for this song again` : `Hide the ${clipName.toLowerCase()}: the still cover for this song, here and in full screen`,
+                        label: clipName === 'Canvas'
+                          ? (coverOff ? t('Show Canvas') : t('Hide Canvas'))
+                          : (coverOff ? t('Show Moving Cover') : t('Hide Moving Cover')),
+                        title: clipName === 'Canvas'
+                          ? (coverOff ? t('Show the canvas for this song again') : t('Hide the canvas: the still cover for this song, here and in full screen'))
+                          : (coverOff ? t('Show the moving cover for this song again') : t('Hide the moving cover: the still cover for this song, here and in full screen')),
                       },
                     ].filter(Boolean)
                     return (
@@ -467,19 +471,19 @@ export default function RightSidebar() {
                     <div className={fx ? 'bg-black/25 rounded-xl border border-white/10 px-4 py-1' : 'bg-card rounded-xl border border-border px-4 py-1'}>
                       <InfoRow
                         fx={fx}
-                        label="Album"
+                        label={t('Album')}
                         value={currentTrack.album}
-                        title={currentTrack.album ? `Go to album: ${currentTrack.album}` : null}
+                        title={currentTrack.album ? t('Go to album: {album}', { album: currentTrack.album }) : null}
                         onClick={currentTrack.album ? () => navigateToTrackAlbum(nav, currentTrack) : null}
                       />
-                      {currentTrack.album_artist && currentTrack.album_artist !== currentTrack.artist && <InfoRow fx={fx} label="Alb. Artist" value={currentTrack.album_artist} />}
-                      <InfoRow fx={fx} label="Year" value={currentTrack.year} />
-                      <InfoRow fx={fx} label="Genre" value={genre} />
-                      <InfoRow fx={fx} label="Track #" value={currentTrack.track_num ? `${currentTrack.track_num}` : null} />
-                      <InfoRow fx={fx} label="Bitrate" value={currentTrack.bitrate ? `${currentTrack.bitrate} kbps` : null} />
+                      {currentTrack.album_artist && currentTrack.album_artist !== currentTrack.artist && <InfoRow fx={fx} label={t('Alb. Artist')} value={currentTrack.album_artist} />}
+                      <InfoRow fx={fx} label={t('Year')} value={currentTrack.year} />
+                      <InfoRow fx={fx} label={t('Genre')} value={genre} />
+                      <InfoRow fx={fx} label={t('Track #')} value={currentTrack.track_num ? `${currentTrack.track_num}` : null} />
+                      <InfoRow fx={fx} label={t('Bitrate')} value={currentTrack.bitrate ? t('{n} kbps', { n: currentTrack.bitrate }) : null} />
                       {/* A stream (an addon's) has no file to measure: what the source says of it. */}
-                      {!currentTrack.bitrate && <InfoRow fx={fx} label="Quality" value={streamQualityLabel(currentTrack)} />}
-                      <InfoRow fx={fx} label="Plays" value={plays > 0 ? plays.toLocaleString() : null} />
+                      {!currentTrack.bitrate && <InfoRow fx={fx} label={t('Quality')} value={streamQualityLabel(currentTrack)} />}
+                      <InfoRow fx={fx} label={t('Plays')} value={plays > 0 ? plays.toLocaleString() : null} />
                     </div>
                   )}
                 </div>
@@ -506,12 +510,12 @@ export default function RightSidebar() {
                     {currentTrack ? (
                       <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
                     ) : (
-                      <div className="flex items-center justify-center h-full text-muted text-xs">No track playing</div>
+                      <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
                     )}
                   </div>
                   <div className="p-3 border-t border-border flex-shrink-0">
                     <button onClick={toggleLyricsFullscreen} className="w-full py-2 bg-card border border-border rounded-xl text-xs text-muted hover:text-white hover:border-accent/30 transition-all font-display uppercase tracking-wider flex items-center justify-center gap-1.5">
-                      <Maximize2 size={11} /> Expand Lyrics
+                      <Maximize2 size={11} /> {t('Expand Lyrics')}
                     </button>
                   </div>
                 </motion.div>
