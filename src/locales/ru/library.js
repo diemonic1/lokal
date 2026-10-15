@@ -121,6 +121,7 @@ export default {
   'Drag to reorder': 'Перетащите, чтобы изменить порядок',
   'Always shown': 'Показывается всегда',
   'Row size': 'Размер строк',
+  'Row spacing': 'Отступы между строками',
   'Double-click to reset': 'Двойной клик — сбросить',
   'Saved for all song lists in this profile. Drag a column\'s edge in the header to resize it. Narrow lists tuck Album under Title and fit other columns as space allows.': 'Сохраняется для всех списков треков в этом профиле. Перетащите край колонки в заголовке, чтобы изменить её ширину. В узких списках альбом показывается под названием, а остальные колонки — по мере места.',
   'Reset to defaults': 'Сбросить по умолчанию',

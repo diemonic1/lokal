@@ -30,6 +30,7 @@ function initDB() {
   db = new Database(path.join(_dataDir, 'lokal.db'))
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  require('../genreList').registerGenreFunctions(db)
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS tracks (

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown } from 'lucide-react'
+import { Mic2, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban } from 'lucide-react'
+import ContextMenu, { useContextMenu } from './ContextMenu'
+import Modal from './Modal'
 import LyricsSearchDrawer from './LyricsSearchDrawer'
 import LyricBreakDots from './LyricBreakDots'
 import { api } from '../api'
@@ -244,7 +246,7 @@ const Row = React.memo(function Row({
               data-voice="plain"
               style={{ color: !synced ? SUNG : isFocused ? SUNG : UNSUNG, transition: `color ${HANDOVER_MS}ms ${EASE}` }}
             >
-              {line.text}
+              {line.text || (line.blank ? '\u00a0' : '')}
             </span>
           )}
         </div>
@@ -302,9 +304,24 @@ function SearchBar() {
 
 const FOUND = new Set(['syllable', 'line', 'none'])
 
-function SourceMenu({ sources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, hidden = false }) {
+function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // Sources marked wrong for this song aren't offered any more.
+  const sources = allSources.filter(s => !rejected.includes(s.id))
+  // A right click on a source (or on this button, for the one shown):
+  // "Remove wrong lyrics" / "Insert into track", each confirmed first.
+  const actions = useContextMenu()
+  const [ask, setAsk] = useState(null) // { kind: 'reject' | 'embed', id }
+  const openActions = (event, id) => {
+    if (!id || id === 'local') { event.preventDefault(); return }
+    const found = FOUND.has(attempts?.[id]) || id === current
+    actions.open(event, [
+      { label: t('Remove wrong lyrics'), icon: Ban, danger: true, onSelect: () => setAsk({ kind: 'reject', id }) },
+      canEmbed && found && { label: t('Insert into track'), icon: FileDown, disabled: !!embeddingId, onSelect: () => setAsk({ kind: 'embed', id }) },
+    ])
+  }
+  const askLabel = allSources.find(s => s.id === ask?.id)?.label || ask?.id
   // "Insert into track" asks once more before writing to the file.
   const [confirmId, setConfirmId] = useState(null)
   useEffect(() => { if (!open) setConfirmId(null) }, [open])
@@ -325,6 +342,7 @@ function SourceMenu({ sources, enabled = null, current, attempts, busy, searchin
     <div ref={ref} className="relative min-w-0">
       <button
         onClick={() => setOpen(o => !o)}
+        onContextMenu={(e) => openActions(e, current)}
         className={`flex max-w-full items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${TOOLBAR_FADE}`}
         title={label ? t('Lyrics source: {source}', { source: label }) : t('Lyrics source')}
       >
@@ -352,7 +370,7 @@ function SourceMenu({ sources, enabled = null, current, attempts, busy, searchin
               const embedding = embeddingId === s.id
               const confirming = confirmId === s.id
               return (
-                <div key={s.id} className="flex items-center gap-1 rounded-lg hover:bg-white/[0.08]">
+                <div key={s.id} className="flex items-center gap-1 rounded-lg hover:bg-white/[0.08]" onContextMenu={(e) => openActions(e, s.id)}>
                   <button
                     onClick={() => { setOpen(false); onPick(s.id) }}
                     className="flex-1 min-w-0 flex flex-col gap-1 px-2.5 py-1.5 text-left text-xs text-white/80"
@@ -398,6 +416,30 @@ function SourceMenu({ sources, enabled = null, current, attempts, busy, searchin
           </motion.div>
         )}
       </AnimatePresence>
+      <ContextMenu menu={actions} />
+      <Modal open={!!ask} onClose={() => setAsk(null)} title={ask?.kind === 'reject' ? t('Remove wrong lyrics?') : t('Insert into track?')} width="max-w-sm">
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted">
+            {ask?.kind === 'reject'
+              ? t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: askLabel })
+              : t("The lyrics from {source} will be written into the song's file, replacing the lyrics it has.", { source: askLabel })}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={() => setAsk(null)} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">{t('Cancel')}</button>
+            <button autoFocus onClick={() => {
+              const kind = ask?.kind
+              const id = ask?.id
+              setAsk(null)
+              setOpen(false)
+              if (kind === 'reject') onReject?.(id)
+              else onEmbed?.(id)
+            }}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${ask?.kind === 'reject' ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30' : 'bg-accent/20 border border-accent/30 text-accent hover:bg-accent/30'}`}>
+              {ask?.kind === 'reject' ? t('Remove') : t('Insert into track')}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -463,6 +505,8 @@ export default function LyricsPanel({
   const [embeddingId, setEmbeddingId] = useState(null)
   const [notice, setNotice] = useState('')
   const [sources, setSources] = useState([])
+  // Sources the user marked wrong for this song ("Remove wrong lyrics").
+  const [rejected, setRejected] = useState([])
   const [enabledSources, setEnabledSources] = useState(null)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [focusIdx, setFocusIdx] = useState(-1)
@@ -770,6 +814,44 @@ export default function LyricsPanel({
       .finally(() => setEmbeddingId(null))
   }
 
+  useEffect(() => {
+    setRejected([])
+    if (!trackKey) return undefined
+    let alive = true
+    Promise.resolve(api.getRejectedLyricsSources?.(trackKey))
+      .then(list => { if (alive && Array.isArray(list)) setRejected(list) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [trackKey])
+
+  // "Remove wrong lyrics": the source is never asked for this song again;
+  // when its lyrics were the ones shown, the other sources are asked.
+  const rejectSource = (id) => {
+    if (!track?.id) return
+    const seq = ++requestSeq.current
+    const trackId = track.id
+    const label = sources.find(s => s.id === id)?.label || id
+    setRejected(prev => (prev.includes(id) ? prev : [...prev, id]))
+    const shown = resultRef.current?.source === id
+    if (shown) setLoading(true)
+    api.rejectLyricsSource(id, trackId, track.title, track.artist, track.album, track.duration)
+      .then(r => {
+        if (Array.isArray(r?.rejected) && currentTrackId.current === trackId) setRejected(r.rejected)
+        if (seq !== requestSeq.current || !shown) return
+        const next = r?.result && (r.result.lines?.length || r.result.instrumental) ? r.result : null
+        cacheLyrics(trackId, next)
+        setBoundResult(trackId, next)
+        announceLyricsChanged(trackId)
+        lastScrollIdx.current = -1
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (seq === requestSeq.current) setLoading(false)
+        setNotice(t('Lyrics from {source} marked as wrong', { source: label }))
+        setTimeout(() => setNotice(''), 3500)
+      })
+  }
+
   // ---- render
   const liveSet = useMemo(() => new Set(liveKey ? liveKey.split(',').map(Number) : []), [liveKey])
   const sourceLabel = sources.find(s => s.id === result?.source)?.label || result?.source
@@ -820,6 +902,8 @@ export default function LyricsPanel({
                 onPick={pickSource}
                 onRefresh={() => load({ refresh: true }, lines.length > 0)}
                 onSearch={requestSearch}
+                rejected={rejected}
+                onReject={rejectSource}
                 hidden={toolbarHidden}
               />
             )}

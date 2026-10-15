@@ -52,9 +52,13 @@ function listTracks(db, opts, { where, params, exists }) {
   if (problems) clauses.push("(file_path NOT LIKE 'ghost://%' OR id IN (SELECT track_id FROM track_errors))")
   let sql = 'SELECT * FROM tracks'
   if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ')
+  // { count }: how many songs match, instead of a page of them.
+  if (truthy(opts.count) && !problems) return { count: db.prepare(sql.replace('SELECT *', 'SELECT COUNT(*) AS n')).get(...params)?.n || 0 }
   sql += ` ORDER BY ${safeSort(opts.sort)}`
   if (!problems) return db.prepare(`${sql} LIMIT ${limit} OFFSET ${offset}`).all(...params).map(decorate)
-  return db.prepare(sql).all(...params).map(decorate).filter(track => track.missing || track.playback_error).slice(offset, offset + limit)
+  const failing = db.prepare(sql).all(...params).map(decorate).filter(track => track.missing || track.playback_error)
+  if (truthy(opts.count)) return { count: failing.length }
+  return failing.slice(offset, offset + limit)
 }
 
 module.exports = { recordTrackError, clearTrackError, trackErrors, listTracks, truthy, safeSort }

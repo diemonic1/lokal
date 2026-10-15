@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, MoreHorizontal, Globe, Radio, ChevronUp, ChevronDown } from 'lucide-react'
+import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, Globe, Radio, ChevronUp, ChevronDown, FolderOpen, ExternalLink, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { showToast, showLoadingToast } from './Toaster'
-import { canGetLossless, openLossless, formatLabel, isSuspect, tierOf, TIERS, losslessMenuItem, losslessManyMenuItem } from '../quality'
+import { canGetLossless, openLossless, formatLabel, isSuspect, tierOf, TIERS } from '../quality'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { api, peekSettings } from '../api'
@@ -36,6 +36,7 @@ import { useGhostDownloadSources } from './useGhostDownloadSources'
 import { useGhostDurationConfirmation } from './useGhostDurationConfirmation'
 import { nextPlaylistSort } from '../playlistSorting'
 import { useTranslation, translate } from '../i18n'
+import { TRACK_SEARCH_SITES, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -180,9 +181,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const actionSlots = (showPlayNext ? 1 : 0) + (anyStreamed || resolveTracks ? 1 : 0) + (showAddToQueue ? 1 : 0) + (onQuickAdd ? 1 : 0) + 4
   const layout = trackColumnLayout(listWidth, columns, { playlist: !!playlistId && !!onReorder, actionSlots, likedTrack: anyLiked, extraColumns })
   const extraByKey = Object.fromEntries(extraColumns.map(column => [column.key, column]))
-  // Row size (Columns menu): the cover and the row's padding grow with it.
-  const rowPadding = `${Math.max(0.125, 0.375 + (columns.rowSize - 1))}rem`
-  const artworkSize = `${2 * columns.rowSize}rem`
+  // Row size (Columns menu) scales everything in a row (each cell is zoomed,
+  // see [data-track-row] in index.css); Row spacing is the space around it.
+  const rowPadding = `${columns.rowGap}rem`
+  const artworkSize = '2rem'
   const setWidths = widths => setColumn(profile, 'widths', widths)
   const resetColumnWidth = key => {
     const { [key]: _, ...rest } = columns.widths
@@ -246,10 +248,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const mergedTracks = tracks.map(track => trackOverrides[track.id] ? { ...track, ...trackOverrides[track.id] } : track)
   const navigate = useNavigate()
   const menu = useContextMenu()
-  // The row whose ⋯ opened the menu (its aria-expanded), until the menu closes.
   const menuId = useId()
-  const [menuFor, setMenuFor] = useState(null)
-  useEffect(() => { if (!menu.state) setMenuFor(null) }, [menu.state])
   const trackIds = React.useMemo(() => mergedTracks.map(track => track.id), [tracks, trackOverrides]) // eslint-disable-line react-hooks/exhaustive-deps
   // Ctrl/Cmd+click selects songs, Shift+click a range (see selection.js);
   // Delete removes the selection from the playlist, or from the library in
@@ -365,7 +364,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   // layout even if row styling changes. Once only: a transient state like
   // the drag-over border would otherwise skew every spacer mid-drag.
   const rowHeightMeasuredRef = useRef(false)
-  useEffect(() => { rowHeightMeasuredRef.current = false }, [columns.rowSize])
+  useEffect(() => { rowHeightMeasuredRef.current = false }, [columns.rowSize, columns.rowGap])
   useEffect(() => {
     if (!isLargeList || rowHeightMeasuredRef.current || draggedId || !rowsRef.current) return
     // Only a row inside the viewport is guaranteed to be actually rendered;
@@ -635,33 +634,31 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
    * The songs a row's menu acts on: the selection when the row is in it, else
    * just the row. For one song it also has what the row's buttons do (like,
    * lossless, save, quick add), so on a narrow page, where those buttons only
-   * show on hover, the ⋯ button (and a right click) still reaches them all.
+   * show on hover, a right click still reaches them all.
    */
   const openTrackMenu = (event, track) => {
-    setMenuFor(null) // a right click; the ⋯ marks its row after this
     const ids = selection.contextSelect(track.id)
     const list = mergedTracks.filter(item => ids.includes(String(item.id)))
     const one = list.length === 1 ? list[0] : null
     const n = list.length
     const deletable = resolveTracks ? [] : libraryTracks(list)
     const oneGhost = one && (isGhostTrack(one) || one.missing)
-    const liked = one && likedIds.has(one.id)
     menu.open(event, [
       { label: one ? t('Play') : t('Play {n} songs', { n }), icon: Play, onSelect: () => (one ? handlePlay(one, { stopPropagation() {} }) : playMany(list)) },
       { label: t('Play next'), icon: Clock, onSelect: () => runResolved(list, playNextMany) },
       { label: t('Add to queue'), icon: ListEnd, onSelect: () => runResolved(list, addToQueueMany) },
-       { label: t('Add to playlist…'), icon: Plus, onSelect: () => runResolved(list, addToPlaylistMany) },
        one && { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(navigate, one, useAppStore.getState().user?.id) },
       one && onQuickAdd && { label: t('Add to this playlist'), icon: LibraryBig, onSelect: () => handleQuickAdd(one) },
-      one && (!oneGhost || needsResolution(one)) && { label: liked ? t('Remove from Liked Songs') : t('Like'), icon: Heart, onSelect: () => toggleLike(one, { stopPropagation() {} }) },
        list.some(item => isStreamed(item) || needsResolution(item)) && { label: resolveTracks || !one ? (one ? t('Download song') : t('Download {n} songs', { n })) : t('Save to library'), icon: Download, onSelect: () => downloadSongs(list) },
        one?.missing && { label: missingTrackCanRedownload(one) ? t('Redownload missing file') : t('Find replacement for missing file'), icon: Download, onSelect: () => setGhostTrack(one) },
-      one && !oneGhost && losslessMenuItem(one, Gem),
-      !one && losslessManyMenuItem(list, Gem),
       { separator: true },
       one?.album && { label: t('Go to album'), icon: Disc3, onSelect: () => navigateToTrackAlbum(navigate, one) },
       !resolveTracks && (one ? { label: t('Edit info'), icon: Edit2, onSelect: () => setEditingTrack(one) } : { label: t('Edit {n} songs', { n }), icon: Edit2, onSelect: () => setShowBatchEdit(true) }),
       !resolveTracks && one && api.isElectron && { label: t('Replace artwork'), icon: Camera, onSelect: () => replaceArtwork(one, { stopPropagation() {} }) },
+      one && !oneGhost && !isStreamed(one) && api.isElectron && one.file_path && { label: t('Show in Explorer'), icon: FolderOpen, onSelect: () => api.showItemInFolder(one.file_path) },
+      { separator: true },
+      ...(one && trackSearchText(one) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: ExternalLink, onSelect: () => openLink(trackSearchUrl(site, one)) })) : []),
+      one && commentLink(one) && { label: t('Open comment'), icon: Link2, onSelect: () => openLink(commentLink(one)) },
       { separator: true },
       onRemove && { label: one ? t('Remove from this playlist') : t('Remove {n} songs from this playlist', { n }), icon: ListMinus, onSelect: () => removeMany(list) },
       deletable.length > 0 && { label: deletable.length > 1 ? t('Delete {n} from library', { n: deletable.length }) : t('Delete from library'), icon: Trash2, danger: true, onSelect: () => askDelete(deletable) },
@@ -943,7 +940,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
             onClick={(e) => handleTrackClick(track, e)}
             onContextMenu={(e) => openTrackMenu(e, track)}
             aria-selected={isSelected}
-            style={{ paddingBlock: rowPadding, ...(isHighlighted ? null : { contentVisibility: 'auto', containIntrinsicSize: `${rowContentHeight}px` }) }}
+            style={{ paddingBlock: rowPadding, '--tl-row-scale': columns.rowSize, ...(isHighlighted ? null : { contentVisibility: 'auto', containIntrinsicSize: `${rowContentHeight}px` }) }}
             className={`grid grid-cols-[var(--tl-columns)] gap-2 pl-1 pr-4 rounded-lg items-center cursor-default group transition-colors ${isCurrent ? 'bg-accent/8' : 'hover:bg-elevated'} ${isSelected ? 'bg-accent/15' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-t-2 border-accent' : ''} ${isGhost ? 'opacity-75' : ''} ${isFlashing ? 'ring-2 ring-accent bg-accent/15 animate-pulse' : ''}`}
           >
             {layout.grip && (
@@ -961,7 +958,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 <button onClick={e => { e.stopPropagation(); setGhostTrack(track) }} className="text-yellow-300 hover:text-yellow-200 transition-colors" title={t("Ghost song")}>
                   <AlertCircle size={14} />
                 </button>
-              ) : isHov || isCurrent ? (
+              ) : isHov ? (
                 <button onClick={e => handlePlay(track, e)} aria-label={t(isCurrent && isPlaying ? 'Pause {title}' : 'Play {title}', { title: track.title })} className={isCurrent ? 'text-accent' : 'text-white'}>
                   {isCurrent && isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />}
                 </button>
@@ -1023,7 +1020,6 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 default: return null
               }
             })}
-            {/* More stays reachable even with every optional column off. */}
             <div className="flex items-center justify-end gap-1.5">
               <div className={`${layout.actions ? 'flex' : 'hidden'} items-center justify-end gap-1.5`}>
                 {showPlayNext && !isGhost && (
@@ -1116,23 +1112,6 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   )}
                 </AnimatePresence>
               </div>
-              <button
-                type="button"
-                onClick={e => {
-                  e.stopPropagation()
-                  const r = e.currentTarget.getBoundingClientRect()
-                  openTrackMenu({ preventDefault() {}, stopPropagation() {}, clientX: r.left, clientY: r.bottom + 4 }, track)
-                  setMenuFor(track.id)
-                }}
-                title={t("More")}
-                aria-label={track.title ? t('More for {title}', { title: track.title }) : t('More for this song')}
-                aria-haspopup="menu"
-                aria-expanded={!!menu.state && menuFor === track.id}
-                aria-controls={menu.state && menuFor === track.id ? menuId : undefined}
-                className="flex-shrink-0 rounded text-muted transition-colors hover:text-text focus-visible:text-text"
-              >
-                <MoreHorizontal size={14} />
-              </button>
             </div>
           </RowComponent>
         )

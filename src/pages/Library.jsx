@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowDownUp, Check, Music, SlidersHorizontal } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, Check, Music, SlidersHorizontal } from 'lucide-react'
 import ToolbarMenu from '../components/ToolbarMenu'
 import TrackList from '../components/TrackList'
 import ScanBanner from '../components/ScanBanner'
@@ -17,8 +17,8 @@ const controlTone = on => on ? 'border-accent/40 text-accent' : 'border-border t
 
 // The list's sort and filters, kept between launches (validated on read, so a
 // stale or edited value falls back to the default).
-function usePersistentState(key, initial, valid) {
-  const storageKey = 'lokal-library-' + key
+function usePersistentState(key, initial, valid, prefix = 'lokal-library-') {
+  const storageKey = prefix + key
   const [value, setValue] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey))
@@ -47,24 +47,37 @@ const SORTS = SORT_OPTIONS.map(([value]) => value)
 const SOURCES = ['all', 'local', 'yt', 'sc', 'addon', 'soulseek', 'web']
 const QUALITIES = ['', 'hires', 'lossless', 'high', 'low', 'suspect']
 
-export default function Library() {
+/**
+ * The Library tab: the songs of the folder picked in the sidebar.
+ * With `fixedGenre` it's one genre's songs instead (the Genres tab; '__none__'
+ * for songs without a genre), from the whole library, under `title`, with
+ * its own sort and filters.
+ */
+export default function Library({ fixedGenre = null, title = null, onBack = null }) {
   const { t } = useTranslation()
-  const folder = useLibraryFolder()
+  const sidebarFolder = useLibraryFolder()
+  const inGenre = fixedGenre != null
+  const folder = inGenre ? '' : sidebarFolder
+  const cacheKey = inGenre ? `genre:${fixedGenre}:` : 'library:'
+  const prefsKey = inGenre ? 'lokal-genre-' : 'lokal-library-'
   // Kept across visits (with the sort and folder they were shown in), so coming
   // back paints the list at once instead of "No tracks yet" first.
-  const [tracks, setTracks, wasCached] = useCachedState('library:tracks', [])
-  const [sort, setSort] = usePersistentState('sort', 'added_at DESC', v => SORTS.includes(v))
+  const [tracks, setTracks, wasCached] = useCachedState(cacheKey + 'tracks', [])
+  const [sort, setSort] = usePersistentState('sort', 'added_at DESC', v => SORTS.includes(v), prefsKey)
   // Where the songs came from (see sourceFilter in electron/ipc/scanner.js).
-  const [source, setSource] = usePersistentState('source', 'all', v => SOURCES.includes(v))
+  const [source, setSource] = usePersistentState('source', 'all', v => SOURCES.includes(v), prefsKey)
   // One genre, or '' for all (matches a song's main genre or any of its genres).
-  const [genre, setGenre] = usePersistentState('genre', '', v => typeof v === 'string')
+  const [pickedGenre, setGenre] = usePersistentState('genre', '', v => typeof v === 'string', prefsKey)
+  const genre = inGenre ? fixedGenre : pickedGenre
   const [genres, setGenres] = useCachedState('library:genres', [])
   // One audio quality tier, or '' for all (the Audio Quality page's tiers).
-  const [quality, setQuality] = usePersistentState('quality', '', v => QUALITIES.includes(v))
-  const [problemsOnly, setProblemsOnly] = usePersistentState('problemsOnly', false, v => typeof v === 'boolean')
+  const [quality, setQuality] = usePersistentState('quality', '', v => QUALITIES.includes(v), prefsKey)
+  const [problemsOnly, setProblemsOnly] = usePersistentState('problemsOnly', false, v => typeof v === 'boolean', prefsKey)
   const [musicFolderSet, setMusicFolderSet] = useState(() => peekSettings() ? !!peekSettings()?.music_folder : true)
   const [loading, setLoading] = useState(false)
-  const [hasMore, setHasMore] = useCachedState('library:hasMore', true)
+  // How many songs the folder (with these filters) has; the list loads in pages.
+  const [total, setTotal] = useCachedState(cacheKey + 'total', null)
+  const [hasMore, setHasMore] = useCachedState(cacheKey + 'hasMore', true)
   // The empty state waits for the first answer instead of showing meanwhile.
   const [loaded, setLoaded] = useState(wasCached)
   usePageReady(loaded)
@@ -72,7 +85,7 @@ export default function Library() {
   const loadingRef = useRef(false)
   const loadMoreRef = useRef(null)
   const requestIdRef = useRef(0)
-  const folderName = folder ? folder.split('/').pop() : t('Library')
+  const folderName = inGenre ? (title || fixedGenre) : folder ? folder.split('/').pop() : t('Library')
 
   const load = async (append = false) => {
     // Synchronous in-flight check: the observer's `loading` can be stale, and a
@@ -83,7 +96,13 @@ export default function Library() {
     loadingRef.current = true
     setLoading(true)
     try {
-      const result = await api.getTracks({ sort, limit: LIBRARY_PAGE_SIZE, offset: nextOffset, ...(folder ? { folder } : {}), ...(source !== 'all' ? { source } : {}), ...(genre ? { genre } : {}), ...(quality ? { quality } : {}), ...(problemsOnly ? { problems: true } : {}) })
+      const filters = { ...(folder ? { folder } : {}), ...(source !== 'all' ? { source } : {}), ...(genre ? { genre } : {}), ...(quality ? { quality } : {}), ...(problemsOnly ? { problems: true } : {}) }
+      if (!append) {
+        Promise.resolve(api.getTracks({ ...filters, count: true }))
+          .then(r => { if (requestId === requestIdRef.current && Number.isFinite(r?.count)) setTotal(r.count) })
+          .catch(() => {})
+      }
+      const result = await api.getTracks({ sort, limit: LIBRARY_PAGE_SIZE, offset: nextOffset, ...filters })
       if (requestId !== requestIdRef.current) return
       // A failed request keeps the list already shown (and cached).
       if (!Array.isArray(result)) return
@@ -160,14 +179,23 @@ export default function Library() {
     return () => observer.disconnect()
   }, [hasMore, loading, folder, sort, source, genre, quality, problemsOnly, tracks.length])
 
-  const activeFilters = (source !== 'all' ? 1 : 0) + (genre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
-  const clearFilters = () => { setSource('all'); setGenre(''); setQuality(''); setProblemsOnly(false) }
+  const activeFilters = (source !== 'all' ? 1 : 0) + (genre && !inGenre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
+  const clearFilters = () => { setSource('all'); if (!inGenre) setGenre(''); setQuality(''); setProblemsOnly(false) }
 
   const header = (
     <div className="flex min-w-0 items-center gap-3">
+      {onBack && (
+        <button type="button" onClick={onBack} title={t('Back')} aria-label={t('Back')}
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-elevated text-muted transition-colors hover:text-white">
+          <ArrowLeft size={14} />
+        </button>
+      )}
       <h1 className="min-w-0 truncate font-display text-lg uppercase tracking-widest text-white" title={folderName}>{folderName}</h1>
-      <span className="flex h-6 flex-shrink-0 items-center rounded-md border border-border bg-elevated px-2 text-[11px] text-muted font-display" title={t('loaded tracks')}>
-        {tracks.length}{hasMore ? '+' : ''}
+      {/* The folder's song count, in the folder name's type; hovering tells
+          how many of them are loaded so far. */}
+      <span className="flex-shrink-0 font-display text-lg uppercase tracking-widest text-muted"
+        title={t('Loaded {loaded} of {total} tracks', { loaded: tracks.length, total: total ?? tracks.length })}>
+        {total ?? `${tracks.length}${hasMore ? '+' : ''}`}
       </span>
     </div>
   )
@@ -197,12 +225,12 @@ export default function Library() {
           <option value="soulseek">Soulseek</option>
           <option value="web">{t("Other sites")}</option>
         </select>
-        <select value={genre} onChange={e => setGenre(e.target.value)} aria-label={t("Genres")} className={`${CONTROL} w-full truncate ${controlTone(!!genre)}`}>
+        {!inGenre && <select value={genre} onChange={e => setGenre(e.target.value)} aria-label={t("Genres")} className={`${CONTROL} w-full truncate ${controlTone(!!genre)}`}>
           <option value="">{t("All genres")}</option>
           {/* The one picked stays listed even if no song has it any more. */}
           {genre && !genres.some(g => g.toLowerCase() === genre.toLowerCase()) && <option value={genre}>{genre}</option>}
           {genres.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
+        </select>}
         <select value={quality} onChange={e => setQuality(e.target.value)} aria-label={t("Quality")} className={`${CONTROL} w-full ${controlTone(!!quality)}`}>
           <option value="">{t("All qualities")}</option>
           <option value="hires">Hi-res</option>
@@ -246,8 +274,8 @@ export default function Library() {
       {loaded && !loading && !tracks.length && (
         <div className="text-center py-24 text-muted">
           <Music size={48} className="mx-auto mb-4 opacity-20" />
-          <p>{problemsOnly ? t('No songs with errors: everything here can be played.') : source === 'all' && !genre && !quality ? (musicFolderSet ? t('This folder is empty.') : t('No tracks yet — pick your music folder above.')) : quality ? t('No songs of this quality with these filters.') : genre ? (source === 'all' ? t('No {genre} songs.', { genre }) : t('No {genre} songs from this source.', { genre })) : t('No songs from this source.')}</p>
-          {genre && (
+          <p>{problemsOnly ? t('No songs with errors: everything here can be played.') : source === 'all' && !genre && !quality ? (musicFolderSet ? t('This folder is empty.') : t('No tracks yet — pick your music folder above.')) : quality ? t('No songs of this quality with these filters.') : genre ? (source === 'all' ? t('No {genre} songs.', { genre: inGenre ? folderName : genre }) : t('No {genre} songs from this source.', { genre: inGenre ? folderName : genre })) : t('No songs from this source.')}</p>
+          {genre && !inGenre && (
             <button onClick={() => setGenre('')} className="mt-3 text-xs text-accent transition-colors hover:text-accent/70">{t("Show all genres")}</button>
           )}
           {quality && (

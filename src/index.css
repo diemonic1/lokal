@@ -314,3 +314,8 @@ html[data-theme="light"] .on-media .text-white\/40 { color: rgb(255 255 255 / 0.
 html[data-theme="light"] .on-media .text-white\/30 { color: rgb(255 255 255 / 0.3) !important; }
 html[data-theme="light"] .on-media .text-white\/20 { color: rgb(255 255 255 / 0.2) !important; }
 html[data-theme="light"] .on-media .text-white\/10 { color: rgb(255 255 255 / 0.1) !important; }
+
+/* Song lists: Row size (Columns menu) scales each cell's contents, so text,
+   icons and covers grow with the row while the grid's column tracks (shared
+   with the header) stay put. */
+[data-track-row] > * { zoom: var(--tl-row-scale, 1); }

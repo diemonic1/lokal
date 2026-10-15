@@ -17,6 +17,10 @@ function registerLyricsHandlers(ipcMain) {
 
   ipcMain.handle('lyrics:sources', () => service.sources(db))
 
+  ipcMain.handle('lyrics:reject', (_, providerId, trackId, title, artist, album, duration) =>
+    service.rejectSource(db, { trackId, title, artist, album, duration }, providerId))
+  ipcMain.handle('lyrics:rejected', (_, trackId) => service.rejectedSources(db, trackId))
+
   ipcMain.handle('lyrics:import', (_, trackId, content, type) =>
     service.importLyrics(db, trackId, content, type))
 

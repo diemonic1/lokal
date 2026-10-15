@@ -729,6 +729,12 @@ if (bootFilePath) {
 }
 
 ipcMain.handle('shell:openExternal', (_, url) => shell.openExternal(url))
+// "Show in Explorer": opens the file's folder with the file selected.
+ipcMain.handle('shell:showItemInFolder', (_, filePath) => {
+  if (typeof filePath !== 'string' || !filePath || !fs.existsSync(filePath)) return false
+  shell.showItemInFolder(path.normalize(filePath))
+  return true
+})
 ipcMain.on('open-logs', () => {
   const logFile = log.transports.file.getFile().path;
   const logDir = path.dirname(logFile);

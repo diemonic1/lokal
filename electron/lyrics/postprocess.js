@@ -204,6 +204,8 @@ function classify(lines) {
 // and nothing after it. That stamp says two things -- the line before it has
 // stopped being sung, and silence runs until the next line -- so it becomes
 // the previous line's stated end, and a break of its own if it's long enough.
+// A shorter one is an empty line of the lyrics: it stays, as a `blank` line,
+// so the highlight moves onto it like onto any other line.
 function readEmptyStamps(raw) {
   const sorted = (raw || []).filter(Boolean).slice().sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
   const out = []
@@ -217,13 +219,14 @@ function readEmptyStamps(raw) {
     }
     const next = sorted.slice(i + 1).find(l => String(l.text || '').trim())
     if (next && next.time - line.time >= MIN_GAP_SECONDS) out.push({ time: line.time, end: next.time, text: '', words: [], gap: true })
+    else if (next && prev && !prev.blank && !prev.gap) out.push({ time: line.time, end: next.time, endStated: true, text: '', words: [], blank: true })
   })
   return out
 }
 
 function finish(rawLines, { source, doc = null, isrc = null, language = null, title = null, artist = null } = {}) {
   let lines = readEmptyStamps(rawLines)
-    .filter(l => l && (l.gap || l.text || l.bgText))
+    .filter(l => l && (l.gap || l.blank || l.text || l.bgText))
     .map(l => ({ ...l, text: String(l.text || '').trim() }))
   lines = dropCredits(lines, { title, artist })
   const sync = classify(lines)

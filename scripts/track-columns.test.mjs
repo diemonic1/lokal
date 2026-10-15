@@ -25,13 +25,13 @@ test('a 384px list with both sidebars keeps quality and source and folds album u
   for (const key of ['album', 'quality', 'source', 'actions', 'added', 'grip', 'time', 'number']) assert.equal(wide[key], true, key)
 })
 
-test('turning every optional column off still leaves title, album, and the More menu', () => {
+test('turning every optional column off still leaves title and album', () => {
   const columns = Object.fromEntries(TRACK_COLUMN_OPTIONS.map(([key]) => [key, false]))
   const layout = trackColumnLayout(80, columns, { playlist: true, actionSlots: 8 })
   for (const [key] of TRACK_COLUMN_OPTIONS) if (key in layout) assert.equal(layout[key], false, key)
   assert.equal(layout.album, true)
-  assert.equal(layout.template, 'minmax(0,3fr) minmax(0,2fr) 1.25rem')
-  assert.equal(trackColumnLayout(18, columns).template, 'minmax(0,3fr) 1.25rem')
+  assert.equal(layout.template, 'minmax(0,3fr) minmax(0,2fr) 0rem')
+  assert.equal(trackColumnLayout(18, columns).template, 'minmax(0,3fr) 0rem')
 })
 
 test('a liked track keeps its heart when optional quick actions are hidden', () => {
@@ -42,7 +42,7 @@ test('a liked track keeps its heart when optional quick actions are hidden', () 
   assert.equal(withoutLike.actions, false)
   assert.equal(withoutLike.likedTrack, false)
   assert.equal(withLike.likedTrack, true)
-  assert.equal(withLike.template.split(' ').at(-1), '2.5rem')
+  assert.equal(withLike.template.split(' ').at(-1), '1.25rem')
 })
 
 test('scrobble metadata adds columns to the standard layout and folds safely on narrow lists', () => {

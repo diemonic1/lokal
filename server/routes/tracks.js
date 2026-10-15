@@ -367,13 +367,12 @@ function collectAllGenres(db) {
     WHERE file_path NOT LIKE 'ghost://%'
       AND (genre IS NOT NULL OR genres IS NOT NULL)
   `).all()
+  const { trackGenres, genreKey } = require('../../electron/genreList')
   const values = new Map()
   for (const row of rows) {
-    for (const source of [row.genre, row.genres]) {
-      for (const genre of String(source || '').split(',').map(part => part.trim()).filter(Boolean)) {
-        const key = genre.toLowerCase()
-        if (!values.has(key)) values.set(key, genre)
-      }
+    for (const genre of trackGenres(row)) {
+      const key = genreKey(genre)
+      if (!values.has(key)) values.set(key, genre)
     }
   }
   return [...values.values()].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
@@ -556,7 +555,7 @@ router.get('/missing', (req, res) => {
 
 router.get('/', (req, res) => {
   const db = getDB()
-  const { sort = 'added_at DESC', limit = 500, offset = 0, id, artistName, album, albumArtist, source, genre, quality, includeGhosts, problems, folder } = req.query
+  const { sort = 'added_at DESC', limit = 500, offset = 0, id, artistName, album, albumArtist, source, genre, quality, includeGhosts, problems, folder, count } = req.query
   if (album) {
     const params = [album]
     let sql = "SELECT * FROM tracks WHERE album = ? AND file_path NOT LIKE 'ghost://%'"
@@ -582,7 +581,7 @@ router.get('/', (req, res) => {
   if (qualityWhere) { where.push(qualityWhere.sql); params.push(...qualityWhere.params) }
   const folderWhere = require('../../electron/libraryFolder').folderFilter(db, typeof folder === 'string' ? folder : '')
   if (folderWhere) { where.push(folderWhere.sql); params.push(...folderWhere.params) }
-  res.json(require('../../electron/trackErrors').listTracks(db, { sort, limit, offset, problems }, { where, params, exists: fs.existsSync }))
+  res.json(require('../../electron/trackErrors').listTracks(db, { sort, limit, offset, problems, count }, { where, params, exists: fs.existsSync }))
 })
 
 router.post('/:id/error', (req, res) => res.json({ ok: require('../../electron/trackErrors').recordTrackError(getDB(), req.params.id, req.body?.message) }))
@@ -694,6 +693,8 @@ router.get('/top-genres', (req, res) => {
   `).all())
 })
 
+router.get('/genre-summary', (req, res) => res.json(require('../../electron/genreList').genreSummary(getDB())))
+
 router.get('/genres', (req, res) => {
   res.json(collectAllGenres(getDB()))
 })
@@ -733,6 +734,7 @@ router.put('/:id', (req, res) => {
     valence,
     tempo,
     time_signature,
+    comment,
   } = req.body
   const updates = []
   const params = []
@@ -758,6 +760,13 @@ router.put('/:id', (req, res) => {
   if (valence !== undefined) { updates.push('valence = ?'); params.push(valence) }
   if (tempo !== undefined) { updates.push('tempo = ?'); params.push(tempo) }
   if (time_signature !== undefined) { updates.push('time_signature = ?'); params.push(time_signature) }
+  if (comment !== undefined) {
+    let text = String(comment || '').trim()
+    if (!String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
+      try { text = require('../../electron/fileComment').writeFileComment(currentTrack.file_path, text) } catch (e) { return res.json({ error: `Couldn't save the comment: ${e.message}` }) }
+    }
+    updates.push('comment = ?'); params.push(text)
+  }
 
   if (genre !== undefined || genres !== undefined) {
     const normalizedGenres = genres !== undefined

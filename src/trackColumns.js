@@ -41,6 +41,9 @@ export const ALWAYS_SHOWN = new Set(['title', 'album'])
 export const MAX_FIXED_WIDTH = 30
 
 export const ROW_SIZE = { min: 0.75, max: 1.5, step: 0.05, initial: 1 }
+// The space above and below a row's content, in rem: at the minimum rows
+// nearly touch.
+export const ROW_GAP = { min: 0.0625, max: 1, step: 0.0625, initial: 0.375 }
 
 export function trackColumnDefaults(showQuality = false, playlist = false) {
   return { number: true, tracknum: false, artwork: true, artist: true, source: true, quality: showQuality, genre: false, comment: false, lyrics: false, added: playlist, time: true, actions: true, grip: true }
@@ -55,6 +58,8 @@ export function trackColumnPreferences(saved, showQuality = false, playlist = fa
   result.widths = saved?.widths && typeof saved.widths === 'object' ? saved.widths : {}
   const size = Number(saved?.rowSize)
   result.rowSize = Number.isFinite(size) ? Math.min(ROW_SIZE.max, Math.max(ROW_SIZE.min, size)) : ROW_SIZE.initial
+  const gap = Number(saved?.rowGap)
+  result.rowGap = saved?.rowGap != null && Number.isFinite(gap) ? Math.min(ROW_GAP.max, Math.max(ROW_GAP.min, gap)) : ROW_GAP.initial
   return result
 }
 
@@ -84,8 +89,8 @@ export function trackColumnLayout(width, columns, { playlist = false, actionSlot
   const widths = columns.widths || {}
   const extraByKey = Object.fromEntries(extraColumns.map(column => [column.key, column]))
   const fixedWidth = key => columnWidth(key, widths, extraByKey[key])
-  // Padding, a readable Title, and the always-reachable More menu.
-  let remaining = width - 1.25 - TRACK_COLUMN_DEFS.title.min - 1.25 - 0.5 - (likedTrack ? 1.25 : 0)
+  // Padding and a readable Title (the row menu opens with a right click).
+  let remaining = width - 2 - TRACK_COLUMN_DEFS.title.min - 0.5 - (likedTrack ? 1.25 : 0)
   const fit = (key, size, enabled = true) => {
     visible[key] = enabled && remaining >= size + 0.5
     if (visible[key]) remaining -= size + 0.5
@@ -105,9 +110,9 @@ export function trackColumnLayout(width, columns, { playlist = false, actionSlot
   fit('grip', 1, playlist && columns.grip)
   const extraActions = actionSlots * 1.25 + 1.5
   fit('actions', extraActions, columns.actions)
-  // The More button is always present. A liked track also needs room for its
-  // persistent heart even when optional quick actions are hidden.
-  const actionsWidth = (visible.actions ? extraActions + 1.25 : 1.25) + (likedTrack ? 1.25 : 0)
+  // A liked track needs room for its persistent heart even when optional
+  // quick actions are hidden.
+  const actionsWidth = (visible.actions ? extraActions : 0) + (likedTrack ? 1.25 : 0)
 
   // A page's own columns sit just before Date added unless moved.
   const order = [...(columns.order || DEFAULT_COLUMN_ORDER)]

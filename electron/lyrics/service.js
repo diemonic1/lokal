@@ -36,6 +36,8 @@ function ensureSchema(db) {
   if (!cols.has('fetched_at')) { try { db.exec('ALTER TABLE lyrics_cache ADD COLUMN fetched_at INTEGER DEFAULT 0') } catch {} }
   if (!cols.has('file_path')) { try { db.exec('ALTER TABLE lyrics_cache ADD COLUMN file_path TEXT') } catch {} }
   if (!cols.has('meta')) { try { db.exec('ALTER TABLE lyrics_cache ADD COLUMN meta TEXT') } catch {} }
+  // Sources whose lyrics the user marked wrong for a song: never offered for it again.
+  try { db.exec('CREATE TABLE IF NOT EXISTS lyrics_rejected (track_id TEXT NOT NULL, source TEXT NOT NULL, rejected_at INTEGER, PRIMARY KEY (track_id, source))') } catch {}
   prepared.add(db)
 }
 
@@ -189,6 +191,15 @@ function trustedFilePath(db, trackId) {
   } catch { return null }
 }
 
+// ---------------------------------------------------------------- wrong lyrics
+
+/** The sources marked wrong for this song ("Remove wrong lyrics"). */
+function rejectedSources(db, trackId) {
+  ensureSchema(db)
+  if (!trackId) return []
+  try { return db.prepare('SELECT source FROM lyrics_rejected WHERE track_id = ?').all(String(trackId)).map(row => row.source) } catch { return [] }
+}
+
 // ---------------------------------------------------------------- public API
 
 function instrumentalResult(db, trackId) {
@@ -242,11 +253,12 @@ async function getLyrics(db, args) {
   // source the user picked by hand (pinned) still shows over them.
   const local = await readLocal(filePath)
   const localAttempts = local ? { local: local.sync } : null
+  const rejected = rejectedSources(db, trackId)
 
   if (args.refresh) {
     const { result, attempts, results } = await lookup(
       { title, artist, album, duration: Number(duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
-      { ...settings, exclude: ['local'], exhaustive: true },
+      { ...settings, exclude: ['local', ...rejected], exhaustive: true },
     )
     rememberResults(trackId, results)
     const all = { ...attempts, ...(localAttempts || { local: filePath ? 'miss' : undefined }) }
@@ -276,7 +288,7 @@ async function getLyrics(db, args) {
 
   {
     const row = readRow(db, trackId, filePath)
-    if (row) {
+    if (row && !rejected.includes(row.source)) {
       const meta = parseMeta(row)
       // Lyrics read from the file earlier, but the file has none now.
       if (meta && row.source === 'local') { /* fall through to a fresh lookup */ }
@@ -312,7 +324,7 @@ async function getLyrics(db, args) {
 
   const { result, attempts, results } = await lookup(
     { title, artist, album, duration: Number(duration) || 0, filePath, keepCommaArtists: settings.keepCommaArtists },
-    { ...settings, exclude: ['local'] },
+    { ...settings, exclude: ['local', ...rejected] },
   )
   rememberResults(trackId, results)
   if (!trackId) return result
@@ -415,6 +427,27 @@ async function embedFrom(db, args, providerId) {
   return { ...done, lyricsKind: done.synced ? 'sync' : 'plain', source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
+/**
+ * "Remove wrong lyrics": this source's lyrics are wrong for the song. It's
+ * never asked for this song again; when it was the one shown, the lyrics are
+ * looked up again from the other sources. -> { result, rejected }
+ */
+async function rejectSource(db, args, providerId) {
+  ensureSchema(db)
+  const trackId = args?.trackId
+  if (!trackId || !providerId || providerId === 'local') return { result: null, rejected: rejectedSources(db, trackId) }
+  db.prepare('INSERT OR REPLACE INTO lyrics_rejected (track_id, source, rejected_at) VALUES (?, ?, ?)').run(String(trackId), providerId, Date.now())
+  const cached = readRow(db, trackId, trustedFilePath(db, trackId))
+  if (cached?.source === providerId) {
+    try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(trackId) } catch {}
+    try { db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId) } catch {}
+  }
+  const remembered = recentResults.get(trackId)
+  if (remembered) delete remembered[providerId]
+  const result = await getLyrics(db, args)
+  return { result, rejected: rejectedSources(db, trackId) }
+}
+
 function clearCache(db, trackId) {
   if (!trackId) return { ok: false }
   db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(trackId)
@@ -441,4 +474,4 @@ async function romanize(db, trackId, lines) {
   return translation.romanize(db, trackId, lines)
 }
 
-module.exports = { getLyrics, getLyricsFrom, importLyrics, readFileLyrics, writeFileLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }
+module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, importLyrics, readFileLyrics, writeFileLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }

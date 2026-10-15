@@ -21,6 +21,7 @@ import AccentColorPicker from '../components/AccentColorPicker'
 import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
 import { useTheme } from '../themeHooks'
 import { previewAppearanceValue } from '../appearanceFlags'
+import AppTabsSettings from '../components/AppTabsSettings'
 import { ARTIST_SOURCES } from '../artistSources'
 import { repairMissingTracks } from '../ghostDownloads'
 import { plural } from '../plural'
@@ -1773,6 +1774,27 @@ activeCategory === 'data' ? usersTried
             className="min-w-44 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
           >
             {APP_LANGUAGES.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
+          </select>
+        </Row>
+      </Section>
+      )}
+      {inCategory('appearance') && (
+      <Section title="App Tabs">
+        <Row label="Tab order" desc="Drag the tabs to reorder them. Tabs below the line are hidden in the ⋯ menu after the last tab." stacked>
+          <AppTabsSettings value={settings.app_tabs} onChange={value => { previewAppearanceValue('app_tabs', value); set('app_tabs', value) }} />
+        </Row>
+      </Section>
+      )}
+      {inCategory('appearance') && (
+      <Section title="Taskbar">
+        <Row label="Taskbar title" desc="What the app's button on the Windows taskbar shows.">
+          <select
+            value={settings.taskbar_title || 'title'}
+            onChange={event => { previewAppearanceValue('taskbar_title', event.target.value); set('taskbar_title', event.target.value) }}
+            aria-label={t('Taskbar title')}
+            className="min-w-44 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+          >
+            {[['app', 'App name'], ['title', 'Track title'], ['artist', 'Track artist'], ['artist-title', 'Artist - Title'], ['title-artist', 'Title - Artist']].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
           </select>
         </Row>
       </Section>

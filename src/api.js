@@ -308,6 +308,9 @@ export const api = {
   getLyrics: (tid, ti, ar, al, dur, fp, opts = {}) => isE() ? el().getLyrics(tid, ti, ar, al, dur, fp, opts) : apiFetch(`/lyrics/${tid}?${new URLSearchParams({title:ti||'',artist:ar||'',album:al||'',duration:dur||'',filePath:fp||'',refresh:opts.refresh?'1':''})}`),
   getLyricsFrom: (providerId, tid, ti, ar, al, dur, fp) => isE() ? el().getLyricsFrom(providerId, tid, ti, ar, al, dur, fp) : apiFetch(`/lyrics/${tid}/from/${encodeURIComponent(providerId)}?${new URLSearchParams({title:ti||'',artist:ar||'',album:al||'',duration:dur||'',filePath:fp||''})}`),
   getLyricsSources: () => isE() ? el().getLyricsSources() : apiFetch('/lyrics/sources'),
+  // "Remove wrong lyrics": that source is never offered for the song again.
+  rejectLyricsSource: (providerId, tid, ti, ar, al, dur) => isE() ? el().rejectLyricsSource(providerId, tid, ti, ar, al, dur) : apiFetch(`/lyrics/${tid}/reject/${encodeURIComponent(providerId)}`, { method:'POST', body:{ title:ti||'', artist:ar||'', album:al||'', duration:dur||'' } }),
+  getRejectedLyricsSources: (tid) => isE() ? el().getRejectedLyricsSources(tid) : apiFetch(`/lyrics/${tid}/rejected`),
   romanizeLyrics: (tid, lines) => isE() ? el().romanizeLyrics(tid, lines) : apiFetch(`/lyrics/${tid}/romanize`, { method:'POST', body:{ lines } }),
   detectLyricsLanguage: (tid, lines) => (isE() && typeof el().detectLyricsLanguage === 'function')
     ? el().detectLyricsLanguage(tid, lines)
@@ -548,6 +551,8 @@ export const api = {
   getRandomTrack: () => isE() ? el().getRandomTrack() : apiFetch('/tracks/random'),
   getTopGenres: () => isE() ? el().getTopGenres() : apiFetch('/tracks/top-genres'),
   getAllGenres: () => isE() ? el().getAllGenres() : apiFetch('/tracks/genres'),
+  // The Genres tab: { genres: [{ name, count, artworks }], none } (see electron/genreList.js).
+  getGenreSummary: () => isE() ? el().getGenreSummary() : apiFetch('/tracks/genre-summary'),
   historyExport: (uid, format) => isE() ? el().historyExport(uid, format) : apiFetch(`/tracks/history/export?userId=${uid||'guest'}&format=${format||'json'}`),
   register: (d) => isE() ? el().register(d) : apiFetch('/users/register', { method:'POST', body:d }),
   login: (d) => isE() ? el().login(d) : apiFetch('/users/login', { method:'POST', body:d }),
@@ -580,6 +585,7 @@ export const api = {
   discordDisconnect: () => isE() ? el().discordDisconnect() : Promise.resolve(),
   discordStatus: () => isE() && el().discordStatus ? el().discordStatus() : Promise.resolve({ connected: false }),
   openExternal: (url) => isE() ? el().openExternal(url) : Promise.resolve(window.open(url, '_blank', 'noopener,noreferrer')),
+  showItemInFolder: (filePath) => isE() && el().showItemInFolder ? el().showItemInFolder(filePath) : Promise.resolve(false),
   lastfmConnect: (apiKey, apiSecret, token) => isE() ? el().lastfmConnect(apiKey, apiSecret, token) : apiFetch('/lastfm/connect', { method:'POST', body:{apiKey, apiSecret, token} }),
   lastfmAuthorize: (apiKey) => {
     const url = buildLastfmAuthUrl(apiKey)

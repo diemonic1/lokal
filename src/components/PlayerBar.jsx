@@ -164,7 +164,7 @@ export default function PlayerBar() {
           Glass -- see-through and blurring what's behind; off, solid. */}
       <div data-player-bar className={`${floating
         ? 'absolute inset-x-3 bottom-3 z-30 rounded-2xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.45)]'
-        : 'relative border-t border-border flex-shrink-0 z-10'} h-20 flex items-center px-4 gap-4 ${glass ? 'backdrop-blur-lg backdrop-saturate-150' : ''}`}
+        : 'relative border-t border-border flex-shrink-0 z-10'} min-h-[90px] flex items-center pl-[10px] pr-4 gap-4 [&_button:not(:disabled)]:cursor-pointer ${glass ? 'backdrop-blur-lg backdrop-saturate-150' : ''}`}
         style={{
           backgroundColor: glass ? `rgb(var(--surface-rgb) / ${(1 - glassTransparency / 100).toFixed(2)})` : 'rgb(var(--surface-rgb))',
           '--cover-gradient-width': infoWidth ? `${Math.round(infoWidth + 16 + 48)}px` : undefined,
@@ -173,7 +173,7 @@ export default function PlayerBar() {
         {showGradient && <CoverGradient trackId={currentTrack?.id} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
         <div ref={infoRef} className="relative flex flex-1 items-center gap-3 min-w-0">
         <button onClick={toggleFullscreen} disabled={!currentTrack}
-          className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
+          className="relative w-[70px] h-[70px] my-[10px] rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
           {/* Not "wait": with the window minimized no animation runs, and a
               wait for an exit that never finishes left the old song's cover
               (and title) up for good while songs changed. Layers crossfade. */}
@@ -224,11 +224,6 @@ export default function PlayerBar() {
                       <span className="truncate">{t('Playing on {name}', { name: castDevice.name })}</span>
                     </button>
                   )}
-                  {streamed && !castDevice && (
-                    <span title={t('Streaming from {source}, not in your library', { source: streamLabel(currentTrack) })} className="mt-1 block truncate text-[9px] font-display uppercase tracking-wider text-accent">
-                      {streamLabel(currentTrack)}
-                    </span>
-                  )}
                 </div>
               ) : <p className="text-sm leading-5 text-muted">{t('No track playing')}</p>}
             </motion.div>
@@ -244,8 +239,8 @@ export default function PlayerBar() {
           <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={shuffle ? t("Shuffle on") : t("Shuffle off")}><Shuffle size={15} /></button>
           <button onClick={prev} className="text-text/90 hover:text-text transition-colors" title={t("Previous")}><SkipBack size={18} fill="currentColor" /></button>
           <motion.button onClick={togglePlay} disabled={!currentTrack} whileTap={{ scale: 0.88 }}
-            className={`w-9 h-9 rounded-full flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-40 ${flowPlaying ? 'flow-play' : 'bg-accent text-base'}`}>
-            {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
+            className={`w-[45px] h-[45px] rounded-full flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-40 ${flowPlaying ? 'flow-play' : 'bg-accent text-base'}`}>
+            {isPlaying ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
           </motion.button>
           <button onClick={next} className="text-text/90 hover:text-text transition-colors" title={t("Next")}><SkipForward size={18} fill="currentColor" /></button>
           <button onClick={toggleRepeat} className={`transition-colors ${repeat !== 'none' ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t(repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all')}><RepeatIcon size={15} /></button>
@@ -283,6 +278,13 @@ export default function PlayerBar() {
             <div className="min-w-0 shrink basis-[120px] overflow-hidden">
               <Waveform isPlaying={isPlaying} className="w-full" />
             </div>
+          )}
+          {/* Where the song plays from, when it isn't a file in the library. */}
+          {streamed && (
+            <span title={t('Streaming from {source}, not in your library', { source: streamLabel(currentTrack) })}
+              className="flex-shrink-0 whitespace-nowrap rounded-md border border-accent px-2 py-0.5 text-[10px] font-display uppercase tracking-wider text-accent">
+              {streamLabel(currentTrack)}
+            </span>
           )}
           <button onClick={toggleRightSidebar} className={`transition-colors ${showRightSidebar ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t("Now Playing")}>< PanelRight size={16} /></button>
           <button onClick={toggleFullscreen} disabled={!currentTrack} className="text-text/90 hover:text-text transition-colors disabled:opacity-30" title={t("Fullscreen")}><Maximize2 size={15} /></button>

@@ -15,7 +15,7 @@ const babel = require('@babel/core')
 // (or the file comes off the list in vite.config.mjs).
 const REVIEWED = {
   QueuePanel: ['displayQueue.length'], // always an array
-  LyricsPanel: ['line.time', 'line.bgWords', 'line.text', 'line.words', 'line.bgText'], // Row's line prop
+  LyricsPanel: ['line.time', 'line.bgWords', 'line.text', 'line.words', 'line.bgText', 'line.blank', 'ask?.kind', 'ask?.id'], // Row's line prop; ask: null-safe
   ContextMenu: ['state?.items'], // null-safe
 }
 

@@ -50,6 +50,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     genre: '',
     genres: '',
     record_label: '',
+    comment: '',
     explicit: false,
     instrumental: '',
     danceability: '',
@@ -112,6 +113,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         genre: track.genre || '',
         genres: normalizeGenres(track.genres || track.genre || ''),
         record_label: track.record_label || '',
+        comment: track.comment || '',
         explicit: !!track.explicit,
         instrumental: track.instrumental === null || track.instrumental === undefined ? '' : String(track.instrumental),
         danceability: asInput(track.danceability),
@@ -182,6 +184,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (formData.genre !== track.genre) updateData.genre = formData.genre || null
       if (normalizeGenres(formData.genres) !== normalizeGenres(track.genres || track.genre || '')) updateData.genres = normalizeGenres(formData.genres) || null
       if (formData.record_label !== (track.record_label || '')) updateData.record_label = formData.record_label || null
+      if (formData.comment.trim() !== (track.comment || '').trim()) updateData.comment = formData.comment.trim()
       if (formData.explicit !== !!track.explicit) updateData.explicit = formData.explicit ? 1 : 0
       if (String(formData.instrumental) !== String(track.instrumental ?? '')) updateData.instrumental = formData.instrumental === '' ? null : formData.instrumental === '1' ? 1 : 0
       if (String(formData.danceability) !== String(track.danceability ?? '')) updateData.danceability = parseNumberField(formData.danceability)
@@ -402,6 +405,16 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               placeholder={t('Label')}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Comment')}</label>
+          <textarea
+            value={formData.comment}
+            onChange={(e) => handleChange('comment', e.target.value)}
+            rows={2}
+            className="w-full resize-y bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

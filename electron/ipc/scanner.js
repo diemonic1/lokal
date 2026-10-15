@@ -332,10 +332,16 @@ function lyricsKindOf(meta) {
   return text ? (isSyncedText(text) ? 'sync' : 'plain') : ''
 }
 
+// Comment frames that players write for themselves (iTunes' gapless and
+// volume data: "iTunNORM", "iTunSMPB"...), not a comment anyone wrote.
+const TECHNICAL_COMMENT = /^(itun|songs-db|musicmatch|cddb|mediajukebox)/i
+
 // The comment tag as text: music-metadata gives strings or { text } entries.
 function commentText(common) {
   const list = Array.isArray(common?.comment) ? common.comment : common?.comment ? [common.comment] : []
-  return list.map(c => (typeof c === 'string' ? c : c?.text || '')).map(c => c.trim()).filter(Boolean).join(' / ')
+  return list
+    .filter(c => typeof c === 'string' || !TECHNICAL_COMMENT.test(String(c?.descriptor || '')))
+    .map(c => (typeof c === 'string' ? c : c?.text || '')).map(c => c.trim()).filter(Boolean).join(' / ')
 }
 
 // Songs indexed before the comment / lyrics columns existed (or with an
@@ -343,6 +349,14 @@ function commentText(common) {
 // "read, none". The same goes for the lyrics text in the search index.
 async function backfillComments(db) {
   let rows
+  // Comments read before technical frames were left out (see commentText)
+  // are read again, once.
+  try {
+    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v2'").get()) {
+      db.prepare("UPDATE tracks SET comment = NULL WHERE comment IS NOT NULL AND comment <> ''").run()
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('comment_tags_v2', '1')").run()
+    }
+  } catch {}
   try {
     rows = db.prepare(`SELECT t.id, t.file_path FROM tracks t LEFT JOIN track_search_docs d ON d.track_id = t.id
       WHERE (t.comment IS NULL OR t.lyrics_kind IS NULL OR (t.lyrics_kind <> '' AND d.lyrics IS NULL)) AND t.file_path NOT LIKE 'ghost://%'`).all()
@@ -676,14 +690,15 @@ function sourceFilter(source) {
  * their genres ("J-Pop, City Pop"), ignoring case. Nothing given: no filter.
  */
 function genreFilter(genre) {
+  // Songs without any genre: the Genres tab's "No genre".
+  if (genre === NO_GENRE) return { sql: "lokal_has_genre(genre, genres, '') = 1", params: [] }
   const value = String(genre || '').trim()
   if (!value) return null
-  const escaped = value.replace(/[\\%_]/g, char => `\\${char}`)
-  return {
-    sql: "(LOWER(TRIM(genre)) = LOWER(?) OR (',' || REPLACE(REPLACE(LOWER(genres), ', ', ','), ' ,', ',') || ',') LIKE LOWER(?) ESCAPE '\\')",
-    params: [value, `%,${escaped},%`],
-  }
+  // Any of the song's genres, its tags split at / \ ; , (see genreList.js).
+  return { sql: 'lokal_has_genre(genre, genres, ?) = 1', params: [value] }
 }
+// opts.genre for songs without a genre.
+const NO_GENRE = '__none__'
 
 /** Profile numbers for a user (the desktop app and the web server share it). */
 function userStats(db, userId) {
@@ -1114,13 +1129,12 @@ function collectAllGenres(db) {
     WHERE file_path NOT LIKE 'ghost://%'
       AND (genre IS NOT NULL OR genres IS NOT NULL)
   `).all()
+  const { trackGenres, genreKey } = require('../genreList')
   const values = new Map()
   for (const row of rows) {
-    for (const source of [row.genre, row.genres]) {
-      for (const genre of String(source || '').split(',').map(part => part.trim()).filter(Boolean)) {
-        const key = genre.toLowerCase()
-        if (!values.has(key)) values.set(key, genre)
-      }
+    for (const genre of trackGenres(row)) {
+      const key = genreKey(genre)
+      if (!values.has(key)) values.set(key, genre)
     }
   }
   return [...values.values()].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
@@ -1566,6 +1580,14 @@ function registerScannerHandlers(ipcMain) {
     if (data.valence !== undefined) { updates.push('valence = ?'); params.push(data.valence) }
     if (data.tempo !== undefined) { updates.push('tempo = ?'); params.push(data.tempo) }
     if (data.time_signature !== undefined) { updates.push('time_signature = ?'); params.push(data.time_signature) }
+    // The comment goes into the file's tags too (rescans read it from there).
+    if (data.comment !== undefined) {
+      let comment = String(data.comment || '').trim()
+      if (!String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
+        try { comment = require('../fileComment').writeFileComment(currentTrack.file_path, comment) } catch (e) { return { error: `Couldn't save the comment: ${e.message}` } }
+      }
+      updates.push('comment = ?'); params.push(comment)
+    }
 
     if (data.genre !== undefined || data.genres !== undefined) {
       const normalizedGenres = data.genres !== undefined
@@ -1615,6 +1637,7 @@ function registerScannerHandlers(ipcMain) {
   })
   ipcMain.handle('scanner:getTopGenres', () => getDB().prepare(`SELECT genre, COUNT(*) as count FROM tracks WHERE genre IS NOT NULL GROUP BY genre ORDER BY count DESC LIMIT 10`).all())
   ipcMain.handle('scanner:getAllGenres', () => collectAllGenres(getDB()))
+  ipcMain.handle('scanner:getGenreSummary', () => require('../genreList').genreSummary(getDB()))
   ipcMain.handle('scanner:getRandomTrack', () => getDB().prepare("SELECT * FROM tracks WHERE file_path NOT LIKE 'ghost://%' ORDER BY RANDOM() LIMIT 1").get())
   ipcMain.handle('db:clearTracks', () => { const db = getDB(); db.prepare('DELETE FROM artist_track_links').run(); db.prepare('DELETE FROM playlist_tracks').run(); db.prepare('DELETE FROM user_likes').run(); db.prepare('DELETE FROM play_history').run(); try { db.prepare('DELETE FROM listening_events').run() } catch {}; db.prepare('DELETE FROM lyrics_cache').run(); db.prepare('DELETE FROM lyrics_translations').run(); db.prepare('DELETE FROM tracks').run(); db.prepare('DELETE FROM artists').run() })
   ipcMain.handle('db:clearLyrics', () => { const db = getDB(); db.prepare('DELETE FROM lyrics_cache').run(); db.prepare('DELETE FROM lyrics_translations').run() })

@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Columns3, GripVertical, LockKeyhole } from 'lucide-react'
-import { ALWAYS_SHOWN, ROW_SIZE, TRACK_COLUMN_DEFS } from '../trackColumns'
+import { ALWAYS_SHOWN, ROW_GAP, ROW_SIZE, TRACK_COLUMN_DEFS } from '../trackColumns'
 import { useTranslation } from '../i18n'
 
 // Shown inside Title or at the row's ends: switched on and off, not moved.
@@ -118,6 +118,13 @@ export default function TrackColumnPicker({ columns, playlist, onChange, onReset
             onChange={event => onChange('rowSize', Number(event.target.value))}
             onDoubleClick={() => onChange('rowSize', ROW_SIZE.initial)}
             aria-label={t('Row size')} title={t('Double-click to reset')} className="w-full accent-accent" />
+          <div className="mb-1.5 mt-2 flex items-center justify-between text-xs text-muted">
+            <span>{t('Row spacing')}</span><span>{Math.round(columns.rowGap * 16)} px</span>
+          </div>
+          <input type="range" min={ROW_GAP.min} max={ROW_GAP.max} step={ROW_GAP.step} value={columns.rowGap}
+            onChange={event => onChange('rowGap', Number(event.target.value))}
+            onDoubleClick={() => onChange('rowGap', ROW_GAP.initial)}
+            aria-label={t('Row spacing')} title={t('Double-click to reset')} className="w-full accent-accent" />
         </div>
         <p className="border-t border-border px-2 pt-2 text-[11px] leading-relaxed text-muted">{t("Saved for all song lists in this profile. Drag a column's edge in the header to resize it. Narrow lists tuck Album under Title and fit other columns as space allows.")}</p>
         <button type="button" onClick={onReset} className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs text-accent hover:bg-card">{t('Reset to defaults')}</button>

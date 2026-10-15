@@ -11,6 +11,7 @@ import PlayerBar from './components/PlayerBar'
 import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
 import { initialTabPath } from './libraryNav'
+import { useTaskbarTitle } from './taskbarTitle'
 import { rescanOnStartup } from './scanProgress'
 import { usePageWidth } from './pageWidth'
 import RightSidebar from './components/RightSidebar'
@@ -29,6 +30,7 @@ import Home from './pages/Home'
 import Albums from './pages/Albums'
 import OnlineAlbum from './pages/OnlineAlbum'
 import Artists from './pages/Artists'
+import Genres, { GenreTracks } from './pages/Genres'
 import Videos from './pages/Videos'
 import Library from './pages/Library'
 import Search from './pages/Search'
@@ -319,6 +321,8 @@ function AnimatedRoutes() {
         <Route path="/home/:tab/*" element={<PageTransition gated><Home /></PageTransition>} />
         <Route path="/albums" element={<PageTransition gated><Albums /></PageTransition>} />
         <Route path="/artists" element={<PageTransition gated><Artists /></PageTransition>} />
+        <Route path="/genres" element={<PageTransition gated><Genres /></PageTransition>} />
+        <Route path="/genre/:name" element={<PageTransition gated><GenreTracks /></PageTransition>} />
         <Route path="/videos" element={<PageTransition gated><Videos /></PageTransition>} />
         <Route path="/library" element={<PageTransition gated><Library /></PageTransition>} />
         <Route path="/search" element={<PageTransition><Search /></PageTransition>} />
@@ -345,6 +349,8 @@ export default function App() {
   const floatingPlayerBar = useAppearanceFlag('player_bar_floating')
   // Pages lay out by the space they get between the sidebars (pageWidth.js).
   const pageWidthRef = usePageWidth()
+  // The taskbar button shows the playing track (Settings > Appearance > Taskbar).
+  useTaskbarTitle()
   // Every launch reads the music folder's tags again (progress: the bar by Home).
   useEffect(() => { rescanOnStartup() }, [])
   const audioRef = useRef(null)
@@ -2700,7 +2706,7 @@ export default function App() {
   return (
     <Router initialEntries={[initialTabPath()]}>
       <NativeHistoryNavigation />
-      <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !floatingPlayerBar ? undefined : { '--player-space': '104px' }}>
+      <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !floatingPlayerBar ? undefined : { '--player-space': '114px' }}>
         {/* Covers the window (overlays included) while it switches to or from
             the mini player: the window is resized behind it, so neither view
             is ever seen at the other's size. */}

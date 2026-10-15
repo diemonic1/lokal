@@ -11,12 +11,15 @@
 //   player_bar_gradient_speed      0-100, how fast its colours drift (0: still)
 //   player_bar_glass_transparency  0-90, how see-through the glass is
 //   player_bar_shade_transparency  0-100, the shade under the seek bar (glass only)
+// Text (useAppearanceText):
+//   app_tabs        Settings > Appearance > App Tabs: tab order and which go to the ⋯ menu (see appTabs.js)
+//   taskbar_title   ... > Taskbar Title: what the window title (taskbar) shows
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform']
-const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency']
+const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -62,6 +65,11 @@ export function useAppearanceValue(key, fallback) {
     const n = Number(raw[key])
     return raw[key] != null && raw[key] !== '' && Number.isFinite(n) ? n : fallback
   })
+}
+
+/** A text appearance setting, or `fallback` when unset. */
+export function useAppearanceText(key, fallback = '') {
+  return useSubscribed(() => (raw[key] != null && raw[key] !== '' ? String(raw[key]) : fallback))
 }
 
 /** Shows a value at once (a slider being dragged), before the save comes back. */

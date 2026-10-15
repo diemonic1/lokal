@@ -61,6 +61,17 @@ router.post('/:trackId/embed/:providerId', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }) }
 })
 
+router.post('/:trackId/reject/:providerId', async (req, res) => {
+  const b = req.body || {}
+  try {
+    res.json(await service.rejectSource(getDB(), { trackId: req.params.trackId, title: b.title, artist: b.artist, album: b.album, duration: b.duration }, req.params.providerId))
+  } catch (e) { res.json({ result: null, error: e.message }) }
+})
+
+router.get('/:trackId/rejected', (req, res) => {
+  res.json(service.rejectedSources(getDB(), req.params.trackId))
+})
+
 router.delete('/:trackId', (req, res) => {
   res.json(service.clearCache(getDB(), req.params.trackId))
 })

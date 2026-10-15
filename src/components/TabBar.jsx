@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { MoreHorizontal } from 'lucide-react'
 import { useAppStore } from '../store/player'
 import { api } from '../api'
 import { latestPeriod, listenerTimeZone, nextPeriodBoundary, recapOpened, recapTree } from '../recapPeriods'
 import { getLastHomePath } from '../recommendationSession'
-import { TABS, rememberTab, tabForPath } from '../libraryNav'
+import { rememberTab, tabForPath } from '../libraryNav'
+import { useAppTabs } from '../appTabs'
 import { useTranslation } from '../i18n'
+import ContextMenu, { useContextMenu } from './ContextMenu'
 
 /** Whether there's a finished recap period that hasn't been opened yet. */
 function useRecapBadge(userId) {
@@ -56,7 +59,11 @@ function useRecapBadge(userId) {
   return show
 }
 
-/** The app's sections as tabs under the title bar; the open one is remembered. */
+/**
+ * The app's sections as tabs under the title bar; the open one is remembered.
+ * Tabs the user moved below the line in Settings > Appearance > App Tabs go
+ * to the ⋯ menu after the last tab (opened by any mouse button).
+ */
 export default function TabBar() {
   const nav = useNavigate()
   const loc = useLocation()
@@ -64,8 +71,29 @@ export default function TabBar() {
   const user = useAppStore(s => s.user)
   const showRecapBadge = useRecapBadge(user?.id)
   const activeTab = tabForPath(loc.pathname)
+  const { visible, hidden } = useAppTabs()
+  const menu = useContextMenu()
+  const go = path => nav(path === '/' ? getLastHomePath(user?.id) : path)
+  const hiddenActive = hidden.some(tab => tab.path === activeTab)
+  const hiddenBadge = showRecapBadge && hidden.some(tab => tab.path === '/recap')
 
   useEffect(() => { if (activeTab) rememberTab(activeTab) }, [activeTab])
+
+  // A press on ⋯ while its menu is open only closes it (the menu closes
+  // itself on any press outside it; this keeps the click from reopening it).
+  const wasOpen = React.useRef(false)
+  const openMore = (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (wasOpen.current) { wasOpen.current = false; return }
+    const r = event.currentTarget.getBoundingClientRect()
+    menu.open({ preventDefault() {}, stopPropagation() {}, clientX: r.left, clientY: r.bottom + 4 }, hidden.map(({ icon, label, path }) => ({
+      label: t(label),
+      icon,
+      hint: path === '/recap' && showRecapBadge ? t('(new)') : undefined,
+      onSelect: () => go(path),
+    })))
+  }
 
   return (
     <div
@@ -74,7 +102,7 @@ export default function TabBar() {
       className="relative z-30 flex h-[34px] flex-shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border px-2 [scrollbar-width:none]"
       style={{ backgroundColor: 'rgb(var(--surface-rgb) / 0.85)', backdropFilter: 'blur(12px)' }}
     >
-      {TABS.map(({ icon: Icon, label, path, tour }) => {
+      {visible.map(({ icon: Icon, label, path, tour }) => {
         const active = activeTab === path
         const badge = path === '/recap' && showRecapBadge
         return (
@@ -84,7 +112,7 @@ export default function TabBar() {
             role="tab"
             aria-selected={active}
             data-tour={tour || undefined}
-            onClick={() => nav(path === '/' ? getLastHomePath(user?.id) : path)}
+            onClick={() => go(path)}
             className={`relative -mb-px flex h-[28px] flex-shrink-0 items-center gap-1.5 rounded-t-lg border px-3 text-xs font-medium transition-colors ${active ? 'border-border border-b-transparent bg-bg/70 text-accent' : 'border-transparent text-muted hover:bg-elevated hover:text-white'}`}
           >
             <Icon size={13} className="flex-shrink-0" />
@@ -93,6 +121,25 @@ export default function TabBar() {
           </button>
         )
       })}
+      {hidden.length > 0 && (
+        <button
+          type="button"
+          title={t('More tabs')}
+          aria-label={t('More tabs')}
+          aria-haspopup="menu"
+          aria-expanded={!!menu.state}
+          // Opened by any button: a left, right or middle click.
+          onMouseDown={() => { wasOpen.current = !!menu.state }}
+          onClick={openMore}
+          onContextMenu={openMore}
+          onAuxClick={event => { if (event.button === 1) openMore(event) }}
+          className={`relative -mb-px flex h-[28px] flex-shrink-0 items-center rounded-t-lg border px-2 transition-colors ${hiddenActive ? 'border-border border-b-transparent bg-bg/70 text-accent' : 'border-transparent text-muted hover:bg-elevated hover:text-white'}`}
+        >
+          <MoreHorizontal size={14} />
+          {hiddenBadge && <span aria-label={t('(new)')} className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-accent" />}
+        </button>
+      )}
+      <ContextMenu menu={menu} />
     </div>
   )
 }
