@@ -7,7 +7,7 @@ import { TABS } from './libraryNav'
 import { useAppearanceText } from './appearanceFlags'
 
 export const HIDDEN_MARK = '|'
-export const DEFAULT_TAB_ORDER = ['/', '/library', '/albums', '/artists', '/genres', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis']
+export const DEFAULT_TAB_ORDER = ['/', '/library', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis']
 
 /** The saved order, minus unknown tabs, with any newer tab in its default place. */
 export function tabOrder(saved) {
@@ -17,8 +17,12 @@ export function tabOrder(saved) {
   const known = new Set(TABS.map(tab => tab.path))
   const order = [...new Set(list.filter(path => path === HIDDEN_MARK || known.has(path)))]
   if (!order.includes(HIDDEN_MARK)) order.push(HIDDEN_MARK)
+  // A newer tab goes just before the tab that follows it by default (Online
+  // Radio before Videos), or else just after the one before it.
   DEFAULT_TAB_ORDER.forEach((path, index) => {
     if (order.includes(path)) return
+    const next = DEFAULT_TAB_ORDER.slice(index + 1).find(p => p !== HIDDEN_MARK && order.includes(p))
+    if (next) { order.splice(order.indexOf(next), 0, path); return }
     const before = DEFAULT_TAB_ORDER.slice(0, index).reverse().find(p => order.includes(p))
     order.splice(before ? order.indexOf(before) + 1 : 0, 0, path)
   })

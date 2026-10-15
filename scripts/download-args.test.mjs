@@ -9,7 +9,7 @@ const base = {
   kind: 'single',
   url: 'https://media.example.test/song.flac',
   outputDir: '/music',
-  settings: { clean_download_metadata: '1' },
+  settings: { clean_download_metadata: '1', download_embed_cover: '1' },
   ffmpeg: 'ffmpeg',
   format: { format: 'original', quality: '320' },
 }

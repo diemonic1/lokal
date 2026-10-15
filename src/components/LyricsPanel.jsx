@@ -10,6 +10,7 @@ import { useLyricSubline } from '../lyrics/useLyricSubline'
 import { announceLyricsChanged, announceLyricsFileChanged } from '../lyricLine'
 import { announceTrackChanged } from '../trackChanged'
 import { usePlayerStore } from '../store/player'
+import { isStationTrack, lyricsTrackFor, stationClockUnknown, stationSongTime } from '../radio/stations'
 import { useTranslation } from '../i18n'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
 import {
@@ -51,6 +52,8 @@ export function useLyricClock(progress) {
   return useCallback(() => {
     const s = usePlayerStore.getState()
     const el = s.activeAudioElement === 'cf' ? s.cfAudioRef?.current : s.audioRef?.current
+    // Online radio: time from when the song started on the station.
+    if (isStationTrack(s.currentTrack)) return el ? (stationSongTime(s.currentTrack, el.currentTime) ?? 0) : 0
     if (el && Number.isFinite(el.currentTime) && el.currentTime > 0) return el.currentTime
     const { t, at } = anchor.current
     return t + (s.isPlaying ? Math.min((performance.now() - at) / 1000, 0.6) : 0)
@@ -480,12 +483,14 @@ function Loading() {
 }
 
 export default function LyricsPanel({
-  track, progress, fullscreen = false, wordSync = true, onLyricsAvailable, onSearchRequest, textScale = 1, isAutoSynced = false,
+  track: shownTrack, progress, fullscreen = false, wordSync = true, onLyricsAvailable, onSearchRequest, textScale = 1, isAutoSynced = false,
   // The full screen player hides the buttons along with its own after a few
   // seconds without the mouse moving.
   toolbarHidden = false,
 }) {
   const { t } = useTranslation()
+  // Online radio: the song playing on the station, under its own id.
+  const track = useMemo(() => lyricsTrackFor(shownTrack), [shownTrack])
   const setProgressWithAudioUpdate = usePlayerStore(s => s.setProgressWithAudioUpdate)
   const syncTrack = usePlayerStore(s => s.syncTrack)
   const now = useLyricClock(progress)
@@ -524,7 +529,9 @@ export default function LyricsPanel({
     () => withOutroBreak(result?.lines || [], { duration: track?.duration, crossfade: crossfadeSeconds, synced: result?.type === 'synced' }),
     [result, track?.duration, crossfadeSeconds],
   )
-  const synced = result?.type === 'synced'
+  // Online radio, tuned in mid-song: the lines can't follow the song, so
+  // they're shown as plain text until the next song starts.
+  const synced = result?.type === 'synced' && !stationClockUnknown(track)
 
   // ---- data
   const trackKey = track?.id
@@ -543,10 +550,23 @@ export default function LyricsPanel({
     if (!track?.id) return
     const seq = ++requestSeq.current
     const trackId = track.id
+    const station = isStationTrack(track)
+    // A station before its first song: nothing to look up.
+    if (station && !track.song_key) { setBoundResult(trackId, null); setLoading(false); setRefreshing(false); return }
+    // Lyrics the station's own API sent come first.
+    if (station && track.song_lyrics && !opts.refresh) {
+      const lines = String(track.song_lyrics).split(/\r?\n/).map(text => ({ text, time: null, words: [] }))
+      const next = { type: 'plain', source: 'station', lines }
+      cacheLyrics(trackId, next)
+      setBoundResult(trackId, next)
+      setLoading(false)
+      return
+    }
     if (!quiet) setLoading(true)
     setRefreshing(!!opts.refresh)
     setNotice('')
-    api.getLyrics(track.id, track.title, track.artist, track.album, track.duration, track.file_path, opts)
+    // A station's song isn't a library row: no id, so nothing is saved for it.
+    api.getLyrics(station ? null : track.id, track.title, track.artist, station ? '' : track.album, track.duration, track.file_path, opts)
       .then(r => {
         if (seq !== requestSeq.current) return
         const next = r && (r.lines?.length || r.instrumental) ? r : null
@@ -560,7 +580,7 @@ export default function LyricsPanel({
       })
       .catch(() => { if (seq === requestSeq.current && !quiet) setBoundResult(trackId, null) })
       .finally(() => { if (seq === requestSeq.current) { setLoading(false); setRefreshing(false) } })
-  }, [track?.id, track?.title, track?.artist, track?.album, track?.duration, track?.file_path, setBoundResult])
+  }, [track?.id, track?.title, track?.artist, track?.album, track?.duration, track?.file_path, track?.song_key, track?.song_lyrics, setBoundResult])
 
   // Manual search. The fullscreen views bring their own drawer (onSearchRequest);
   // anywhere else -- the sidebar -- the panel opens one over itself.

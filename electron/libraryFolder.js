@@ -101,14 +101,57 @@ function folderFilter(db, relativePath) {
   return { sql: 'file_path >= ? AND file_path < ?', params: [prefix, upperBound] }
 }
 
-// Each child folder's cover: the artwork of the first song inside it that has one.
+// A folder's own picture: folder_cover.jpg or folder_cover.png inside it.
+// Looked for once per folder and kept until the library is scanned again
+// (clearFolderCoverCache, called when a scan rereads the tags).
+const FOLDER_COVER_NAMES = ['folder_cover.jpg', 'folder_cover.png']
+const folderCoverCache = new Map()
+
+function clearFolderCoverCache() {
+  folderCoverCache.clear()
+}
+
+function folderCoverFile(folderPath) {
+  const key = process.platform === 'win32' ? folderPath.toLowerCase() : folderPath
+  if (folderCoverCache.has(key)) return folderCoverCache.get(key)
+  let found = null
+  try {
+    const names = new Map(fs.readdirSync(folderPath, { withFileTypes: true })
+      .filter(entry => entry.isFile())
+      .map(entry => [entry.name.toLowerCase(), entry.name]))
+    for (const name of FOLDER_COVER_NAMES) {
+      if (!names.has(name)) continue
+      const filePath = path.join(folderPath, names.get(name))
+      found = { path: filePath, version: Math.round(fs.statSync(filePath).mtimeMs) }
+      break
+    }
+  } catch {}
+  folderCoverCache.set(key, found)
+  return found
+}
+
+// folder_cover.jpg/png of a folder given relative to the music folder (the web
+// server's /api/folder-cover), or null.
+function folderCoverForRelative(db, relativePath) {
+  if (typeof relativePath !== 'string' || !relativePath) return null
+  const configuredRoot = db.prepare("SELECT value FROM settings WHERE key = 'music_folder'").get()?.value
+  if (!configuredRoot) return null
+  const rootPath = path.resolve(String(configuredRoot))
+  const targetPath = path.resolve(rootPath, relativePath.slice(0, 4096))
+  if (targetPath === rootPath || isOutside(rootPath, targetPath)) return null
+  return folderCoverFile(targetPath)?.path || null
+}
+
+// Each child folder's cover when it has no folder_cover image: the artwork of
+// the song at the top of the folder sorted by track number, biggest first
+// (the first such song that has artwork).
 function getChildFolderCovers(db, targetPath) {
   const covers = new Map()
   if (!db || typeof db.prepare !== 'function') return covers
   const { prefix, upperBound } = getPathPrefixBounds(targetPath)
   try {
     const rows = db.prepare(
-      "SELECT id, file_path, artwork_path FROM tracks WHERE file_path >= ? AND file_path < ? AND artwork_path IS NOT NULL AND artwork_path != '' AND file_path NOT LIKE 'ghost://%' ORDER BY file_path ASC"
+      "SELECT id, file_path, artwork_path FROM tracks WHERE file_path >= ? AND file_path < ? AND artwork_path IS NOT NULL AND artwork_path != '' AND file_path NOT LIKE 'ghost://%' ORDER BY track_num DESC, file_path ASC"
     ).all(prefix, upperBound) || []
     for (const row of rows) {
       const relativeTrackPath = path.relative(targetPath, row.file_path)
@@ -172,8 +215,14 @@ function getLibraryFolders(db, relativePath = '', search = '') {
       const fullPath = path.join(targetPath, entry.name)
       const childRelative = path.relative(rootPath, fullPath).split(path.sep).join('/')
       const childKey = process.platform === 'win32' ? entry.name.toLowerCase() : entry.name
+      const own = folderCoverFile(fullPath)
       const cover = covers.get(childKey)
-      return { name: entry.name, path: childRelative, trackCount: folderTrackCounts.get(childKey) || 0, coverTrackId: cover?.trackId || null, coverPath: cover?.artworkPath || null }
+      return {
+        name: entry.name, path: childRelative, trackCount: folderTrackCounts.get(childKey) || 0,
+        coverTrackId: cover?.trackId || null, coverPath: cover?.artworkPath || null,
+        // folder_cover.jpg/png, ahead of any song's artwork.
+        folderCoverPath: own?.path || null, folderCoverVersion: own?.version || 0,
+      }
     })
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' }))
 
@@ -245,5 +294,5 @@ function getLibraryFolders(db, relativePath = '', search = '') {
   }
 }
 
-module.exports = { findFolderArtwork, getLibraryFolders, folderFilter }
+module.exports = { findFolderArtwork, getLibraryFolders, folderFilter, folderCoverFile, folderCoverForRelative, clearFolderCoverCache }
 

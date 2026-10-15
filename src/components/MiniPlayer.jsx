@@ -7,6 +7,7 @@ import { api, wordSyncEnabled as getWordSyncEnabled } from '../api'
 import Waveform from './Waveform'
 import { useAppearanceFlag } from '../appearanceFlags'
 import { trackArtURL } from '../onlineTracks'
+import { isStationTrack } from '../radio/stations'
 import { useMusicVideo, useMusicVideoView } from '../musicVideo'
 import MusicVideoPlayer from './MusicVideoPlayer'
 import VideoOffsetControl from './VideoOffsetControl'
@@ -295,7 +296,7 @@ export default function MiniPlayer({ windowed = false }) {
               <div className="h-full rounded-full bg-accent" style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }} />
             </div>
             <div className="mt-1.5 flex items-center justify-between">
-              <span className="w-20 text-[10px] tabular-nums text-white/70">{fmt(progress)} / {fmt(duration)}</span>
+              <span className="w-20 text-[10px] tabular-nums text-white/70">{isStationTrack(currentTrack) && !duration ? t('On air') : `${fmt(progress)} / ${fmt(duration)}`}</span>
               <div className="flex items-center gap-1">
                 <button onClick={prev} aria-label={t('Previous')} className="p-1.5 text-white/80 hover:text-white"><SkipBack size={15} fill="currentColor" /></button>
                 <button onClick={togglePlay} disabled={!currentTrack} aria-label={isPlaying ? t('Pause') : t('Play')} className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105 disabled:opacity-40">{isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="translate-x-px" />}</button>

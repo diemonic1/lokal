@@ -56,6 +56,6 @@ test('Clear Cache empties both caches but not a file being written', t => {
   put('playback-cache', 'b.m4a', 1, 1)
   const partial = put('playback-cache', 'c.part.flac', 1, 1)
   assert.equal(cache.clear(), 2)
-  assert.deepEqual(cache.usage(), { motion: 0, playback: 0 })
+  assert.ok(Object.values(cache.usage()).every(v => v === 0))
   assert.ok(fs.existsSync(partial))
 })

@@ -1,3 +1,5 @@
+import { isStationTrack } from './radio/stations.js'
+
 // The Discord app Lokal's Rich Presence uses unless Settings names another one.
 export const DEFAULT_DISCORD_CLIENT_ID = '1473597925581131919'
 
@@ -11,7 +13,8 @@ export function createDiscordPublisher({ getState, send, now = Date.now }) {
   let previous = null
   return () => {
     const state = getState()
-    const track = state.currentTrack
+    // Online radio isn't shown on Discord: it clears the status instead.
+    const track = isStationTrack(state.currentTrack) ? null : state.currentTrack
     const audio = (state.activeAudioElement === 'cf' ? state.cfAudioRef : state.audioRef)?.current
     const audioMatches = audio && !audio.dataset?.lokalTrackPending &&
       (!audio.dataset?.lokalTrackId || String(audio.dataset.lokalTrackId) === String(track?.id))

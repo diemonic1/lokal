@@ -7,5 +7,6 @@ import player from './player'
 import library from './library'
 import online from './online'
 import pages from './pages'
+import radio from './radio'
 
-export default { ...core, ...settings, ...settingsParts, ...player, ...library, ...online, ...pages }
+export default { ...core, ...settings, ...settingsParts, ...player, ...library, ...online, ...pages, ...radio }

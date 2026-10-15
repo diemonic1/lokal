@@ -169,6 +169,7 @@ export const api = {
   get isElectron() { return isE() },
   fileURL: (path) => electronFileURL(path),
   artworkURL: (id) => `${BASE}/artwork/${encodeURIComponent(id)}`,
+  folderCoverURL: (relativePath, version = 0) => `${BASE}/folder-cover?path=${encodeURIComponent(relativePath)}&v=${version}`,
   // An album's cover (from getAllAlbums: the path, and the track it's from).
   // Artwork is served by track id, not by path (or album title).
   albumArtURL: (album) => {
@@ -358,6 +359,9 @@ export const api = {
   resolveFileToPlay: (f) => isE() ? el().resolveFileToPlay(f) : Promise.resolve({ success: false, error: 'Electron only' }),
   onOpenFileRequest: (fn) => { if (isE() && typeof el().onOpenFileRequest === 'function') return el().onOpenFileRequest(fn); return () => {} },
   updateThumbarState: (state) => (isE() && typeof el().updateThumbarState === 'function') ? el().updateThumbarState(state) : Promise.resolve(),
+  // Settings > Library > Open Folders In: start one of those programs on a sidebar folder.
+  launchFolderApp: (appPath, folder) => isE() ? el().launchFolderApp(appPath, folder) : Promise.resolve({ ok: false }),
+  setTaskbarProgress: (state) => (isE() && typeof el().setTaskbarProgress === 'function') ? el().setTaskbarProgress(state) : Promise.resolve(),
   onThumbarCommand: (fn) => { if (isE() && typeof el().onThumbarCommand === 'function') return el().onThumbarCommand(fn); return () => {} },
   openFolder: () => isE() ? el().openFolder() : Promise.resolve(null),
   openFile: (f) => isE() ? el().openFile(f) : Promise.resolve(null),
@@ -477,6 +481,11 @@ export const api = {
   cacheTrim: () => isE() ? el().cacheTrim() : Promise.resolve(null),
   cacheClear: () => isE() ? el().cacheClear() : Promise.resolve(null),
   artworkMesh: (trackId) => isE() ? el().artworkMesh(trackId) : apiFetch(`/artwork-fx/mesh/${encodeURIComponent(trackId)}`).then(r => (Array.isArray(r) ? r : null)),
+  // Online radio: a cover given as a URL (a station has no library row).
+  artworkMeshFromUrl: (url) => isE() ? el().artworkMeshFromUrl(url) : apiFetch(`/artwork-fx/mesh-url?${new URLSearchParams({ url })}`).then(r => (Array.isArray(r) ? r : null)),
+  radioGetCatalog: () => isE() ? el().radioGetCatalog() : apiFetch('/radio/catalog'),
+  radioLoadCatalog: (url) => isE() ? el().radioLoadCatalog(url) : apiFetch('/radio/catalog', { method: 'POST', body: { url } }),
+  radioNowPlaying: (stationApi) => isE() ? el().radioNowPlaying(stationApi) : apiFetch('/radio/now-playing', { method: 'POST', body: { api: stationApi } }).catch(() => null),
   // { src, source } -- src is something a <video> can play in this mode.
   spotifyCanvasCheck: () => isE() ? el().spotifyCanvasCheck() : apiFetch('/artwork-fx/spotify-check', { method: 'POST' }),
   // Home → Releases → Followed artists: those followed on Spotify or in the Apple Music library (desktop app).

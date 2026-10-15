@@ -50,10 +50,27 @@ function updateThumbarButtons(mainWindow, { isPlaying = false, isLiked = false }
   }
 }
 
+// The song's progress under the app's taskbar button (like AIMP): a fraction
+// 0-1, paused shows it in the paused colour; null takes it away (nothing
+// playing, a station with no length, or the setting off).
+function setTaskbarProgress(mainWindow, { fraction = null, paused = false } = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  try {
+    const value = Number(fraction)
+    if (fraction == null || !Number.isFinite(value)) mainWindow.setProgressBar(-1)
+    else mainWindow.setProgressBar(Math.max(0, Math.min(1, value)), { mode: paused ? 'paused' : 'normal' })
+  } catch (e) {
+    console.warn('[thumbar] Failed to set taskbar progress:', e.message)
+  }
+}
+
 function registerThumbarHandlers(ipcMain, getMainWindow) {
   ipcMain.handle('thumbar:updateState', (_, state) => {
     updateThumbarButtons(getMainWindow(), state || {})
   })
+  ipcMain.handle('thumbar:progress', (_, state) => {
+    setTaskbarProgress(getMainWindow(), state || {})
+  })
 }
 
-module.exports = { updateThumbarButtons, registerThumbarHandlers }
+module.exports = { updateThumbarButtons, setTaskbarProgress, registerThumbarHandlers }

@@ -37,7 +37,14 @@ async function meshForTrack(trackId) {
     try { stamp = String(fs.statSync(art).mtimeMs) } catch {}
     return meshFromImage(art, `${art}|${stamp}`)
   }
-  const url = remoteArtworkURL(track)
+  return meshFromRemoteURL(remoteArtworkURL(track))
+}
+
+/**
+ * The colour mesh of a cover on the web (https only, see httpsImageURL), or
+ * null. Online radio has no library row: its covers come as plain URLs.
+ */
+async function meshFromRemoteURL(url) {
   if (!url) return null
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)
@@ -86,8 +93,9 @@ function spotifyCheck() {
 function registerArtworkFxHandlers(ipcMain) {
   const { findFfmpeg } = require('./tools')
   ipcMain.handle('artwork:mesh', (_, trackId) => meshForTrack(trackId).catch(() => null))
+  ipcMain.handle('artwork:meshFromUrl', (_, url) => meshFromRemoteURL(httpsImageURL(url)).catch(() => null))
   ipcMain.handle('artwork:motion', (_, trackId) => motionForTrack(trackId, findFfmpeg()).catch(() => null))
   ipcMain.handle('artwork:spotifyCheck', () => spotifyCheck())
 }
 
-module.exports = { registerArtworkFxHandlers, meshForTrack, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck }
+module.exports = { registerArtworkFxHandlers, meshForTrack, meshFromRemoteURL, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck }

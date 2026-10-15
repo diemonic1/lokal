@@ -4,7 +4,7 @@ import { collectLocalPrefs, restoreLocalPrefs } from '../localPrefsBackup'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
-import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks } from 'lucide-react'
+import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
 import { peekCache, writeCache, usePageReady } from '../pageCache'
@@ -22,6 +22,9 @@ import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
 import { useTheme } from '../themeHooks'
 import { previewAppearanceValue } from '../appearanceFlags'
 import AppTabsSettings from '../components/AppTabsSettings'
+import FolderAppsSettings from '../components/FolderAppsSettings'
+import RadioCatalogSetup from '../components/RadioCatalogSetup'
+import { RADIO_BUFFER_MAX, radioBufferSeconds } from '../store/radio'
 import { FOLDER_TRANSITIONS } from './Library'
 import { ARTIST_SOURCES } from '../artistSources'
 import { repairMissingTracks } from '../ghostDownloads'
@@ -45,6 +48,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'integrations', label: 'Integrations', icon: Zap },
   { key: 'playback', label: 'Playback', icon: Disc3 },
   { key: 'library', label: 'Library', icon: Music2 },
+  { key: 'radio', label: 'Online Radio', icon: RadioIcon },
   { key: 'addons', label: 'Addons', icon: Blocks },
   { key: 'appearance', label: 'Appearance', icon: Palette },
   { key: 'data', label: 'Data', icon: Download },
@@ -1186,6 +1190,14 @@ activeCategory === 'data' ? usersTried
         </Section>
       )}
 
+      {inCategory('library') && api.isElectron && (
+      <Section title="Open Folders In">
+        <Row label="Programs" desc="Right-click a folder in the left sidebar to open it in one of these programs: the folder's full path is passed to the program. Give each a name for the menu and the program's full path." stacked>
+          <FolderAppsSettings value={settings.folder_apps || ''} onChange={value => { previewAppearanceValue('folder_apps', value); set('folder_apps', value) }} />
+        </Row>
+      </Section>
+      )}
+
       {inCategory('library') && (
       <Section title="Maintenance">
          <Row label="Repair Missing Downloads" desc={`${missingRepairText} ${t('Known original sources are redownloaded and attached to the existing library entries; files that need manual matching are left untouched.')}`}>
@@ -1759,6 +1771,35 @@ activeCategory === 'data' ? usersTried
         </Section>
       )}
 
+      {inCategory('radio') && (
+      <Section title="Station catalogue">
+        <Row label="Catalogue link" desc="A link to a JSON file with your stations. It's downloaded and its stations are kept (not the file). Update downloads it again; a new link replaces the stations once its file loads." stacked>
+          <RadioCatalogSetup />
+        </Row>
+        <Row label="Page to edit the catalogue" desc="Optional: where you edit the catalogue (a GitHub page, a hosting panel...). With a link here, the station list gets an Open config button that opens it in your browser." stacked>
+          <input type="url" value={settings.radio_config_page_url || ''} spellCheck={false}
+            onChange={event => { previewAppearanceValue('radio_config_page_url', event.target.value); set('radio_config_page_url', event.target.value) }}
+            placeholder="https://github.com/…/radio.json" aria-label={t('Page to edit the catalogue')}
+            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" />
+          {settings.radio_config_page_url && !/^https?:\/\//i.test(String(settings.radio_config_page_url).trim()) && (
+            <p className="mt-1.5 text-xs text-red-300">{t('The link must start with http:// or https://.')}</p>
+          )}
+        </Row>
+      </Section>
+      )}
+      {inCategory('radio') && (
+      <Section title="Playback">
+        <Row label="Buffer" desc="Seconds of a station gathered before it starts playing, to ride out a slow connection. 0: no buffer, it starts at once. Applies the next time a station starts.">
+          <div className="flex items-center gap-3">
+            <input type="range" min={0} max={RADIO_BUFFER_MAX} step={1} value={radioBufferSeconds(settings.radio_buffer_sec)}
+              onChange={event => { previewAppearanceValue('radio_buffer_sec', event.target.value); set('radio_buffer_sec', event.target.value) }}
+              aria-label={t('Buffer')} className="w-40 accent-accent" />
+            <span className="w-10 text-right text-sm tabular-nums text-white">{t('{n} s', { n: radioBufferSeconds(settings.radio_buffer_sec) })}</span>
+          </div>
+        </Row>
+      </Section>
+      )}
+
       {inCategory('addons') && (
       <Section title="Addons">
         <AddonsSettings />
@@ -1801,6 +1842,13 @@ activeCategory === 'data' ? usersTried
           >
             {[['app', 'App name'], ['title', 'Track title'], ['artist', 'Track artist'], ['artist-title', 'Artist - Title'], ['title-artist', 'Title - Artist']].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
           </select>
+        </Row>
+        <Row label="Song progress on the taskbar" desc="The playing song's progress fills the app's button on the Windows taskbar. Not shown for a station or anything else without a length.">
+          <button
+            onClick={() => set('taskbar_progress', settings.taskbar_progress === '0' ? '1' : '0')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.taskbar_progress !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.taskbar_progress !== '0' ? 'On' : 'Off')}
+          </button>
         </Row>
       </Section>
       )}

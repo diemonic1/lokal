@@ -6,7 +6,7 @@ import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import LyricsPanel from './LyricsPanel'
 import { QueueContent } from './QueuePanel'
-import ArtworkBackdrop, { useArtworkBackdropEnabled } from './ArtworkBackdrop'
+import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover, { loadMotionCover } from './MotionCover'
 import { useMotionCoverOff } from '../motionCoverPrefs'
 import MixCovers from './MixCovers'
@@ -375,7 +375,7 @@ export default function RightSidebar() {
               {/* Apple Music-style: the cover runs edge to edge and dissolves
                   into colours taken from it; a moving cover plays over the
                   still one when there is one. */}
-              {fx && <ArtworkBackdrop trackId={currentTrack?.id} seam={artSrc ? heroHeight : 0} />}
+              {fx && <ArtworkBackdrop trackId={meshKeyFor(currentTrack)} seam={artSrc ? heroHeight : 0} />}
               <div className={`relative flex-1 overflow-y-auto ${fx ? '' : 'p-4'} pb-[calc(var(--player-space,0px)+1rem)]`}>
                 <motion.div
                   onDoubleClick={doubleClickLike}

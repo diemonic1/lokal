@@ -111,7 +111,7 @@ const GRAB_HOLD_MS = 1500
 // short press) doesn't flash it.
 const GRAB_BAR_DELAY_MS = 1000
 
-export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null, reorderable = false, onGrab = null, stickyBleed = '0.5rem' }) {
+export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, highlightQuiet = false, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null, reorderable = false, onGrab = null, stickyBleed = '0.5rem' }) {
   const { t } = useTranslation()
   const resolvedPlaybackRef = useRef(0)
   const resolvedToastRef = useRef(null)
@@ -343,20 +343,22 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     }
 
     handledHighlightRef.current = highlightKey
-    setFlash({ id: highlightTrackId, key: highlightKey })
+    // highlightQuiet: just bring the row to the middle, at once, no flash
+    // (the folder reopened at launch on the song that was playing).
+    if (!highlightQuiet) setFlash({ id: highlightTrackId, key: highlightKey })
 
     const node = highlightRowRef.current
     if (node) {
       // rAF so the row has been laid out before we scroll to it.
       requestAnimationFrame(() => {
         try {
-          node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          node.scrollIntoView({ behavior: highlightQuiet ? 'auto' : 'smooth', block: 'center' })
         } catch {
           node.scrollIntoView()
         }
       })
     }
-  }, [highlightTrackId, highlightKey, tracks, isLargeList, windowStart, windowEnd])
+  }, [highlightTrackId, highlightKey, highlightQuiet, tracks, isLargeList, windowStart, windowEnd])
 
   // Kept separate so re-renders of the list can't cancel the flash timer.
   // Depending on the whole { id, key } object (not just the track id) matters

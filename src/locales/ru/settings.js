@@ -532,4 +532,27 @@ export default {
   'It took longer than 5 seconds: the file is probably held by another program': 'перенос занял больше 5 секунд — скорее всего, файл заблокирован другой программой',
   "The player bar and the song list's header are see-through and blur what's behind them. Turn off for solid ones, which is lighter if playback stutters.": 'Нижняя панель плеера и шапка списка треков полупрозрачные и размывают то, что за ними. Выключите, чтобы сделать их сплошными — так легче, если воспроизведение подтормаживает.',
   "How much of the page shows through the glass of the player bar and the song list's header. Lower it if the buttons are hard to see over light pages.": 'Насколько страница просвечивает сквозь стекло нижней панели и шапки списка треков. Уменьшите, если кнопки плохо видно на светлом фоне.',
+
+  // Taskbar progress
+  'Song progress on the taskbar': 'Прогресс трека на панели задач',
+  "The playing song's progress fills the app's button on the Windows taskbar. Not shown for a station or anything else without a length.":
+    'Прогресс играющего трека заполняет кнопку приложения на панели задач Windows. Не показывается для радиостанций и всего, у чего нет длительности.',
+
+  // Open Folders In (Settings > Library, the sidebar folders' right-click menu)
+  'Open Folders In': 'Открытие папок в программах',
+  'Programs': 'Программы',
+  "Right-click a folder in the left sidebar to open it in one of these programs: the folder's full path is passed to the program. Give each a name for the menu and the program's full path.":
+    'Нажмите правой кнопкой на папку в левом меню, чтобы открыть её в одной из этих программ: программе передаётся полный путь к папке. Для каждой укажите название для меню и полный путь к программе.',
+  'Name in the menu': 'Название в меню',
+  'Program path': 'Путь к программе',
+  'Choose the program': 'Выбрать программу',
+  'Add program': 'Добавить программу',
+  'Could not open “{folder}” in {app}: {error}': 'Не удалось открыть «{folder}» в {app}: {error}',
+  'This program is not in Settings > Library': 'этой программы нет в Настройки > Библиотека',
+  'The program was not found': 'программа не найдена',
+  'Could not read the shortcut': 'не удалось прочитать ярлык',
+  'Could not start the program': 'не удалось запустить программу',
+  'The folder is not available': 'папка недоступна',
+  'Python was not found': 'Python не найден',
+  'Windows Script Host was not found': 'Windows Script Host не найден',
 }

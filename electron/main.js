@@ -22,6 +22,7 @@ const { registerPlayerHandlers } = require('./ipc/player')
 const { registerDownloaderHandlers, registerExtraDownloaderHandlers, registerPlaylistArchiveHandlers, markInterruptedPlaylistsIncomplete, shutdownActiveDownloads } = require('./ipc/downloader')
 const { registerLyricsHandlers } = require('./ipc/lyrics')
 const { registerArtworkFxHandlers } = require('./ipc/artworkFx')
+const { registerRadioHandlers } = require('./ipc/radio')
 const { registerFollowedArtistsHandlers } = require('./ipc/followedArtists')
 const { registerCacheHandlers } = require('./ipc/cache')
 const { registerUserHandlers } = require('./ipc/users')
@@ -482,8 +483,10 @@ app.whenReady().then(() => {
   // Once the startup scan has run, changes in the music folder show up as they happen.
   try { require('./ipc/scanner').watchLibraryAfterScans() } catch (e) { console.error('watchLibraryAfterScans:', e.message) }
   try { registerThumbarHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerThumbarHandlers:', e.message) }
+  try { require('./ipc/folderApps').registerFolderAppsHandlers(ipcMain) } catch (e) { console.error('registerFolderAppsHandlers:', e.message) }
   try { registerSmtcHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerSmtcHandlers:', e.message) }
   try { registerArtworkFxHandlers(ipcMain) } catch (e) { console.error('registerArtworkFxHandlers:', e.message) }
+  try { registerRadioHandlers(ipcMain) } catch (e) { console.error('registerRadioHandlers:', e.message) }
   try { registerFollowedArtistsHandlers(ipcMain) } catch (e) { console.error('registerFollowedArtistsHandlers:', e.message) }
   try { registerCacheHandlers(ipcMain) } catch (e) { console.error('registerCacheHandlers:', e.message) }
   try { registerOnlineHandlers(ipcMain) } catch (e) { console.error('registerOnlineHandlers:', e.message) }

@@ -1,20 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Folder, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { AppWindow, Folder, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../api'
 import FadeImg from './FadeImg'
 import { setLibraryFolder, useLibraryFolder } from '../libraryNav'
 import { LEFT_SIDEBAR_WIDTH, setLeftSidebarWidth, useLeftSidebarScale, useLeftSidebarWidth } from '../sidePanelPrefs'
 import { useTranslation } from '../i18n'
+import { useAppearanceText } from '../appearanceFlags'
+import ContextMenu, { useContextMenu } from './ContextMenu'
+import { showToast } from './Toaster'
+import { parseFolderApps } from './FolderAppsSettings'
 
 // Collapsed, the sidebar shows only the folders' covers (their names on
 // hover); the choice is remembered.
 const COLLAPSED_KEY = 'lokal-sidebar-collapsed'
 const readCollapsed = () => { try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false } }
 
-const coverSrc = folder => folder.coverPath
-  ? (api.isElectron ? api.fileURL(folder.coverPath) : api.artworkURL(folder.coverTrackId))
-  : null
+// folder_cover.jpg/png in the folder first (its version busts the image cache
+// when the file changes), else the artwork of its top song by track number.
+const coverSrc = folder => folder.folderCoverPath
+  ? (api.isElectron ? `${api.fileURL(folder.folderCoverPath)}?v=${folder.folderCoverVersion || 0}` : api.folderCoverURL(folder.path, folder.folderCoverVersion))
+  : folder.coverPath
+    ? (api.isElectron ? api.fileURL(folder.coverPath) : api.artworkURL(folder.coverTrackId))
+    : null
 
 /** Left sidebar: the music folder's subfolders with songs; picking one opens it in Library. */
 export default function Sidebar() {
@@ -28,6 +36,20 @@ export default function Sidebar() {
   const width = useLeftSidebarWidth()
   const scale = useLeftSidebarScale()
   const [resizing, setResizing] = useState(false)
+  // Right-click: open the folder in a program from Settings > Library > Open Folders In.
+  const menu = useContextMenu()
+  const folderApps = parseFolderApps(useAppearanceText('folder_apps', '[]')).filter(app => app.path.trim())
+  const openFolderMenu = (event, folder) => {
+    if (!api.isElectron || !folderApps.length) return
+    menu.open(event, folderApps.map(app => ({
+      label: app.name.trim() || app.path.split(/[\\/]/).pop(),
+      icon: AppWindow,
+      onSelect: async () => {
+        const result = await Promise.resolve(api.launchFolderApp(app.path.trim(), folder.path)).catch(error => ({ ok: false, error: error.message }))
+        if (!result?.ok) showToast(t('Could not open “{folder}” in {app}: {error}', { folder: folder.name, app: app.name.trim() || app.path, error: t(result?.error || 'Unexpected error') }))
+      },
+    })))
+  }
   const toggleCollapsed = () => setCollapsed(value => {
     // (Worked out before the try: the React Compiler can't compile a
     // conditional inside one, and then skips the whole component.)
@@ -119,6 +141,7 @@ export default function Sidebar() {
               data-folder-drop={folder.path}
               type="button"
               onClick={() => open(folder.path)}
+              onContextMenu={event => openFolderMenu(event, folder)}
               title={collapsed ? folder.name : undefined}
               aria-label={collapsed ? folder.name : undefined}
               aria-current={active ? 'page' : undefined}
@@ -135,6 +158,7 @@ export default function Sidebar() {
           )
         })}
       </nav>
+      <ContextMenu menu={menu} />
 
       {/* Drag the right edge to resize; double-click puts it back. */}
       {!collapsed && (

@@ -16,6 +16,9 @@ import { useTranslation } from '../i18n'
 import { TRACK_CHANGED, readTrack, placeTrack } from '../trackChanged'
 
 const LIBRARY_PAGE_SIZE = 50
+// Once per launch, the folder opens on the song that was playing (see Library).
+let revealedAtLaunch = false
+const REVEAL_MAX_PAGES = 20
 // How the list goes from one folder's songs to the next's. While the next
 // folder loads, the old list waits (faded or dimmed); once its songs are in,
 // the new list comes in (a CSS animation, see .folder-in-* in index.css,
@@ -345,6 +348,26 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     return () => observer.disconnect()
   }, [hasMore, loading, folder, sort, source, genre, quality, problemsOnly, tracks.length])
 
+  // At launch the folder is scrolled so the song that was playing sits in the
+  // middle of the screen: more pages load until it's in the list (when it's
+  // in this folder at all), then the list centres on it.
+  const currentId = usePlayerStore(s => s.currentTrack?.id ?? null)
+  const currentPath = usePlayerStore(s => s.currentTrack?.file_path || '')
+  const [revealId, setRevealId] = useState(null)
+  useEffect(() => {
+    if (revealedAtLaunch || inGenre || reorder || !loaded || loading || switchingFolder || currentId == null) return
+    if (tracks.some(track => track.id === currentId)) {
+      revealedAtLaunch = true
+      setRevealId(currentId)
+      return
+    }
+    const inFolder = !folder || String(currentPath).replace(/\\/g, '/').includes(`/${folder}/`)
+    if (inFolder && hasMore && tracks.length < LIBRARY_PAGE_SIZE * REVEAL_MAX_PAGES) load(true)
+    else revealedAtLaunch = true
+  }, [currentId, currentPath, loaded, loading, switchingFolder, tracks, hasMore, folder, inGenre, reorder]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Another folder or sort: it's not opened on that song again.
+  useEffect(() => { setRevealId(null) }, [folder, sort, source, genre, quality, problemsOnly])
+
   const activeFilters = (source !== 'all' ? 1 : 0) + (genre && !inGenre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
   const clearFilters = () => { setSource('all'); if (!inGenre) setGenre(''); setQuality(''); setProblemsOnly(false) }
 
@@ -452,6 +475,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
         // animations in the same frames made that fade stutter.
         <div key={transition === 'fade' || transition === 'none' ? undefined : listFolder} {...folderTransitionProps(transition, switchingFolder)}>
           <TrackList stickyBleed="1.5rem" tracks={tracks} showQuality reduceMotion toolbarStart={header} toolbarEnd={controls}
+            highlightTrackId={revealId} highlightQuiet
             onGrab={folderOrder && activeFilters === 0 ? grab.start : null} />
         </div>
       ) : (

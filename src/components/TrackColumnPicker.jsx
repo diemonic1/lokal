@@ -7,7 +7,14 @@ import { useTranslation } from '../i18n'
 // Shown inside Title or at the row's ends: switched on and off, not moved.
 const OTHER_OPTIONS = [['artwork', 'Artwork'], ['artist', 'Artist'], ['actions', 'Quick actions'], ['grip', 'Drag handle']]
 
-export default function TrackColumnPicker({ columns, playlist, onChange, onReset }) {
+// Another list's columns (online radio stations) pass their own definitions,
+// options and texts; the song lists use the defaults.
+export default function TrackColumnPicker({
+  columns, playlist, onChange, onReset,
+  defs = TRACK_COLUMN_DEFS, alwaysShown = ALWAYS_SHOWN, otherOptions = null,
+  buttonLabel = 'Edit song list columns', panelLabel = 'Song list columns', heading = 'Show in song lists',
+  note = "Saved for all song lists in this profile. Drag a column's edge in the header to resize it. Narrow lists tuck Album under Title and fit other columns as space allows.",
+}) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   // The column being dragged in the list, and where it would land.
@@ -67,20 +74,20 @@ export default function TrackColumnPicker({ columns, playlist, onChange, onReset
   }, [open])
 
   return <>
-    <button ref={button} type="button" title={t('Edit song list columns')} aria-label={t('Edit song list columns')}
+    <button ref={button} type="button" title={t(buttonLabel)} aria-label={t(buttonLabel)}
       aria-expanded={open} aria-controls={open ? id : undefined} aria-haspopup="dialog"
       onClick={event => { event.stopPropagation(); setOpen(value => !value) }}
       className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted hover:bg-elevated hover:text-text focus-visible:outline focus-visible:outline-accent">
       <Columns3 size={14} /> {t('Columns')}
     </button>
     {open && createPortal(
-      <div ref={panel} id={id} role="dialog" aria-label={t('Song list columns')} style={position}
+      <div ref={panel} id={id} role="dialog" aria-label={t(panelLabel)} style={position}
         onClick={event => event.stopPropagation()}
         className="fixed z-[200] w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-border bg-elevated p-2 shadow-2xl">
-        <p className="px-2 py-1.5 text-xs font-display uppercase tracking-wider text-muted">{t('Show in song lists')}</p>
+        <p className="px-2 py-1.5 text-xs font-display uppercase tracking-wider text-muted">{t(heading)}</p>
         {columns.order.map(key => {
-          const locked = ALWAYS_SHOWN.has(key)
-          const label = t(TRACK_COLUMN_DEFS[key].label)
+          const locked = alwaysShown.has(key)
+          const label = t(defs[key].label)
           return (
             <div key={key} draggable
               onDragStart={event => { setDragKey(key); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', key) }}
@@ -104,7 +111,7 @@ export default function TrackColumnPicker({ columns, playlist, onChange, onReset
           )
         })}
         <div className="my-1 border-t border-border" />
-        {OTHER_OPTIONS.filter(([key]) => key !== 'grip' || playlist).map(([key, label]) => (
+        {(otherOptions || OTHER_OPTIONS.filter(([key]) => key !== 'grip' || playlist)).map(([key, label]) => (
           <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-text hover:bg-card focus-within:bg-card">
             <input type="checkbox" checked={!!columns[key]} onChange={event => onChange(key, event.target.checked)} className="accent-accent" />
             {t(label)}
@@ -126,7 +133,7 @@ export default function TrackColumnPicker({ columns, playlist, onChange, onReset
             onDoubleClick={() => onChange('rowGap', ROW_GAP.initial)}
             aria-label={t('Row spacing')} title={t('Double-click to reset')} className="w-full accent-accent" />
         </div>
-        <p className="border-t border-border px-2 pt-2 text-[11px] leading-relaxed text-muted">{t("Saved for all song lists in this profile. Drag a column's edge in the header to resize it. Narrow lists tuck Album under Title and fit other columns as space allows.")}</p>
+        <p className="border-t border-border px-2 pt-2 text-[11px] leading-relaxed text-muted">{t(note)}</p>
         <button type="button" onClick={onReset} className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs text-accent hover:bg-card">{t('Reset to defaults')}</button>
       </div>, document.body,
     )}

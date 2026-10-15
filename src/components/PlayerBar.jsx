@@ -12,7 +12,9 @@ import Waveform from './Waveform'
 import { showToast } from './Toaster'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
 import CoverGradient from './CoverGradient'
+import { meshKeyFor } from './ArtworkBackdrop'
 import { trackArtURL, isStreamed, streamLabel } from '../onlineTracks'
+import { isStationTrack } from '../radio/stations'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
 import MixingMark from './MixingMark'
@@ -86,7 +88,7 @@ export default function PlayerBar() {
 
 
   const handleScrub = useCallback((e) => {
-    if (!duration) return
+    if (!duration || isStationTrack(usePlayerStore.getState().currentTrack)) return
     const r = e.currentTarget.getBoundingClientRect()
     const t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * duration
     setLocalProg(t)
@@ -106,9 +108,12 @@ export default function PlayerBar() {
 
   // An online song (YouTube, SoundCloud): label, and a button to save it.
   const streamed = isStreamed(currentTrack)
+  // An online radio station: live, nothing to seek; its song's length only
+  // when the station's API said.
+  const station = isStationTrack(currentTrack)
 
   const handleArtistClick = () => {
-    if (!currentTrack) return
+    if (!currentTrack || station) return
     navigateToTrackArtist(nav, currentTrack, keepCommaArtists)
   }
 
@@ -152,7 +157,7 @@ export default function PlayerBar() {
   }
 
   const openTrackMenu = (event) => {
-    if (!currentTrack) return
+    if (!currentTrack || station) return
     menu.open(event, [
       { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
       currentTrack.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
@@ -185,7 +190,7 @@ export default function PlayerBar() {
           '--cover-gradient-width': infoWidth ? `${Math.round(infoWidth + 16 + 48)}px` : undefined,
         }}
         onWheel={onBarWheel}>
-        {showGradient && <CoverGradient trackId={currentTrack?.id} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
+        {showGradient && <CoverGradient trackId={meshKeyFor(currentTrack)} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
         <div ref={infoRef} className="relative flex flex-1 items-center gap-3 min-w-0">
         <button onClick={toggleFullscreen} disabled={!currentTrack}
           className="relative w-[70px] h-[70px] my-[10px] rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
@@ -194,7 +199,7 @@ export default function PlayerBar() {
               (and title) up for good while songs changed. Layers crossfade. */}
           <AnimatePresence initial={false}>
             {artSrc ? (
-              <motion.img key={currentTrack?.id} src={artSrc}
+              <motion.img key={station ? artSrc : currentTrack?.id} src={artSrc}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                 className="absolute inset-0 w-full h-full object-cover" />
             ) : (
@@ -205,7 +210,7 @@ export default function PlayerBar() {
 
         <div className="min-w-0 flex-1">
           {/* The new song's title in at once (fading in), never waiting on the old one's way out. */}
-            <motion.div key={currentTrack?.id||'none'} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
+            <motion.div key={station ? `${currentTrack.id}|${currentTrack.artist}|${currentTrack.title}` : currentTrack?.id||'none'} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
               <div className="flex items-center gap-2 min-w-0">
                 {currentTrack ? (
                   <button
@@ -267,24 +272,26 @@ export default function PlayerBar() {
             <div aria-hidden className="pointer-events-none absolute -inset-x-3 rounded-full"
               style={{ backgroundColor: `rgb(var(--surface-rgb) / ${(1 - shadeTransparency / 100).toFixed(2)})`, filter: 'blur(10px)', top: 1, height: 12 }} />
           )}
-          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 text-right font-display">{fmt(display)}</span>
+          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 text-right font-display">{station && !duration ? '' : fmt(display)}</span>
           {/* The unplayed part in the theme's text colour, toned down to grey. */}
-          <div className="flex-1 h-1 bg-text/25 rounded-full cursor-pointer group relative overflow-hidden"
-            onWheel={onSeekWheel}
+          <div className={`flex-1 h-1 bg-text/25 rounded-full group relative overflow-hidden ${station ? '' : 'cursor-pointer'}`}
+            onWheel={station ? undefined : onSeekWheel}
             onMouseMove={handleScrub}
             onMouseDown={e => { scrubbing.current = true; handleScrub(e) }}
             onMouseUp={() => { scrubbing.current = false; setLocalProg(null) }}
             onMouseLeave={() => { if (!scrubbing.current) setLocalProg(null) }}>
             <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />
+              {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
             </div>
-            {isBuffering && streamed && (
+            {isBuffering && (streamed || station) && (
               <div role="progressbar" aria-label={t("Loading track")} className="absolute inset-0 overflow-hidden rounded-full bg-elevated">
                 <div className="queue-loading-seekbar h-full w-1/3 rounded-full bg-accent" />
               </div>
             )}
           </div>
-          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 font-display">{fmt(duration)}</span>
+          {station && !duration
+            ? <span className="relative text-[10px] text-accent w-8 font-display uppercase tracking-wider">{t('On air')}</span>
+            : <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 font-display">{fmt(duration)}</span>}
         </div>
         </div>
 
@@ -293,6 +300,13 @@ export default function PlayerBar() {
             <div className="min-w-0 shrink basis-[120px] overflow-hidden">
               <Waveform isPlaying={isPlaying} className="w-full" />
             </div>
+          )}
+          {/* Online radio: which station. */}
+          {station && (
+            <span title={t('Online radio: {station}', { station: currentTrack.station?.title || currentTrack.album })}
+              className="flex-shrink min-w-0 max-w-[10rem] truncate whitespace-nowrap rounded-md border border-accent px-2 py-0.5 text-[10px] font-display uppercase tracking-wider text-accent">
+              {currentTrack.station?.title || currentTrack.album}
+            </span>
           )}
           {/* Where the song plays from, when it isn't a file in the library. */}
           {streamed && (
@@ -314,7 +328,7 @@ export default function PlayerBar() {
                 aria-label={t('Volume')} aria-valuetext={`${Math.round(volume * 100)}%`}
                 className="w-18 accent-accent cursor-pointer h-1" style={{ width: 72 }} />
               <span aria-hidden="true"
-                className={`pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-display text-text shadow-lg transition-opacity duration-150 ${volumeTip ? 'opacity-100' : 'opacity-0'}`}
+                className={`pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-elevated px-[9px] py-[3px] text-[15px] leading-tight font-display text-text shadow-lg transition-opacity duration-150 ${volumeTip ? 'opacity-100' : 'opacity-0'}`}
                 style={{ left: `${Math.round(volume * 100) * 0.72 * 0.86 + 72 * 0.07}px` }}>
                 {Math.round(volume * 100)}%
               </span>

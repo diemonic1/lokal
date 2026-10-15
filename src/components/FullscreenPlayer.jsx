@@ -6,7 +6,7 @@ import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import LyricsPanel from './LyricsPanel'
 import { cacheLyrics, hasLyricLines, peekLyrics } from '../lyrics/lyricsCache'
-import ArtworkBackdrop, { useArtworkBackdropEnabled } from './ArtworkBackdrop'
+import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover, { loadMotionCover } from './MotionCover'
 import LikeBurst from './LikeBurst'
 import { useMotionCoverOff } from '../motionCoverPrefs'
@@ -20,6 +20,7 @@ import { api, wordSyncEnabled } from '../api'
 import { useTranslation } from '../i18n'
 import { contextLabel, isContextNavigable, navigateToContext } from '../playbackContext'
 import { trackArtURL } from '../onlineTracks'
+import { isStationTrack } from '../radio/stations'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
 const COVER_SIZE = 'min(34rem, 54vh)'
@@ -619,7 +620,7 @@ export default function FullscreenPlayer() {
             {/* Colours taken from the cover (see ArtworkBackdrop), or -- with
                 that switched off in Settings -- the plain blurred cover. */}
             {backdropFx ? (
-              <ArtworkBackdrop trackId={currentTrack?.id} blur={64} />
+              <ArtworkBackdrop trackId={meshKeyFor(currentTrack)} blur={64} />
             ) : (
               <AnimatePresence mode="wait">
                 {artSrc ? (
@@ -801,7 +802,7 @@ export default function FullscreenPlayer() {
                 onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                 <div className="absolute inset-y-0 left-0 bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
               </div>
-              <span className="w-11 text-sm tabular-nums text-white/75">{fmt(duration)}</span>
+              <span className="w-11 text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
             </div>
 
             {/* In at once, fading: never waiting on the old title's way out (see PlayerBar). */}

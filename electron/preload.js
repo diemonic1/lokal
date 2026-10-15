@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('electron', {
   getReplayGain: (trackId) => invoke('player:getReplayGain', trackId),
   onOpenFileRequest: (fn) => on('player:openFile', (_, filePath) => fn(filePath)),
   updateThumbarState: (state) => invoke('thumbar:updateState', state),
+  setTaskbarProgress: (state) => invoke('thumbar:progress', state),
+  launchFolderApp: (appPath, folder) => invoke('folderApps:launch', appPath, folder),
   onThumbarCommand: (fn) => {
     const channels = {
       'thumbar:previous': 'previous',
@@ -211,6 +213,10 @@ contextBridge.exposeInMainWorld('electron', {
   markDownloadsSeen: () => invoke('downloader:markSeen'),
   playableFile: (filePath) => invoke('media:playableFile', filePath),
   artworkMesh: (trackId) => invoke('artwork:mesh', trackId),
+  artworkMeshFromUrl: (url) => invoke('artwork:meshFromUrl', url),
+  radioGetCatalog: () => invoke('radio:getCatalog'),
+  radioLoadCatalog: (url) => invoke('radio:loadCatalog', url),
+  radioNowPlaying: (stationApi) => invoke('radio:nowPlaying', stationApi),
   cacheUsage: () => invoke('cache:usage'),
   cacheTrim: () => invoke('cache:trim'),
   cacheClear: () => invoke('cache:clear'),

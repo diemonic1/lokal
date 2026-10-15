@@ -616,6 +616,8 @@ async function runScan(folderPath, { full = false } = {}) {
   const db = getDB()
   ensureReplaygainColumn(db)
   scanStatus = { scanning: true, total: 0, done: 0, errors: 0, skipped: 0 }
+  // The tags are read again: folder_cover images are looked for again too.
+  require('../libraryFolder').clearFolderCoverCache()
   try {
     const relinked = relinkArtistsIfNeeded(db)
     if (relinked) console.log(`[scanFolder] Re-linked artists for ${relinked} track(s)`)

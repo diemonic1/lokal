@@ -40,6 +40,7 @@ app.use('/api/albums', require('./routes/albums'))
 app.use('/api/lastfm', require('./routes/lastfm'))
 app.use('/api/listenbrainz', require('./routes/listenbrainz'))
 app.use('/api/online', require('./routes/online'))
+app.use('/api/radio', require('./routes/radio'))
 app.use('/api/remote', require('./routes/remote'))
 app.use('/api/plugins', require('./routes/plugins'))
 app.use('/api/recaps', require('./routes/recaps'))
@@ -103,6 +104,15 @@ app.get('/api/artwork/:trackId', (req, res) => {
     }
   } catch {}
   res.status(404).send('No artwork')
+})
+
+// A sidebar folder's own picture (folder_cover.jpg/png), by its path in the music folder.
+app.get('/api/folder-cover', (req, res) => {
+  try {
+    const file = require('../electron/libraryFolder').folderCoverForRelative(getDB(), typeof req.query.path === 'string' ? req.query.path : '')
+    if (file && fs.existsSync(file)) return res.sendFile(file)
+  } catch {}
+  res.status(404).send('No folder cover')
 })
 
 app.get('/api/artist-image/:artistId', (req, res) => {

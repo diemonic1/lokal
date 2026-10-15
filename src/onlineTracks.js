@@ -87,9 +87,14 @@ export function downloadSourceLabel(source, names = {}) {
   return DOWNLOAD_SOURCE_LABELS[source] || (isAddonProvider(source) ? (names[source] || 'Addon') : null)
 }
 
-/** Can the player play it: a file, or a ghost that can be streamed. */
+/** Can the player play it: a file, a ghost that can be streamed, or an online radio station. */
 export function isPlayable(track) {
-  return !!track && (!isGhostTrack(track) || isStreamed(track))
+  return !!track && (isRadioStation(track) || !isGhostTrack(track) || isStreamed(track))
+}
+
+/** An online radio station (src/radio/stations.js): radioSession plays it, not a src. */
+function isRadioStation(track) {
+  return track?.kind === 'station' || String(track?.file_path || '').startsWith('station://')
 }
 
 /** Cover to show for a track: its artwork file, or an online song's remote cover. */
@@ -101,7 +106,7 @@ export function trackArtURL(track) {
 
 /** Where the player gets the audio: the file, or the stream of an online song; null if neither. */
 export function audioSrcFor(track) {
-  if (!track?.file_path) return null
+  if (!track?.file_path || isRadioStation(track)) return null
   const ref = streamRef(track)
   if (ref) return api.onlineStreamURL(ref.provider, ref.id)
   if (isGhostTrack(track)) return null
