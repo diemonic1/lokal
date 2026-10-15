@@ -23,26 +23,22 @@ const sameSong = (a, b) =>
   String(a.artist || '').trim().toLowerCase() === String(b.artist || '').trim().toLowerCase() &&
   (!a.duration || !b.duration || Math.abs(Number(a.duration) - Number(b.duration)) < 2)
 
-/**
- * @param folderPath    the music folder just scanned
- * @param scannedFiles  the audio files the scan found in it
- * -> { removed, moved }
- */
-function pruneMissingTracks(db, folderPath, scannedFiles, { exists = fs.existsSync } = {}) {
-  if (!folderPath || !Array.isArray(scannedFiles) || !scannedFiles.length || !exists(folderPath)) return { removed: 0, moved: 0 }
-  const root = path.resolve(folderPath)
+/** The file_path range of everything inside `dir`: [prefix, upper). */
+function pathRange(dir) {
+  const root = path.resolve(dir)
   const prefix = root.endsWith(path.sep) ? root : root + path.sep
   const upper = prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1)
-  const found = new Set(scannedFiles.map(file => path.resolve(file).toLowerCase()))
-  const rows = db.prepare("SELECT * FROM tracks WHERE file_path >= ? AND file_path < ? AND file_path NOT LIKE 'ghost://%'").all(prefix, upper)
-  const stale = rows.filter(row => !found.has(path.resolve(row.file_path).toLowerCase()) && !exists(row.file_path))
+  return [prefix, upper]
+}
+
+/** Removes the `stale` rows; each hands what it has to `copyOf(row)`, when there is one. */
+function dropTracks(db, stale, copyOf) {
   if (!stale.length) return { removed: 0, moved: 0 }
-  const present = rows.filter(row => !stale.includes(row))
   const tables = trackTables(db)
   let moved = 0
   const run = db.transaction(() => {
     for (const old of stale) {
-      const copy = present.find(row => sameSong(row, old))
+      const copy = copyOf(old)
       for (const table of tables) {
         const quoted = `"${table.replace(/"/g, '""')}"`
         if (copy) { try { db.prepare(`UPDATE OR IGNORE ${quoted} SET track_id = ? WHERE track_id = ?`).run(copy.id, old.id) } catch {} }
@@ -61,4 +57,41 @@ function pruneMissingTracks(db, folderPath, scannedFiles, { exists = fs.existsSy
   return { removed: stale.length - moved, moved }
 }
 
-module.exports = { pruneMissingTracks }
+/**
+ * @param folderPath    the music folder just scanned
+ * @param scannedFiles  the audio files the scan found in it
+ * -> { removed, moved }
+ */
+function pruneMissingTracks(db, folderPath, scannedFiles, { exists = fs.existsSync } = {}) {
+  if (!folderPath || !Array.isArray(scannedFiles) || !scannedFiles.length || !exists(folderPath)) return { removed: 0, moved: 0 }
+  const [prefix, upper] = pathRange(folderPath)
+  const found = new Set(scannedFiles.map(file => path.resolve(file).toLowerCase()))
+  const rows = db.prepare("SELECT * FROM tracks WHERE file_path >= ? AND file_path < ? AND file_path NOT LIKE 'ghost://%'").all(prefix, upper)
+  const stale = rows.filter(row => !found.has(path.resolve(row.file_path).toLowerCase()) && !exists(row.file_path))
+  const present = rows.filter(row => !stale.includes(row))
+  return dropTracks(db, stale, old => present.find(row => sameSong(row, old)))
+}
+
+/**
+ * The folder watcher saw these paths go (files, or whole folders deleted or
+ * renamed): their songs leave the library, each handing its plays, likes and
+ * playlist places to a copy that's still on disk (the same file under its
+ * new name), when there is one.
+ * -> { removed, moved, ids }
+ */
+function pruneGonePaths(db, gonePaths, { exists = fs.existsSync } = {}) {
+  const stale = new Map()
+  const byPath = db.prepare('SELECT * FROM tracks WHERE file_path = ?')
+  const inside = db.prepare('SELECT * FROM tracks WHERE file_path >= ? AND file_path < ?')
+  for (const gone of gonePaths || []) {
+    if (!gone || exists(gone)) continue
+    const rows = [byPath.get(path.resolve(gone)), ...inside.all(...pathRange(gone))]
+    for (const row of rows) if (row && !String(row.file_path).startsWith('ghost://') && !exists(row.file_path)) stale.set(row.id, row)
+  }
+  if (!stale.size) return { removed: 0, moved: 0, ids: [] }
+  const sameTitle = db.prepare("SELECT * FROM tracks WHERE title = ? COLLATE NOCASE AND file_path NOT LIKE 'ghost://%'")
+  const copyOf = old => sameTitle.all(String(old.title || '')).find(row => !stale.has(row.id) && sameSong(row, old) && exists(row.file_path))
+  return { ...dropTracks(db, [...stale.values()], copyOf), ids: [...stale.keys()] }
+}
+
+module.exports = { pruneMissingTracks, pruneGonePaths }

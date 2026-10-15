@@ -3,6 +3,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { api, peekSettings } from './api'
+import { announceTrackChanged } from './trackChanged'
 
 let state = { scanning: false, done: 0, total: 0 }
 const listeners = new Set()
@@ -24,6 +25,19 @@ function ensureSubscribed() {
       set({ scanning: true, done: data.done || 0, total: data.total || 0 })
     }
   })
+  // The music folder changed outside Lokal (a tag editor, Explorer). A few
+  // retagged songs are read again where they are shown; songs that came or
+  // went (or many at once) refresh the lists, counts and albums.
+  api.onLibraryChanged(changes => {
+    const added = changes?.added || []
+    const updated = changes?.updated || []
+    const removed = changes?.removed || []
+    if (added.length || removed.length || updated.length > 20) {
+      window.dispatchEvent(new Event('lokal:refresh'))
+      return
+    }
+    for (const id of updated) announceTrackChanged(id)
+  })
 }
 
 export function useScanProgress() {
@@ -32,10 +46,11 @@ export function useScanProgress() {
 }
 
 /**
- * Scan the music folder, reading every file's tags again. The desktop app
- * reports progress as it goes; the web server only answers once it started.
+ * Scan the music folder: `full` reads every file's tags again, otherwise only
+ * new and changed files are read. The desktop app reports progress as it
+ * goes; the web server only answers once it started.
  */
-export async function rescanLibrary(folder) {
+export async function rescanLibrary(folder, { full = true } = {}) {
   ensureSubscribed()
   let target = folder || peekSettings()?.music_folder
   if (!target) {
@@ -44,7 +59,7 @@ export async function rescanLibrary(folder) {
   if (!target) return
   set({ scanning: true, done: 0, total: 0 })
   try {
-    await api.scanFolder(target, { full: true })
+    await api.scanFolder(target, { full })
   } catch {
     set({ scanning: false })
   } finally {
@@ -55,10 +70,13 @@ export async function rescanLibrary(folder) {
   }
 }
 
-// Every launch reads the tags again (once per app start, not per remount).
+// Every launch catches up with what changed while the app was closed (once
+// per app start, not per remount): files whose modification time differs
+// from the library's are read again, the rest cost a stat. Then the desktop
+// app watches the folder.
 let startupScanDone = false
 export function rescanOnStartup() {
   if (startupScanDone) return
   startupScanDone = true
-  rescanLibrary().catch(() => {})
+  rescanLibrary(null, { full: false }).catch(() => {})
 }

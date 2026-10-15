@@ -479,6 +479,8 @@ app.whenReady().then(() => {
     try { fn(ipcMain) } catch (e) { console.error(fn.name + ':', e.message) }
   }
   registerNativeOutput(ipcMain, () => mainWindow)
+  // Once the startup scan has run, changes in the music folder show up as they happen.
+  try { require('./ipc/scanner').watchLibraryAfterScans() } catch (e) { console.error('watchLibraryAfterScans:', e.message) }
   try { registerThumbarHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerThumbarHandlers:', e.message) }
   try { registerSmtcHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerSmtcHandlers:', e.message) }
   try { registerArtworkFxHandlers(ipcMain) } catch (e) { console.error('registerArtworkFxHandlers:', e.message) }
@@ -792,6 +794,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   closeNativeOutput()
+  try { require('./libraryWatcher').stopWatching() } catch {}
   // The hidden helper windows go too.
   try { require('./online/youtubeFast').forget() } catch {}
   try { require('./online/poToken').reset() } catch {}

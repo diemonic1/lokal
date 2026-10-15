@@ -390,6 +390,7 @@ function afterFileWrite(db, trackId, filePath, done, text) {
   try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done?.empty ? '' : fileLyrics.lyricsKind(text), trackId) } catch {}
   try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ? OR file_path = ?').run(trackId, filePath) } catch {}
   try { db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId) } catch {}
+  require('../fileStamp').noteFileWritten(db, filePath)
 }
 
 /** The lyrics stored in the track's file, for the tag editor. */

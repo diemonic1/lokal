@@ -228,17 +228,6 @@ async function extractArtwork(metadata, trackId, fallbackArtwork = null) {
   return fallbackArtwork || null
 }
 
-function walkDir(dir, files = []) {
-  try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name)
-      if (entry.isDirectory()) walkDir(full, files)
-      else if (AUDIO_EXTS.has(path.extname(entry.name).toLowerCase())) files.push(full)
-    }
-  } catch {}
-  return files
-}
-
 function isDrumKit(title, album, genre) {
   if (DRUM_KIT_PATTERNS.test(title)) return true
   if (album && DRUM_KIT_PATTERNS.test(album)) return true
@@ -463,20 +452,100 @@ function scanFolder(folderPath, opts = {}) {
   return pendingFullScan
 }
 
-// `full` reads every file's tags again, not only new and changed files.
-async function runScan(folderPath, { full = false } = {}) {
-  const db = getDB()
-  try { db.exec("ALTER TABLE tracks ADD COLUMN replaygain TEXT") } catch {}
-  scanStatus = { scanning: true, total: 0, done: 0, errors: 0, skipped: 0 }
-  try {
-    const relinked = relinkArtistsIfNeeded(db)
-    if (relinked) console.log(`[scanFolder] Re-linked artists for ${relinked} track(s)`)
-  } catch (e) { console.warn('[scanFolder] Artist re-link skipped:', e.message) }
-  const files = walkDir(folderPath)
-  const rereadTags = full || Number(db.prepare("SELECT value FROM settings WHERE key = 'tag_reader_version'").get()?.value || 0) < TAG_READER_VERSION
-  scanStatus.total = files.length
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('music_folder', ?)").run(folderPath)
+// How many files are read at once: reading tags mostly waits on the disk.
+const PARSE_CONCURRENCY = 6
+// The scan bar doesn't need a message per file.
+const PROGRESS_EVERY_MS = 100
 
+/** Runs `fn` over `list`, at most `limit` at a time. */
+async function eachLimit(list, limit, fn) {
+  let next = 0
+  const worker = async () => { while (next < list.length) { const i = next++; await fn(list[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker))
+}
+
+/** The audio files under `dir`, without blocking the app while it looks. */
+async function listAudioFiles(dir, files = []) {
+  let entries
+  try { entries = await fs.promises.readdir(dir, { withFileTypes: true }) } catch { return files }
+  const subdirs = []
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) subdirs.push(full)
+    else if (AUDIO_EXTS.has(path.extname(entry.name).toLowerCase())) files.push(full)
+  }
+  for (const sub of subdirs) await listAudioFiles(sub, files)
+  return files
+}
+
+// What a scan reads once, not once per file.
+function scanContext() {
+  const folderArtworkCache = new Map()
+  return {
+    minDuration: getMinDuration(),
+    skipDrumKit: getSkipDrumKit(),
+    storedArtworkDir: path.resolve(getStorageDir(), 'artwork'),
+    folderArtwork(filePath) {
+      const folderPath = path.dirname(filePath)
+      if (!folderArtworkCache.has(folderPath)) folderArtworkCache.set(folderPath, findFolderArtwork(folderPath))
+      return folderArtworkCache.get(folderPath)
+    },
+  }
+}
+
+const knownTrackByPath = db => db.prepare('SELECT id, last_modified, artwork_path FROM tracks WHERE file_path = ?')
+
+/**
+ * Whether the library's row for this file is up to date: the file wasn't
+ * modified since it was read, and its cover is still where the row says.
+ * This is only a stat, so a scan of an unchanged library reads no tags.
+ */
+function isUnchanged(existing, stat, ctx, filePath) {
+  if (!existing || existing.last_modified !== stat.mtimeMs) return false
+  const folderArtwork = ctx.folderArtwork(filePath)
+  const existingArtwork = existing.artwork_path ? path.resolve(existing.artwork_path) : null
+  const hasCachedArtwork = existingArtwork && path.dirname(existingArtwork) === ctx.storedArtworkDir && fs.existsSync(existingArtwork)
+  const hasCurrentFolderArtwork = folderArtwork && existingArtwork === path.resolve(folderArtwork)
+  const noArtworkToUpdate = !existingArtwork && !folderArtwork
+  return !!(hasCachedArtwork || hasCurrentFolderArtwork || noArtworkToUpdate)
+}
+
+/**
+ * Reads one file's tags into the row the library keeps for it.
+ * -> { item } | { skipped: reason }; throws when the file can't be read.
+ */
+async function readTrackFile(filePath, stat, ctx, existingId = null) {
+  // The cover is stored under the file's version, so a changed cover is a new picture.
+  const versionId = 't-' + hashFile(filePath, stat)
+  const meta = await mm.parseFile(filePath, { duration: true, skipCovers: false })
+  const c = meta.common
+  const rawTitle = c.title?.trim()
+  const rawArtist = pickPreferredArtist(c)
+  const title = rawTitle || extractTitleFromFilename(filePath)
+  const artist = rawArtist || extractArtistFromFolder(filePath)
+  const duration = meta.format.duration || 0
+  if (!title && !artist) return { skipped: 'Could not derive title or artist' }
+  if (!rawTitle && title) console.log(`[scanFolder] Fallback title from filename: ${filePath} -> "${title}"`)
+  if (!rawArtist && artist) console.log(`[scanFolder] Fallback artist from folder: ${filePath} -> "${artist}"`)
+  if (duration < ctx.minDuration) return { skipped: `Too short (${duration}s)` }
+  if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
+  const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
+  const replaygain = c.replaygain_track_gain || null
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta) } }
+}
+
+// Libraries from before the column existed get it on their first write.
+const withReplaygain = new WeakSet()
+function ensureReplaygainColumn(db) {
+  if (withReplaygain.has(db)) return
+  try { db.exec("ALTER TABLE tracks ADD COLUMN replaygain TEXT") } catch {}
+  withReplaygain.add(db)
+}
+
+/** Writes what readTrackFile read into the library (new rows, or over the file's row). */
+async function storeTracks(db, items) {
+  if (!items.length) return
+  ensureReplaygainColumn(db)
   const linkArtist = db.prepare(`INSERT OR IGNORE INTO artist_track_links (artist_id, track_id) VALUES (?, ?)`)
   const findExistingTrackByPath = db.prepare('SELECT id FROM tracks WHERE file_path = ?')
   const insertTrack = db.prepare(`
@@ -489,12 +558,12 @@ async function runScan(folderPath, { full = false } = {}) {
     SET file_hash = @file_hash, title = @title, artist = @artist, album = @album, album_artist = @album_artist, track_num = @track_num, year = @year, genre = @genre, duration = @duration, artwork_path = @artwork_path, bitrate = @bitrate, last_modified = @last_modified, replaygain = @replaygain
     WHERE file_path = @file_path
   `)
-
-  const insertBatchTransaction = db.transaction((items) => {
+  db.transaction(() => {
     for (const item of items) {
       const existing = findExistingTrackByPath.get(item.file_path)
       const trackId = existing?.id || item.id
       item.id = trackId
+      item.isNew = !existing
       const params = trackParams(item, trackId)
       if (existing) {
         updateTrackByPath.run(params)
@@ -523,70 +592,72 @@ async function runScan(folderPath, { full = false } = {}) {
       applyPendingImportedMetadataToTrack(db, trackId)
       resolveGhostsByIsrc(db, trackId)
     }
-  })
-  const insertBatch = async (items) => {
-    insertBatchTransaction(items)
-    for (const item of items) {
-      await emitPluginHook('onTrackIndexed', {
-        id: item.id,
-        title: item.title,
-        artist: item.artist,
-        album: item.album,
-        genre: item.genre,
-        duration: item.duration,
-        filePath: item.file_path,
-      })
-    }
+  })()
+  for (const item of items) {
+    await emitPluginHook('onTrackIndexed', {
+      id: item.id,
+      title: item.title,
+      artist: item.artist,
+      album: item.album,
+      genre: item.genre,
+      duration: item.duration,
+      filePath: item.file_path,
+    })
+  }
+}
+
+// Set by the desktop app: after a scan the music folder is watched, so
+// changes made outside Lokal show up without another scan.
+let watchAfterScan = false
+function watchLibraryAfterScans() { watchAfterScan = true }
+
+// `full` reads every file's tags again, not only new and changed files.
+async function runScan(folderPath, { full = false } = {}) {
+  const db = getDB()
+  ensureReplaygainColumn(db)
+  scanStatus = { scanning: true, total: 0, done: 0, errors: 0, skipped: 0 }
+  try {
+    const relinked = relinkArtistsIfNeeded(db)
+    if (relinked) console.log(`[scanFolder] Re-linked artists for ${relinked} track(s)`)
+  } catch (e) { console.warn('[scanFolder] Artist re-link skipped:', e.message) }
+  const started = Date.now()
+  const files = await listAudioFiles(folderPath)
+  const rereadTags = full || Number(db.prepare("SELECT value FROM settings WHERE key = 'tag_reader_version'").get()?.value || 0) < TAG_READER_VERSION
+  scanStatus.total = files.length
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('music_folder', ?)").run(folderPath)
+
+  let lastProgress = 0
+  const progress = () => {
+    const now = Date.now()
+    if (now - lastProgress < PROGRESS_EVERY_MS) return
+    lastProgress = now
+    emit('scanner:progress', { ...scanStatus })
   }
 
   const BATCH = 20
   let batch = []
-  const folderArtworkCache = new Map()
-  const getFolderArtwork = (filePath) => {
-    const folderPath = path.dirname(filePath)
-    if (!folderArtworkCache.has(folderPath)) folderArtworkCache.set(folderPath, findFolderArtwork(folderPath))
-    return folderArtworkCache.get(folderPath)
-  }
+  const flush = async () => { const items = batch; batch = []; await storeTracks(db, items) }
+  const ctx = scanContext()
+  const known = knownTrackByPath(db)
+  let read = 0
 
-  for (const filePath of files) {
+  await eachLimit(files, PARSE_CONCURRENCY, async (filePath) => {
     try {
-      const stat = fs.statSync(filePath)
-      const trackId = 't-' + hashFile(filePath, stat)
-      const existing = db.prepare('SELECT last_modified, artwork_path FROM tracks WHERE id = ?').get(trackId)
-      const folderArtwork = getFolderArtwork(filePath)
-      if (existing && existing.last_modified === stat.mtimeMs && !rereadTags) {
-        const existingArtwork = existing.artwork_path ? path.resolve(existing.artwork_path) : null
-        const storedArtworkDir = path.resolve(getStorageDir(), 'artwork')
-        const hasCachedArtwork = existingArtwork &&
-          path.dirname(existingArtwork) === storedArtworkDir &&
-          fs.existsSync(existingArtwork)
-        const hasCurrentFolderArtwork = folderArtwork && existingArtwork === path.resolve(folderArtwork)
-        const noArtworkToUpdate = !existingArtwork && !folderArtwork
-        if (hasCachedArtwork || hasCurrentFolderArtwork || noArtworkToUpdate) {
-          scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue
-        }
+      const stat = await fs.promises.stat(filePath)
+      const existing = known.get(filePath)
+      if (!rereadTags && isUnchanged(existing, stat, ctx, filePath)) { scanStatus.done++; progress(); return }
+      read++
+      const result = await readTrackFile(filePath, stat, ctx, existing?.id)
+      if (result.skipped) { console.log(`[scanFolder] Skipped: ${filePath} - ${result.skipped}`); scanStatus.skipped++ }
+      else {
+        batch.push(result.item)
+        if (batch.length >= BATCH) await flush()
       }
-      const meta = await mm.parseFile(filePath, { duration: true, skipCovers: false })
-      const c = meta.common
-      const rawTitle = c.title?.trim()
-      const rawArtist = pickPreferredArtist(c)
-      const title = rawTitle || extractTitleFromFilename(filePath)
-      const artist = rawArtist || extractArtistFromFolder(filePath)
-      const duration = meta.format.duration || 0
-      if (!title && !artist) { console.log(`[scanFolder] Skipped: ${filePath} - Could not derive title or artist`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
-      if (!rawTitle && title) console.log(`[scanFolder] Fallback title from filename: ${filePath} -> "${title}"`)
-      if (!rawArtist && artist) console.log(`[scanFolder] Fallback artist from folder: ${filePath} -> "${artist}"`)
-      const minDuration = getMinDuration()
-      if (duration < minDuration) { console.log(`[scanFolder] Skipped: ${filePath} - Too short (${duration}s)`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
-      if (getSkipDrumKit() && isDrumKit(title, c.album, c.genre?.[0])) { console.log(`[scanFolder] Skipped: ${filePath} - Drumkit pattern detected`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
-      const artwork = await extractArtwork(meta, trackId, folderArtwork)
-      const replaygain = c.replaygain_track_gain || null
-      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta) })
-      if (batch.length >= BATCH) { await insertBatch(batch); batch = [] }
     } catch { scanStatus.errors++ }
-    scanStatus.done++; emit('scanner:progress', { ...scanStatus })
-  }
-  if (batch.length > 0) await insertBatch(batch)
+    scanStatus.done++; progress()
+  })
+  if (batch.length > 0) await flush()
+  console.log(`[scanFolder] ${files.length} file(s), ${read} read, in ${Date.now() - started} ms`)
   // Songs whose file is no longer in the music folder leave the library (a
   // moved file hands its plays and playlist places to its new entry).
   try {
@@ -599,7 +670,59 @@ async function runScan(folderPath, { full = false } = {}) {
   } catch (e) { console.warn('[scanFolder] Comment backfill skipped:', e.message) }
   if (rereadTags) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('tag_reader_version', ?)").run(String(TAG_READER_VERSION))
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
+  if (watchAfterScan) require('../libraryWatcher').watchLibrary(folderPath)
   return scanStatus
+}
+
+/**
+ * What the folder watcher saw: [{ path, renamed }] -- files that appeared or
+ * changed, folders that appeared, and paths that are gone. Only those are
+ * read; an unchanged file (a play touching it) is left alone.
+ * -> { added, updated, removed } (track ids)
+ */
+async function applyFileChanges(changes) {
+  // A scan running now may already be reading these files: after it, they're
+  // mostly unchanged and cost a stat.
+  if (runningScan) await runningScan.catch(() => {})
+  const db = getDB()
+  const ctx = scanContext()
+  const known = knownTrackByPath(db)
+  const files = new Set()
+  const gone = []
+  for (const { path: changed, renamed } of changes) {
+    let stat
+    try { stat = await fs.promises.stat(changed) } catch { gone.push(changed); continue }
+    if (stat.isDirectory()) {
+      // A folder moved or copied in: its songs. (A folder only "changes"
+      // when something in it does, and that something is reported itself.)
+      if (renamed) for (const file of await listAudioFiles(changed)) files.add(file)
+    } else if (AUDIO_EXTS.has(path.extname(changed).toLowerCase())) files.add(changed)
+  }
+  const items = []
+  await eachLimit([...files], PARSE_CONCURRENCY, async (filePath) => {
+    try {
+      const stat = await fs.promises.stat(filePath)
+      const existing = known.get(filePath)
+      if (isUnchanged(existing, stat, ctx, filePath)) return
+      const result = await readTrackFile(filePath, stat, ctx, existing?.id)
+      if (result.skipped) console.log(`[libraryWatcher] Skipped: ${filePath} - ${result.skipped}`)
+      else items.push(result.item)
+    } catch (e) { console.warn(`[libraryWatcher] Couldn't read ${filePath}: ${e.message}`) }
+  })
+  await storeTracks(db, items)
+  // After the new files are in, so a renamed file's old entry finds its new one.
+  let removed = []
+  if (gone.length) {
+    try {
+      const pruned = require('../libraryPrune').pruneGonePaths(db, gone)
+      removed = pruned.ids
+    } catch (e) { console.warn('[libraryWatcher] Clearing missing files skipped:', e.message) }
+  }
+  return {
+    added: items.filter(item => item.isNew).map(item => item.id),
+    updated: items.filter(item => !item.isNew).map(item => item.id),
+    removed,
+  }
 }
 
 function addArtistFallback(db, artist) {
@@ -1597,6 +1720,7 @@ function registerScannerHandlers(ipcMain) {
     if (!currentTrack) return { error: 'Track not found' }
     const updates = []
     const params = []
+    let wroteFile = false
     
     if (data.title !== undefined) { updates.push('title = ?'); params.push(data.title) }
     if (data.artist !== undefined) { updates.push('artist = ?'); params.push(data.artist) }
@@ -1623,7 +1747,7 @@ function registerScannerHandlers(ipcMain) {
     if (data.comment !== undefined) {
       let comment = String(data.comment || '').trim()
       if (!String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
-        try { comment = require('../fileComment').writeFileComment(currentTrack.file_path, comment) } catch (e) { return { error: `Couldn't save the comment: ${e.message}` } }
+        try { comment = require('../fileComment').writeFileComment(currentTrack.file_path, comment); wroteFile = true } catch (e) { return { error: `Couldn't save the comment: ${e.message}` } }
       }
       updates.push('comment = ?'); params.push(comment)
     }
@@ -1632,7 +1756,7 @@ function registerScannerHandlers(ipcMain) {
       // The tag editor's genres go into the file too (one value each).
       if (data.genres !== undefined && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
         const list = String(data.genres || '').split(',').map(part => part.trim()).filter(Boolean)
-        try { require('../fileComment').writeFileGenres(currentTrack.file_path, list) } catch (e) { return { error: `Couldn't save the genres: ${e.message}` } }
+        try { require('../fileComment').writeFileGenres(currentTrack.file_path, list); wroteFile = true } catch (e) { return { error: `Couldn't save the genres: ${e.message}` } }
       }
       const normalizedGenres = data.genres !== undefined
         ? normalizeGenresForBatch(data.genres)
@@ -1651,6 +1775,7 @@ function registerScannerHandlers(ipcMain) {
     params.push(trackId)
     const sql = `UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`
     const result = db.prepare(sql).run(...params)
+    if (wroteFile) require('../fileStamp').noteFileWritten(db, currentTrack.file_path)
     if (data.artist !== undefined) {
       updateTrackArtistLinks(db, trackId, data.artist)
     }
@@ -2126,7 +2251,7 @@ async function indexSingleFile(filePath, opts = {}) {
   return { success: true, id: trackId }
 }
 
-module.exports = { sourceFilter, genreFilter, userStats, registerScannerHandlers, scanFolder, DEFAULT_MUSIC_PATH, indexSingleFile, AUDIO_EXTS, relinkArtists, relinkArtistsIfNeeded, SECRET_SETTING_KEYS, getLibraryFolders }
+module.exports = { sourceFilter, genreFilter, userStats, registerScannerHandlers, scanFolder, applyFileChanges, watchLibraryAfterScans, DEFAULT_MUSIC_PATH, indexSingleFile, AUDIO_EXTS, relinkArtists, relinkArtistsIfNeeded, SECRET_SETTING_KEYS, getLibraryFolders }
 
 
 function registerExtraHandlers(ipcMain) {

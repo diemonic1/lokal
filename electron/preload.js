@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('electron', {
   getAllAlbums: () => invoke('scanner:getAllAlbums'),
   searchAlbums: (q) => invoke('scanner:searchAlbums', q),
   onScanProgress: (fn) => on('scanner:progress', fn),
+  onLibraryChanged: (fn) => on('library:changed', (_, changes) => fn(changes)),
   getSuggestions: (uid) => invoke('scanner:getSuggestions', uid),
   getHistory: (uid, l) => invoke('scanner:getHistory', uid, l),
   getMixes: (uid) => invoke('scanner:getMixes', uid),

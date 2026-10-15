@@ -626,6 +626,7 @@ export const api = {
   pluginsInstallFromFolder: (sourceFolderPath) => isE() ? el().pluginsInstallFromFolder(sourceFolderPath) : apiFetch('/plugins/install-folder', { method: 'POST', body: { sourceFolderPath } }),
   pluginsRemove: (pluginId) => isE() ? el().pluginsRemove(pluginId) : apiFetch(`/plugins/${encodeURIComponent(pluginId)}`, { method: 'DELETE' }),
   onScanProgress: (fn) => { if (isE()) return el().onScanProgress(fn); return () => {} },
+  onLibraryChanged: (fn) => { if (isE() && el().onLibraryChanged) return el().onLibraryChanged(fn); return () => {} },
   onDownloadProgress: (fn) => { if (isE()) return el().onDownloadProgress(fn); return () => {} },
   getAvatarSrc: (user) => {
     if (!user) return 'fallback_nopfp.png';
