@@ -265,7 +265,9 @@ test('album lookup falls back to iTunes and retains both buttons when source art
   await flush()
   assert.equal(sent.at(-1).assets.large_image, 'https://covers.example/600x600bb.jpg')
   assert.equal(sent.at(-1).buttons.length, 2)
-  assert.equal(requests.length, 2)
+  // Deezer's field search, its plain search (field queries come back empty
+  // now, see discoveryArtwork.js), then iTunes.
+  assert.equal(requests.length, 3)
   await call('disconnect')
 })
 

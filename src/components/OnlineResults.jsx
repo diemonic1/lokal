@@ -23,6 +23,8 @@ import AddonCollections from './AddonCollections'
 import AddonSetupNotice from './AddonSetupNotice'
 import { DEFAULT_SEARCH_SOURCES, orderedFindOnSources } from '../findOnSources'
 import { useTranslation } from '../i18n'
+import { playbackLog } from '../playbackLog'
+import { showToast } from './Toaster'
 
 const DEBOUNCE_MS = 450
 const PROVIDER_KEY = 'lokal-online-provider'
@@ -116,15 +118,27 @@ export default function OnlineResults({ query, soulseekFor = null, findOn = null
   /** Keep the results as ghost tracks (so they can be queued, liked, added). */
   const asTracks = async (items) => {
     const rows = await api.onlineSave(items)
+    if (!Array.isArray(rows)) playbackLog(`search: saving the results failed: ${rows?.error || 'no answer'}`, 'warn')
     return Array.isArray(rows) ? rows : []
   }
 
   const play = async (item, index) => {
-    if (currentTrack && sameStream(currentTrack, item)) { togglePlay(); return }
+    if (currentTrack && sameStream(currentTrack, item)) {
+      playbackLog(`search: "${item.title}" is the current song: ${isPlaying ? 'pausing' : 'resuming'} it`)
+      togglePlay()
+      return
+    }
     saveRecentSearch(q)
-    const rows = await asTracks(results)
+    playbackLog(`search: play "${item.artist} - ${item.title}" (${item.provider || provider}:${item.id || item.videoId})`)
+    let rows = []
+    try { rows = await asTracks(results) } catch (e) { playbackLog(`search: saving the results failed: ${e?.message || e}`, 'warn') }
     const target = rows[index]
-    if (!target) return
+    if (!target) {
+      // Nothing was played: say so, instead of a click that does nothing.
+      playbackLog(`search: "${item.title}" couldn't be kept as a song (got ${rows.length} of ${results.length} rows), so it isn't played`, 'warn')
+      showToast(t('Could not play “{title}”.', { title: item.title }))
+      return
+    }
     // Shows up in Recent on the Search page, and plays again from there.
     saveRecentItem(recentTrackItem(target))
     const queue = rows.filter(Boolean)

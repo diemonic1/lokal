@@ -73,12 +73,21 @@ export function withOutroBreak(lines, { duration, crossfade = 0, synced = true }
   return [...lines, { time: round3(start), end: round3(end), text: '', words: [], gap: true, outro: true }]
 }
 
+/**
+ * An empty line of the lyrics (a pause between words) shorter than this
+ * doesn't take the focus: focus heading for it would have to turn round at
+ * once for the next line. The line before keeps it, then hands it straight on.
+ */
+export const MIN_BLANK_FOCUS_S = 0.9
+
 /** The line the view is centred on: the last one whose start has passed. */
 export function focusRow(lines, t) {
   let idx = -1
   for (let i = 0; i < lines.length; i++) {
     const time = lines[i].time
     if (time == null) continue
+    const shortBlank = lines[i].blank && Number.isFinite(lines[i].end) && lines[i].end - time < MIN_BLANK_FOCUS_S
+    if (time <= t && shortBlank && idx >= 0) continue
     if (time <= t) idx = i
     else break
   }

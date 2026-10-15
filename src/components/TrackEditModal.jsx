@@ -3,21 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, Save, RefreshCw, Check, AlertCircle } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
-import GenreValueInput from './GenreValueInput'
+import GenreChips from './GenreChips'
+import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
-}
-
-function normalizeGenres(value) {
-  return String(value || '')
-    .split(',')
-    .map(part => part.trim())
-    .filter(Boolean)
-    .join(', ')
 }
 
 function parseIntegerField(value) {
@@ -48,7 +41,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     track_num: '',
     year: '',
     genre: '',
-    genres: '',
+    genres: [],
     record_label: '',
     comment: '',
     explicit: false,
@@ -111,7 +104,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         track_num: asInput(track.track_num),
         year: asInput(track.year),
         genre: track.genre || '',
-        genres: normalizeGenres(track.genres || track.genre || ''),
+        // Every genre of the song (its main one and its list, split at / \ ; ,).
+        genres: trackGenreList(track),
         record_label: track.record_label || '',
         comment: track.comment || '',
         explicit: !!track.explicit,
@@ -181,8 +175,12 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (formData.album_artist !== track.album_artist) updateData.album_artist = formData.album_artist || null
       if (String(formData.track_num) !== String(track.track_num ?? '')) updateData.track_num = parseIntegerField(formData.track_num)
       if (String(formData.year) !== String(track.year ?? '')) updateData.year = parseIntegerField(formData.year)
-      if (formData.genre !== track.genre) updateData.genre = formData.genre || null
-      if (normalizeGenres(formData.genres) !== normalizeGenres(track.genres || track.genre || '')) updateData.genres = normalizeGenres(formData.genres) || null
+      // The first genre is the song's main one; all of them make its list.
+      const genreList = Array.isArray(formData.genres) ? formData.genres : trackGenreList({ genres: formData.genres })
+      if (genreList.map(genreKey).join('\n') !== trackGenreList(track).map(genreKey).join('\n')) {
+        updateData.genre = genreList[0] || null
+        updateData.genres = genreList.join(', ') || null
+      }
       if (formData.record_label !== (track.record_label || '')) updateData.record_label = formData.record_label || null
       if (formData.comment.trim() !== (track.comment || '').trim()) updateData.comment = formData.comment.trim()
       if (formData.explicit !== !!track.explicit) updateData.explicit = formData.explicit ? 1 : 0
@@ -272,302 +270,180 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     setTimeout(() => setStatus(null), 3000)
   }
 
+  const field = 'w-full bg-card border border-border rounded-lg px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent/50'
+  const small = 'w-full bg-surface border border-border rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-accent/50'
+  const label = 'text-[10px] font-display text-muted uppercase tracking-widest block mb-1'
+  const showLyrics = lyrics.state !== 'none'
+  const audioFields = [
+    ['danceability', 'Danceability', '0.522'], ['energy', 'Energy', '0.992'], ['track_key', 'Key', '0'], ['loudness', 'Loudness', '-3.076'],
+    ['mode', 'Mode', '1'], ['speechiness', 'Speechiness', '0.173'], ['acousticness', 'Acousticness', '0.0631'], ['instrumentalness', 'Instrumentalness', '0.743'],
+    ['liveness', 'Liveness', '0.0724'], ['valence', 'Valence', '0.701'], ['tempo', 'Tempo', '73.528'], ['time_signature', 'Time Signature', '4'],
+  ]
+
+  // Lyrics on the left, tags on the right; Close and Save stay at the bottom
+  // whatever is scrolled.
   return (
-    <Modal open={open} onClose={onClose} title={t('Edit Track')} width="max-w-3xl">
-      <div className="space-y-4">
-        <div className="flex gap-4">
-          <div className="flex-shrink-0">
-            <div className="w-32 h-32 rounded-lg overflow-hidden bg-card border border-border relative group">
-              {artworkPreview ? (
-                <img src={artworkPreview} alt={t('Artwork')} className="w-full h-full object-cover" />
+    <Modal open={open} onClose={onClose} title={t('Edit Track')} width={showLyrics ? 'max-w-6xl' : 'max-w-2xl'}>
+      <div className="flex h-[min(46rem,calc(100vh-8rem))] flex-col gap-3">
+        <div className={`grid min-h-0 flex-1 gap-4 ${showLyrics ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
+          {showLyrics && (
+            <div className="flex min-h-0 flex-col">
+              <div className="mb-1 flex items-center justify-between">
+                <label className={`${label} mb-0`}>{t('Lyrics')}</label>
+                {lyrics.state === 'ready' && lyrics.text.trim() && (
+                  <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
+                )}
+              </div>
+              {lyrics.state === 'loading' ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-border bg-card text-muted"><RefreshCw size={16} className="animate-spin" /></div>
+              ) : lyrics.state === 'error' ? (
+                <p className="text-xs text-red-400">{t("Couldn't read the lyrics from the file")}{lyrics.error ? `: ${lyrics.error}` : ''}</p>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted">
-                  <Camera size={32} />
+                <textarea
+                  value={lyrics.text}
+                  onChange={(e) => { const text = e.target.value; setLyrics(prev => ({ ...prev, text })) }}
+                  spellCheck={false}
+                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs leading-relaxed text-white outline-none focus:border-accent/50"
+                  placeholder={t('[00:12.30] A synced line, or plain text')}
+                />
+              )}
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
+              {lyrics.sidecar && (
+                <p className="mt-1 text-[11px] text-orange-400">{t('A lyrics file next to the song ({file}) is shown instead of these.', { file: lyrics.sidecar.split(/[\\/]/).pop() })}</p>
+              )}
+            </div>
+          )}
+
+          <div className="min-h-0 space-y-2.5 overflow-y-auto pr-1">
+            <div className="flex gap-3">
+              <div className="flex-shrink-0">
+                <div className="group relative h-24 w-24 overflow-hidden rounded-lg border border-border bg-card">
+                  {artworkPreview ? (
+                    <img src={artworkPreview} alt={t('Artwork')} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted"><Camera size={26} /></div>
+                  )}
+                  <button onClick={handleSelectArtwork} disabled={saving} aria-label={t('Replace artwork')} title={t('Replace artwork')}
+                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Camera size={20} className="text-white" />
+                  </button>
                 </div>
-              )}
-              <button 
-                onClick={handleSelectArtwork}
-                disabled={saving}
-                aria-label={t('Replace artwork')}
-                title={t('Replace artwork')}
-                className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Camera size={24} className="text-white" />
-              </button>
+                <button onClick={fetchFromiTunes} disabled={saving}
+                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent">
+                  {saving ? <RefreshCw size={11} className="animate-spin" /> : null}
+                  {t('iTunes Artwork')}
+                </button>
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <label className={label}>{t('Title')}</label>
+                  <input value={formData.title} onChange={(e) => handleChange('title', e.target.value)} className={field} placeholder={t('Track title')} />
+                </div>
+                <div>
+                  <label className={label}>{t('Artist')}</label>
+                  <input value={formData.artist} onChange={(e) => handleChange('artist', e.target.value)} className={field} placeholder={t('Artist name')} />
+                </div>
+              </div>
             </div>
-            <button 
-              onClick={fetchFromiTunes}
-              disabled={saving}
-              className="mt-2 w-full py-1.5 text-xs bg-card border border-border rounded-lg text-muted hover:text-accent hover:border-accent/30 transition-colors flex items-center justify-center gap-1"
-            >
-              {saving ? <RefreshCw size={12} className="animate-spin" /> : null}
-              {t('iTunes Artwork')}
-            </button>
-          </div>
-          
-          <div className="flex-1 space-y-3">
-            <div>
-              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Title')}</label>
-              <input 
-                value={formData.title}
-                onChange={(e) => handleChange('title', e.target.value)}
-                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-                placeholder={t('Track title')}
-              />
-            </div>
-            
-            <div>
-              <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Artist')}</label>
-              <input 
-                value={formData.artist}
-                onChange={(e) => handleChange('artist', e.target.value)}
-                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-                placeholder={t('Artist name')}
-              />
-            </div>
-          </div>
-        </div>
 
-        <div>
-          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Album')}</label>
-          <input 
-            value={formData.album}
-            onChange={(e) => handleChange('album', e.target.value)}
-            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-            placeholder={t('Album name')}
-          />
-        </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className={label}>{t('Album')}</label>
+                <input value={formData.album} onChange={(e) => handleChange('album', e.target.value)} className={field} placeholder={t('Album name')} />
+              </div>
+              <div>
+                <label className={label}>{t('Album Artist')}</label>
+                <input value={formData.album_artist} onChange={(e) => handleChange('album_artist', e.target.value)} className={field} placeholder={t('Album artist (if different)')} />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Album Artist')}</label>
-          <input 
-            value={formData.album_artist}
-            onChange={(e) => handleChange('album_artist', e.target.value)}
-            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-            placeholder={t('Album artist (if different)')}
-          />
-        </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div>
+                <label className={label}>{t('Track #')}</label>
+                <input type="number" min="1" value={formData.track_num} onChange={(e) => handleChange('track_num', e.target.value)} className={field} placeholder="1" />
+              </div>
+              <div>
+                <label className={label}>{t('Year')}</label>
+                <input type="number" min="1900" max="2100" value={formData.year} onChange={(e) => handleChange('year', e.target.value)} className={field} placeholder="2024" />
+              </div>
+              <div>
+                <label className={label}>{t('Record Label')}</label>
+                <input value={formData.record_label} onChange={(e) => handleChange('record_label', e.target.value)} className={field} placeholder={t('Label')} />
+              </div>
+            </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Track #')}</label>
-            <input 
-              type="number"
-              min="1"
-              value={formData.track_num}
-              onChange={(e) => handleChange('track_num', e.target.value)}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-              placeholder="1"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Year')}</label>
-            <input 
-              type="number"
-              min="1900"
-              max="2100"
-              value={formData.year}
-              onChange={(e) => handleChange('year', e.target.value)}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-              placeholder="2024"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Genre')}</label>
-            <GenreValueInput
-              value={formData.genre}
-              onChange={(value) => handleChange('genre', value)}
-              suggestions={genreOptions}
-              listId="track-edit-genre-options"
-              placeholder="Rock"
-            />
-          </div>
-        </div>
+            <div>
+              <label className={label}>{t('Genres')}</label>
+              <GenreChips compact value={Array.isArray(formData.genres) ? formData.genres : []} onChange={(list) => handleChange('genres', list)} suggestions={genreOptions} />
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Genres')}</label>
-            <GenreValueInput
-              value={formData.genres}
-              onChange={(value) => handleChange('genres', value)}
-              suggestions={genreOptions}
-              listId="track-edit-genres-options"
-              multi
-              placeholder="slowcore, shoegaze"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Record Label')}</label>
-            <input
-              value={formData.record_label}
-              onChange={(e) => handleChange('record_label', e.target.value)}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-              placeholder={t('Label')}
-            />
-          </div>
-        </div>
+            <div>
+              <label className={label}>{t('Comment')}</label>
+              <textarea value={formData.comment} onChange={(e) => handleChange('comment', e.target.value)} rows={2} className={`${field} resize-y`} />
+            </div>
 
-        <div>
-          <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1">{t('Comment')}</label>
-          <textarea
-            value={formData.comment}
-            onChange={(e) => handleChange('comment', e.target.value)}
-            rows={2}
-            className="w-full resize-y bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-          />
-        </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2" title={t('Show the track with the explicit badge.')}>
+                <input type="checkbox" checked={formData.explicit} onChange={(e) => handleChange('explicit', e.target.checked)} className="rounded border-border bg-card text-accent focus:ring-accent/40" />
+                <span className="text-sm text-white">{t('Explicit')}</span>
+              </label>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5" title={t('Instrumental tracks skip LRCLIB and lyrics lookups.')}>
+                <span className="text-[10px] font-display uppercase tracking-widest text-muted">{t('Instrumental')}</span>
+                <select value={formData.instrumental} onChange={(e) => handleChange('instrumental', e.target.value)}
+                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-xs text-white outline-none focus:border-accent/50">
+                  <option value="">{t('Unknown')}</option>
+                  <option value="1">{t('Instrumental')}</option>
+                  <option value="0">{t('Has vocals')}</option>
+                </select>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.explicit}
-              onChange={(e) => handleChange('explicit', e.target.checked)}
-              className="rounded border-border bg-card text-accent focus:ring-accent/40"
-            />
-            <div>
-              <p className="text-sm text-white">{t('Explicit')}</p>
-              <p className="text-xs text-muted">{t('Show the track with the explicit badge.')}</p>
-            </div>
-          </label>
-          <div className="rounded-xl border border-border bg-card px-3 py-3">
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-2">{t('Instrumental')}</label>
-            <select
-              value={formData.instrumental}
-              onChange={(e) => handleChange('instrumental', e.target.value)}
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-            >
-              <option value="">{t('Unknown')}</option>
-              <option value="1">{t('Instrumental')}</option>
-              <option value="0">{t('Has vocals')}</option>
-            </select>
-            <p className="text-xs text-muted mt-2">{t('Instrumental tracks skip LRCLIB and lyrics lookups.')}</p>
-          </div>
-        </div>
-
-        {lyrics.state !== 'none' && (
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-display text-muted uppercase tracking-widest">{t('Lyrics')}</label>
-              {lyrics.state === 'ready' && lyrics.text.trim() && (
-                <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
-              )}
-            </div>
-            {lyrics.state === 'loading' ? (
-              <div className="w-full h-40 bg-card border border-border rounded-lg flex items-center justify-center text-muted"><RefreshCw size={16} className="animate-spin" /></div>
-            ) : lyrics.state === 'error' ? (
-              <p className="text-xs text-red-400">{t("Couldn't read the lyrics from the file")}{lyrics.error ? `: ${lyrics.error}` : ''}</p>
-            ) : (
-              <textarea
-                value={lyrics.text}
-                onChange={(e) => { const text = e.target.value; setLyrics(prev => ({ ...prev, text })) }}
-                spellCheck={false}
-                rows={25}
-                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50 font-mono resize-y"
-                placeholder={t('[00:12.30] A synced line, or plain text')}
-              />
-            )}
-            <p className="text-xs text-muted mt-1">{t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
-            {lyrics.sidecar && (
-              <p className="text-xs text-orange-400 mt-1">{t('A lyrics file next to the song ({file}) is shown instead of these.', { file: lyrics.sidecar.split(/[\\/]/).pop() })}</p>
-            )}
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-border bg-card/70 p-4 space-y-3">
-          <div>
-            <p className="text-xs font-display text-muted uppercase tracking-widest">{t('Imported Audio Data')}</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Danceability')}</label>
-              <input value={formData.danceability} onChange={(e) => handleChange('danceability', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.522" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Energy')}</label>
-              <input value={formData.energy} onChange={(e) => handleChange('energy', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.992" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Key')}</label>
-              <input value={formData.track_key} onChange={(e) => handleChange('track_key', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Loudness')}</label>
-              <input value={formData.loudness} onChange={(e) => handleChange('loudness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="-3.076" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Mode')}</label>
-              <input value={formData.mode} onChange={(e) => handleChange('mode', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="1" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Speechiness')}</label>
-              <input value={formData.speechiness} onChange={(e) => handleChange('speechiness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.173" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Acousticness')}</label>
-              <input value={formData.acousticness} onChange={(e) => handleChange('acousticness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.0631" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Instrumentalness')}</label>
-              <input value={formData.instrumentalness} onChange={(e) => handleChange('instrumentalness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.743" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Liveness')}</label>
-              <input value={formData.liveness} onChange={(e) => handleChange('liveness', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.0724" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Valence')}</label>
-              <input value={formData.valence} onChange={(e) => handleChange('valence', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="0.701" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Tempo')}</label>
-              <input value={formData.tempo} onChange={(e) => handleChange('tempo', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="73.528" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted uppercase tracking-widest block mb-1">{t('Time Signature')}</label>
-              <input value={formData.time_signature} onChange={(e) => handleChange('time_signature', e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" placeholder="4" />
-            </div>
+            <details className="rounded-lg border border-border bg-card/70 px-3 py-2">
+              <summary className="cursor-pointer text-[10px] font-display uppercase tracking-widest text-muted">{t('Imported Audio Data')}</summary>
+              <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-4">
+                {audioFields.map(([key, name, placeholder]) => (
+                  <div key={key}>
+                    <label className="mb-0.5 block text-[10px] uppercase tracking-widest text-muted">{t(name)}</label>
+                    <input value={formData[key]} onChange={(e) => handleChange(key, e.target.value)} className={small} placeholder={placeholder} />
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
 
         <AnimatePresence>
           {status && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={`p-3 rounded-lg flex items-center gap-2 ${
+              exit={{ opacity: 0, y: 6 }}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
                 status.type === 'success' ? 'bg-accent/20 text-accent' :
                 status.type === 'error' ? 'bg-red-500/20 text-red-400' :
                 'bg-card text-muted'
               }`}
             >
-              {status.type === 'success' && <Check size={16} />}
-              {status.type === 'error' && <AlertCircle size={16} />}
-              {status.type === 'loading' && <RefreshCw size={16} className="animate-spin" />}
+              {status.type === 'success' && <Check size={15} />}
+              {status.type === 'error' && <AlertCircle size={15} />}
+              {status.type === 'loading' && <RefreshCw size={15} className="animate-spin" />}
               <span className="text-sm">{status.message}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex gap-2 pt-2">
-          <button 
-            onClick={onClose}
-            className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors"
-          >
-            {t('Cancel')}
+        <div className="flex flex-shrink-0 gap-3">
+          <button onClick={onClose}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-500/80 py-3 text-sm font-medium text-white transition-colors hover:bg-red-500">
+            <X size={16} /> {t('Close')}
           </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-2.5 bg-accent text-base rounded-xl text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={saving}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50">
             {saving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-            {t('Save Changes')}
+            {t('Save')}
           </button>
         </div>
       </div>
     </Modal>
   )
 }
-

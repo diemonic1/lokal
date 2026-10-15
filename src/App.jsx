@@ -12,6 +12,7 @@ import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
 import { initialTabPath } from './libraryNav'
 import { useTaskbarTitle } from './taskbarTitle'
+import { playbackLog } from './playbackLog'
 import { rescanOnStartup } from './scanProgress'
 import { usePageWidth } from './pageWidth'
 import RightSidebar from './components/RightSidebar'
@@ -69,7 +70,7 @@ import { THEMES, applyTheme } from './theme'
 import { useAppearanceFlag } from './appearanceFlags'
 import { startSpotifyLikesSync } from './spotifyLikes'
 import { continueFlow, flowNeedsMore } from './flow/session'
-import { useCastPlayback, takeResumePosition } from './cast/useCastPlayback'
+import { useCastPlayback, takeResumePosition, setResumePosition } from './cast/useCastPlayback'
 
 async function addonStreamTrackHash(id) {
   try {
@@ -428,6 +429,7 @@ export default function App() {
     // A failed stream advances through the configured playback providers.
     const failedTrack = usePlayerStore.getState().currentTrack
     const failedRef = streamRef(failedTrack)
+    playbackLog(`"${failedTrack?.title}": the player stopped with media error ${code ?? '?'}${el?.error?.message ? ` (${el.error.message})` : ''}, src ${String(el?.getAttribute('src') || '').slice(0, 120)}`, 'warn')
     if (failedRef && String(el?.getAttribute('src') || '').split('?')[0] === api.onlineStreamURL(failedRef.provider, failedRef.id)) {
       if (isAddonProvider(failedRef.provider)) {
         const mediaError = el?.error
@@ -2217,12 +2219,32 @@ export default function App() {
       const generation = usePlayerStore.getState().playbackGeneration
       const ref = streamRef(currentTrack)
       let addonError = ''
-      const unavailable = ref ? await playbackAvailability({ id: ref.id }, ref.provider, api, undefined, error => { addonError = String(error || '') }).catch(() => 'unavailable') : null
+      const label = `"${currentTrack.artist} - ${currentTrack.title}"${ref ? ` (${ref.provider}:${ref.id})` : ''}`
+      const startedAt = Date.now()
+      // Getting a stream ready can take a while: say so, rather than a
+      // click that looks like it did nothing.
+      let waitToast = null
+      const waitTimer = ref ? setTimeout(() => { waitToast = showLoadingToast(translate('Finding “{title}”…', { title: currentTrack.title })) }, 1500) : null
+      if (ref) playbackLog(`${label}: preparing the stream`)
+      let unavailable = null
+      try {
+        unavailable = ref ? await playbackAvailability({ id: ref.id }, ref.provider, api, undefined, error => { addonError = String(error || '') }).catch(error => { addonError = String(error?.message || error || ''); return 'unavailable' }) : null
+      } finally {
+        clearTimeout(waitTimer)
+        waitToast?.close()
+      }
+      if (ref) playbackLog(`${label}: ${unavailable ? `not playable (${unavailable}${addonError ? `: ${addonError}` : ''})` : 'stream ready'} after ${Date.now() - startedAt} ms`, unavailable ? 'warn' : 'info')
       const live = usePlayerStore.getState()
-      if (cancelled || live.playbackGeneration !== generation || live.currentTrack?.id !== currentTrack.id || live.currentTrack?.file_path !== currentTrack.file_path) return
+      if (cancelled || live.playbackGeneration !== generation || live.currentTrack?.id !== currentTrack.id || live.currentTrack?.file_path !== currentTrack.file_path) {
+        playbackLog(`${label}: not started, another song was picked meanwhile`)
+        return
+      }
       await replayGainReady
       const afterGain = usePlayerStore.getState()
-      if (cancelled || afterGain.playbackGeneration !== generation || afterGain.currentTrack?.id !== currentTrack.id || afterGain.currentTrack?.file_path !== currentTrack.file_path) return
+      if (cancelled || afterGain.playbackGeneration !== generation || afterGain.currentTrack?.id !== currentTrack.id || afterGain.currentTrack?.file_path !== currentTrack.file_path) {
+        playbackLog(`${label}: not started, another song was picked meanwhile`)
+        return
+      }
       // An addon that still needs verifying says so, rather than only
       // falling back to the next source.
       // The addon's own reason (also in Lokal's log) goes into the fallback
@@ -2232,17 +2254,68 @@ export default function App() {
         const access = ADDON_ACCESS_ERROR.test(addonError)
         detail = access ? 'it needs verifying: Settings → Addons → Verify access' : addonError.slice(0, 160)
         if (access) window.dispatchEvent(new Event('lokal:addons-changed'))
+      } else if (unavailable && addonError) {
+        // YouTube / SoundCloud's own reason (no yt-dlp, a bot check...) in the notice too.
+        detail = addonError.slice(0, 160)
       }
       if (unavailable) { await recoverOnlinePlayback(el, live.currentTrack, ref, unavailable, detail); return }
       el.dataset.fallbackPending = ''
       replaceAudioSource(el, src)
       if (resumeFrom > 0) { try { el.currentTime = resumeFrom } catch {} }
       else beginLastfmPlayback(live.currentTrack)
-      if (usePlayerStore.getState().isPlaying) el.play().catch(() => {})
+      if (usePlayerStore.getState().isPlaying) {
+        el.play()
+          .then(() => { if (ref) playbackLog(`${label}: playing`) })
+          .catch(error => { if (error?.name !== 'AbortError') playbackLog(`${label}: the player refused to start: ${error?.name || ''} ${error?.message || error}`, 'warn') })
+      } else if (ref) playbackLog(`${label}: loaded, paused (the player isn't set to play)`)
     }
-    start()
+    start().catch(error => playbackLog(`"${currentTrack.title}": starting failed: ${error?.message || error}`, 'warn'))
     return () => { cancelled = true; el.dataset.fallbackPending = ''; el.dataset.lokalTrackPending = '' }
   }, [currentTrack?.id, currentTrack?.file_path, castActive, cancelCrossfade, beginLastfmPlayback, recoverOnlinePlayback, setIsBuffering, applyReplayGainToElement])
+
+  // A song's file is about to move (Library: dropped on another folder).
+  // Windows won't move a file the player has open, so whichever element has
+  // it lets go; the song then carries on from the same spot at its new path
+  // (or, if the move still fails, at the old one: detail.restore()).
+  useEffect(() => {
+    const samePath = (src, filePath) => {
+      if (!src?.startsWith('file://')) return false
+      let decoded = src.slice('file://'.length)
+      try { decoded = decodeURIComponent(decoded) } catch {}
+      const norm = value => String(value).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()
+      return norm(decoded) === norm(filePath)
+    }
+    const onRelease = (event) => {
+      const filePath = event.detail?.filePath
+      if (!filePath) return
+      const held = []
+      for (const el of [audioRef.current, cfAudioRef.current]) {
+        const src = el?.getAttribute('src') || ''
+        if (!el || !samePath(src, filePath)) continue
+        held.push({ el, src, time: el.currentTime, paused: el.paused })
+        el.dataset.fallbackPending = '1'
+        el.pause()
+        el.removeAttribute('src')
+        el.load()
+      }
+      if (!held.length) return
+      const current = usePlayerStore.getState().currentTrack
+      const active = held.find(item => item.el === (usePlayerStore.getState().activeAudioElement === 'cf' ? cfAudioRef.current : audioRef.current))
+      if (active && current?.id === event.detail.trackId) setResumePosition(current.id, active.time)
+      event.detail.released = true
+      event.detail.restore = () => {
+        setResumePosition(null)
+        for (const item of held) {
+          replaceAudioSource(item.el, item.src)
+          try { item.el.currentTime = item.time } catch {}
+          item.el.dataset.fallbackPending = ''
+          if (!item.paused) item.el.play().catch(() => {})
+        }
+      }
+    }
+    window.addEventListener('lokal:release-file', onRelease)
+    return () => window.removeEventListener('lokal:release-file', onRelease)
+  }, [])
 
   useEffect(() => {
     if (!api.isElectron) return

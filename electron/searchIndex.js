@@ -13,7 +13,8 @@
 //   lyrics: NULL while unread, '' when the file has none.
 // - Streamed (ghost) songs aren't indexed: search is for the library.
 
-const VERSION = '1'
+// 2: the triggers no longer use INSERT OR IGNORE (see addDoc).
+const VERSION = '2'
 const NAME_COLUMNS = ['title', 'artist', 'album', 'album_artist']
 const COLUMNS = [...NAME_COLUMNS, 'comment', 'lyrics']
 
@@ -34,6 +35,12 @@ function lyricsText(text) {
     .replace(/\0/g, '')
 }
 
+// A song's index row number, made once. Not INSERT OR IGNORE: inside a
+// trigger SQLite replaces that OR IGNORE with the outer statement's conflict
+// policy, so an UPSERT on tracks (saving search results, an online song
+// played again) failed on the existing row and saved nothing.
+const addDoc = id => `INSERT INTO track_search_docs (track_id) SELECT ${id} WHERE NOT EXISTS (SELECT 1 FROM track_search_docs WHERE track_id = ${id});`
+
 const docOf = id => `(SELECT doc FROM track_search_docs WHERE track_id = ${id})`
 const indexRow = id => `
   DELETE FROM track_search WHERE rowid = ${docOf(id)};
@@ -51,6 +58,9 @@ function ensureSearchIndex(db) {
       db.exec(`
       SAVEPOINT search_index;
       DROP TABLE IF EXISTS track_search;
+      DROP TRIGGER IF EXISTS track_search_insert;
+      DROP TRIGGER IF EXISTS track_search_update;
+      DROP TRIGGER IF EXISTS track_search_delete;
       CREATE TABLE IF NOT EXISTS track_search_docs (doc INTEGER PRIMARY KEY, track_id TEXT UNIQUE NOT NULL, lyrics TEXT);
       CREATE VIRTUAL TABLE track_search USING fts5(${COLUMNS.join(', ')}, tokenize = "unicode61 remove_diacritics 2", prefix = '2 3');
       INSERT OR IGNORE INTO track_search_docs (track_id) SELECT id FROM tracks;
@@ -68,12 +78,12 @@ function ensureSearchIndex(db) {
   }
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS track_search_insert AFTER INSERT ON tracks BEGIN
-      INSERT OR IGNORE INTO track_search_docs (track_id) VALUES (new.id);
+      ${addDoc('new.id')}
       ${indexRow('new.id')}
     END;
     CREATE TRIGGER IF NOT EXISTS track_search_update AFTER UPDATE OF id, title, artist, album, album_artist, comment, file_path ON tracks BEGIN
       DELETE FROM track_search WHERE rowid = ${docOf('old.id')};
-      INSERT OR IGNORE INTO track_search_docs (track_id) VALUES (new.id);
+      ${addDoc('new.id')}
       ${indexRow('new.id')}
     END;
     CREATE TRIGGER IF NOT EXISTS track_search_delete AFTER DELETE ON tracks BEGIN

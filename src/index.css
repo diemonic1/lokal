@@ -319,3 +319,24 @@ html[data-theme="light"] .on-media .text-white\/10 { color: rgb(255 255 255 / 0.
    icons and covers grow with the row while the grid's column tracks (shared
    with the header) stay put. */
 [data-track-row] > * { zoom: var(--tl-row-scale, 1); }
+
+/* A song held to be picked up (Library, sorted by track number, newest first). */
+@keyframes lokal-grab-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* A song picked up: the sidebar's folders show where it can be dropped. */
+body.lokal-folder-dragging, body.lokal-folder-dragging * { cursor: grabbing !important; user-select: none; }
+body.lokal-folder-dragging [data-folder-drop]:hover { outline: 2px solid rgb(var(--accent-rgb, 255 255 255) / 0.8); outline-offset: -2px; background: rgb(255 255 255 / 0.08); }
+
+/* Library: the next folder's songs coming in (Settings > Appearance > Layout).
+   Not `both`: an animation still filling counts as running, and an element
+   with a running opacity animation stops the song list's sticky header from
+   blurring what's behind it (its glass looked see-through). */
+@keyframes folder-in-soft { from { opacity: 0.35; } to { opacity: 1; } }
+@keyframes folder-in-slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes folder-in-zoom { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes folder-in-blur { from { opacity: 0.35; filter: blur(6px); } to { opacity: 1; filter: none; } }
+.folder-in-soft { animation: folder-in-soft 260ms ease-out backwards; }
+.folder-in-slide { animation: folder-in-slide 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.folder-in-zoom { animation: folder-in-zoom 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards; transform-origin: 50% 0; }
+.folder-in-blur { animation: folder-in-blur 320ms ease-out backwards; }
+@media (prefers-reduced-motion: reduce) { [class*="folder-in-"] { animation: none; } }

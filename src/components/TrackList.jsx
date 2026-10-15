@@ -36,6 +36,8 @@ import { useGhostDownloadSources } from './useGhostDownloadSources'
 import { useGhostDurationConfirmation } from './useGhostDurationConfirmation'
 import { nextPlaylistSort } from '../playlistSorting'
 import { useTranslation, translate } from '../i18n'
+import { genreText } from '../genres'
+import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
 import { TRACK_SEARCH_SITES, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 
 const LARGE_LIST_STEP = 200
@@ -104,7 +106,12 @@ function SortableHeader({ column, label, children, sort, onSortChange, className
   </button>
 }
 
-export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null }) {
+const GRAB_HOLD_MS = 1500
+// The hold's progress bar shows only after this, so a plain click (or a
+// short press) doesn't flash it.
+const GRAB_BAR_DELAY_MS = 1000
+
+export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null, reorderable = false, onGrab = null, stickyBleed = '0.5rem' }) {
   const { t } = useTranslation()
   const resolvedPlaybackRef = useRef(0)
   const resolvedToastRef = useRef(null)
@@ -179,7 +186,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const anyStreamed = useMemo(() => tracks.some(t => isStreamed(t)), [tracks])
   const anyLiked = useMemo(() => tracks.some(track => likedIds.has(track.id)), [tracks, likedIds])
   const actionSlots = (showPlayNext ? 1 : 0) + (anyStreamed || resolveTracks ? 1 : 0) + (showAddToQueue ? 1 : 0) + (onQuickAdd ? 1 : 0) + 4
-  const layout = trackColumnLayout(listWidth, columns, { playlist: !!playlistId && !!onReorder, actionSlots, likedTrack: anyLiked, extraColumns })
+  // Rows can be dragged into a new order in a playlist, or wherever the page
+  // asks for it (`reorderable`: Library's "Reorder").
+  const canDrag = (!!playlistId || reorderable) && !!onReorder
+  const layout = trackColumnLayout(listWidth, columns, { playlist: canDrag, actionSlots, likedTrack: anyLiked, extraColumns })
   const extraByKey = Object.fromEntries(extraColumns.map(column => [column.key, column]))
   // Row size (Columns menu) scales everything in a row (each cell is zoomed,
   // see [data-track-row] in index.css); Row spacing is the space around it.
@@ -247,6 +257,8 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   }, [tracks])
   const mergedTracks = tracks.map(track => trackOverrides[track.id] ? { ...track, ...trackOverrides[track.id] } : track)
   const navigate = useNavigate()
+  const glass = useAppearanceFlag('glass_player_bar')
+  const glassTransparency = Math.max(0, Math.min(90, useAppearanceValue('player_bar_glass_transparency', 40)))
   const menu = useContextMenu()
   const menuId = useId()
   const trackIds = React.useMemo(() => mergedTracks.map(track => track.id), [tracks, trackOverrides]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -566,6 +578,39 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
 
   // Ctrl/Cmd+click (or Shift+click, a range) selects; a plain click anywhere
   // on the row plays the song, or pauses/resumes it if it's the one playing.
+  // onGrab: holding a row still for GRAB_HOLD_MS picks the song up (to drop
+  // it on a folder in the sidebar); a bar along the row fills meanwhile.
+  const [holdId, setHoldId] = useState(null)
+  const holdRef = useRef(null)
+  const grabbedClickRef = useRef(false)
+  const cancelHold = () => {
+    if (!holdRef.current) return
+    clearTimeout(holdRef.current.timer)
+    clearTimeout(holdRef.current.barTimer)
+    holdRef.current = null
+    setHoldId(null)
+  }
+  const startHold = (track, e) => {
+    grabbedClickRef.current = false
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.target.closest?.('button, a, input')) return
+    if (isGhostTrack(track) || isStreamed(track) || track.missing) return
+    cancelHold()
+    const at = { x: e.clientX, y: e.clientY }
+    const timer = setTimeout(() => {
+      holdRef.current = null
+      setHoldId(null)
+      grabbedClickRef.current = true
+      onGrab?.(track, at)
+    }, GRAB_HOLD_MS)
+    const barTimer = setTimeout(() => setHoldId(track.id), GRAB_BAR_DELAY_MS)
+    holdRef.current = { timer, barTimer, at }
+  }
+  const moveHold = (e) => {
+    const hold = holdRef.current
+    if (hold && Math.hypot(e.clientX - hold.at.x, e.clientY - hold.at.y) > 6) cancelHold()
+  }
+  useEffect(() => () => { clearTimeout(holdRef.current?.timer); clearTimeout(holdRef.current?.barTimer) }, [])
+
   const handleTrackClick = (track, e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) {
       e.stopPropagation()
@@ -666,7 +711,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   }
 
   const handleDragStart = (e, track) => {
-    if (!onReorder) {
+    if (!canDrag) {
       e.preventDefault()
       return
     }
@@ -859,6 +904,13 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
         ]}
       />
 
+      {/* The toolbar and the column names stay in view while the list scrolls. */}
+      {/* Same glass as the player bar (Settings > Appearance > Player Bar >
+          Glass, Glass transparency): one setting for both. */}
+      {/* stickyBleed: how far it reaches past the list on each side, so it can
+          span the page's own padding (Library: the whole middle column). */}
+      <div data-track-sticky className={`sticky top-0 z-20 pt-2 ${glass ? 'backdrop-blur-lg backdrop-saturate-150' : ''}`}
+        style={{ marginInline: `calc(-1 * ${stickyBleed})`, paddingInline: stickyBleed, backgroundColor: glass ? `rgb(var(--surface-rgb) / ${(1 - glassTransparency / 100).toFixed(2)})` : 'rgb(var(--surface-rgb))' }}>
       <div className="mb-1 flex items-center justify-between gap-3 px-2">
         {toolbarStart || <span />}
         <div className="flex items-center gap-1">
@@ -897,6 +949,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
         <span className="sr-only">{t('Actions')}</span>
         <span aria-hidden="true" />
       </div>
+      </div>
       {onSortChange && <span className="sr-only" role="status">{t('Sorted by {column}, {direction}', { column: t(sort?.column === 'added' ? 'date added' : sort?.column === 'time' ? 'duration' : 'playlist number'), direction: t(sort?.direction === 'desc' ? 'descending' : 'ascending') })}</span>}
 
       <div ref={rowsRef}>
@@ -929,7 +982,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
             {...motionProps}
             data-track-row
             ref={isHighlighted ? highlightRowRef : undefined}
-            draggable={!!playlistId && !!onReorder}
+            draggable={canDrag}
             onDragStart={(e) => handleDragStart(e, track)}
             onDragOver={(e) => handleDragOver(e, track)}
             onDragLeave={handleDragLeave}
@@ -937,12 +990,22 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
             onDragEnd={handleDragEnd}
             onMouseEnter={() => setHoveredId(track.id)}
             onMouseLeave={() => setHoveredId(null)}
-            onClick={(e) => handleTrackClick(track, e)}
+            onClick={(e) => { if (grabbedClickRef.current) { grabbedClickRef.current = false; e.stopPropagation(); return } handleTrackClick(track, e) }}
             onContextMenu={(e) => openTrackMenu(e, track)}
+            onPointerDown={onGrab ? (e) => startHold(track, e) : undefined}
+            onPointerMove={onGrab ? moveHold : undefined}
+            onPointerUp={onGrab ? cancelHold : undefined}
+            onPointerLeave={onGrab ? cancelHold : undefined}
             aria-selected={isSelected}
             style={{ paddingBlock: rowPadding, '--tl-row-scale': columns.rowSize, ...(isHighlighted ? null : { contentVisibility: 'auto', containIntrinsicSize: `${rowContentHeight}px` }) }}
-            className={`grid grid-cols-[var(--tl-columns)] gap-2 pl-1 pr-4 rounded-lg items-center cursor-default group transition-colors ${isCurrent ? 'bg-accent/8' : 'hover:bg-elevated'} ${isSelected ? 'bg-accent/15' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-t-2 border-accent' : ''} ${isGhost ? 'opacity-75' : ''} ${isFlashing ? 'ring-2 ring-accent bg-accent/15 animate-pulse' : ''}`}
+            className={`relative grid grid-cols-[var(--tl-columns)] gap-2 pl-1 pr-4 rounded-lg items-center cursor-default group transition-colors ${isCurrent ? 'bg-accent/8' : 'hover:bg-elevated'} ${isSelected ? 'bg-accent/15' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-t-2 border-accent' : ''} ${isGhost ? 'opacity-75' : ''} ${isFlashing ? 'ring-2 ring-accent bg-accent/15 animate-pulse' : ''}`}
           >
+            {holdId === track.id && (
+              // Held: fills over GRAB_HOLD_MS, then the song is picked up.
+              <span aria-hidden="true" className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-white/10">
+                <span className="block h-full origin-left rounded-full bg-accent" style={{ animation: `lokal-grab-fill ${GRAB_HOLD_MS}ms linear -${GRAB_BAR_DELAY_MS}ms forwards` }} />
+              </span>
+            )}
             {layout.grip && (
               <div className="flex items-center justify-center text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing">
                 <GripVertical size={14} />
@@ -1012,8 +1075,8 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               )
             })()}</React.Fragment>
                 case 'tracknum': return <span key={key} data-track-column="tracknum" className="text-center text-xs text-muted font-display">{track.track_num || ''}</span>
-                case 'genre': return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={track.genre || undefined}>{track.genre || ''}</p>
-                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{track.lyrics_kind === 'sync' || track.lyrics_kind === 'plain' ? track.lyrics_kind : ''}</span>
+                case 'genre': { const genres = genreText(track); return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={genres || undefined}>{genres}</p> }
+                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['sync', 'plain', 'instrumental'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
                 case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
                 case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>

@@ -53,3 +53,30 @@ function writeFileComment(filePath, text) {
 }
 
 module.exports = { writeFileComment }
+
+/**
+ * The genre tag, one value per genre (ID3v2.4 TCON holds several; the tag
+ * editor's genres). An empty list removes it.
+ */
+function writeFileGenres(filePath, genres) {
+  const T = lib()
+  if (!T) throw new Error('Tag writer unavailable')
+  if (!filePath || !fs.existsSync(filePath)) throw new Error('File not found')
+  const list = (Array.isArray(genres) ? genres : []).map(value => String(value || '').trim()).filter(Boolean)
+  let file
+  try {
+    file = T.File.createFromPath(filePath)
+    const mp3 = /\.mp3$/i.test(filePath)
+    const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
+    file.tag.genres = list
+    if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    file.save()
+  } catch (e) {
+    const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))
+    throw new Error(busy ? 'The file is in use or read-only' : (e?.message || String(e)))
+  } finally {
+    try { file?.dispose() } catch {}
+  }
+}
+
+module.exports.writeFileGenres = writeFileGenres

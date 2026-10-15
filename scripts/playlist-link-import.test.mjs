@@ -165,7 +165,8 @@ test('downloading afterwards is opt-in work done per ghost song', () => {
   assert.equal(calls[0].opts.tags.cover, 'https://i.ytimg.com/vi/a/hqdefault.jpg')
 })
 
-test('yt-dlp is asked to list the playlist, not download it', async () => {
+// The fake yt-dlp is a script run through its shebang, which Windows can't do.
+test('yt-dlp is asked to list the playlist, not download it', { skip: process.platform === 'win32' && 'a shebang script stands in for yt-dlp' }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lokal-link-'))
   const fake = path.join(dir, 'fake-ytdlp.js')
   fs.writeFileSync(fake, `#!/usr/bin/env node\nrequire('fs').writeFileSync(${JSON.stringify(path.join(dir, 'args.json'))}, JSON.stringify(process.argv.slice(2)))\nprocess.stdout.write(JSON.stringify({ title: 'Listed', entries: [{ id: 'aaaaaaaaaaa', title: 'Song', channel: 'Band', ie_key: 'Youtube' }] }))\n`)

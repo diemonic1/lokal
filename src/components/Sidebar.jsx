@@ -29,7 +29,10 @@ export default function Sidebar() {
   const scale = useLeftSidebarScale()
   const [resizing, setResizing] = useState(false)
   const toggleCollapsed = () => setCollapsed(value => {
-    try { localStorage.setItem(COLLAPSED_KEY, value ? '0' : '1') } catch {}
+    // (Worked out before the try: the React Compiler can't compile a
+    // conditional inside one, and then skips the whole component.)
+    const saved = value ? '0' : '1'
+    try { localStorage.setItem(COLLAPSED_KEY, saved) } catch {}
     return !value
   })
 
@@ -113,6 +116,7 @@ export default function Sidebar() {
           return (
             <button
               key={folder.path}
+              data-folder-drop={folder.path}
               type="button"
               onClick={() => open(folder.path)}
               title={collapsed ? folder.name : undefined}

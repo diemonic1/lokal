@@ -32,7 +32,7 @@ function trackErrors(db) {
 // rather than reaching ORDER BY (the web route passes the query string).
 const SORT = /^(id|added_at|title|artist|album|album_artist|play_count|duration|year|last_modified|bitrate|track_num)(\s+(ASC|DESC))?$/i
 // "lyrics": songs without lyrics in the file first, then plain, then synced.
-const LYRICS_SORT = "CASE lyrics_kind WHEN 'sync' THEN 2 WHEN 'plain' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
+const LYRICS_SORT = "CASE lyrics_kind WHEN 'sync' THEN 3 WHEN 'plain' THEN 2 WHEN 'instrumental' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
 const safeSort = value => {
   const v = String(value || '').trim()
   if (/^lyrics(\s+ASC)?$/i.test(v)) return LYRICS_SORT
@@ -48,6 +48,8 @@ function listTracks(db, opts, { where, params, exists }) {
   const errors = trackErrors(db)
   const decorate = track => ({ ...track, missing: missingTrackFile(track, exists), ...(errors.has(String(track.id)) ? { playback_error: errors.get(String(track.id)) } : {}) })
   const problems = truthy(opts.problems)
+  // The genre filter is a JS function in SQL (see genreList.js).
+  if (where.some(clause => String(clause).includes('lokal_has_genre'))) require('./genreList').registerGenreFunctions(db)
   const clauses = [...where]
   if (problems) clauses.push("(file_path NOT LIKE 'ghost://%' OR id IN (SELECT track_id FROM track_errors))")
   let sql = 'SELECT * FROM tracks'

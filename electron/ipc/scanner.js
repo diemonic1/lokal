@@ -328,13 +328,20 @@ function pickPreferredArtist(common) {
 
 // Lyrics in the file's tags, for the song list's Lyrics column.
 function lyricsKindOf(meta) {
-  const text = lyricsFromMeta(meta)
-  return text ? (isSyncedText(text) ? 'sync' : 'plain') : ''
+  return require('../lyrics/fileLyrics').lyricsKind(lyricsFromMeta(meta))
 }
 
 // Comment frames that players write for themselves (iTunes' gapless and
 // volume data: "iTunNORM", "iTunSMPB"...), not a comment anyone wrote.
 const TECHNICAL_COMMENT = /^(itun|songs-db|musicmatch|cddb|mediajukebox)/i
+
+/** Every value of the file's genre tag, into the track's genre list. */
+function saveFileGenres(db, trackId, fileGenres) {
+  if (!Array.isArray(fileGenres) || fileGenres.length < 2) return
+  const row = db.prepare('SELECT genres FROM tracks WHERE id = ?').get(trackId)
+  const next = require('../genreList').withFileGenres(row?.genres, fileGenres)
+  if (next) db.prepare('UPDATE tracks SET genres = ? WHERE id = ?').run(next, trackId)
+}
 
 // The comment tag as text: music-metadata gives strings or { text } entries.
 function commentText(common) {
@@ -352,6 +359,11 @@ async function backfillComments(db) {
   // Comments read before technical frames were left out (see commentText)
   // are read again, once.
   try {
+    // "Instrumental track without lyrics" became its own kind: plain ones are read again, once.
+    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'lyrics_kind_v2'").get()) {
+      db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'plain'").run()
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v2', '1')").run()
+    }
     if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v2'").get()) {
       db.prepare("UPDATE tracks SET comment = NULL WHERE comment IS NOT NULL AND comment <> ''").run()
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('comment_tags_v2', '1')").run()
@@ -372,7 +384,7 @@ async function backfillComments(db) {
       const meta = await mm.parseFile(row.file_path, { duration: false, skipCovers: true })
       comment = commentText(meta.common)
       text = lyricsFromMeta(meta) || ''
-      lyrics = text ? (isSyncedText(text) ? 'sync' : 'plain') : ''
+      lyrics = require('../lyrics/fileLyrics').lyricsKind(text)
     } catch {}
     save.run(comment, lyrics, row.id)
     setFileLyrics(db, row.id, text)
@@ -433,7 +445,8 @@ function trackParams(item, trackId = item?.id) {
 // Bump when the way tags are read changes: the next scan then reads every file
 // again instead of skipping the unchanged ones.
 // 2: ID3v1 is ignored (see ../musicMetadata).
-const TAG_READER_VERSION = 2
+// 3: every value of a multi-value genre tag is kept (see withFileGenres).
+const TAG_READER_VERSION = 3
 
 // One scan at a time: asking again while one runs waits for it (a full
 // re-read asked meanwhile runs right after).
@@ -503,6 +516,9 @@ async function runScan(folderPath, { full = false } = {}) {
         }
       }
       db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(item.comment ?? '', item.lyrics_kind ?? null, trackId)
+      saveFileGenres(db, trackId, item.file_genres)
+      // The file changed: a "Can't play" noted for its old version no longer holds.
+      try { db.prepare('DELETE FROM track_errors WHERE track_id = ?').run(trackId) } catch {}
       if (item.lyrics_text != null) setFileLyrics(db, trackId, item.lyrics_text)
       applyPendingImportedMetadataToTrack(db, trackId)
       resolveGhostsByIsrc(db, trackId)
@@ -565,12 +581,18 @@ async function runScan(folderPath, { full = false } = {}) {
       if (getSkipDrumKit() && isDrumKit(title, c.album, c.genre?.[0])) { console.log(`[scanFolder] Skipped: ${filePath} - Drumkit pattern detected`); scanStatus.skipped++; scanStatus.done++; emit('scanner:progress', { ...scanStatus }); continue }
       const artwork = await extractArtwork(meta, trackId, folderArtwork)
       const replaygain = c.replaygain_track_gain || null
-      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta) })
+      batch.push({ id: trackId, file_path: filePath, file_hash: trackId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta) })
       if (batch.length >= BATCH) { await insertBatch(batch); batch = [] }
     } catch { scanStatus.errors++ }
     scanStatus.done++; emit('scanner:progress', { ...scanStatus })
   }
   if (batch.length > 0) await insertBatch(batch)
+  // Songs whose file is no longer in the music folder leave the library (a
+  // moved file hands its plays and playlist places to its new entry).
+  try {
+    const pruned = require('../libraryPrune').pruneMissingTracks(db, folderPath, files)
+    if (pruned.removed || pruned.moved) console.log(`[scanFolder] Removed ${pruned.removed} song(s) whose file is gone; ${pruned.moved} moved to their new path`)
+  } catch (e) { console.warn('[scanFolder] Clearing missing files skipped:', e.message) }
   try {
     const read = await backfillComments(db)
     if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
@@ -1552,6 +1574,23 @@ function registerScannerHandlers(ipcMain) {
     return db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId) || null
   })
   ipcMain.handle('track:setGenre', (_, trackId, genre) => getDB().prepare('UPDATE tracks SET genre = ? WHERE id = ?').run(genre || null, trackId))
+  // A folder's order lives in its songs' track numbers (see ../folderTracks).
+  ipcMain.handle('tracks:setNumbers', (_, list) => { try { return require('../folderTracks').setTrackNumbers(getDB(), list) } catch (e) { return { ok: false, error: e.message, failed: [] } } })
+  ipcMain.handle('tracks:previewMove', async (_, trackId, folder) => { try { return await require('../folderTracks').previewMove(getDB(), trackId, folder) } catch (e) { return { ok: false, error: e.message } } })
+  ipcMain.handle('tracks:moveToFolder', async (_, trackId, folder) => { try { return await require('../folderTracks').moveTrackToFolder(getDB(), trackId, folder) } catch (e) { return { ok: false, error: e.message } } })
+  ipcMain.handle('tracks:previewFilesForFolder', async (_, filePaths, folder) => { try { return await require('../folderTracks').previewFilesForFolder(getDB(), filePaths, folder) } catch { return [] } })
+  ipcMain.handle('tracks:addFilesToFolder', async (e, filePaths, folder) => {
+    try {
+      const result = await require('../folderTracks').addFilesToFolder(getDB(), filePaths, folder)
+      // The copies join the library like any new file in the music folder.
+      if (result.added?.length) {
+        mainWindow = BrowserWindow.fromWebContents(e.sender) || mainWindow
+        const root = getDB().prepare("SELECT value FROM settings WHERE key = 'music_folder'").get()?.value
+        if (root) await scanFolder(root)
+      }
+      return result
+    } catch (err) { return { ok: false, error: err.message, added: [], failed: [] } }
+  })
   ipcMain.handle('track:update', (_, trackId, data) => {
     const db = getDB()
     const currentTrack = db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId)
@@ -1590,6 +1629,11 @@ function registerScannerHandlers(ipcMain) {
     }
 
     if (data.genre !== undefined || data.genres !== undefined) {
+      // The tag editor's genres go into the file too (one value each).
+      if (data.genres !== undefined && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
+        const list = String(data.genres || '').split(',').map(part => part.trim()).filter(Boolean)
+        try { require('../fileComment').writeFileGenres(currentTrack.file_path, list) } catch (e) { return { error: `Couldn't save the genres: ${e.message}` } }
+      }
       const normalizedGenres = data.genres !== undefined
         ? normalizeGenresForBatch(data.genres)
         : normalizeGenresForBatch(currentTrack.genres || data.genre || currentTrack.genre)
@@ -2049,6 +2093,7 @@ async function indexSingleFile(filePath, opts = {}) {
         .run(params)
     }
     quality.saveFields(db, trackId, quality.qualityFields(meta), { fileChanged: true })
+    saveFileGenres(db, trackId, c.genre)
     db.prepare('DELETE FROM artist_track_links WHERE track_id = ?').run(trackId)
     const artistNames = splitArtists(artist)
     for (const name of artistNames) { 

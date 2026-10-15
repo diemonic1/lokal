@@ -41,6 +41,18 @@ function isSyncedText(text) {
   return typeof text === 'string' && LRC_STAMP.test(text)
 }
 
+/**
+ * The song list's Lyrics column: '' (none), 'instrumental' (the file says
+ * "Instrumental track without lyrics"), 'sync' (LRC time stamps) or 'plain'.
+ */
+function lyricsKind(text) {
+  const value = String(text || '').trim()
+  if (!value) return ''
+  const words = value.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (/^instrumental track without lyrics\.?$/i.test(words)) return 'instrumental'
+  return isSyncedText(value) ? 'sync' : 'plain'
+}
+
 /** LRC -> [[ms, text], ...] sorted by time. Metadata lines ([ar:...]) are skipped. */
 function parseLrc(lrc) {
   const out = []
@@ -271,4 +283,4 @@ function sidecarFor(filePath) {
   return null
 }
 
-module.exports = { fixMojibake, readFileLyrics, writeFileLyrics, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }
+module.exports = { lyricsKind, fixMojibake, readFileLyrics, writeFileLyrics, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }

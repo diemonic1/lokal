@@ -92,8 +92,10 @@ try {
   assert.equal(rootView.tracks.length, 0)
   assert.equal(rootView.totalTracks, 1004, 'root count excludes stale database paths')
   assert.equal(rootView.allTracks.length, 1004, 'Play All includes every descendant, with no 1,000-track cap')
-  assert.equal(rootView.folders[0].trackCount, 3, 'child folder count is recursive and excludes stale files')
-  assert.equal(rootView.folders[1].trackCount, 1001, 'emoji-leading folder names are included in the recursive count')
+  // By name: where an emoji sorts depends on the ICU data Node was built with.
+  const rootFolder = name => rootView.folders.find(folder => folder.name === name)
+  assert.equal(rootFolder('Artist').trackCount, 3, 'child folder count is recursive and excludes stale files')
+  assert.equal(rootFolder('🎧Artist').trackCount, 1001, 'emoji-leading folder names are included in the recursive count')
 
   const artistView = getLibraryFolders(db, 'Artist')
   assert.equal(artistView.relativePath, 'Artist')

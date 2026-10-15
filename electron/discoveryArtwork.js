@@ -15,6 +15,16 @@ async function json(url, fetchImpl) {
 }
 
 /** Resolve only artwork for provider metadata; never change recommendation identity. */
+/**
+ * Deezer's search: the field query first (artist:"..." track:"..."); Deezer
+ * stopped answering those (empty, October 2026), so a plain one follows.
+ */
+async function deezerSearch(kind, fieldQuery, plainQuery, fetchImpl) {
+  const ask = q => json(`https://api.deezer.com/search${kind}?q=${encodeURIComponent(q)}&limit=15`, fetchImpl)
+  const found = await ask(fieldQuery)
+  return found?.data?.length ? found : ask(plainQuery)
+}
+
 function createArtworkResolver({ getDB = () => null, isElectron = false, fetchImpl = fetch, searchArtists, searchSongs } = {}) {
   const cache = new Map()
   const pending = new Map()
@@ -46,7 +56,7 @@ function createArtworkResolver({ getDB = () => null, isElectron = false, fetchIm
         const artist = candidates.find(row => key(row.title) === key(item.artist) && allowed(row.imageUrl))
         if (artist) return allowed(artist.imageUrl)
       }
-      const songs = await json(`https://api.deezer.com/search?q=${encodeURIComponent(`artist:"${item.artist}"`)}&limit=10`, fetchImpl)
+      const songs = await deezerSearch('', `artist:"${item.artist}"`, item.artist, fetchImpl)
       const songImage = row => firstImage(row?.artist?.picture_xl, row?.artist?.picture_big, row?.album?.cover_xl, row?.album?.cover_big)
       const song = (songs?.data || []).find(row => key(row.artist?.name) === key(item.artist) && songImage(row))
       if (song) return songImage(song)
@@ -54,9 +64,11 @@ function createArtworkResolver({ getDB = () => null, isElectron = false, fetchIm
     }
     const album = item.type === 'album'
     const query = album ? `artist:"${item.artist}" album:"${item.title}"` : `artist:"${item.artist}" track:"${item.title}"`
-    const deezer = await json(`https://api.deezer.com/search${album ? '/album' : ''}?q=${encodeURIComponent(query)}&limit=15`, fetchImpl)
+    const deezer = await deezerSearch(album ? '/album' : '', query, `${item.artist} ${item.title}`, fetchImpl)
     const coverOf = row => album ? firstImage(row?.cover_xl, row?.cover_big) : firstImage(row?.album?.cover_xl, row?.album?.cover_big)
-    const match = (deezer?.data || []).find(row => key(row.title) === key(item.title) && key(row.artist?.name) === key(item.artist) && coverOf(row))
+    // title_short: the title without its "(feat. ...)" / "(Radio Edit)" part.
+    const sameTitle = row => key(row.title) === key(item.title) || (!album && key(row.title_short) === key(item.title))
+    const match = (deezer?.data || []).find(row => sameTitle(row) && key(row.artist?.name) === key(item.artist) && coverOf(row))
     const cover = coverOf(match)
     if (cover) return cover
     const itunes = await json(`https://itunes.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.title}`)}&entity=${album ? 'album' : 'song'}&limit=15`, fetchImpl)

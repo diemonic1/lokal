@@ -7,13 +7,14 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dev:web": "concurrently \"vite\" \"node server/start.js\"",
-    "build": "vite build && npm run native:prepare && electron-builder",
+    "build": "node scripts/bump-build.js && vite build && npm run native:prepare && electron-builder",
     "server": "node server/start.js",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "rebuild:electron": "electron-rebuild",
     "rebuild:web": "npm rebuild better-sqlite3",
     "postinstall": "electron-builder install-app-deps && npm run native:prepare",
-    "native:prepare": "node scripts/prepare-native.js"
+    "native:prepare": "node scripts/prepare-native.js",
+    "test": "node --import ./scripts/test-setup.mjs --test \"scripts/*.test.mjs\""
   },
   "build": {
     "appId": "com.lokal.music",

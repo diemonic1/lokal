@@ -387,7 +387,7 @@ function fileOf(db, trackId) {
 function afterFileWrite(db, trackId, filePath, done, text) {
   ensureSchema(db)
   setFileLyrics(db, trackId, done?.empty ? '' : text)
-  try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done?.empty ? '' : done?.synced ? 'sync' : 'plain', trackId) } catch {}
+  try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done?.empty ? '' : fileLyrics.lyricsKind(text), trackId) } catch {}
   try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ? OR file_path = ?').run(trackId, filePath) } catch {}
   try { db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId) } catch {}
 }
@@ -404,7 +404,7 @@ function writeFileLyrics(db, trackId, text) {
   const filePath = fileOf(db, trackId)
   const done = fileLyrics.writeFileLyrics(filePath, text, null)
   afterFileWrite(db, trackId, filePath, done, text)
-  return { ...done, lyricsKind: done.empty ? '' : done.synced ? 'sync' : 'plain', sidecar: fileLyrics.sidecarFor(filePath) }
+  return { ...done, lyricsKind: done.empty ? '' : fileLyrics.lyricsKind(text), sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 /** "Insert into track": one source's lyrics written into the file's tags. */
@@ -424,7 +424,7 @@ async function embedFrom(db, args, providerId) {
   if (!text) return { ok: false, error: 'no-lyrics' }
   const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
   afterFileWrite(db, args.trackId, filePath, done, text)
-  return { ...done, lyricsKind: done.synced ? 'sync' : 'plain', source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
+  return { ...done, lyricsKind: fileLyrics.lyricsKind(text), source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 /**

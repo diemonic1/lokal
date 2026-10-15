@@ -82,8 +82,14 @@ async function recordingId(query, ctx) {
   if (ids.has(key)) return ids.get(key)
   let recording = query.isrc ? await getJson(`https://api.deezer.com/track/isrc:${encodeURIComponent(query.isrc)}`, { signal: ctx.signal, timeoutMs: 3500 }) : null
   if (!recording?.id) {
-    const results = await getJson(withQuery('https://api.deezer.com/search', { q: `artist:"${query.searchArtist || query.artist}" track:"${query.searchTitle || query.title}"`, limit: 10 }), { signal: ctx.signal, timeoutMs: 3500 })
-    recording = results?.data?.find(item => norm(item.title) === norm(query.searchTitle || query.title)
+    const artist = query.searchArtist || query.artist
+    const title = query.searchTitle || query.title
+    const ask = q => getJson(withQuery('https://api.deezer.com/search', { q, limit: 10 }), { signal: ctx.signal, timeoutMs: 3500 })
+    // Deezer stopped answering field queries (artist:"..." track:"...", empty
+    // since October 2026): a plain search follows when one comes back empty.
+    let results = await ask(`artist:"${artist}" track:"${title}"`)
+    if (!results?.data?.length) results = await ask(`${artist} ${title}`)
+    recording = results?.data?.find(item => (norm(item.title) === norm(title) || norm(item.title_short) === norm(title))
       && norm(item.artist?.name) === norm(query.searchArtist || query.artist)
       && (!query.duration || Math.abs(item.duration - query.duration) <= 5))
   }

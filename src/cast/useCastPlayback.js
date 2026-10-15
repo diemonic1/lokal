@@ -24,6 +24,11 @@ const SEEK_SETTLE_MS = 150
 
 // Where the song was when casting ended: this computer carries on from there.
 let resumeAt = null
+/** The next load of this song starts here (a song's file moved while it played). */
+export function setResumePosition(trackId, position) {
+  resumeAt = trackId != null && Number(position) > 0 ? { trackId, position: Number(position) } : null
+}
+
 export function takeResumePosition(trackId) {
   const pending = resumeAt
   resumeAt = null

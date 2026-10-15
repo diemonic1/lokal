@@ -71,7 +71,7 @@ async function runAnalysis(db, { exts, onProgress = () => {}, job = {} } = {}) {
     try { text = lyricsFromMeta(await mm.parseFile(file, { duration: false, skipCovers: true })) } catch {}
     const { kind, fish } = classify(text, relDir)
     // The song list's Lyrics column gets the same answer while we're here.
-    try { saveKind.run(kind === 'synced' ? 'sync' : text && text.trim() ? 'plain' : '', file) } catch {}
+    try { saveKind.run(kind === 'synced' ? 'sync' : require('./fileLyrics').lyricsKind(text), file) } catch {}
     try { setFileLyrics(db, trackOf.get(file)?.id, text || '') } catch {}
     const folder = folders.get(relDir) || emptyCounts()
     for (const counts of [totals, folder]) {

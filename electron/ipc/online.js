@@ -126,7 +126,10 @@ function registerOnlineHandlers(ipcMain) {
       const rows = sources.saveOnlineTracks(getDB(), items)
       genres.fillOnlineGenres(getDB(), rows)
       return rows
-    } catch (e) { return { error: e.message } }
+    } catch (e) {
+      console.warn(`[playback] online songs couldn't be saved: ${e.message}`)
+      return { error: e.message }
+    }
   })
   ipcMain.handle('online:genre', (_, trackId) => genres.trackGenre(getDB(), trackId).catch(() => null))
   // The sources the search page can switch between: built-in ones, then addons.
@@ -260,14 +263,22 @@ function registerOnlineHandlers(ipcMain) {
     require('../online/videoPreview').animatedPreview(String(videoId || ''), String(query || ''), { force: force === true }).catch(() => null))
   ipcMain.handle('musicVideo:cancelIndex', () => { if (videoIndexJob) videoIndexJob.cancelled = true })
   ipcMain.handle('musicVideo:indexStatus', () => videoIndexStatus)
+  // Every step is logged ([playback] in the terminal under npm run dev), so
+  // a song that "just doesn't start" shows where it stopped.
   ipcMain.handle('online:prepare', async (_, provider, id, force = false) => {
+    const startedAt = Date.now()
+    const slow = setTimeout(() => console.warn(`[playback] ${provider}:${id} still preparing after 10 s`), 10000)
     try {
       const key = sources.addons.keyOfProvider(provider)
       if (key && sources.addons.packageService(getDB()).find(key)) return require('../spotiflac/media').prepare(getDB(), key, id, { force: !!force })
       if (provider === 'yt') await accountSession.credentials()
       const stream = await sources.resolveStream(provider, id, { ...streamOptions(), force: !!force })
+      console.log(`[playback] ${provider}:${id} prepared in ${Date.now() - startedAt} ms${stream.preview ? ' (preview only)' : ''}`)
       return { ok: true, preview: !!stream.preview }
-    } catch (e) { return { error: e.message } }
+    } catch (e) {
+      console.warn(`[playback] ${provider}:${id} could not be prepared after ${Date.now() - startedAt} ms: ${e?.message || e}`)
+      return { error: e.message }
+    } finally { clearTimeout(slow) }
   })
 }
 
@@ -807,9 +818,11 @@ function registerStreamProtocol(protocol, net) {
         acceptRanges: res.headers.get('accept-ranges') || null,
         durationMs: Date.now() - startedAt,
       }, res.ok ? 'info' : 'warn')
+      if (!res.ok) console.warn(`[playback] stream ${provider}:${id} answered HTTP ${res.status} (range ${range || 'none'}) after ${Date.now() - startedAt} ms`)
       return new Response(sources.cancellableBody(res.body, () => upstream.abort()), { status: res.status, headers })
     } catch (e) {
       const cancelled = !!upstream?.signal.aborted
+      if (!cancelled) console.warn(`[playback] stream ${provider}:${id} failed after ${Date.now() - startedAt} ms: ${e?.message || e}`)
       logAddonStream(diagnostic, cancelled ? 'cancelled' : 'failure', {
         stage: e?.streamStage || 'resolve-or-media-fetch',
         durationMs: Date.now() - startedAt,

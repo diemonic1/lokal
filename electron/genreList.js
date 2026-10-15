@@ -34,7 +34,10 @@ function trackGenres(row) {
  * genre; with wanted '' it's 1 when the track has no genre at all. (SQLite's
  * own LOWER() only folds ASCII, so this is done in JS.)
  */
+const registered = new WeakSet()
 function registerGenreFunctions(db) {
+  if (!db || registered.has(db)) return
+  registered.add(db)
   try {
     db.function('lokal_has_genre', { deterministic: true }, (genre, genres, wanted) => {
       const list = trackGenres({ genre, genres })
@@ -68,4 +71,18 @@ function genreSummary(db) {
   return { genres, none }
 }
 
-module.exports = { splitGenres, genreKey, trackGenres, registerGenreFunctions, genreSummary }
+/**
+ * A file's genre tag can hold several values (ID3v2.4 TCON "Романтика" and
+ * "Караоке_Plain"); the main `genre` column keeps the first, so the rest go
+ * into the `genres` list, next to what it had. null when there's nothing
+ * to add.
+ */
+function withFileGenres(existing, fileGenres) {
+  const fromFile = splitGenres((Array.isArray(fileGenres) ? fileGenres : [fileGenres]).filter(Boolean).join(','))
+  if (fromFile.length < 2) return null
+  const merged = splitGenres([existing, fromFile.join(',')].filter(Boolean).join(','))
+  const next = merged.join(', ')
+  return next === String(existing || '') ? null : next
+}
+
+module.exports = { splitGenres, genreKey, trackGenres, registerGenreFunctions, genreSummary, withFileGenres }

@@ -27,12 +27,12 @@ export default function PlayerBar() {
   const glass = useAppearanceFlag('glass_player_bar')
   const floating = useAppearanceFlag('player_bar_floating')
   const showGradient = useAppearanceFlag('player_bar_gradient')
-  const gradientStrength = useAppearanceValue('player_bar_gradient_strength', 40)
-  const gradientSpeed = useAppearanceValue('player_bar_gradient_speed', 0)
+  const gradientStrength = useAppearanceValue('player_bar_gradient_strength', 50)
+  const gradientSpeed = useAppearanceValue('player_bar_gradient_speed', 100)
   // How see-through the glass is (0: solid colour, still blurred).
-  const glassTransparency = Math.max(0, Math.min(90, useAppearanceValue('player_bar_glass_transparency', 45)))
+  const glassTransparency = Math.max(0, Math.min(90, useAppearanceValue('player_bar_glass_transparency', 40)))
   // How see-through the shade under the times and seek bar is (100: none).
-  const shadeTransparency = Math.max(0, Math.min(100, useAppearanceValue('player_bar_shade_transparency', 40)))
+  const shadeTransparency = Math.max(0, Math.min(100, useAppearanceValue('player_bar_shade_transparency', 100)))
   // The cover gradient reaches as far as the cover, title and artist do.
   const infoRef = useRef(null)
   const [infoWidth, setInfoWidth] = useState(0)
@@ -122,12 +122,27 @@ export default function PlayerBar() {
       .catch(() => showToast(t('Could not copy to the clipboard')))
   }
 
-  // The wheel anywhere on the bar: volume in 1% steps; over the seek bar: 1 s steps.
+  // Volume is shown and stepped in whole percent; a change shows the new
+  // value over the slider for a moment.
+  const [volumeTip, setVolumeTip] = useState(false)
+  const volumeTipTimer = useRef(null)
+  const showVolumeTip = () => {
+    setVolumeTip(true)
+    clearTimeout(volumeTipTimer.current)
+    volumeTipTimer.current = setTimeout(() => setVolumeTip(false), 1000)
+  }
+  useEffect(() => () => clearTimeout(volumeTipTimer.current), [])
+  const changeVolume = (percent) => {
+    setVolume(Math.max(0, Math.min(100, Math.round(percent))) / 100)
+    showVolumeTip()
+  }
+  // The wheel anywhere on the bar: volume in steps of Settings > Appearance >
+  // Player Bar > Volume wheel step (%); over the seek bar: 1 s steps.
+  const wheelStep = Math.max(1, Math.min(5, Math.round(useAppearanceValue('volume_wheel_step', 5))))
   const onBarWheel = (e) => {
     if (!e.deltaY) return
-    const step = e.deltaY < 0 ? 1 : -1
-    const { volume: v, setVolume: set } = usePlayerStore.getState()
-    set(Math.max(0, Math.min(1, Math.round((v + step * 0.01) * 100) / 100)))
+    const direction = e.deltaY < 0 ? 1 : -1
+    changeVolume(Math.round(usePlayerStore.getState().volume * 100) + direction * wheelStep)
   }
   const onSeekWheel = (e) => {
     e.stopPropagation()
@@ -290,12 +305,20 @@ export default function PlayerBar() {
           <button onClick={toggleFullscreen} disabled={!currentTrack} className="text-text/90 hover:text-text transition-colors disabled:opacity-30" title={t("Fullscreen")}><Maximize2 size={15} /></button>
           
           <div className="flex items-center gap-1.5 ml-1">
-            <button onClick={() => setVolume(volume > 0 ? 0 : 0.8)} className="text-text/90 hover:text-text transition-colors">
+            <button onClick={() => changeVolume(volume > 0 ? 0 : 80)} className="text-text/90 hover:text-text transition-colors" title={`${Math.round(volume * 100)}%`}>
               {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
             </button>
-            <input type="range" min={0} max={1} step={0.01} value={volume}
-              onChange={e => setVolume(parseFloat(e.target.value))}
-              className="w-18 accent-accent cursor-pointer h-1" style={{ width: 72 }} />
+            <div className="relative flex items-center">
+              <input type="range" min={0} max={100} step={1} value={Math.round(volume * 100)}
+                onChange={e => changeVolume(Number(e.target.value))}
+                aria-label={t('Volume')} aria-valuetext={`${Math.round(volume * 100)}%`}
+                className="w-18 accent-accent cursor-pointer h-1" style={{ width: 72 }} />
+              <span aria-hidden="true"
+                className={`pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-display text-text shadow-lg transition-opacity duration-150 ${volumeTip ? 'opacity-100' : 'opacity-0'}`}
+                style={{ left: `${Math.round(volume * 100) * 0.72 * 0.86 + 72 * 0.07}px` }}>
+                {Math.round(volume * 100)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>

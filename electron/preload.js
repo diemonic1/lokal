@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 const invoke = (ch, ...a) => ipcRenderer.invoke(ch, ...a)
 const on = (ch, fn) => { ipcRenderer.on(ch, fn); return () => ipcRenderer.removeListener(ch, fn) }
 
@@ -141,6 +141,13 @@ contextBridge.exposeInMainWorld('electron', {
   trackSetArtwork: (id, d) => invoke('track:setArtwork', id, d),
   trackSetGenre: (id, genre) => invoke('track:setGenre', id, genre),
   updateTrack: (id, data) => invoke('track:update', id, data),
+  setTrackNumbers: (list) => invoke('tracks:setNumbers', list),
+  moveTrackToFolder: (id, folder) => invoke('tracks:moveToFolder', id, folder),
+  previewMove: (id, folder) => invoke('tracks:previewMove', id, folder),
+  addFilesToFolder: (paths, folder) => invoke('tracks:addFilesToFolder', paths, folder),
+  previewFilesForFolder: (paths, folder) => invoke('tracks:previewFilesForFolder', paths, folder),
+  // A file dropped from the computer: its path on disk (File.path is gone in Electron 32+).
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file) || '' } catch { return '' } },
   batchUpdateTracks: (trackIds, operations) => invoke('track:batchUpdate', trackIds, operations),
   updateTrackArtwork: (id, imageData) => invoke('track:setArtwork', id, imageData),
   fetchExternalArtwork: (id, title, artist) => invoke('track:fetchExternalArtwork', id, title, artist),

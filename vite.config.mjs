@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -34,7 +35,13 @@ const compilerFilter = new RegExp(
 )
 compilerPreset.rolldown.filter.id = compilerFilter
 
+// Settings > About: the build number (scripts/bump-build.js raises it on each `npm run build`).
+const readBuildNumber = () => {
+  try { return Number(JSON.parse(fs.readFileSync(path.join(dirname, 'build-number.json'), 'utf8')).build) || 0 } catch { return 0 }
+}
+
 export default defineConfig({
+  define: { __BUILD_NUMBER__: JSON.stringify(readBuildNumber()) },
   plugins: [react(), babel({ include: compilerFilter, presets: [compilerPreset] })],
   resolve: { alias: { '@': path.resolve(dirname, 'src') } },
   base: './',

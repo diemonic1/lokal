@@ -11,15 +11,17 @@
 //   player_bar_gradient_speed      0-100, how fast its colours drift (0: still)
 //   player_bar_glass_transparency  0-90, how see-through the glass is
 //   player_bar_shade_transparency  0-100, the shade under the seek bar (glass only)
+//   volume_wheel_step              1-5, volume % per wheel notch over the player bar
 // Text (useAppearanceText):
 //   app_tabs        Settings > Appearance > App Tabs: tab order and which go to the ⋯ menu (see appTabs.js)
 //   taskbar_title   ... > Taskbar Title: what the window title (taskbar) shows
+//   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform']
-const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title']
+const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null

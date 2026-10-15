@@ -22,6 +22,7 @@ import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
 import { useTheme } from '../themeHooks'
 import { previewAppearanceValue } from '../appearanceFlags'
 import AppTabsSettings from '../components/AppTabsSettings'
+import { FOLDER_TRANSITIONS } from './Library'
 import { ARTIST_SOURCES } from '../artistSources'
 import { repairMissingTracks } from '../ghostDownloads'
 import { plural } from '../plural'
@@ -1136,7 +1137,11 @@ activeCategory === 'data' ? usersTried
       {api.isElectron && inCategory('about') && (
         <Section title="About">
           <Row label="Version" desc="The version you're running.">
-            <span className="text-sm text-muted font-mono">{appVersion || '1.0.0'}</span>
+            <span className="flex flex-col items-end">
+              <span className="text-sm text-muted font-mono">{appVersion || '1.0.0'}</span>
+              {/* Raised by one on every `npm run build` (scripts/bump-build.js). */}
+              <span className="text-[11px] text-muted/70 font-mono">{t('Build {n}', { n: typeof __BUILD_NUMBER__ !== 'undefined' ? __BUILD_NUMBER__ : 0 })}</span>
+            </span>
           </Row>
           <Row label="Check for Updates" desc={/-nightly\./i.test(appVersion || '') ? 'Nightly builds update from GitHub Releases, not from here.' : 'Look for a newer version now.'}>
             <div className="flex items-center gap-3">
@@ -2176,7 +2181,7 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('appearance') && (
       <Section title="Player Bar">
-        <Row label="Glass" desc="The player bar is see-through and blurs what's behind it. Turn off for a solid bar, which is lighter if playback stutters.">
+        <Row label="Glass" desc="The player bar and the song list's header are see-through and blur what's behind them. Turn off for solid ones, which is lighter if playback stutters.">
           <button
             onClick={() => set('glass_player_bar', settings.glass_player_bar === '0' ? '1' : '0')}
             className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.glass_player_bar !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
@@ -2185,9 +2190,9 @@ activeCategory === 'data' ? usersTried
         </Row>
         {settings.glass_player_bar !== '0' && (() => {
           const raw = settings.player_bar_glass_transparency
-          const value = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 45
+          const value = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 40
           return (
-            <Row label="Glass transparency" desc="How much of the page shows through the glass. Lower it if the buttons are hard to see over light pages.">
+            <Row label="Glass transparency" desc="How much of the page shows through the glass of the player bar and the song list's header. Lower it if the buttons are hard to see over light pages.">
               <div className="flex w-56 items-center gap-3">
                 <input type="range" min="0" max="90" step="1" value={value}
                   onChange={e => { previewAppearanceValue('player_bar_glass_transparency', e.target.value); set('player_bar_glass_transparency', e.target.value) }}
@@ -2199,7 +2204,7 @@ activeCategory === 'data' ? usersTried
         })()}
         {settings.glass_player_bar !== '0' && (() => {
           const raw = settings.player_bar_shade_transparency
-          const value = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 40
+          const value = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 100
           return (
             <Row label="Seek bar shade transparency" desc="The blurred shade under the times and the seek bar. 100% hides it.">
               <div className="flex w-56 items-center gap-3">
@@ -2236,7 +2241,7 @@ activeCategory === 'data' ? usersTried
         </Row>
         {settings.player_bar_gradient !== '0' && (() => {
           const strength = Number.isFinite(Number(settings.player_bar_gradient_strength)) && settings.player_bar_gradient_strength !== '' && settings.player_bar_gradient_strength != null
-            ? Number(settings.player_bar_gradient_strength) : 40
+            ? Number(settings.player_bar_gradient_strength) : 50
           return (
             <Row label="Gradient strength" desc="How strongly and vividly the cover gradient shows.">
               <div className="flex w-56 items-center gap-3">
@@ -2250,7 +2255,7 @@ activeCategory === 'data' ? usersTried
         })()}
         {settings.player_bar_gradient !== '0' && (() => {
           const raw = settings.player_bar_gradient_speed
-          const speed = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 0
+          const speed = raw != null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : 100
           return (
             <Row label="Gradient animation speed" desc="How fast the gradient's colours drift. 0% keeps them still.">
               <div className="flex w-56 items-center gap-3">
@@ -2262,6 +2267,16 @@ activeCategory === 'data' ? usersTried
             </Row>
           )
         })()}
+        <Row label="Volume wheel step" desc="How much the volume changes per notch of the mouse wheel over the player bar.">
+          <select
+            value={String(Math.max(1, Math.min(5, Math.round(Number(settings.volume_wheel_step) || 5))))}
+            onChange={event => { previewAppearanceValue('volume_wheel_step', event.target.value); set('volume_wheel_step', event.target.value) }}
+            aria-label={t('Volume wheel step')}
+            className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+          >
+            {[1, 2, 3, 4, 5].map(n => <option key={n} value={String(n)}>{n}%</option>)}
+          </select>
+        </Row>
         <Row label="Waveform" desc="Moving bars next to the volume while music plays.">
           <button
             onClick={() => set('player_waveform', settings.player_waveform === '0' ? '1' : '0')}
@@ -2274,6 +2289,16 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('appearance') && (
       <Section title="Layout">
+        <Row label="Folder switch animation" desc="How the song list changes when you open another folder in the library.">
+          <select
+            value={settings.folder_transition || 'slide'}
+            onChange={event => { previewAppearanceValue('folder_transition', event.target.value); set('folder_transition', event.target.value) }}
+            aria-label={t('Folder switch animation')}
+            className="min-w-44 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+          >
+            {FOLDER_TRANSITIONS.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
+          </select>
+        </Row>
         <Row
           label="Side Panels"
           desc={"Merged: Queue and Lyrics open as tabs in the side panel. Independent: each opens in its own panel next to it."}

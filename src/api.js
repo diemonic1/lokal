@@ -652,6 +652,13 @@ export const api = {
   setManualGenre: (data) => isE() ? el().setManualGenre(data) : apiFetch('/tracks/set-manual-genre', { method: 'POST', body: data }),
   
   updateTrack: (id, data) => isE() ? el().updateTrack(id, data) : apiFetch(`/tracks/${id}`, { method: 'PUT', body: data }),
+  // Folder order = track numbers in the tags (desktop app only: they touch the files).
+  setTrackNumbers: (list) => isE() && el().setTrackNumbers ? el().setTrackNumbers(list) : Promise.resolve({ ok: false, error: 'Desktop app only', failed: [] }),
+  previewMove: (id, folder) => isE() && el().previewMove ? el().previewMove(id, folder) : Promise.resolve({ ok: false, error: 'Desktop app only' }),
+  moveTrackToFolder: (id, folder) => isE() && el().moveTrackToFolder ? el().moveTrackToFolder(id, folder) : Promise.resolve({ ok: false, error: 'Desktop app only' }),
+  addFilesToFolder: (paths, folder) => isE() && el().addFilesToFolder ? el().addFilesToFolder(paths, folder) : Promise.resolve({ ok: false, error: 'Desktop app only', added: [], failed: [] }),
+  previewFilesForFolder: (paths, folder) => isE() && el().previewFilesForFolder ? el().previewFilesForFolder(paths, folder) : Promise.resolve([]),
+  pathForFile: (file) => (isE() && el().pathForFile ? el().pathForFile(file) : ''),
   batchUpdateTracks: (trackIds, operations) => isE() ? el().batchUpdateTracks(trackIds, operations) : apiFetch('/tracks/batch-update', { method: 'POST', body: { trackIds, operations } }),
   updateTrackArtwork: (id, imageData) => isE() ? el().updateTrackArtwork(id, imageData) : apiFetch(`/tracks/${id}/artwork`, { method: 'PUT', body: { imageData } }),
   fetchExternalArtwork: (id, title, artist) => isE() ? el().fetchExternalArtwork(id, title, artist) : apiFetch(`/tracks/${id}/fetch-external-artwork`, { method: 'POST', body: { title, artist } }),

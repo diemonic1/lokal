@@ -17,6 +17,7 @@ const REVIEWED = {
   QueuePanel: ['displayQueue.length'], // always an array
   LyricsPanel: ['line.time', 'line.bgWords', 'line.text', 'line.words', 'line.bgText', 'line.blank', 'ask?.kind', 'ask?.id'], // Row's line prop; ask: null-safe
   ContextMenu: ['state?.items'], // null-safe
+  Sidebar: ['folders.length'], // state, always an array
 }
 
 function compile(name) {
