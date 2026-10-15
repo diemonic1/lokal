@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
 import { navigateToTrackAlbum } from '../playbackContext'
-import { navigateToTrackArtist } from '../artistLink'
+import ArtistNames from './ArtistNames'
 import Waveform from './Waveform'
 import { showToast } from './Toaster'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
@@ -68,23 +68,12 @@ export default function PlayerBar() {
   })))
   const { user, openAddToPlaylist } = useAppStore()
   const [likeAnim, setLikeAnim] = useState(false)
-  const [keepCommaArtists, setKeepCommaArtists] = useState([])
   const scrubbing = useRef(false)
   const [localProg, setLocalProg] = useState(null)
   const menu = useContextMenu()
   const display = localProg ?? progress
   const isLiked = currentTrack && likedIds.has(currentTrack.id)
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat
-
-  useEffect(() => {
-    api.getKeepCommaArtists().then(artists => {
-      if (Array.isArray(artists)) {
-        setKeepCommaArtists(artists)
-      } else if (artists?.value) {
-        try { setKeepCommaArtists(JSON.parse(artists.value)) } catch {}
-      }
-    }).catch(() => {})
-  }, [])
 
 
   const handleScrub = useCallback((e) => {
@@ -112,10 +101,6 @@ export default function PlayerBar() {
   // when the station's API said.
   const station = isStationTrack(currentTrack)
 
-  const handleArtistClick = () => {
-    if (!currentTrack || station) return
-    navigateToTrackArtist(nav, currentTrack, keepCommaArtists)
-  }
 
   const hasAlbum = !!currentTrack?.album
   // A click on the title copies "Artist - Title".
@@ -231,10 +216,8 @@ export default function PlayerBar() {
               </div>
               {currentTrack ? (
                 <div className="min-w-0">
-                  <button onClick={handleArtistClick} onContextMenu={openTrackMenu}
-                    className="text-sm leading-5 text-muted hover:text-accent transition-colors truncate max-w-full block text-left">
-                    {currentTrack.artist}
-                  </button>
+                  <ArtistNames track={currentTrack} disabled={station} onContextMenu={openTrackMenu}
+                    className="text-sm leading-5 text-muted truncate max-w-full block text-left" />
                   {castDevice && (
                     // Casting: where it plays; a click opens the Cast menu.
                     <button onClick={() => window.dispatchEvent(new Event('lokal:open-cast-menu'))}

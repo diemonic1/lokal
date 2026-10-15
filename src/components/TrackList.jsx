@@ -37,6 +37,8 @@ import { useGhostDurationConfirmation } from './useGhostDurationConfirmation'
 import { nextPlaylistSort } from '../playlistSorting'
 import { useTranslation, translate } from '../i18n'
 import { genreText } from '../genres'
+import ArtistNames from './ArtistNames'
+import GenrePopover from './GenrePopover'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
 import { TRACK_SEARCH_SITES, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 
@@ -58,6 +60,19 @@ const albumName = track => {
 // recomputed once the visible band gets within half of this of an edge, so
 // ordinary scrolling re-renders every ~50 rows rather than on every frame.
 const WINDOW_OVERSCAN = 100
+
+// The album under a song's title or in its column: opens that album.
+function AlbumLink({ track, navigate }) {
+  const name = albumName(track)
+  if (!name) return null
+  return (
+    <button type="button" className="inline transition-colors hover:text-white hover:underline"
+      onClick={e => { e.stopPropagation(); navigateToTrackAlbum(navigate, track) }}
+      onDoubleClick={e => e.stopPropagation()}>
+      {name}
+    </button>
+  )
+}
 
 function getScrollParent(node) {
   let el = node?.parentElement
@@ -150,6 +165,9 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const [draggedId, setDraggedId] = useState(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [editingTrack, setEditingTrack] = useState(null)
+  // The genre cell being edited in place: { track, anchor } (see GenrePopover).
+  const [genreEdit, setGenreEdit] = useState(null)
+  const closeGenreEdit = useCallback(() => setGenreEdit(null), [])
   const [showBatchEdit, setShowBatchEdit] = useState(false)
   // { tracks, title? }: the Delete from Library confirmation.
   const [deleteRequest, setDeleteRequest] = useState(null)
@@ -1052,16 +1070,16 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   {!isMissing && track.playback_error && <span title={track.playback_error} className="px-1.5 py-0.5 rounded-full bg-red-400/10 border border-red-400/20 text-[10px] leading-[14px] uppercase tracking-wide text-red-200 flex-shrink-0">{t('Can\'t play')}</span>}
                 </div>
                 <div className="flex min-w-0 items-center text-xs text-muted leading-4 h-4">
-                  {columns.artist && <span className="min-w-0 flex-1 truncate" title={track.artist}>{track.artist}</span>}
+                  {columns.artist && <ArtistNames track={track} className="min-w-0 flex-1 truncate" linkClassName="hover:text-white hover:underline" />}
                   {!layout.album && albumName(track) && <>
                     {columns.artist && track.artist && <span className="mx-1 shrink-0">·</span>}
-                    <span data-inline-album className="min-w-0 flex-1 truncate" title={albumName(track)}>{albumName(track)}</span>
+                    <span data-inline-album className="min-w-0 flex-1 truncate" title={albumName(track)}><AlbumLink track={track} navigate={navigate} /></span>
                   </>}
                 </div>
                 {extraColumns.filter(column => !layout[column.key]).map(column => <span key={column.key} className="mr-2 text-[10px] text-muted">{column.label}: {column.render(track)}</span>)}
               </div>
             </div></React.Fragment>
-                case 'album': return <React.Fragment key={key}><p className="truncate text-xs text-muted" title={albumName(track) || undefined}>{albumName(track)}</p></React.Fragment>
+                case 'album': return <React.Fragment key={key}><p className="truncate text-xs text-muted" title={albumName(track) || undefined}><AlbumLink track={track} navigate={navigate} /></p></React.Fragment>
                 case 'source': return <React.Fragment key={key}><span className="flex items-center justify-center"><TrackSourceIcon track={track} addonNames={addonNames} /></span></React.Fragment>
                 case 'quality': return <React.Fragment key={key}>{(() => {
               // Same badge as the Audio Quality page; opens that page on its list.
@@ -1077,7 +1095,19 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
               )
             })()}</React.Fragment>
                 case 'tracknum': return <span key={key} data-track-column="tracknum" className="text-center text-xs text-muted font-display">{track.track_num || ''}</span>
-                case 'genre': { const genres = genreText(track); return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={genres || undefined}>{genres}</p> }
+                case 'genre': {
+                  const genres = genreText(track)
+                  // A library song's genres open a small editor next to the cell.
+                  if (resolveTracks || streamed || !track.id) return <p key={key} data-track-column="genre" className="truncate text-xs text-muted" title={genres || undefined}>{genres}</p>
+                  return (
+                    <button key={key} type="button" data-track-column="genre" title={genres || t('Add a genre…')}
+                      onClick={e => { e.stopPropagation(); setGenreEdit({ track, anchor: e.currentTarget.getBoundingClientRect() }) }}
+                      onDoubleClick={e => e.stopPropagation()}
+                      className={`min-w-0 truncate text-left text-xs transition-colors hover:text-white ${genres ? 'text-muted' : 'text-transparent group-hover:text-muted/50'}`}>
+                      {genres || '+'}
+                    </button>
+                  )
+                }
                 case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['sync', 'plain', 'instrumental'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
                 case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
@@ -1198,6 +1228,18 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
           announceTrackChanged(updatedTrack.id)
         }}
       />
+
+      {genreEdit && (
+        <GenrePopover track={genreEdit.track} anchor={genreEdit.anchor}
+          onClose={closeGenreEdit}
+          onSaved={(updatedTrack) => {
+            if (!updatedTrack?.id) return
+            syncTrack(updatedTrack)
+            setTrackOverrides(prev => ({ ...prev, [updatedTrack.id]: updatedTrack }))
+            announceTrackChanged(updatedTrack.id)
+          }}
+        />
+      )}
 
       <BatchEditModal
         tracks={selectedTracks()}

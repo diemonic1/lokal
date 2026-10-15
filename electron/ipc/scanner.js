@@ -63,58 +63,20 @@ function slugify(str) {
   return (str || 'unknown').toLowerCase().replace(SLUG_SEPARATORS, '-').replace(/^-|-$/g, '') || 'unknown'
 }
 
+const artistSplit = require('../artistSplit')
+
 function getKeepCommaArtists() {
-  const keepComma = new Set([
-    'tyler, the creator', 'earth, wind & fire', 'crosby, stills & nash',
-    'crosby, stills, nash & young', 'simon & garfunkel', 'emerson, lake & palmer',
-    'syd barrett', 'pete & bas', 'pe & ne',
-  ])
+  let userDefined = []
   try {
-    const db = getDB()
-    const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    if (setting?.value) {
-      const userDefined = JSON.parse(setting.value)
-      userDefined.forEach(a => keepComma.add(a.toLowerCase().trim()))
-    }
+    const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
+    if (setting?.value) userDefined = JSON.parse(setting.value)
   } catch {}
-  return keepComma
+  return artistSplit.keepCommaSet(userDefined)
 }
 
-// "Ark Patrol (feat. Veronika Redd)", "A [ft. B]" and "A feat B" all credit B
-// as a second artist; the bracket may sit anywhere in the credit.
-const FEAT_BRACKET = /\s*[([]\s*(?:feat\.?|ft\.?|featuring)\s+([^()[\]]+?)\s*[)\]]/gi
-const FEAT_BARE = /\s+(?:feat\.?|ft\.?|featuring)\s+/i
-
-function splitFeatured(raw) {
-  const featured = []
-  const main = raw.replace(FEAT_BRACKET, (_, names) => { featured.push(names); return ' ' })
-  return [...main.split(FEAT_BARE), ...featured].map(part => part.trim()).filter(Boolean)
-}
-
+// The split itself (feat., / \ ; , & x vs) lives in electron/artistSplit.js.
 function splitArtists(raw, keepComma = null) {
-  if (!raw) return []
-  const KEEP_COMMA_ARTISTS = keepComma || getKeepCommaArtists()
-  if (KEEP_COMMA_ARTISTS.has(raw.toLowerCase().trim())) return [raw.trim()]
-  const artists = splitFeatured(raw).flatMap(part => splitCredit(part, KEEP_COMMA_ARTISTS))
-  return [...new Set(artists)]
-}
-
-function splitCredit(raw, KEEP_COMMA_ARTISTS) {
-  const lower = raw.toLowerCase().trim()
-  for (const known of KEEP_COMMA_ARTISTS) {
-    if (lower === known || lower.startsWith(known + ' ') || lower.endsWith(' ' + known)) return [raw.trim()]
-  }
-  const commaLowerPattern = /,\s+[a-z]/
-  if (commaLowerPattern.test(raw)) return [raw.trim()]
-  let artists = [raw]
-  artists = artists.flatMap(a => a.split(/,\s+(?=[A-Z])/))
-  artists = artists.flatMap(a => {
-    const parts = a.split(/\s+(?:&|x|vs\.?)\s+/i)
-    // A split that leaves one-letter pieces isn't a collaboration but one
-    // stylised name ("h x m x d" was becoming the artists h, m and d).
-    return parts.some(part => part.trim().length < 2) ? [a] : parts
-  })
-  return [...new Set(artists.map(a => a.trim()).filter(Boolean))]
+  return artistSplit.splitArtists(raw, keepComma || getKeepCommaArtists())
 }
 
 // Tracks whose artist links were changed by hand (Manage > rename, merge,
@@ -137,7 +99,9 @@ function unlockArtistLinks(db, trackId) {
 // 3: version 2 also linked streamed (ghost://) tracks; this undoes that.
 // 4: slugify keeps non-Latin letters; splits up the shared "a-unknown" artist.
 // 5: "(feat. X)" / "[ft X]" / bare "feat X" credit X as its own artist.
-const ARTIST_SPLITTER_VERSION = 5
+// 6: "A/B", "A \ B", "A; B" and "A,B" are several artists too.
+// 7: "(B Remix)", "(Remix B)", "(B prod)", "(prod B)" credit B too.
+const ARTIST_SPLITTER_VERSION = 7
 
 /**
  * Brings every track's artist links in line with splitArtists (e.g. after it

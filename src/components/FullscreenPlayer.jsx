@@ -21,6 +21,7 @@ import { useTranslation } from '../i18n'
 import { contextLabel, isContextNavigable, navigateToContext } from '../playbackContext'
 import { trackArtURL } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
+import ArtistNames from './ArtistNames'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
 const COVER_SIZE = 'min(34rem, 54vh)'
@@ -811,7 +812,7 @@ export default function FullscreenPlayer() {
             <motion.div key={currentTrack?.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="mt-5 text-center" style={{ width: COVER_SIZE }}>
               <h2 className="text-3xl font-bold text-white leading-tight truncate">{currentTrack?.title || '—'}</h2>
-              <p className="mt-1.5 text-lg text-white/70 truncate">{currentTrack?.artist}</p>
+              <p className="mt-1.5 text-lg text-white/70 truncate"><ArtistNames track={currentTrack} disabled={isStationTrack(currentTrack)} onNavigate={toggleFullscreen} linkClassName="hover:text-white hover:underline" /></p>
               {currentTrack?.album && <p className="mt-0.5 text-sm text-white/40 truncate">{currentTrack.album}</p>}
             </motion.div>
           </div>

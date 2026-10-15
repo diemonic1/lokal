@@ -19,7 +19,7 @@ import {
   navigateToContext,
   navigateToTrackAlbum,
 } from '../playbackContext'
-import { navigateToTrackArtist } from '../artistLink'
+import ArtistNames from './ArtistNames'
 import { isStreamed, trackArtURL } from '../onlineTracks'
 
 import ContextMenu, { useContextMenu } from './ContextMenu'
@@ -148,27 +148,6 @@ export default function RightSidebar() {
     return () => window.removeEventListener('lokal:settings-saved', loadSettings)
   }, [sidePanelView])
   const isAutoSynced = settings.unsynced_auto_sync === '1'
-
-  // Comma-preserving artist names (e.g. "Tyler, The Creator") configured in
-  // Settings -- without this, navigateToTrackArtist falls back to its
-  // default empty list and mis-slugs/mis-splits any such artist here, even
-  // though PlayerBar's own artist link handles it correctly.
-  const [keepCommaArtists, setKeepCommaArtists] = useState([])
-  useEffect(() => {
-    api.getKeepCommaArtists().then(artists => {
-      if (Array.isArray(artists)) {
-        setKeepCommaArtists(artists)
-      } else if (artists?.value) {
-        try { setKeepCommaArtists(JSON.parse(artists.value)) } catch {}
-      }
-    }).catch(() => {})
-    // RightSidebar stays mounted across normal route navigation, so a list
-    // loaded once at mount would otherwise go stale until a remount/reload
-    // if the user updates it in Settings mid-session.
-    const onUpdate = (e) => { if (Array.isArray(e.detail)) setKeepCommaArtists(e.detail) }
-    window.addEventListener('lokal:comma-artists-updated', onUpdate)
-    return () => window.removeEventListener('lokal:comma-artists-updated', onUpdate)
-  }, [])
 
   // Whichever of info/lyrics is showing beneath the Queue overlay. The
   // overlay fully covers this (opaque background, see below), and closing
@@ -423,13 +402,9 @@ export default function RightSidebar() {
                         <p onContextMenu={openTrackMenu} className={fx ? 'text-lg font-semibold text-white leading-tight drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]' : 'font-display text-white text-sm leading-tight'}>{currentTrack?.title || t('Nothing playing')}</p>
                       )}
                       {currentTrack?.artist ? (
-                        <button
-                          onClick={() => navigateToTrackArtist(nav, currentTrack, keepCommaArtists)}
-                          onContextMenu={openTrackMenu}
-                          title={t('Go to artist: {artist}', { artist: currentTrack.artist })}
-                          className={fx ? 'text-sm text-white/70 mt-0.5 text-left hover:text-white hover:underline transition-colors truncate max-w-full block' : 'text-xs text-muted mt-0.5 text-left hover:text-accent hover:underline transition-colors truncate max-w-full block'}>
-                          {currentTrack.artist}
-                        </button>
+                        <ArtistNames track={currentTrack} onContextMenu={openTrackMenu}
+                          linkClassName={fx ? 'hover:text-white hover:underline' : 'hover:text-accent hover:underline'}
+                          className={fx ? 'text-sm text-white/70 mt-0.5 text-left truncate max-w-full block' : 'text-xs text-muted mt-0.5 text-left truncate max-w-full block'} />
                       ) : (
                         <p className={fx ? 'text-sm text-white/70 mt-0.5' : 'text-xs text-muted mt-0.5'}>{currentTrack?.artist}</p>
                       )}

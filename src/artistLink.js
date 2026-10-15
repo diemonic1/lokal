@@ -6,6 +6,7 @@
 
 import { isOnlineTrack } from './onlineBrowse.js'
 import { streamRef } from './onlineTracks.js'
+import { splitArtists, keepCommaSet, artistCreditParts } from './artistNames.js'
 
 // Matches slugify in electron/ipc/scanner.js: non-Latin scripts keep their
 // letters (a Cyrillic name used to slug to nothing and got no link).
@@ -23,6 +24,42 @@ export function artistToSlug(artistName, keepCommaArtists = []) {
   }
   const firstPart = artistName.split(',')[0].trim()
   return toSlug(firstPart)
+}
+
+/**
+ * The artists a track credits, each one its own link: the library's songs
+ * split the way the scanner links them ("A/B (feat. C)" -> A, B, C); a
+ * streamed song lists what its source said.
+ */
+export function trackArtistNames(track, keepCommaArtists = []) {
+  if (!track?.artist) return []
+  if (isOnlineTrack(track)) {
+    const listed = Array.isArray(track.artists) ? track.artists.map(name => String(name || '').trim()).filter(Boolean) : []
+    return listed.length ? listed : [String(track.artist).trim()]
+  }
+  return splitArtists(track.artist, keepCommaSet(keepCommaArtists))
+}
+
+/**
+ * A track's credit as shown, its artists marked as links (see
+ * artistCreditParts): "A (feat. B)" keeps its own text.
+ */
+export function trackArtistParts(track, keepCommaArtists = []) {
+  const keep = keepCommaSet(keepCommaArtists)
+  return artistCreditParts(track?.artist, keep, trackArtistNames(track, keepCommaArtists))
+}
+
+/** Opens one of a track's artists (a name from trackArtistNames). */
+export function navigateToArtistName(nav, track, name) {
+  const slug = name ? toSlug(String(name)) : ''
+  if (!nav || !slug) return false
+  if (isOnlineTrack(track)) {
+    const ref = streamRef(track)
+    nav(`/artist/a-${slug}`, { state: { name, anchor: { title: track.title, album: track.album || '', provider: ref?.provider || null, id: ref?.id ?? null } } })
+  } else {
+    nav(`/artist/a-${slug}`, { state: { name } })
+  }
+  return true
 }
 
 export function navigateToTrackArtist(nav, track, keepCommaArtists = []) {

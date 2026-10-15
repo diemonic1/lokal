@@ -2,6 +2,7 @@ const { mergeDuplicates, mergeAllDuplicates } = require('../../electron/ipc/merg
 const router = require('express').Router()
 const { removeTrackFiles, forgetDownloads } = require('../../electron/ipc/trackFiles')
 const { getDB } = require('../../electron/ipc/db')
+const artistSplit = require('../../electron/artistSplit')
 const { getLibraryFolders } = require('../../electron/libraryFolder')
 const { recordListeningEvent } = require('../../electron/ipc/recaps')
 const path = require('path')
@@ -265,57 +266,15 @@ function slugify(str) {
 }
 
 function getKeepCommaArtists() {
-  const keepComma = new Set([
-    'tyler, the creator', 'earth, wind & fire', 'crosby, stills & nash',
-    'crosby, stills, nash & young', 'simon & garfunkel', 'emerson, lake & palmer',
-    'syd barrett', 'pete & bas', 'pe & ne',
-  ])
+  let userDefined = []
   try {
     const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    if (setting?.value) {
-      const userDefined = JSON.parse(setting.value)
-      userDefined.forEach(artist => keepComma.add(String(artist || '').toLowerCase().trim()))
-    }
+    if (setting?.value) userDefined = JSON.parse(setting.value)
   } catch {}
-  return keepComma
+  return artistSplit.keepCommaSet(userDefined)
 }
 
-// Same as electron/ipc/scanner.js: "A (feat. B)", "A [ft. B]" and "A feat B"
-// credit B as a second artist.
-const FEAT_BRACKET = /\s*[([]\s*(?:feat\.?|ft\.?|featuring)\s+([^()[\]]+?)\s*[)\]]/gi
-const FEAT_BARE = /\s+(?:feat\.?|ft\.?|featuring)\s+/i
-
-function splitFeatured(raw) {
-  const featured = []
-  const main = raw.replace(FEAT_BRACKET, (_, names) => { featured.push(names); return ' ' })
-  return [...main.split(FEAT_BARE), ...featured].map(part => part.trim()).filter(Boolean)
-}
-
-function splitArtists(raw) {
-  if (!raw) return []
-  const keepCommaArtists = getKeepCommaArtists()
-  if (keepCommaArtists.has(raw.toLowerCase().trim())) return [raw.trim()]
-  const artists = splitFeatured(raw).flatMap(part => splitCredit(part, keepCommaArtists))
-  return [...new Set(artists)]
-}
-
-function splitCredit(raw, keepCommaArtists) {
-  const lower = raw.toLowerCase().trim()
-  for (const known of keepCommaArtists) {
-    if (lower === known || lower.startsWith(known + ' ') || lower.endsWith(' ' + known)) return [raw.trim()]
-  }
-  const commaLowerPattern = /,\s+[a-z]/
-  if (commaLowerPattern.test(raw)) return [raw.trim()]
-  let artists = [raw]
-  artists = artists.flatMap(a => a.split(/,\s+(?=[A-Z])/))
-  artists = artists.flatMap(a => {
-    const parts = a.split(/\s+(?:&|x|vs\.?)\s+/i)
-    // A split that leaves one-letter pieces isn't a collaboration but one
-    // stylised name ("h x m x d" was becoming the artists h, m and d).
-    return parts.some(part => part.trim().length < 2) ? [a] : parts
-  })
-  return [...new Set(artists.map(a => a.trim()).filter(Boolean))]
-}
+const splitArtists = raw => artistSplit.splitArtists(raw, getKeepCommaArtists())
 
 function applyBatchField(currentValue, operation) {
   if (!operation || operation.mode === 'ignore') return { changed: false, value: currentValue }
