@@ -80,17 +80,33 @@ function getKeepCommaArtists() {
   return keepComma
 }
 
+// "Ark Patrol (feat. Veronika Redd)", "A [ft. B]" and "A feat B" all credit B
+// as a second artist; the bracket may sit anywhere in the credit.
+const FEAT_BRACKET = /\s*[([]\s*(?:feat\.?|ft\.?|featuring)\s+([^()[\]]+?)\s*[)\]]/gi
+const FEAT_BARE = /\s+(?:feat\.?|ft\.?|featuring)\s+/i
+
+function splitFeatured(raw) {
+  const featured = []
+  const main = raw.replace(FEAT_BRACKET, (_, names) => { featured.push(names); return ' ' })
+  return [...main.split(FEAT_BARE), ...featured].map(part => part.trim()).filter(Boolean)
+}
+
 function splitArtists(raw, keepComma = null) {
   if (!raw) return []
-  const lower = raw.toLowerCase().trim()
   const KEEP_COMMA_ARTISTS = keepComma || getKeepCommaArtists()
+  if (KEEP_COMMA_ARTISTS.has(raw.toLowerCase().trim())) return [raw.trim()]
+  const artists = splitFeatured(raw).flatMap(part => splitCredit(part, KEEP_COMMA_ARTISTS))
+  return [...new Set(artists)]
+}
+
+function splitCredit(raw, KEEP_COMMA_ARTISTS) {
+  const lower = raw.toLowerCase().trim()
   for (const known of KEEP_COMMA_ARTISTS) {
     if (lower === known || lower.startsWith(known + ' ') || lower.endsWith(' ' + known)) return [raw.trim()]
   }
   const commaLowerPattern = /,\s+[a-z]/
   if (commaLowerPattern.test(raw)) return [raw.trim()]
   let artists = [raw]
-  artists = artists.flatMap(a => a.split(/\s+(?:feat\.|ft\.|featuring)\s+/i))
   artists = artists.flatMap(a => a.split(/,\s+(?=[A-Z])/))
   artists = artists.flatMap(a => {
     const parts = a.split(/\s+(?:&|x|vs\.?)\s+/i)
@@ -120,7 +136,8 @@ function unlockArtistLinks(db, trackId) {
 // the library once (see relinkArtistsIfNeeded).
 // 3: version 2 also linked streamed (ghost://) tracks; this undoes that.
 // 4: slugify keeps non-Latin letters; splits up the shared "a-unknown" artist.
-const ARTIST_SPLITTER_VERSION = 4
+// 5: "(feat. X)" / "[ft X]" / bare "feat X" credit X as its own artist.
+const ARTIST_SPLITTER_VERSION = 5
 
 /**
  * Brings every track's artist links in line with splitArtists (e.g. after it
@@ -271,7 +288,7 @@ function scoreArtistCandidate(name, rawArtist) {
   score += commaParts.length === 1 ? 40 : 0
   score -= Math.max(0, commaParts.length - 1) * 18
   score -= Math.max(0, name.length - 24) * 0.35
-  if (!/\s+(?:feat\.|ft\.|featuring)\s+/i.test(name)) score += 4
+  if (!/(?:^|[\s([])(?:feat\.?|ft\.?|featuring)\s/i.test(name)) score += 4
   if (!/\s+(?:&|x|vs\.?)\s+/i.test(name)) score += 2
   if (name.toLowerCase() === (rawArtist || '').toLowerCase()) score += 3
   return score
@@ -320,10 +337,6 @@ function lyricsKindOf(meta) {
   return require('../lyrics/fileLyrics').lyricsKind(lyricsFromMeta(meta))
 }
 
-// Comment frames that players write for themselves (iTunes' gapless and
-// volume data: "iTunNORM", "iTunSMPB"...), not a comment anyone wrote.
-const TECHNICAL_COMMENT = /^(itun|songs-db|musicmatch|cddb|mediajukebox)/i
-
 /** Every value of the file's genre tag, into the track's genre list. */
 function saveFileGenres(db, trackId, fileGenres) {
   if (!Array.isArray(fileGenres) || fileGenres.length < 2) return
@@ -333,10 +346,14 @@ function saveFileGenres(db, trackId, fileGenres) {
 }
 
 // The comment tag as text: music-metadata gives strings or { text } entries.
+// Only the ordinary comment: in ID3v2 the COMM frame without a description.
+// Frames with one (a player's iTunNORM..., a downloader's "n": "Converted
+// by ...") aren't the song's comment, and the tag editor leaves them alone
+// (fileComment.js).
 function commentText(common) {
   const list = Array.isArray(common?.comment) ? common.comment : common?.comment ? [common.comment] : []
   return list
-    .filter(c => typeof c === 'string' || !TECHNICAL_COMMENT.test(String(c?.descriptor || '')))
+    .filter(c => typeof c === 'string' || !String(c?.descriptor || '').trim())
     .map(c => (typeof c === 'string' ? c : c?.text || '')).map(c => c.trim()).filter(Boolean).join(' / ')
 }
 
@@ -353,9 +370,10 @@ async function backfillComments(db) {
       db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'plain'").run()
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v2', '1')").run()
     }
-    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v2'").get()) {
+    // v3: only the comment frame without a description counts.
+    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v3'").get()) {
       db.prepare("UPDATE tracks SET comment = NULL WHERE comment IS NOT NULL AND comment <> ''").run()
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('comment_tags_v2', '1')").run()
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('comment_tags_v3', '1')").run()
     }
   } catch {}
   try {

@@ -662,16 +662,12 @@ export default function FullscreenPlayer() {
             transition={lyricsMode ? FULLSCREEN_OUT : FULLSCREEN_IN}
             style={{ pointerEvents: lyricsMode ? 'none' : undefined }}>
 
-          {/* The header: close, lyrics view, what's playing from, full screen.
+          {/* The header: lyrics view, what's playing from, full screen, close.
               It fades out (and the cursor hides) after a few seconds without
               the mouse moving, and comes back as soon as it moves. */}
           <div className={`absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-start gap-4 px-5 pt-5 ${chromeHidden ? 'pointer-events-none' : ''}`}
             onMouseEnter={() => { overChromeRef.current = true }} onMouseLeave={() => { overChromeRef.current = false }}>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={toggleFullscreen} title={t('Close')} aria-label={t('Close full-screen player')}
-                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
-                <X size={15} />
-              </button>
               {/* Straight to full-screen lyrics (the view to come back from
                   has a Player button). */}
               {currentTrack && (
@@ -698,10 +694,16 @@ export default function FullscreenPlayer() {
                 )}
               </div>
             )}
-            <button onClick={toggleScreen} title={screenFull ? t('Exit full screen') : t('Fill the whole screen')} aria-label={screenFull ? t('Exit full screen') : t('Fill the whole screen')}
-              className={`col-start-3 justify-self-end w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
-              {screenFull ? <Minimize size={15} /> : <Expand size={15} />}
-            </button>
+            <div className="col-start-3 justify-self-end flex items-center gap-2">
+              <button onClick={toggleScreen} title={screenFull ? t('Exit full screen') : t('Fill the whole screen')} aria-label={screenFull ? t('Exit full screen') : t('Fill the whole screen')}
+                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
+                {screenFull ? <Minimize size={15} /> : <Expand size={15} />}
+              </button>
+              <button onClick={toggleFullscreen} title={t('Close')} aria-label={t('Close full-screen player')}
+                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
+                <X size={15} />
+              </button>
+            </div>
           </div>
 
           {/* The cover, with the controls over it (shown while the pointer is

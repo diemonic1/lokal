@@ -1,6 +1,7 @@
 // The comment tag inside the audio file -- written when it's changed in the
-// tag editor. Only the readable comment is replaced (ID3v2: the COMM frame
-// without a description); a player's own comment frames (iTunNORM...) stay.
+// tag editor. Only the ordinary comment is replaced (ID3v2: the COMM frame
+// without a description); frames with one stay as they are -- a player's own
+// (iTunNORM...) or a downloader's ("n": "Converted by ...").
 
 const fs = require('fs')
 
@@ -12,13 +13,11 @@ function lib() {
   return taglib || null
 }
 
-const TECHNICAL = /^(itun|songs-db|musicmatch|cddb|mediajukebox)/i
-
 function writeId3(T, file, text) {
   const id3 = file.getTag(T.TagTypes.Id3v2, true)
   const frames = id3.getFramesByClassType(T.Id3v2FrameClassType.CommentsFrame) || []
-  const own = frames.filter(frame => !TECHNICAL.test(String(frame.description || '')))
-  const model = own.find(frame => !frame.description) || null
+  const own = frames.filter(frame => !String(frame.description || '').trim())
+  const model = own[0] || null
   const language = model?.language && model.language.length === 3 ? model.language : 'eng'
   for (const frame of own) id3.removeFrame(frame)
   if (!text) return

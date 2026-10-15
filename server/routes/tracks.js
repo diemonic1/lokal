@@ -280,17 +280,33 @@ function getKeepCommaArtists() {
   return keepComma
 }
 
+// Same as electron/ipc/scanner.js: "A (feat. B)", "A [ft. B]" and "A feat B"
+// credit B as a second artist.
+const FEAT_BRACKET = /\s*[([]\s*(?:feat\.?|ft\.?|featuring)\s+([^()[\]]+?)\s*[)\]]/gi
+const FEAT_BARE = /\s+(?:feat\.?|ft\.?|featuring)\s+/i
+
+function splitFeatured(raw) {
+  const featured = []
+  const main = raw.replace(FEAT_BRACKET, (_, names) => { featured.push(names); return ' ' })
+  return [...main.split(FEAT_BARE), ...featured].map(part => part.trim()).filter(Boolean)
+}
+
 function splitArtists(raw) {
   if (!raw) return []
-  const lower = raw.toLowerCase().trim()
   const keepCommaArtists = getKeepCommaArtists()
+  if (keepCommaArtists.has(raw.toLowerCase().trim())) return [raw.trim()]
+  const artists = splitFeatured(raw).flatMap(part => splitCredit(part, keepCommaArtists))
+  return [...new Set(artists)]
+}
+
+function splitCredit(raw, keepCommaArtists) {
+  const lower = raw.toLowerCase().trim()
   for (const known of keepCommaArtists) {
     if (lower === known || lower.startsWith(known + ' ') || lower.endsWith(' ' + known)) return [raw.trim()]
   }
   const commaLowerPattern = /,\s+[a-z]/
   if (commaLowerPattern.test(raw)) return [raw.trim()]
   let artists = [raw]
-  artists = artists.flatMap(a => a.split(/\s+(?:feat\.|ft\.|featuring)\s+/i))
   artists = artists.flatMap(a => a.split(/,\s+(?=[A-Z])/))
   artists = artists.flatMap(a => {
     const parts = a.split(/\s+(?:&|x|vs\.?)\s+/i)
