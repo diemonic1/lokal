@@ -42,6 +42,7 @@ import Profile from './pages/Profile'
 import Recap from './pages/Recap'
 import Quality from './pages/Quality'
 import LyricsAnalysis from './pages/LyricsAnalysis'
+import CacheAnalysis from './pages/CacheAnalysis'
 import Radio from './pages/Radio'
 import LosslessModal from './components/LosslessModal'
 import BulkLosslessModal from './components/BulkLosslessModal'
@@ -341,6 +342,7 @@ function AnimatedRoutes() {
         <Route path="/profile" element={<PageTransition><Profile /></PageTransition>} />
         <Route path="/quality" element={<PageTransition gated><Quality /></PageTransition>} />
         <Route path="/lyrics-analysis" element={<PageTransition gated><LyricsAnalysis /></PageTransition>} />
+        <Route path="/cache-analysis" element={<PageTransition gated><CacheAnalysis /></PageTransition>} />
         <Route path="/radio" element={<PageTransition gated><Radio /></PageTransition>} />
         <Route path="/recap" element={<PageTransition gated><Recap /></PageTransition>} />
         <Route path="/settings" element={<PageTransition gated><Settings /></PageTransition>} />

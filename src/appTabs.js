@@ -7,7 +7,7 @@ import { TABS } from './libraryNav'
 import { useAppearanceText } from './appearanceFlags'
 
 export const HIDDEN_MARK = '|'
-export const DEFAULT_TAB_ORDER = ['/', '/library', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis']
+export const DEFAULT_TAB_ORDER = ['/', '/library', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis', '/cache-analysis']
 
 /** The saved order, minus unknown tabs, with any newer tab in its default place. */
 export function tabOrder(saved) {

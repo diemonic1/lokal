@@ -482,6 +482,10 @@ export const api = {
   cacheUsage: () => isE() ? el().cacheUsage() : Promise.resolve(null),
   cacheTrim: () => isE() ? el().cacheTrim() : Promise.resolve(null),
   cacheClear: () => isE() ? el().cacheClear() : Promise.resolve(null),
+  // Cache Analysis page (desktop only: it reads the app's folder).
+  cacheAnalysisRun: () => isE() && el().cacheAnalysisRun ? el().cacheAnalysisRun() : Promise.resolve({ ok: false, unsupported: true }),
+  cacheAnalysisClean: (mode) => isE() && el().cacheAnalysisClean ? el().cacheAnalysisClean(mode) : Promise.resolve({ ok: false, unsupported: true }),
+  onCacheAnalysisProgress: (fn) => isE() && el().onCacheAnalysisProgress ? el().onCacheAnalysisProgress((_, p) => fn(p)) : () => {},
   artworkMesh: (trackId) => isE() ? el().artworkMesh(trackId) : apiFetch(`/artwork-fx/mesh/${encodeURIComponent(trackId)}`).then(r => (Array.isArray(r) ? r : null)),
   // Online radio: a cover given as a URL (a station has no library row).
   artworkMeshFromUrl: (url) => isE() ? el().artworkMeshFromUrl(url) : apiFetch(`/artwork-fx/mesh-url?${new URLSearchParams({ url })}`).then(r => (Array.isArray(r) ? r : null)),
