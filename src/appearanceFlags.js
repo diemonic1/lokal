@@ -52,7 +52,9 @@ import { api } from './api'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
 const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps',
-  'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color',
+  'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color', 'player_spectrum_radius',
+  'player_center_spectrum_bars', 'player_center_spectrum_bar_width', 'player_center_spectrum_height', 'player_center_spectrum_strength', 'player_center_spectrum_opacity', 'player_center_spectrum_color', 'player_center_spectrum_radius',
+  'side_lyrics_backdrop_strength',
   'player_waves_width', 'player_waves_height', 'player_waves_strength', 'player_waves_opacity', 'player_waves_color_back', 'player_waves_color_front',
   'player_lightning_strength', 'player_lightning_opacity', 'player_lightning_color_1', 'player_lightning_color_2', 'player_lightning_color_3',
   'side_panel_visual', 'side_anomaly_sensitivity', 'side_anomaly_size', 'side_anomaly_color', 'side_anomaly_bg', 'side_character_bg']

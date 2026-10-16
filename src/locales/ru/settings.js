@@ -610,4 +610,9 @@ export default {
   'Whole Artist Names': 'Цельные имена исполнителей',
   "Artists whose name holds a separator -- a comma, &, /, x and so on, like Tyler, The Creator or AC/DC -- so they aren't split into several artists.": 'Исполнители, в имени которых есть разделитель — запятая, &, /, x и т. п., например Tyler, The Creator или AC/DC, — чтобы их не делило на нескольких исполнителей.',
   'These names always stay one artist, whatever separator they hold (a comma, &, /, x...): "Tyler, The Creator" isn’t split into "Tyler" and "The Creator", and "Simon & Garfunkel" or "AC/DC" stay whole, also next to other artists. Enter one artist per line.': 'Эти имена всегда остаются одним исполнителем, какой бы разделитель в них ни был (запятая, &, /, x…): «Tyler, The Creator» не разделится на «Tyler» и «The Creator», а «Simon & Garfunkel» или «AC/DC» останутся целыми и рядом с другими исполнителями. Вводите по одному исполнителю на строку.',
+  'Colour under the lyrics': 'Цвет под текстом',
+  "How strongly the album's colours show under the lyrics in the side panel's Visualization + Lyrics tab. 0%: the plain grey background.": 'Насколько сильно цвета альбома проступают под текстом на вкладке «Визуализация + текст» правой панели. 0% — обычный серый фон.',
+  'Bar rounding': 'Скругление полос',
+  "How round the bars' ends are.": 'Насколько скруглены концы полос.',
+  'How far the bars can reach up, and as far down, from the line through the buttons.': 'Насколько высоко полосы поднимаются (и так же опускаются) от линии через кнопки.',
 }

@@ -2209,6 +2209,7 @@ activeCategory === 'data' ? usersTried
             {t(settings.artwork_backdrop !== '0' ? 'On' : 'Off')}
           </button>
         </Row>
+        {settings.artwork_backdrop !== '0' && visualSlider('side_lyrics_backdrop_strength', 'Colour under the lyrics', "How strongly the album's colours show under the lyrics in the side panel's Visualization + Lyrics tab. 0%: the plain grey background.", 0, 100, 50, '%')}
         <Row label="Moving Covers" desc="Play an album's animated cover in the side panel and full screen player, when there is one.">
           <button
             onClick={() => set('motion_covers', settings.motion_covers === '0' ? '1' : '0')}
@@ -2414,14 +2415,24 @@ activeCategory === 'data' ? usersTried
               <Row label="Visualization" desc="Moves with the music while it plays: bars beside the volume, a spectrum or two waves under the seek bar standing on the bar's bottom edge, or lightning across the whole bar.">
                 {visualSelect('player_visualizer', mode, [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['spectrumCenter', 'Spectrum from the center'], ['waves', 'Waves'], ['lightning', 'Lightning']])}
               </Row>
-              {/* The centre spectrum is the same one, mirrored: the same settings. */}
-              {(mode === 'spectrum' || mode === 'spectrumCenter') && <>
+              {mode === 'spectrum' && <>
                 {visualSlider('player_spectrum_bars', 'Number of bars', 'How many bars the spectrum has.', 8, 160, 119)}
                 {visualSlider('player_spectrum_bar_width', 'Bar width', 'The width of each bar. The whole spectrum is as wide as its bars.', 1, 12, 4, ' px')}
                 {visualSlider('player_spectrum_height', 'Height', 'How high the bars can jump.', 10, 90, 76, ' px')}
                 {visualSlider('player_spectrum_strength', 'Strength', 'How strongly the bars react to the music.', 10, 300, 58, '%')}
                 {visualSlider('player_spectrum_opacity', 'Opacity', 'How strongly the spectrum shows.', 5, 100, 20, '%')}
+                {visualSlider('player_spectrum_radius', 'Bar rounding', "How round the bars' ends are.", 0, 6, 0, ' px')}
                 {visualColor('player_spectrum_color', 'Color', "The bars' colour: white, one picked from the palette, or the accent colour.", '#ffffff')}
+              </>}
+              {/* Its own settings, apart from the other spectrum's. */}
+              {mode === 'spectrumCenter' && <>
+                {visualSlider('player_center_spectrum_bars', 'Number of bars', 'How many bars the spectrum has.', 8, 160, 119)}
+                {visualSlider('player_center_spectrum_bar_width', 'Bar width', 'The width of each bar. The whole spectrum is as wide as its bars.', 1, 12, 4, ' px')}
+                {visualSlider('player_center_spectrum_height', 'Height', 'How far the bars can reach up, and as far down, from the line through the buttons.', 10, 90, 30, ' px')}
+                {visualSlider('player_center_spectrum_strength', 'Strength', 'How strongly the bars react to the music.', 10, 300, 58, '%')}
+                {visualSlider('player_center_spectrum_opacity', 'Opacity', 'How strongly the spectrum shows.', 5, 100, 20, '%')}
+                {visualSlider('player_center_spectrum_radius', 'Bar rounding', "How round the bars' ends are.", 0, 6, 2, ' px')}
+                {visualColor('player_center_spectrum_color', 'Color', "The bars' colour: white, one picked from the palette, or the accent colour.", '#ffffff')}
               </>}
               {mode === 'waves' && <>
                 {visualSlider('player_waves_width', 'Width', 'How wide the waves are.', 120, 1200, 480, ' px')}

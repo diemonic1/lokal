@@ -8,7 +8,7 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
-import { youtubeVideoId } from '../youtubeClip'
+import { clipVideoLink } from '../clipVideo'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -189,11 +189,12 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (formData.record_label !== (track.record_label || '')) updateData.record_label = formData.record_label || null
       if (formData.comment.trim() !== (track.comment || '').trim()) updateData.comment = formData.comment.trim()
       if (formData.explicit !== !!track.explicit) updateData.explicit = formData.explicit ? 1 : 0
-      // The music video: always a YouTube link; the seconds it loops between
-      // in the side panel's Visualization + Lyrics tab.
+      // The music video: a link (YouTube or any site with a video) or a video
+      // file; the seconds it loops between in the side panel's Visualization +
+      // Lyrics tab.
       const clipUrl = formData.clip_url.trim()
-      if (clipUrl && !youtubeVideoId(clipUrl)) {
-        setStatus({ type: 'error', message: t('The music video must be a YouTube link') })
+      if (clipUrl && !clipVideoLink(clipUrl)) {
+        setStatus({ type: 'error', message: t('The music video must be a link or a video file on this computer') })
         setSaving(false)
         return
       }
@@ -412,13 +413,13 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             <div>
               <label className={label}>{t('Music video')}</label>
               <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">
-                <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder="https://www.youtube.com/watch?v=…" spellCheck={false} />
+                <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder={t('A link to the video, or a video file')} spellCheck={false} />
                 <input type="number" min="0" step="0.1" value={formData.clip_start} onChange={(e) => handleChange('clip_start', e.target.value)} className={field}
                   placeholder={t('Start')} title={t('Where the loop starts, in seconds')} aria-label={t('Where the loop starts, in seconds')} />
                 <input type="number" min="0" step="0.1" value={formData.clip_end} onChange={(e) => handleChange('clip_end', e.target.value)} className={field}
                   placeholder={t('End')} title={t('Where the loop ends, in seconds')} aria-label={t('Where the loop ends, in seconds')} />
               </div>
-              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A YouTube link. With both times set, the video loops between them, muted, in the side panel’s Visualization + Lyrics tab, instead of the canvas.')}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. With both times set, it loops between them, muted, in the side panel’s Visualization + Lyrics tab, instead of the canvas.')}</p>
             </div>
 
             <details className="rounded-lg border border-border bg-card/70 px-3 py-2">

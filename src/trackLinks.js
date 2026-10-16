@@ -3,6 +3,7 @@
 // (from its tags) on the site, in the system's default browser.
 
 import { api } from './api'
+import { clipOpenUrl } from './clipVideo'
 
 export const TRACK_SEARCH_SITES = [
   { key: 'youtube', label: 'Search on YouTube', url: 'https://www.youtube.com/results?search_query=%s' },
@@ -25,10 +26,15 @@ export function commentLink(track) {
   return /^https?:\/\/[^\s]+$/i.test(text) ? text : null
 }
 
-/** The music video link set for the song in its Edit Track window, else null. */
+/** Where the video set for the song in its Edit Track window opens (a link, or a file's file:// address), else null. */
 export function clipLink(track) {
+  return clipOpenUrl(track?.clip_url)
+}
+
+/** That video as it was entered (the song list's column shows it). */
+export function clipText(track) {
   const text = String(track?.clip_url || '').trim()
-  return /^https?:\/\/[^\s]+$/i.test(text) ? text : null
+  return clipOpenUrl(text) ? text : null
 }
 
 export function openLink(url) {

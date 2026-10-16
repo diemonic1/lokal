@@ -41,7 +41,7 @@ import { genreText } from '../genres'
 import ArtistNames from './ArtistNames'
 import GenrePopover from './GenrePopover'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
-import { TRACK_SEARCH_SITES, clipLink, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
+import { TRACK_SEARCH_SITES, clipLink, clipText, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -1118,7 +1118,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   : <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
                 case 'clip': return clipLink(track)
                   ? <button key={key} type="button" data-track-column="clip" onClick={e => { e.stopPropagation(); openLink(clipLink(track)) }} onDoubleClick={e => e.stopPropagation()}
-                      title={clipLink(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{clipLink(track)}</button>
+                      title={clipText(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{clipText(track)}</button>
                   : <span key={key} data-track-column="clip" />
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
                 case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>

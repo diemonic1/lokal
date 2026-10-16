@@ -308,7 +308,7 @@ function SearchBar() {
 
 const FOUND = new Set(['syllable', 'line', 'none'])
 
-function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false }) {
+function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false, openUp = false }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   // Sources marked wrong for this song aren't offered any more.
@@ -361,7 +361,7 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className="absolute right-0 top-full mt-1.5 z-30 w-64 rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-1"
+            className={`absolute right-0 ${openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-30 w-64 rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-1`}
           >
             <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/35">{t('Try another source')}</p>
             {sources.map(s => {
@@ -495,6 +495,9 @@ export default function LyricsPanel({
   idleVisual = false, onIdleChange,
   // Room kept at the toolbar's right end (the side panel's tab button sits there).
   toolbarEndGap = false,
+  // The side panel's Visualization + Lyrics tab: the buttons sit along the
+  // bottom instead, unseen until the mouse is over them.
+  toolbarAtBottom = false,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -925,6 +928,8 @@ export default function LyricsPanel({
   const noLyricsNote = instrumental ? t('Instrumental track: no lyrics') : unfound ? t("These lyrics can't be found: the track's tag says so") : null
   // The source menu also shows while searching, so its bars can be watched.
   const showToolbar = lines.length > 0 || (searching && sources.length > 0)
+  const [toolbarHover, setToolbarHover] = useState(false)
+  const toolbarFaded = toolbarAtBottom ? !toolbarHover : toolbarHidden
 
   return (
     <div className="relative w-full h-full">
@@ -932,11 +937,17 @@ export default function LyricsPanel({
         <div
           // The pills fade by themselves (TOOLBAR_FADE), not this row: glass
           // inside a fading parent shows as flat grey until the fade ends.
-          data-hidden={toolbarHidden}
-          className={`group/toolbar absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 pl-4 ${toolbarEndGap ? 'pr-12' : 'pr-4'} pt-3 pointer-events-none ${fullscreen ? '' : 'pb-6'}`}
+          data-hidden={toolbarFaded}
+          onPointerEnter={toolbarAtBottom ? () => setToolbarHover(true) : undefined}
+          onPointerLeave={toolbarAtBottom ? () => setToolbarHover(false) : undefined}
+          onFocus={toolbarAtBottom ? () => setToolbarHover(true) : undefined}
+          onBlur={toolbarAtBottom ? (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setToolbarHover(false) } : undefined}
+          className={toolbarAtBottom
+            ? 'group/toolbar absolute bottom-0 inset-x-0 z-20 flex items-center gap-1.5 px-4 pt-4 pb-3'
+            : `group/toolbar absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 pl-4 ${toolbarEndGap ? 'pr-12' : 'pr-4'} pt-3 pointer-events-none ${fullscreen ? '' : 'pb-6'}`}
           // The sidebar keeps its soft shade behind the buttons; the fullscreen
           // views already have their own header there, so they go without.
-          style={fullscreen ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
+          style={fullscreen || toolbarAtBottom ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
         >
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
@@ -970,6 +981,7 @@ export default function LyricsPanel({
                 rejected={rejected}
                 onReject={rejectSource}
                 hidden={toolbarHidden}
+                openUp={toolbarAtBottom}
               />
             )}
           </div>
@@ -984,7 +996,7 @@ export default function LyricsPanel({
             // Right-aligned under the source menu (that's what it answers), and
             // allowed to wrap: a fixed-width, centred pill overflowed the narrow
             // sidebar, and framer's own transform overrode the centring.
-            className="absolute top-11 right-4 z-30 max-w-[calc(100%-2rem)] w-max px-3 py-1.5 rounded-2xl bg-black/75 backdrop-blur-md border border-white/10 text-[11px] leading-snug text-white/85 text-right"
+            className={`absolute ${toolbarAtBottom ? 'bottom-12' : 'top-11'} right-4 z-30 max-w-[calc(100%-2rem)] w-max px-3 py-1.5 rounded-2xl bg-black/75 backdrop-blur-md border border-white/10 text-[11px] leading-snug text-white/85 text-right`}
           >
             {notice || (translationState === 'same-language' ? t('Already in your language') : translationState === 'unavailable' && wantTranslation ? t('Translation unavailable right now') : t('Romanization unavailable right now'))}
           </motion.div>

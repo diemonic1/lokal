@@ -61,8 +61,19 @@ export default function PlayerBar() {
     height: clamp(useAppearanceValue('player_spectrum_height', 76), 10, 90),
     strength: clamp(useAppearanceValue('player_spectrum_strength', 58), 10, 300) / 100,
     opacity: clamp(useAppearanceValue('player_spectrum_opacity', 20), 5, 100) / 100,
+    radius: clamp(useAppearanceValue('player_spectrum_radius', 0), 0, 6),
   }
   const spectrumColor = useAppearanceText('player_spectrum_color')
+  // Spectrum from the center: the same settings, kept apart from the other one's.
+  const centerSpectrumSettings = {
+    bars: clamp(useAppearanceValue('player_center_spectrum_bars', 119), 8, 160),
+    barWidth: clamp(useAppearanceValue('player_center_spectrum_bar_width', 4), 1, 12),
+    height: clamp(useAppearanceValue('player_center_spectrum_height', 30), 10, 90),
+    strength: clamp(useAppearanceValue('player_center_spectrum_strength', 58), 10, 300) / 100,
+    opacity: clamp(useAppearanceValue('player_center_spectrum_opacity', 20), 5, 100) / 100,
+    radius: clamp(useAppearanceValue('player_center_spectrum_radius', 2), 0, 6),
+  }
+  const centerSpectrumColor = useAppearanceText('player_center_spectrum_color')
   const waves = {
     width: clamp(useAppearanceValue('player_waves_width', 480), 120, 1200),
     height: clamp(useAppearanceValue('player_waves_height', 50), 10, 90),
@@ -295,7 +306,7 @@ export default function PlayerBar() {
         {centerSpectrum && controlsMid != null && (
           <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ overflowY: 'clip' }}>
             <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: controlsMid }}>
-              <Spectrum isPlaying={isPlaying} {...spectrum} mirrored color={spectrumColor} />
+              <Spectrum isPlaying={isPlaying} {...centerSpectrumSettings} mirrored color={centerSpectrumColor} />
             </div>
           </div>
         )}

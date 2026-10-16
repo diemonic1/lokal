@@ -190,6 +190,10 @@ function registerOnlineHandlers(ipcMain) {
   ipcMain.handle('musicVideo:prepare', (_, trackId) => prepareMusicVideoFor(trackId).catch(e => ({ error: e.message })))
   // Where a video that isn't downloaded is streamed from (see videoStreamBase).
   ipcMain.handle('musicVideo:streamBase', () => videoStreamBase().catch(() => null))
+  // A song's own video (Edit Track), looped in the side panel: any link or file.
+  ipcMain.handle('clipVideo:resolve', (_, link, options) => require('../online/clipVideo').resolveClipVideo(link, {
+    fallback: options?.fallback === true, ytdlp: findYtDlp(), settings: settings(), streamBase: videoStreamBase,
+  }).catch(e => ({ error: e.message })))
   ipcMain.handle('musicVideo:deleteDownload', async (_, trackId) => {
     try {
       const video = await musicVideoFor(trackId)
