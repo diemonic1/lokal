@@ -1,24 +1,19 @@
 {
-  "exported_at": 1792098840379,
+  "exported_at": 1792139355269,
   "version": 1,
   "theme": "dark",
   "theme_overrides": {
     "--text-scale": "1",
     "--accent": "#ffb0d6",
     "--accent-dim": "#e09bbc",
-    "--logo-image-filter": "none",
-    "--logo-image-opacity": "1",
-    "--logo-mask-opacity": "0",
-    "--logo-wrap-bg": "transparent",
-    "--logo-wrap-shadow": "none",
-    "--logo-wrap-border": "1px solid transparent"
+    "--bg": "#161616",
+    "--surface": "#161616"
   },
   "settings": {
     "yt_cookie_default_v2": "1",
     "artist_wikipedia_cleared_v1": "1",
     "lyrics_auto_translate": "0",
     "prefer_media_keys": "0",
-    "auto_fetch_artist_metadata": "0",
     "discovery_hidden_artists": "[]",
     "followed_artists": "[]",
     "followed_artists_ready": "1",
@@ -35,7 +30,6 @@
     "delete_files_from_disk": "1",
     "fetch_online_artwork": "0",
     "lyrics_sources_order": "[\"binilyrics\",\"spicylyrics\",\"betterlyrics\",\"betterlyrics_qq\",\"lyricsplus\",\"unison\",\"lrclib\",\"kugou\",\"lyricsovh\",\"local\"]",
-    "player_bar_gradient": "1",
     "player_bar_gradient_speed": "100",
     "player_bar_gradient_strength": "50",
     "glass_player_bar": "1",
@@ -47,22 +41,47 @@
     "taskbar_title": "title",
     "volume_wheel_step": "5",
     "search_index_version": "2",
-    "theme": "dark",
-    "theme_overrides": "{\"--text-scale\":\"1\",\"--accent\":\"#ffb0d6\",\"--accent-dim\":\"#e09bbc\",\"--logo-image-filter\":\"none\",\"--logo-image-opacity\":\"1\",\"--logo-mask-opacity\":\"0\",\"--logo-wrap-bg\":\"transparent\",\"--logo-wrap-shadow\":\"none\",\"--logo-wrap-border\":\"1px solid transparent\"}",
     "artwork_backdrop": "1",
     "motion_cover_sources": "[\"apple\",\"tidal\",\"community\"]",
     "folder_transition": "slide",
     "lyrics_kind_v2": "1",
     "tag_reader_version": "3",
     "radio_config_page_url": "https://github.com/BodaIOT/bodaiot.github.io/blob/main/Radio/Radio.json",
-    "lyrics_analysis": "{\"finishedAt\":1792093263442,\"root\":\"S:\\\\Music\",\"totals\":{\"total\":2034,\"synced\":1011,\"plain\":552,\"instrumental\":360,\"unfound\":35,\"fish\":23,\"none\":76},\"folders\":[{\"folder\":\"01. Current Tier 1\",\"total\":86,\"synced\":32,\"plain\":32,\"instrumental\":17,\"unfound\":0,\"fish\":0,\"none\":5},{\"folder\":\"02. Current Tier 2\",\"total\":41,\"synced\":19,\"plain\":18,\"instrumental\":2,\"unfound\":0,\"fish\":0,\"none\":2},{\"folder\":\"03. Spotify Best\",\"total\":182,\"synced\":82,\"plain\":29,\"instrumental\":64,\"unfound\":0,\"fish\":0,\"none\":7},{\"folder\":\"04. Я. Музыка Best\",\"total\":139,\"synced\":54,\"plain\":39,\"instrumental\":28,\"unfound\":4,\"fish\":0,\"none\":14},{\"folder\":\"05. Old mp3\",\"total\":171,\"synced\":95,\"plain\":25,\"instrumental\":48,\"unfound\":1,\"fish\":0,\"none\":2},{\"folder\":\"06. Apashe\",\"total\":20,\"synced\":14,\"plain\":3,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"07. ATL\",\"total\":60,\"synced\":54,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"08. Хардкор\",\"total\":53,\"synced\":15,\"plain\":13,\"instrumental\":20,\"unfound\":0,\"fish\":0,\"none\":5},{\"folder\":\"09. Мэшапы\",\"total\":151,\"synced\":1,\"plain\":127,\"instrumental\":12,\"unfound\":0,\"fish\":0,\"none\":11},{\"folder\":\"10. Луна\",\"total\":17,\"synced\":17,\"plain\":0,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"11. Monstercat Tier 1\",\"total\":85,\"synced\":56,\"plain\":7,\"instrumental\":22,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"12. Monstercat Tier 2\",\"total\":44,\"synced\":24,\"plain\":10,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"13. MiyaGi & Эндшпиль\",\"total\":23,\"synced\":22,\"plain\":0,\"instrumental\":0,\"unfound\":1,\"fish\":0,\"none\":0},{\"folder\":\"14. MARKUL\",\"total\":14,\"synced\":12,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"15. GSPD\",\"total\":24,\"synced\":18,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"16. ДЕТИ RAVE\",\"total\":35,\"synced\":25,\"plain\":10,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"17. VK Vol. 1\",\"total\":110,\"synced\":51,\"plain\":35,\"instrumental\":20,\"unfound\":1,\"fish\":0,\"none\":3},{\"folder\":\"18. VK Vol. 2 Анапа\",\"total\":26,\"synced\":19,\"plain\":7,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"19. VK Vol. 3\",\"total\":109,\"synced\":64,\"plain\":42,\"instrumental\":1,\"unfound\":2,\"fish\":0,\"none\":0},{\"folder\":\"20. VK Best Tier 1\",\"total\":39,\"synced\":20,\"plain\":13,\"instrumental\":6,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"21. VK Best Tier 2\",\"total\":31,\"synced\":16,\"plain\":0,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":12},{\"folder\":\"22. NFS Rivals\",\"total\":36,\"synced\":20,\"plain\":5,\"instrumental\":11,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"23. NFS ProStreet\",\"total\":40,\"synced\":24,\"plain\":8,\"instrumental\":7,\"unfound\":1,\"fish\":0,\"none\":0},{\"folder\":\"24. NFS Heat\",\"total\":8,\"synced\":4,\"plain\":1,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"25. YouTube\",\"total\":69,\"synced\":46,\"plain\":9,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":4},{\"folder\":\"26. ЛСП\",\"total\":21,\"synced\":18,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"27. OBLADAET\",\"total\":20,\"synced\":17,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"28. Loqiemean\",\"total\":10,\"synced\":10,\"plain\":0,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"29. PHARAOH\",\"total\":13,\"synced\":11,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"30. Aesthetic\",\"total\":12,\"synced\":2,\"plain\":1,\"instrumental\":9,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"31. Phonk\",\"total\":11,\"synced\":1,\"plain\":3,\"instrumental\":7,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"32. Chill\",\"total\":21,\"synced\":6,\"plain\":5,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"33. Саундтрек из игр (солянка)\",\"total\":14,\"synced\":2,\"plain\":1,\"instrumental\":11,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"34. Kla$ные мэшапы\",\"total\":14,\"synced\":0,\"plain\":14,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"35. Old Fashion\",\"total\":27,\"synced\":25,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"36. Old Pop\",\"total\":8,\"synced\":6,\"plain\":1,\"instrumental\":1,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"37. Роккккк\",\"total\":45,\"synced\":35,\"plain\":9,\"instrumental\":1,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"38. Прикол\",\"total\":49,\"synced\":13,\"plain\":27,\"instrumental\":2,\"unfound\":0,\"fish\":0,\"none\":7},{\"folder\":\"39. Memento Mori\",\"total\":22,\"synced\":4,\"plain\":1,\"instrumental\":16,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"40. Neverlove\",\"total\":15,\"synced\":9,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"41. RUINER OST\",\"total\":16,\"synced\":0,\"plain\":2,\"instrumental\":14,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"42. АргентинА\",\"total\":10,\"synced\":0,\"plain\":9,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"43. Валентин Стрыкало\",\"total\":19,\"synced\":15,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"44. Лютый поп\",\"total\":34,\"synced\":33,\"plain\":1,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"45. Рыбные каверы\",\"total\":24,\"synced\":0,\"plain\":1,\"instrumental\":0,\"unfound\":23,\"fish\":23,\"none\":0},{\"folder\":\"46. Мои треки\",\"total\":16,\"synced\":0,\"plain\":11,\"instrumental\":2,\"unfound\":2,\"fish\":0,\"none\":1}]}",
     "folder_apps": "[{\"name\":\"Tagscan\",\"path\":\"S:\\\\Programs\\\\6_MP3\\\\TagScanner\\\\Tagscan.exe\"},{\"name\":\"MP3 Reorder\",\"path\":\"S:\\\\Programs\\\\MyPrograms\\\\MP3\\\\MP3_Reorder\\\\MP3_Reorder.py\"}]",
-    "radio_catalog_url": "https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Radio.json",
-    "radio_catalog": "{\"version\":1,\"title\":\"Мой каталог радиостанций\",\"stations\":[{\"id\":\"station:0:95qbed\",\"index\":0,\"title\":\"Record Маятник Фуко\",\"url\":\"https://radiorecord.hostingradio.ru/mf96.aacp\",\"genre\":\"Рэп\",\"description\":\"http://direct.radiorecord.ru/station/mf\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/fuko.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"mf\"}},{\"id\":\"station:1:1okww99\",\"index\":1,\"title\":\"Record Rap Hits\",\"url\":\"https://radiorecord.hostingradio.ru/rap96.aacp\",\"genre\":\"Рэп\",\"description\":\"http://direct.radiorecord.ru/station/rap\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rap_hits.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rap\"}},{\"id\":\"station:2:nla32k\",\"index\":2,\"title\":\"Record Rap Classics\",\"url\":\"https://radiorecord.hostingradio.ru/rapclassics96.aacp\",\"genre\":\"Рэп\",\"description\":\"http://direct.radiorecord.ru/station/rapclassics\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rap_classic.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rapclassics\"}},{\"id\":\"station:3:10vlsyl\",\"index\":3,\"title\":\"Радио Эрмитаж\",\"url\":\"https://hermitage.hostingradio.ru/hermitage128.mp3\",\"description\":\"Классика\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/jermitazh.jpg\"},{\"id\":\"station:4:11uqq8f\",\"index\":4,\"title\":\"LoFi Radio\",\"url\":\"https://live.lofiradio.ru/lofi_mp3_128\",\"description\":\"LoFi Girl\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/lofi.jpg\"},{\"id\":\"station:5:jkvo8g\",\"index\":5,\"title\":\"♂ Gachi Radio ♂\",\"url\":\"https://gachiradio.com/play\",\"description\":\"https://gachiradio.com/files/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Gachi.jpg\"},{\"id\":\"station:6:12o3iah\",\"index\":6,\"title\":\"Zeno Гавновоз\",\"url\":\"https://stream-162.zeno.fm/ae3tec0bhxtuv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJhZTN0ZWMwYmh4dHV2IiwiaG9zdCI6InN0cmVhbS0xNjIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6ImZsSS1HTFRVVGstNmRuRnI0ZmJ5OVEiLCJpYXQiOjE3Njg5ODgzMjEsImV4cCI6MTc2ODk4ODM4MX0.AZPFas5086qCXj9LIdNXJo4CeV68JsB2SfAvzzIiDQ4\",\"description\":\"Врубай насос!\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/gavnovoz.jpg\"},{\"id\":\"station:7:1omwtcq\",\"index\":7,\"title\":\"Record Phonk\",\"url\":\"https://radiorecord.hostingradio.ru/phonk96.aacp\",\"description\":\"http://direct.radiorecord.ru/station/phonk\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/phonk.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"phonk\"}},{\"id\":\"station:8:gnyfyq\",\"index\":8,\"title\":\"Record Tecktonik\",\"url\":\"https://radiorecord.hostingradio.ru/tecktonik96.aacp\",\"description\":\"http://direct.radiorecord.ru/station/tecktonik\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/tecktonik.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"tecktonik\"}},{\"id\":\"station:9:8c28td\",\"index\":9,\"title\":\"Record Trap\",\"url\":\"https://radiorecord.hostingradio.ru/trap96.aacp\",\"description\":\"http://direct.radiorecord.ru/station/trap\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/trap.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"trap\"}},{\"id\":\"station:10:s4e2d9\",\"index\":10,\"title\":\"Record DubStep\",\"url\":\"https://radiorecord.hostingradio.ru/dub96.aacp\",\"description\":\"http://direct.radiorecord.ru/station/dub\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/dubstep.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"dub\"}},{\"id\":\"station:11:2nnwaw\",\"index\":11,\"title\":\"Record Drum Hits\",\"url\":\"https://radiorecord.hostingradio.ru/drumhits96.aacp\",\"description\":\"http://direct.radiorecord.ru/station/drumhits\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Record_Drum_Hits.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"drumhits\"}},{\"id\":\"station:12:ulwgsw\",\"index\":12,\"title\":\"Record Rave\",\"url\":\"https://radiorecord.hostingradio.ru/rave96.aacp\",\"genre\":\"Rave\",\"description\":\"http://direct.radiorecord.ru/station/rave\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rave.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rave\"}},{\"id\":\"station:13:8pyiw1\",\"index\":13,\"title\":\"laut.fm EDM\",\"url\":\"https://edm.stream.laut.fm/edm\",\"description\":\"Германия\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/EDM.jpg\",\"api\":{\"type\":\"lautfm\",\"station\":\"edm\"}},{\"id\":\"station:14:197iaqc\",\"index\":14,\"title\":\"Dance UK Radio\",\"url\":\"https://dancestream.danceradiouk.com/stream\",\"description\":\"https://www.radio-uk.co.uk/dance-uk-radio\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/dance_uk.jpg\"},{\"id\":\"station:15:rppl25\",\"index\":15,\"title\":\"Rivendell\",\"url\":\"https://play.radiorivendell.com/radio/8000/radio.mp3\",\"genre\":\"DnD\",\"description\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Rivendell.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/radio_rivendell\"}},{\"id\":\"station:16:tuk9x8\",\"index\":16,\"title\":\"The Green Dragon\",\"url\":\"https://play.radiorivendell.com/radio/8010/radio.mp3\",\"genre\":\"DnD\",\"description\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/The_Green_Dragon.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/the_green_dragon\"}},{\"id\":\"station:17:vzeysb\",\"index\":17,\"title\":\"Lórien\",\"url\":\"https://play.radiorivendell.com/radio/8020/radio.mp3\",\"genre\":\"DnD\",\"description\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Lorien.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/3\"}}]}",
-    "radio_catalog_updated_at": "1792097405759",
     "comment_tags_v3": "1",
-    "artist_relink_fingerprint": "5:[]",
-    "music_folder": "S:\\Music"
+    "clean_download_metadata": "0",
+    "auto_fetch_artist_metadata": "1",
+    "artist_relink_fingerprint": "7:[]",
+    "player_spectrum_bar_width": "4",
+    "player_spectrum_opacity": "20",
+    "player_spectrum_color": "#ffffff",
+    "player_spectrum_strength": "58",
+    "player_spectrum_height": "76",
+    "player_spectrum_bars": "119",
+    "side_anomaly_size": "82",
+    "side_anomaly_sensitivity": "10",
+    "side_anomaly_color": "accent",
+    "player_waves_width": "810",
+    "player_waves_opacity": "36",
+    "player_waves_strength": "109",
+    "player_waves_height": "29",
+    "player_lightning_color_1": "#ff008b",
+    "player_lightning_color_3": "#ff94e8",
+    "player_lightning_color_2": "#c948ff",
+    "player_lightning_strength": "150",
+    "player_lightning_opacity": "10",
+    "side_character_bg": "#000000",
+    "side_anomaly_bg": "#0f0f0f",
+    "side_panel_visual": "character",
+    "player_bar_gradient": "1",
+    "music_folder": "S:\\Music",
+    "player_visualizer": "off",
+    "theme": "dark",
+    "theme_overrides": "{\"--text-scale\":\"1\",\"--accent\":\"#ffb0d6\",\"--accent-dim\":\"#e09bbc\",\"--bg\":\"#161616\",\"--surface\":\"#161616\"}",
+    "radio_catalog_url": "https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Radio.json",
+    "radio_catalog": "{\"version\":1,\"title\":\"Мой каталог радиостанций\",\"stations\":[{\"id\":\"station:0:8c28td\",\"index\":0,\"title\":\"Record Trap\",\"url\":\"https://radiorecord.hostingradio.ru/trap96.aacp\",\"history\":\"http://direct.radiorecord.ru/station/trap\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/trap.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"trap\"}},{\"id\":\"station:1:s4e2d9\",\"index\":1,\"title\":\"Record DubStep\",\"url\":\"https://radiorecord.hostingradio.ru/dub96.aacp\",\"history\":\"http://direct.radiorecord.ru/station/dub\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/dubstep.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"dub\"}},{\"id\":\"station:2:95qbed\",\"index\":2,\"title\":\"Record Маятник Фуко\",\"url\":\"https://radiorecord.hostingradio.ru/mf96.aacp\",\"genre\":\"Рэп\",\"history\":\"http://direct.radiorecord.ru/station/mf\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/fuko.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"mf\"}},{\"id\":\"station:3:1okww99\",\"index\":3,\"title\":\"Record Rap Hits\",\"url\":\"https://radiorecord.hostingradio.ru/rap96.aacp\",\"genre\":\"Рэп\",\"history\":\"http://direct.radiorecord.ru/station/rap\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rap_hits.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rap\"}},{\"id\":\"station:4:nla32k\",\"index\":4,\"title\":\"Record Rap Classics\",\"url\":\"https://radiorecord.hostingradio.ru/rapclassics96.aacp\",\"genre\":\"Рэп\",\"history\":\"http://direct.radiorecord.ru/station/rapclassics\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rap_classic.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rapclassics\"}},{\"id\":\"station:5:10vlsyl\",\"index\":5,\"title\":\"Радио Эрмитаж\",\"url\":\"https://hermitage.hostingradio.ru/hermitage128.mp3\",\"description\":\"Классика\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/jermitazh.jpg\"},{\"id\":\"station:6:11uqq8f\",\"index\":6,\"title\":\"LoFi Radio\",\"url\":\"https://live.lofiradio.ru/lofi_mp3_128\",\"description\":\"LoFi Girl\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/lofi.jpg\"},{\"id\":\"station:7:1omwtcq\",\"index\":7,\"title\":\"Record Phonk\",\"url\":\"https://radiorecord.hostingradio.ru/phonk96.aacp\",\"history\":\"http://direct.radiorecord.ru/station/phonk\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/phonk.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"phonk\"}},{\"id\":\"station:8:gnyfyq\",\"index\":8,\"title\":\"Record Tecktonik\",\"url\":\"https://radiorecord.hostingradio.ru/tecktonik96.aacp\",\"history\":\"http://direct.radiorecord.ru/station/tecktonik\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/tecktonik.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"tecktonik\"}},{\"id\":\"station:9:2nnwaw\",\"index\":9,\"title\":\"Record Drum Hits\",\"url\":\"https://radiorecord.hostingradio.ru/drumhits96.aacp\",\"history\":\"http://direct.radiorecord.ru/station/drumhits\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Record_Drum_Hits.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"drumhits\"}},{\"id\":\"station:10:ulwgsw\",\"index\":10,\"title\":\"Record Rave\",\"url\":\"https://radiorecord.hostingradio.ru/rave96.aacp\",\"genre\":\"Rave\",\"history\":\"http://direct.radiorecord.ru/station/rave\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/rave.jpg\",\"api\":{\"type\":\"radiorecord\",\"station\":\"rave\"}},{\"id\":\"station:11:8pyiw1\",\"index\":11,\"title\":\"laut.fm EDM\",\"url\":\"https://edm.stream.laut.fm/edm\",\"description\":\"Германия\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/EDM.jpg\",\"api\":{\"type\":\"lautfm\",\"station\":\"edm\"}},{\"id\":\"station:12:197iaqc\",\"index\":12,\"title\":\"Dance UK Radio\",\"url\":\"https://dancestream.danceradiouk.com/stream\",\"history\":\"https://www.radio-uk.co.uk/dance-uk-radio\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/dance_uk.jpg\"},{\"id\":\"station:13:rppl25\",\"index\":13,\"title\":\"Rivendell\",\"url\":\"https://play.radiorivendell.com/radio/8000/radio.mp3\",\"genre\":\"DnD\",\"history\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Rivendell.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/radio_rivendell\"}},{\"id\":\"station:14:tuk9x8\",\"index\":14,\"title\":\"The Green Dragon\",\"url\":\"https://play.radiorivendell.com/radio/8010/radio.mp3\",\"genre\":\"DnD\",\"history\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/The_Green_Dragon.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/the_green_dragon\"}},{\"id\":\"station:15:vzeysb\",\"index\":15,\"title\":\"Lórien\",\"url\":\"https://play.radiorivendell.com/radio/8020/radio.mp3\",\"genre\":\"DnD\",\"history\":\"https://radiorivendell.com/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Lorien.jpg\",\"api\":{\"type\":\"azuracast\",\"url\":\"https://play.radiorivendell.com/api/nowplaying/3\"}},{\"id\":\"station:16:jkvo8g\",\"index\":16,\"title\":\"♂ Gachi Radio ♂\",\"url\":\"https://gachiradio.com/play\",\"history\":\"https://gachiradio.com/files/\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/Gachi.jpg\"},{\"id\":\"station:17:12o3iah\",\"index\":17,\"title\":\"Zeno Гавновоз\",\"url\":\"https://stream-162.zeno.fm/ae3tec0bhxtuv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJhZTN0ZWMwYmh4dHV2IiwiaG9zdCI6InN0cmVhbS0xNjIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6ImZsSS1HTFRVVGstNmRuRnI0ZmJ5OVEiLCJpYXQiOjE3Njg5ODgzMjEsImV4cCI6MTc2ODk4ODM4MX0.AZPFas5086qCXj9LIdNXJo4CeV68JsB2SfAvzzIiDQ4\",\"description\":\"Врубай насос!\",\"icon\":\"https://raw.githubusercontent.com/BodaIOT/bodaiot.github.io/refs/heads/main/Radio/Icons/gavnovoz.jpg\"}]}",
+    "radio_catalog_updated_at": "1792139115413",
+    "lyrics_analysis": "{\"finishedAt\":1792139251392,\"root\":\"S:\\\\Music\",\"totals\":{\"total\":2034,\"synced\":1011,\"plain\":552,\"instrumental\":360,\"unfound\":35,\"fish\":23,\"none\":76},\"folders\":[{\"folder\":\"01. Current Tier 1\",\"total\":86,\"synced\":32,\"plain\":32,\"instrumental\":17,\"unfound\":0,\"fish\":0,\"none\":5},{\"folder\":\"02. Current Tier 2\",\"total\":41,\"synced\":19,\"plain\":18,\"instrumental\":2,\"unfound\":0,\"fish\":0,\"none\":2},{\"folder\":\"03. Spotify Best\",\"total\":182,\"synced\":82,\"plain\":29,\"instrumental\":64,\"unfound\":0,\"fish\":0,\"none\":7},{\"folder\":\"04. Я. Музыка Best\",\"total\":139,\"synced\":54,\"plain\":39,\"instrumental\":28,\"unfound\":4,\"fish\":0,\"none\":14},{\"folder\":\"05. Old mp3\",\"total\":171,\"synced\":95,\"plain\":25,\"instrumental\":48,\"unfound\":1,\"fish\":0,\"none\":2},{\"folder\":\"06. Apashe\",\"total\":20,\"synced\":14,\"plain\":3,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"07. ATL\",\"total\":60,\"synced\":54,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"08. Хардкор\",\"total\":53,\"synced\":15,\"plain\":13,\"instrumental\":20,\"unfound\":0,\"fish\":0,\"none\":5},{\"folder\":\"09. Мэшапы\",\"total\":151,\"synced\":1,\"plain\":127,\"instrumental\":12,\"unfound\":0,\"fish\":0,\"none\":11},{\"folder\":\"10. Луна\",\"total\":17,\"synced\":17,\"plain\":0,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"11. Monstercat Tier 1\",\"total\":85,\"synced\":56,\"plain\":7,\"instrumental\":22,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"12. Monstercat Tier 2\",\"total\":44,\"synced\":24,\"plain\":10,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"13. MiyaGi & Эндшпиль\",\"total\":23,\"synced\":22,\"plain\":0,\"instrumental\":0,\"unfound\":1,\"fish\":0,\"none\":0},{\"folder\":\"14. MARKUL\",\"total\":14,\"synced\":12,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"15. GSPD\",\"total\":24,\"synced\":18,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"16. ДЕТИ RAVE\",\"total\":35,\"synced\":25,\"plain\":10,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"17. VK Vol. 1\",\"total\":110,\"synced\":51,\"plain\":35,\"instrumental\":20,\"unfound\":1,\"fish\":0,\"none\":3},{\"folder\":\"18. VK Vol. 2 Анапа\",\"total\":26,\"synced\":19,\"plain\":7,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"19. VK Vol. 3\",\"total\":109,\"synced\":64,\"plain\":42,\"instrumental\":1,\"unfound\":2,\"fish\":0,\"none\":0},{\"folder\":\"20. VK Best Tier 1\",\"total\":39,\"synced\":20,\"plain\":13,\"instrumental\":6,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"21. VK Best Tier 2\",\"total\":31,\"synced\":16,\"plain\":0,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":12},{\"folder\":\"22. NFS Rivals\",\"total\":36,\"synced\":20,\"plain\":5,\"instrumental\":11,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"23. NFS ProStreet\",\"total\":40,\"synced\":24,\"plain\":8,\"instrumental\":7,\"unfound\":1,\"fish\":0,\"none\":0},{\"folder\":\"24. NFS Heat\",\"total\":8,\"synced\":4,\"plain\":1,\"instrumental\":3,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"25. YouTube\",\"total\":69,\"synced\":46,\"plain\":9,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":4},{\"folder\":\"26. ЛСП\",\"total\":21,\"synced\":18,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"27. OBLADAET\",\"total\":20,\"synced\":17,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"28. Loqiemean\",\"total\":10,\"synced\":10,\"plain\":0,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"29. PHARAOH\",\"total\":13,\"synced\":11,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"30. Aesthetic\",\"total\":12,\"synced\":2,\"plain\":1,\"instrumental\":9,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"31. Phonk\",\"total\":11,\"synced\":1,\"plain\":3,\"instrumental\":7,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"32. Chill\",\"total\":21,\"synced\":6,\"plain\":5,\"instrumental\":10,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"33. Саундтрек из игр (солянка)\",\"total\":14,\"synced\":2,\"plain\":1,\"instrumental\":11,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"34. Kla$ные мэшапы\",\"total\":14,\"synced\":0,\"plain\":14,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"35. Old Fashion\",\"total\":27,\"synced\":25,\"plain\":2,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"36. Old Pop\",\"total\":8,\"synced\":6,\"plain\":1,\"instrumental\":1,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"37. Роккккк\",\"total\":45,\"synced\":35,\"plain\":9,\"instrumental\":1,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"38. Прикол\",\"total\":49,\"synced\":13,\"plain\":27,\"instrumental\":2,\"unfound\":0,\"fish\":0,\"none\":7},{\"folder\":\"39. Memento Mori\",\"total\":22,\"synced\":4,\"plain\":1,\"instrumental\":16,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"40. Neverlove\",\"total\":15,\"synced\":9,\"plain\":6,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"41. RUINER OST\",\"total\":16,\"synced\":0,\"plain\":2,\"instrumental\":14,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"42. АргентинА\",\"total\":10,\"synced\":0,\"plain\":9,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"43. Валентин Стрыкало\",\"total\":19,\"synced\":15,\"plain\":3,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":1},{\"folder\":\"44. Лютый поп\",\"total\":34,\"synced\":33,\"plain\":1,\"instrumental\":0,\"unfound\":0,\"fish\":0,\"none\":0},{\"folder\":\"45. Рыбные каверы\",\"total\":24,\"synced\":0,\"plain\":1,\"instrumental\":0,\"unfound\":23,\"fish\":23,\"none\":0},{\"folder\":\"46. Мои треки\",\"total\":16,\"synced\":0,\"plain\":11,\"instrumental\":2,\"unfound\":2,\"fish\":0,\"none\":1}]}"
   },
   "users": [],
   "user_settings": [
@@ -76,6 +95,310 @@
   "playlist_tracks": [],
   "user_likes": [],
   "play_history": [
+    {
+      "id": 147,
+      "user_id": "guest",
+      "track_id": "t-3f42859b7a8add7c",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792139303
+    },
+    {
+      "id": 146,
+      "user_id": "guest",
+      "track_id": "t-e78e4750568e9f64",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792139299
+    },
+    {
+      "id": 145,
+      "user_id": "guest",
+      "track_id": "t-b1396f6bb9e36ac7",
+      "seconds_played": 5,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792139293
+    },
+    {
+      "id": 144,
+      "user_id": "guest",
+      "track_id": "t-8e13f24949ad60bb",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792139285
+    },
+    {
+      "id": 143,
+      "user_id": "guest",
+      "track_id": "t-26a9514606f7c83d",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792139281
+    },
+    {
+      "id": 142,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137930
+    },
+    {
+      "id": 141,
+      "user_id": "guest",
+      "track_id": "t-73adc37d5c7ddb19",
+      "seconds_played": 42,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137920
+    },
+    {
+      "id": 140,
+      "user_id": "guest",
+      "track_id": "t-267c4a1d33c4844f",
+      "seconds_played": 10,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137795
+    },
+    {
+      "id": 139,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137474
+    },
+    {
+      "id": 138,
+      "user_id": "guest",
+      "track_id": "t-f9a3fffd848b264a",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137471
+    },
+    {
+      "id": 137,
+      "user_id": "guest",
+      "track_id": "t-0b78c604a85e503e",
+      "seconds_played": 107,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "played_at": 1792137217
+    },
+    {
+      "id": 136,
+      "user_id": "guest",
+      "track_id": "t-fa5c988b066eb3be",
+      "seconds_played": 5,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792135018
+    },
+    {
+      "id": 135,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 14,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792135006
+    },
+    {
+      "id": 134,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "seconds_played": 5,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134992
+    },
+    {
+      "id": 133,
+      "user_id": "guest",
+      "track_id": "t-9c7bab15de323c33",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134985
+    },
+    {
+      "id": 132,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "seconds_played": 37,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134981
+    },
+    {
+      "id": 131,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134916
+    },
+    {
+      "id": 130,
+      "user_id": "guest",
+      "track_id": "t-9c7bab15de323c33",
+      "seconds_played": 8,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134909
+    },
+    {
+      "id": 129,
+      "user_id": "guest",
+      "track_id": "t-700b64d10e8f6adb",
+      "seconds_played": 34,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134899
+    },
+    {
+      "id": 128,
+      "user_id": "guest",
+      "track_id": "t-8a119f291f4b366e",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134429
+    },
+    {
+      "id": 127,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 13,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134424
+    },
+    {
+      "id": 126,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "seconds_played": 14,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134407
+    },
+    {
+      "id": 125,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "seconds_played": 13,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792134321
+    },
+    {
+      "id": 124,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "seconds_played": 11,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133851
+    },
+    {
+      "id": 123,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 8,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133840
+    },
+    {
+      "id": 122,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 21,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133833
+    },
+    {
+      "id": 121,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133811
+    },
+    {
+      "id": 120,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 7,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133803
+    },
+    {
+      "id": 119,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133307
+    },
+    {
+      "id": 118,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133265
+    },
+    {
+      "id": 117,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 7,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133256
+    },
+    {
+      "id": 116,
+      "user_id": "guest",
+      "track_id": "t-7fc9d2a2d3779032",
+      "seconds_played": 52,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "played_at": 1792133167
+    },
+    {
+      "id": 115,
+      "user_id": "guest",
+      "track_id": "t-19db7da4377bc022",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792101145
+    },
+    {
+      "id": 114,
+      "user_id": "guest",
+      "track_id": "t-756b4ed21bdd7ce8",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792100860
+    },
+    {
+      "id": 113,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792100744
+    },
+    {
+      "id": 112,
+      "user_id": "guest",
+      "track_id": "sc-2161941273",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792100702
+    },
+    {
+      "id": 111,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "seconds_played": 12,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792100695
+    },
+    {
+      "id": 110,
+      "user_id": "guest",
+      "track_id": "t-4ccc4b64e52de6ce",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "played_at": 1792100679
+    },
     {
       "id": 109,
       "user_id": "guest",
@@ -926,6 +1249,538 @@
     }
   ],
   "listening_events": [
+    {
+      "id": 148,
+      "user_id": "guest",
+      "track_id": "t-3f42859b7a8add7c",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 4,
+      "track_duration": 294.7918367346939,
+      "started_at": 1792139299,
+      "ended_at": 1792139303,
+      "created_at": 1792139303
+    },
+    {
+      "id": 147,
+      "user_id": "guest",
+      "track_id": "t-e78e4750568e9f64",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 6,
+      "track_duration": 233.63918367346938,
+      "started_at": 1792139293,
+      "ended_at": 1792139299,
+      "created_at": 1792139299
+    },
+    {
+      "id": 146,
+      "user_id": "guest",
+      "track_id": "t-b1396f6bb9e36ac7",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 5,
+      "track_duration": 268.4865306122449,
+      "started_at": 1792139288,
+      "ended_at": 1792139293,
+      "created_at": 1792139293
+    },
+    {
+      "id": 145,
+      "user_id": "guest",
+      "track_id": "t-8e13f24949ad60bb",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 4,
+      "track_duration": 192.26122448979592,
+      "started_at": 1792139281,
+      "ended_at": 1792139285,
+      "created_at": 1792139285
+    },
+    {
+      "id": 144,
+      "user_id": "guest",
+      "track_id": "t-26a9514606f7c83d",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 4,
+      "track_duration": 252.13387755102042,
+      "started_at": 1792139277,
+      "ended_at": 1792139281,
+      "created_at": 1792139281
+    },
+    {
+      "id": 143,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 3,
+      "track_duration": 135.69,
+      "started_at": 1792137927,
+      "ended_at": 1792137930,
+      "created_at": 1792137930
+    },
+    {
+      "id": 142,
+      "user_id": "guest",
+      "track_id": "t-73adc37d5c7ddb19",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 42,
+      "track_duration": 167.0008163265306,
+      "started_at": 1792137878,
+      "ended_at": 1792137920,
+      "created_at": 1792137920
+    },
+    {
+      "id": 141,
+      "user_id": "guest",
+      "track_id": "t-267c4a1d33c4844f",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 10,
+      "track_duration": 270.94204081632654,
+      "started_at": 1792137785,
+      "ended_at": 1792137795,
+      "created_at": 1792137795
+    },
+    {
+      "id": 140,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 3,
+      "track_duration": 224.70530612244897,
+      "started_at": 1792137471,
+      "ended_at": 1792137474,
+      "created_at": 1792137474
+    },
+    {
+      "id": 139,
+      "user_id": "guest",
+      "track_id": "t-f9a3fffd848b264a",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 9,
+      "track_duration": 255.79102040816326,
+      "started_at": 1792137462,
+      "ended_at": 1792137471,
+      "created_at": 1792137471
+    },
+    {
+      "id": 138,
+      "user_id": "guest",
+      "track_id": "t-0b78c604a85e503e",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792137217-olqbve",
+      "seconds_played": 107,
+      "track_duration": 345.41714285714284,
+      "started_at": 1792137110,
+      "ended_at": 1792137217,
+      "created_at": 1792137217
+    },
+    {
+      "id": 137,
+      "user_id": "guest",
+      "track_id": "t-fa5c988b066eb3be",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 5,
+      "track_duration": 205.66204081632654,
+      "started_at": 1792135013,
+      "ended_at": 1792135018,
+      "created_at": 1792135018
+    },
+    {
+      "id": 136,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 14,
+      "track_duration": 169.32,
+      "started_at": 1792134992,
+      "ended_at": 1792135006,
+      "created_at": 1792135006
+    },
+    {
+      "id": 135,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 5,
+      "track_duration": 261.4073469387755,
+      "started_at": 1792134987,
+      "ended_at": 1792134992,
+      "created_at": 1792134992
+    },
+    {
+      "id": 134,
+      "user_id": "guest",
+      "track_id": "t-9c7bab15de323c33",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 4,
+      "track_duration": 168.90775510204082,
+      "started_at": 1792134981,
+      "ended_at": 1792134985,
+      "created_at": 1792134985
+    },
+    {
+      "id": 133,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 37,
+      "track_duration": 224.70530612244897,
+      "started_at": 1792134944,
+      "ended_at": 1792134981,
+      "created_at": 1792134981
+    },
+    {
+      "id": 132,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 3,
+      "track_duration": 224.70530612244897,
+      "started_at": 1792134913,
+      "ended_at": 1792134916,
+      "created_at": 1792134916
+    },
+    {
+      "id": 131,
+      "user_id": "guest",
+      "track_id": "t-9c7bab15de323c33",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 8,
+      "track_duration": 168.90775510204082,
+      "started_at": 1792134901,
+      "ended_at": 1792134909,
+      "created_at": 1792134909
+    },
+    {
+      "id": 130,
+      "user_id": "guest",
+      "track_id": "t-700b64d10e8f6adb",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 34,
+      "track_duration": 238.23673469387754,
+      "started_at": 1792134865,
+      "ended_at": 1792134899,
+      "created_at": 1792134899
+    },
+    {
+      "id": 129,
+      "user_id": "guest",
+      "track_id": "t-8a119f291f4b366e",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 3,
+      "track_duration": 171.04979591836735,
+      "started_at": 1792134426,
+      "ended_at": 1792134429,
+      "created_at": 1792134429
+    },
+    {
+      "id": 128,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 13,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792134411,
+      "ended_at": 1792134424,
+      "created_at": 1792134424
+    },
+    {
+      "id": 127,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 14,
+      "track_duration": 261.4073469387755,
+      "started_at": 1792134393,
+      "ended_at": 1792134407,
+      "created_at": 1792134407
+    },
+    {
+      "id": 126,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 13,
+      "track_duration": 261.4073469387755,
+      "started_at": 1792134308,
+      "ended_at": 1792134321,
+      "created_at": 1792134321
+    },
+    {
+      "id": 125,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 11,
+      "track_duration": 264.04571428571427,
+      "started_at": 1792133840,
+      "ended_at": 1792133851,
+      "created_at": 1792133851
+    },
+    {
+      "id": 124,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 8,
+      "track_duration": 169.32,
+      "started_at": 1792133832,
+      "ended_at": 1792133840,
+      "created_at": 1792133840
+    },
+    {
+      "id": 123,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 21,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792133812,
+      "ended_at": 1792133833,
+      "created_at": 1792133833
+    },
+    {
+      "id": 122,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 9,
+      "track_duration": 209.2930612244898,
+      "started_at": 1792133802,
+      "ended_at": 1792133811,
+      "created_at": 1792133811
+    },
+    {
+      "id": 121,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 7,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792133796,
+      "ended_at": 1792133803,
+      "created_at": 1792133803
+    },
+    {
+      "id": 120,
+      "user_id": "guest",
+      "track_id": "t-46ea46989d4f0721",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 3,
+      "track_duration": 261.4073469387755,
+      "started_at": 1792133304,
+      "ended_at": 1792133307,
+      "created_at": 1792133307
+    },
+    {
+      "id": 119,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 3,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792133262,
+      "ended_at": 1792133265,
+      "created_at": 1792133265
+    },
+    {
+      "id": 118,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 7,
+      "track_duration": 169.32,
+      "started_at": 1792133249,
+      "ended_at": 1792133256,
+      "created_at": 1792133256
+    },
+    {
+      "id": 117,
+      "user_id": "guest",
+      "track_id": "t-7fc9d2a2d3779032",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792133167-u83rjr",
+      "seconds_played": 52,
+      "track_duration": 217.33877551020407,
+      "started_at": 1792133115,
+      "ended_at": 1792133167,
+      "created_at": 1792133167
+    },
+    {
+      "id": 116,
+      "user_id": "guest",
+      "track_id": "t-19db7da4377bc022",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 9,
+      "track_duration": 186.01795918367347,
+      "started_at": 1792101136,
+      "ended_at": 1792101145,
+      "created_at": 1792101145
+    },
+    {
+      "id": 115,
+      "user_id": "guest",
+      "track_id": "t-756b4ed21bdd7ce8",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 3,
+      "track_duration": 217.75673469387755,
+      "started_at": 1792100857,
+      "ended_at": 1792100860,
+      "created_at": 1792100860
+    },
+    {
+      "id": 114,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 6,
+      "track_duration": 135.69,
+      "started_at": 1792100738,
+      "ended_at": 1792100744,
+      "created_at": 1792100744
+    },
+    {
+      "id": 113,
+      "user_id": "guest",
+      "track_id": "sc-2161941273",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 4,
+      "track_duration": 88,
+      "started_at": 1792100698,
+      "ended_at": 1792100702,
+      "created_at": 1792100702
+    },
+    {
+      "id": 112,
+      "user_id": "guest",
+      "track_id": "sc-1610539284",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 12,
+      "track_duration": 135.69,
+      "started_at": 1792100683,
+      "ended_at": 1792100695,
+      "created_at": 1792100695
+    },
+    {
+      "id": 111,
+      "user_id": "guest",
+      "track_id": "t-4ccc4b64e52de6ce",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792100679-eplb5a",
+      "seconds_played": 4,
+      "track_duration": 187.2195918367347,
+      "started_at": 1792100675,
+      "ended_at": 1792100679,
+      "created_at": 1792100679
+    },
     {
       "id": 110,
       "user_id": "guest",
@@ -2487,6 +3342,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-17",
+      "name": "17",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-30-seconds-to-mars",
       "name": "30 Seconds to Mars",
       "bio": null,
@@ -2617,6 +3482,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-afk",
+      "name": "AFK",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-alblak-52",
       "name": "ALBLAK 52",
       "bio": null,
@@ -2707,78 +3582,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-atl-salad-killaz-prod",
-      "name": "ATL (Salad Killaz prod.)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-salad-killaz-remix",
-      "name": "ATL (Salad Killaz remix)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-atl-instr-clams-casino",
       "name": "ATL (instr. Clams Casino)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-prod-dark-faders",
-      "name": "ATL (prod. Dark Faders)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-prod-hugekilla",
-      "name": "ATL (prod. Hugekilla)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-зараза",
-      "name": "ATL, Зараза",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-ичи",
-      "name": "ATL, ИЧИ",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-atl-ка-тет",
-      "name": "ATL, Ка тет",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -2817,8 +3622,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-aaron-smith-krono-remix",
-      "name": "Aaron Smith (KRONO Remix)",
+      "id": "a-aaron-smith",
+      "name": "Aaron Smith",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -2999,6 +3804,16 @@
     {
       "id": "a-albatross",
       "name": "Albatross",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-alena-omargalieva",
+      "name": "Alena Omargalieva",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3207,6 +4022,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-animadrop",
+      "name": "Animadrop",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-anna-yvette",
       "name": "Anna Yvette",
       "bio": null,
@@ -3277,8 +4102,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-arelice-blvck-cat",
-      "name": "Arelice/BLVCK CAT",
+      "id": "a-arcando",
+      "name": "Arcando",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-arelice",
+      "name": "Arelice",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3367,6 +4202,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-astrophysics",
+      "name": "Astrophysics",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-au5",
       "name": "Au5",
       "bio": null,
@@ -3437,6 +4282,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-barely-alive",
+      "name": "BARELY ALIVE",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-basement-wave",
       "name": "BASEMENT WAVE",
       "bio": null,
@@ -3457,8 +4312,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-bato-atl",
-      "name": "BATO/ATL",
+      "id": "a-bearwolf",
+      "name": "BEARWOLF",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3467,8 +4322,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-bearwolf",
-      "name": "BEARWOLF",
+      "id": "a-big-russian-boss",
+      "name": "BIG RUSSIAN BOSS",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3487,8 +4342,28 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-bladefear",
+      "name": "BLADEFEAR",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-blanked",
       "name": "BLANKED",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-blvck-cat",
+      "name": "BLVCK CAT",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3517,8 +4392,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-booker-cmh-mzlff-слава-кпсс",
-      "name": "BOOKER/CMH/mzlff/Слава КПСС",
+      "id": "a-booker",
+      "name": "BOOKER",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-boris-redwall",
+      "name": "BORIS REDWALL",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3557,8 +4442,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-baadwrk-gofra-maslow-purple-fume",
-      "name": "Baadwrk/Gofra Maslow/Purple Fume",
+      "id": "a-baadwrk",
+      "name": "Baadwrk",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3597,8 +4482,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-bandlez-barely-alive",
-      "name": "Bandlez/BARELY ALIVE",
+      "id": "a-bandlez",
+      "name": "Bandlez",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3619,16 +4504,6 @@
     {
       "id": "a-barren-gates",
       "name": "Barren Gates",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-barren-gates-vindon",
-      "name": "Barren Gates/VinDon",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3667,8 +4542,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-basta-alena-omargalieva-krot",
-      "name": "Basta/Alena Omargalieva/Krot",
+      "id": "a-basta",
+      "name": "Basta",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3687,8 +4562,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-bayan-dnb-remix",
-      "name": "Bayan DnB Remix)",
+      "id": "a-bayan-dnb",
+      "name": "Bayan DnB",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3757,6 +4632,26 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-bertie-scott",
+      "name": "Bertie Scott",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-betavoice",
+      "name": "Betavoice",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-betta-lemme",
       "name": "Betta Lemme",
       "bio": null,
@@ -3799,16 +4694,6 @@
     {
       "id": "a-big-j-beezy",
       "name": "Big J Beezy",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-big-russian-boss",
-      "name": "Big Russian Boss",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3897,8 +4782,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-black-tiger-sex-machine-yookie-doctor-p",
-      "name": "Black Tiger Sex Machine/YOOKiE/Doctor P",
+      "id": "a-black-tiger-sex-machine",
+      "name": "Black Tiger Sex Machine",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -3929,16 +4814,6 @@
     {
       "id": "a-blanke",
       "name": "Blanke",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-blanke-godlands",
-      "name": "Blanke/Godlands",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4017,8 +4892,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-boltex-whosmodz-bonjr",
-      "name": "Boltex/Whosmodz/Bonjr",
+      "id": "a-boltex",
+      "name": "Boltex",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4029,6 +4904,16 @@
     {
       "id": "a-bombs-away",
       "name": "Bombs Away",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-bonjr",
+      "name": "Bonjr",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4277,16 +5162,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-craspore-mufix-remix",
-      "name": "CRASPORE (mufix remix)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-cream-soda",
       "name": "CREAM SODA",
       "bio": null,
@@ -4387,8 +5262,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-carla-s-dreams-midi-culture-remix",
-      "name": "Carla's Dreams (Midi Culture Remix)",
+      "id": "a-carla-s-dreams",
+      "name": "Carla's Dreams",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4439,26 +5314,6 @@
     {
       "id": "a-caster",
       "name": "Caster",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-caster-emotiona",
-      "name": "Caster/EMOTIONA",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-caster-moon-rush",
-      "name": "Caster/Moon Rush",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4519,6 +5374,16 @@
     {
       "id": "a-cherokee",
       "name": "Cherokee",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-chime",
+      "name": "Chime",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4647,6 +5512,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-coldsiemens",
+      "name": "ColdSiemens",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-cole-plante",
       "name": "Cole Plante",
       "bio": null,
@@ -4687,6 +5562,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-control-freak",
+      "name": "Control Freak",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-courtney-jenae",
       "name": "Courtney Jenae",
       "bio": null,
@@ -4709,6 +5594,16 @@
     {
       "id": "a-crazymegahell",
       "name": "CrazyMegaHell",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-crimson",
+      "name": "Crimson",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4767,8 +5662,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-ddrey-animadrop-scarlett-rose",
-      "name": "DDRey/Animadrop/Scarlett Rose",
+      "id": "a-ddrey",
+      "name": "DDRey",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4779,6 +5674,16 @@
     {
       "id": "a-dead-blonde",
       "name": "DEAD BLONDE",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-despersion",
+      "name": "DESPERSION",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -4819,6 +5724,16 @@
     {
       "id": "a-dj-philchansky",
       "name": "DJ Philchansky",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-dj-shym",
+      "name": "DJ SHYM",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -5227,16 +6142,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-despersion",
-      "name": "Despersion",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-destroid",
       "name": "Destroid",
       "bio": null,
@@ -5337,16 +6242,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-dirtyphonics-ivory",
-      "name": "Dirtyphonics/IVORY",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-disco-lines",
       "name": "Disco Lines",
       "bio": null,
@@ -5377,6 +6272,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-dj-rokit",
+      "name": "Dj Rokit",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-dj-sergey-zevs",
       "name": "Dj Sergey Zevs",
       "bio": null,
@@ -5397,6 +6302,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-dnb",
+      "name": "DnB",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-dnmo",
       "name": "Dnmo",
       "bio": null,
@@ -5407,8 +6322,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-donbor-crimson",
-      "name": "Donbor/Crimson",
+      "id": "a-doctor-p",
+      "name": "Doctor P",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-donbor",
+      "name": "Donbor",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -5507,8 +6432,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-drummatix-dnb-remix",
-      "name": "Drummatix (DnB remix)",
+      "id": "a-drummatix",
+      "name": "Drummatix",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -5597,6 +6522,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-emotiona",
+      "name": "EMOTIONA",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-encassator",
       "name": "ENCASSATOR",
       "bio": null,
@@ -5657,6 +6592,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-edison-cole",
+      "name": "Edison Cole",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-eecii-m",
       "name": "Eecii M",
       "bio": null,
@@ -5697,8 +6642,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-effin-nghtmre",
-      "name": "Effin/NGHTMRE",
+      "id": "a-effin",
+      "name": "Effin",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -5747,8 +6692,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-elitair-mr-bassmeister-remix",
-      "name": "Elitair (Mr. Bassmeister Remix)",
+      "id": "a-elitair",
+      "name": "Elitair",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -5977,6 +6922,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-fabian-mazur",
+      "name": "Fabian Mazur",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-fairlane",
       "name": "Fairlane",
       "bio": null,
@@ -6097,6 +7052,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-fetre",
+      "name": "Fetre",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-figure",
       "name": "Figure",
       "bio": null,
@@ -6107,8 +7072,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-fil-swan-pikebird",
-      "name": "Fil Swan (Pikebird",
+      "id": "a-fil-swan",
+      "name": "Fil Swan",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6197,16 +7162,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-flux-pavilion-chime-spacekdet-arcando",
-      "name": "Flux Pavilion/Chime/spaceKDET/Arcando",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-foreign-beggars",
       "name": "Foreign Beggars",
       "bio": null,
@@ -6247,6 +7202,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-foyon",
+      "name": "Foyon",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-fractal",
       "name": "Fractal",
       "bio": null,
@@ -6267,6 +7232,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-franky-nuts",
+      "name": "Franky Nuts",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-fraunhofer-diffraction",
       "name": "Fraunhofer Diffraction",
       "bio": null,
@@ -6279,6 +7254,16 @@
     {
       "id": "a-freaks",
       "name": "Freaks",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-fresco",
+      "name": "Fresco",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6347,8 +7332,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-gotou寄生獣-vodvor",
-      "name": "GOTOU寄生獣/vodvor",
+      "id": "a-gotou寄生獣",
+      "name": "GOTOU寄生獣",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6377,8 +7362,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-grxviton-foyon-rumusen",
-      "name": "GRXVITON/Foyon/Rumusen",
+      "id": "a-grxviton",
+      "name": "GRXVITON",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6439,6 +7424,16 @@
     {
       "id": "a-gammer",
       "name": "Gammer",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-gancher",
+      "name": "Gancher",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6587,8 +7582,28 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-godlands",
+      "name": "Godlands",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-gods-of-fashion",
       "name": "Gods of Fashion",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-gofra-maslow",
+      "name": "Gofra Maslow",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -6767,8 +7782,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-hood-alliance-prod-by-pharaoh-vice",
-      "name": "HOOD ALLIANCE (prod. by Pharaoh Vice)",
+      "id": "a-hood-alliance",
+      "name": "HOOD ALLIANCE",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7007,16 +8022,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-horus-зараза",
-      "name": "Horus, Зараза",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-hotline-miami-ost",
       "name": "Hotline Miami OST",
       "bio": null,
@@ -7029,6 +8034,26 @@
     {
       "id": "a-hoverboots",
       "name": "Hoverboots",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-hubrid",
+      "name": "Hubrid",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-hucci",
+      "name": "Hucci",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7149,6 +8174,16 @@
     {
       "id": "a-ipo",
       "name": "IPO",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-ivory",
+      "name": "IVORY",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7407,6 +8442,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-jaynee",
+      "name": "Jaynee",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-jeanie",
       "name": "Jeanie",
       "bio": null,
@@ -7427,8 +8472,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-jessica-audiffred-samplifire",
-      "name": "Jessica Audiffred/SampliFire",
+      "id": "a-jessica-audiffred",
+      "name": "Jessica Audiffred",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7607,8 +8652,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-karter-dark-bladefear-maskface-crick",
-      "name": "KARTER DARK/BLADEFEAR/Maskface Crick",
+      "id": "a-karter-dark",
+      "name": "KARTER DARK",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7639,6 +8684,16 @@
     {
       "id": "a-kream",
       "name": "KREAM",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-krono",
+      "name": "KRONO",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7887,8 +8942,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-kill-the-noise-mija-caster",
-      "name": "Kill The Noise/Mija/Caster",
+      "id": "a-kill-the-noise",
+      "name": "Kill The Noise",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -7919,6 +8974,16 @@
     {
       "id": "a-kindrid",
       "name": "Kindrid",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-king-stephen",
+      "name": "King Stephen",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8039,6 +9104,16 @@
     {
       "id": "a-krewella",
       "name": "Krewella",
+      "bio": "Krewella is an American electronic dance music group formed in Northbrook, Illinois, a suburb of Chicago in 2007. The duo consists of sisters Jahan and Yasmine Yousaf; Kristopher Trindl was a member during their commercial peak in the early 2010s, and split from the group in 2014.",
+      "image_path": null,
+      "bio_source": "wikidata",
+      "bio_fetched_at": 1792099738431,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-kronic",
+      "name": "Kronic",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8047,8 +9122,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-kronic",
-      "name": "Kronic",
+      "id": "a-krot",
+      "name": "Krot",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8197,8 +9272,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-le-castle-vania-skum",
-      "name": "Le Castle Vania/SKUM",
+      "id": "a-le-castle-vania",
+      "name": "Le Castle Vania",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-leah-culver",
+      "name": "Leah Culver",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8227,8 +9312,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-lektrique-sam-lamar",
-      "name": "Lektrique/Sam Lamar",
+      "id": "a-lektrique",
+      "name": "Lektrique",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8449,20 +9534,10 @@
     {
       "id": "a-lookas",
       "name": "Lookas",
-      "bio": null,
+      "bio": "Lucas Rego, known by his stage name Lookas, is an American music producer and DJ. He is best known for his contribution to Flo Rida's charted single, \"G.D.F.R.\".",
       "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-lookas-edison-cole",
-      "name": "Lookas/Edison Cole",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
+      "bio_source": "wikidata",
+      "bio_fetched_at": 1792099734350,
       "image_source": null,
       "image_fetched_at": null
     },
@@ -8487,16 +9562,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-loqiemean-prod-by-thunder6",
-      "name": "Loqiemean (prod. by thunder6)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-lorn",
       "name": "Lorn",
       "bio": null,
@@ -8509,6 +9574,16 @@
     {
       "id": "a-low-pulse",
       "name": "Low Pulse",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-lowriderz",
+      "name": "Lowriderz",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8557,8 +9632,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-ly-da-buddah-magugu-zombie-cats",
-      "name": "Ly Da Buddah/Magugu/Zombie Cats",
+      "id": "a-ly-da-buddah",
+      "name": "Ly Da Buddah",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8797,6 +9872,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-mylk",
+      "name": "MYLK",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-myrne",
       "name": "MYRNE",
       "bio": null,
@@ -8867,8 +9952,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-made-by-tsuki-whzly",
-      "name": "Made By Tsuki/WHZLY",
+      "id": "a-made-by-tsuki",
+      "name": "Made By Tsuki",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8927,6 +10012,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-magugu",
+      "name": "Magugu",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-mai-lan",
       "name": "Mai lan",
       "bio": null,
@@ -8947,8 +10042,28 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-maladoy-prince",
+      "name": "Maladoy Prince",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-malvin-studios",
       "name": "Malvin Studios",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-mantis",
+      "name": "Mantis",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8969,26 +10084,6 @@
     {
       "id": "a-mark-the-beast",
       "name": "Mark The Beast",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-mark-the-beast-leah-culver",
-      "name": "Mark The Beast/Leah Culver",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-mark-the-beast-seids-mantis",
-      "name": "Mark The Beast/SEIDS/Mantis",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9037,8 +10132,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-masters-of-hardcore",
-      "name": "Masters of Hardcore",
+      "id": "a-maskface-crick",
+      "name": "Maskface Crick",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9047,8 +10142,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-masters-of-hardcore-2020-magnum-opus-warm-up-mix-bassline-abuser",
-      "name": "Masters of Hardcore 2020 - Magnum Opus  Warm-Up Mix [Bassline Abuser]",
+      "id": "a-masters-of-hardcore",
+      "name": "Masters of Hardcore",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9129,16 +10224,6 @@
     {
       "id": "a-meg-myers",
       "name": "Meg Myers",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-meg-myers-hucci-remix",
-      "name": "Meg Myers (Hucci Remix)",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9267,6 +10352,26 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-midi-culture",
+      "name": "Midi Culture",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-mija",
+      "name": "Mija",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-mika",
       "name": "Mika",
       "bio": null,
@@ -9279,6 +10384,16 @@
     {
       "id": "a-mike-taylor",
       "name": "Mike Taylor",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-milkdrop",
+      "name": "Milkdrop",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9407,6 +10522,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-moon-rush",
+      "name": "Moon Rush",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-morty",
       "name": "Morty",
       "bio": null,
@@ -9439,6 +10564,16 @@
     {
       "id": "a-mountkid",
       "name": "Mountkid",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-mr-fijiwiji",
+      "name": "Mr FijiWiji",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9567,8 +10702,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-n1nt3nd0-shifto-radio-remix",
-      "name": "N1NT3ND0 (Shifto Radio Remix)",
+      "id": "a-n1nt3nd0",
+      "name": "N1NT3ND0",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9619,10 +10754,10 @@
     {
       "id": "a-neotek",
       "name": "NEOTEK",
-      "bio": null,
+      "bio": "Group • Danish synthrock band • Denmark",
       "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
+      "bio_source": "musicbrainz",
+      "bio_fetched_at": 1792101079216,
       "image_source": null,
       "image_fetched_at": null
     },
@@ -9677,8 +10812,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-nitti-gammer",
-      "name": "NITTI/Gammer",
+      "id": "a-nilxro",
+      "name": "NILXRO",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-nitti",
+      "name": "NITTI",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -9827,16 +10972,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-neverlove-ганвест",
-      "name": "Neverlove, Ганвест",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-nevve",
       "name": "Nevve",
       "bio": null,
@@ -9957,8 +11092,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-nitepunk-reaper",
-      "name": "Nitepunk/REAPER",
+      "id": "a-nitepunk",
+      "name": "Nitepunk",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10037,8 +11172,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-nonsens-snavs",
-      "name": "Nonsens/Snavs",
+      "id": "a-nonsens",
+      "name": "Nonsens",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10217,16 +11352,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-oliverse-bertie-scott",
-      "name": "Oliverse/Bertie Scott",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-olly-james",
       "name": "Olly James",
       "bio": null,
@@ -10307,16 +11432,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-oxxxymiron-prod-porchy",
-      "name": "Oxxxymiron (prod. Porchy)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-oxymiron",
       "name": "Oxymiron",
       "bio": null,
@@ -10329,26 +11444,6 @@
     {
       "id": "a-pharaoh",
       "name": "PHARAOH",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-pharaoh-prod-by-coldsiemens",
-      "name": "PHARAOH (Prod. By ColdSiemens)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-pharaoh-prod-by-white-punk",
-      "name": "PHARAOH (prod. by White Punk)",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10429,10 +11524,10 @@
     {
       "id": "a-party-favor",
       "name": "Party Favor",
-      "bio": null,
+      "bio": "Dylan Ragland, better known by his stage name Party Favor, is an American DJ and EDM producer.",
       "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
+      "bio_source": "wikipedia",
+      "bio_fetched_at": 1792101082517,
       "image_source": null,
       "image_fetched_at": null
     },
@@ -10467,8 +11562,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-pendulum-grabbitz",
-      "name": "Pendulum/Grabbitz",
+      "id": "a-perturbator",
+      "name": "Perturbator",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10477,8 +11572,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-perturbator",
-      "name": "Perturbator",
+      "id": "a-pharaoh-vice",
+      "name": "Pharaoh Vice",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10509,6 +11604,16 @@
     {
       "id": "a-ph-o",
       "name": "Pháo",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-pikebird",
+      "name": "Pikebird",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10637,8 +11742,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-protostar-mylk",
-      "name": "Protostar/MYLK",
+      "id": "a-psylla",
+      "name": "Psylla",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10647,8 +11752,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-psylla",
-      "name": "Psylla",
+      "id": "a-purple-fume",
+      "name": "Purple Fume",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10667,8 +11772,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-qoiet-afk",
-      "name": "Qoiet/AFK",
+      "id": "a-qoiet",
+      "name": "Qoiet",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10767,8 +11872,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-riot-franky-nuts",
-      "name": "RIOT/Franky Nuts",
+      "id": "a-riot",
+      "name": "RIOT",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10789,16 +11894,6 @@
     {
       "id": "a-rl-grime",
       "name": "RL Grime)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-rocket",
-      "name": "ROCKET",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11057,16 +12152,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-riot",
-      "name": "Riot",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-rita-ora",
       "name": "Rita Ora",
       "bio": null,
@@ -11077,8 +12162,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-robert-delong-grabbitz",
-      "name": "Robert DeLong/Grabbitz",
+      "id": "a-robert-delong",
+      "name": "Robert DeLong",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11087,8 +12172,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-rocket-prod-by-fresco",
-      "name": "Rocket (prod. by Fresco)",
+      "id": "a-rocket",
+      "name": "Rocket",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11177,8 +12262,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-royalston-jaynee",
-      "name": "Royalston/Jaynee",
+      "id": "a-royalston",
+      "name": "Royalston",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11207,8 +12292,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-ruin-dnb-remix",
-      "name": "Ruin DnB remix)",
+      "id": "a-ruin-dnb",
+      "name": "Ruin DnB",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11217,8 +12302,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-russian-village-boys-prod-by-betavoice",
-      "name": "Russian Village Boys (prod. by Betavoice)",
+      "id": "a-rumusen",
+      "name": "Rumusen",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-russian-village-boys",
+      "name": "Russian Village Boys",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11317,8 +12412,18 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-sh-kera-эндшпиль",
-      "name": "SH Kera, Эндшпиль",
+      "id": "a-seids",
+      "name": "SEIDS",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-sh-kera",
+      "name": "SH Kera",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11367,6 +12472,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-skum",
+      "name": "SKUM",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-skvnk",
       "name": "SKVNK",
       "bio": null,
@@ -11397,8 +12512,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-slim-prod-by-stonecut",
-      "name": "SLIM [PROD. BY STONECUT]",
+      "id": "a-slim",
+      "name": "SLIM",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11427,8 +12542,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-spook-dj-shym",
-      "name": "SPOOK/DJ SHYM",
+      "id": "a-spook",
+      "name": "SPOOK",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11469,6 +12584,16 @@
     {
       "id": "a-sted-d",
       "name": "STED.D",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-stonecut",
+      "name": "STONECUT",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11527,8 +12652,28 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-salad-killaz",
+      "name": "Salad Killaz",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-salem-al-fakir-radio-edit",
       "name": "Salem Al Fakir (Radio Edit)",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-sam-lamar",
+      "name": "Sam Lamar",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11543,6 +12688,16 @@
       "image_path": null,
       "bio_source": null,
       "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-samplifire",
+      "name": "SampliFire",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": 1792099715075,
       "image_source": null,
       "image_fetched_at": null
     },
@@ -11579,6 +12734,16 @@
     {
       "id": "a-savage",
       "name": "Savage",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-scarlett-rose",
+      "name": "Scarlett Rose",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11729,6 +12894,16 @@
     {
       "id": "a-shermanology",
       "name": "Shermanology",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-shifto-radio",
+      "name": "Shifto Radio",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -11997,8 +13172,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-smoky-d-lowriderz-despersion",
-      "name": "Smoky D/Lowriderz/DESPERSION",
+      "id": "a-smoky-d",
+      "name": "Smoky D",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12019,16 +13194,6 @@
     {
       "id": "a-snavs",
       "name": "Snavs",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-snavs-fabian-mazur",
-      "name": "Snavs/Fabian Mazur",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12277,8 +13442,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-supermerk2-control-freak-remix",
-      "name": "Supermerk2 (Control Freak Remix)",
+      "id": "a-supermerk2",
+      "name": "Supermerk2",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12319,16 +13484,6 @@
     {
       "id": "a-t-fest",
       "name": "T-Fest",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-t-fest-скриптонит",
-      "name": "T-Fest, Скриптонит",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12507,8 +13662,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-taylr-renee-mr-fijiwiji-remix",
-      "name": "Taylr Renee (Mr FijiWiji Remix)",
+      "id": "a-taylr-renee",
+      "name": "Taylr Renee",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12797,8 +13952,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-tinashe-whethan-remix",
-      "name": "Tinashe (Whethan Remix)",
+      "id": "a-tinashe",
+      "name": "Tinashe",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -12917,8 +14072,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-tribeat-nilxro",
-      "name": "Tribeat/NILXRO",
+      "id": "a-tribeat",
+      "name": "Tribeat",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13047,8 +14202,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-ultrakiller-hubrid-king-stephen",
-      "name": "UltraKiller/Hubrid/King Stephen",
+      "id": "a-ultrakiller",
+      "name": "UltraKiller",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13059,6 +14214,16 @@
     {
       "id": "a-unholy",
       "name": "Unholy",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-unifire",
+      "name": "Unifire",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13179,10 +14344,10 @@
     {
       "id": "a-vndetta",
       "name": "VNDETTA",
-      "bio": null,
+      "bio": "Dubstep / Riddim / DNB Artist",
       "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
+      "bio_source": "musicbrainz",
+      "bio_fetched_at": 1792099718010,
       "image_source": null,
       "image_fetched_at": null
     },
@@ -13287,8 +14452,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-vbdx-侍-samurai",
-      "name": "Vbdx/侍 Samurai",
+      "id": "a-vbdx",
+      "name": "Vbdx",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13367,6 +14532,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-vindon",
+      "name": "VinDon",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-vincent-vendetta",
       "name": "Vincent Vendetta",
       "bio": null,
@@ -13417,8 +14592,28 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-whzly",
+      "name": "WHZLY",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-willow",
       "name": "WILLOW",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-witch-house-trap",
+      "name": "WITCH HOUSE + TRAP",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13467,8 +14662,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-wasted-mind-unifire-remix",
-      "name": "Wasted Mind (Unifire Remix)",
+      "id": "a-wasted-mind",
+      "name": "Wasted Mind",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13487,8 +14682,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-waxteeth-we-are-the-catalyst-zardonic",
-      "name": "Waxteeth/We Are the Catalyst/Zardonic",
+      "id": "a-waxteeth",
+      "name": "Waxteeth",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13499,6 +14694,16 @@
     {
       "id": "a-we-are-wolves",
       "name": "We Are Wolves",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-we-are-the-catalyst",
+      "name": "We Are the Catalyst",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13529,6 +14734,26 @@
     {
       "id": "a-whethan",
       "name": "Whethan",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-white-punk",
+      "name": "White Punk",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-whosmodz",
+      "name": "Whosmodz",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13727,8 +14952,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-xylo-ark-patrol-remix",
-      "name": "Xylo (Ark Patrol Remix)",
+      "id": "a-xylo",
+      "name": "Xylo",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13757,6 +14982,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-yookie",
+      "name": "YOOKiE",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-yakui-the-maid",
       "name": "Yakui The Maid",
       "bio": null,
@@ -13767,8 +15002,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-yanix-dj-rokit-prod",
-      "name": "Yanix (Dj Rokit Prod.)",
+      "id": "a-yanix",
+      "name": "Yanix",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13847,8 +15082,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-young-p-h-лсп",
-      "name": "Young P&H, ЛСП",
+      "id": "a-young-p-h",
+      "name": "Young P&H",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -13927,6 +15162,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-zardonic",
+      "name": "Zardonic",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-zedd",
       "name": "Zedd",
       "bio": null,
@@ -13969,6 +15214,16 @@
     {
       "id": "a-zetsubou-p",
       "name": "Zetsubou P",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-zombie-cats",
+      "name": "Zombie Cats",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14217,6 +15472,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-d1proo",
+      "name": "d1proo",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-davinel",
       "name": "davinel",
       "bio": null,
@@ -14317,8 +15582,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-er1taga-d1proo-maladoy-prince",
-      "name": "er1taga/d1proo/Maladoy Prince",
+      "id": "a-er1taga",
+      "name": "er1taga",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14449,6 +15714,16 @@
     {
       "id": "a-ika-copyleft",
       "name": "ika copyleft",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-izzamuzzic",
+      "name": "izzamuzzic",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14647,6 +15922,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-mufix",
+      "name": "mufix",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-mylane",
       "name": "mylane",
       "bio": null,
@@ -14659,6 +15944,16 @@
     {
       "id": "a-myrror",
       "name": "myrror",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-mzlff",
+      "name": "mzlff",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14709,16 +16004,6 @@
     {
       "id": "a-osaili",
       "name": "osaili",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-osaili-gancher",
-      "name": "osaili (Gancher",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14847,6 +16132,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-spacekdet",
+      "name": "spaceKDET",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-strxwberrymilk",
       "name": "strxwberrymilk",
       "bio": null,
@@ -14879,6 +16174,16 @@
     {
       "id": "a-the-serpent",
       "name": "the Serpent",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-thunder6",
+      "name": "thunder6",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14949,6 +16254,16 @@
     {
       "id": "a-uamee",
       "name": "uamee",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-vodvor",
+      "name": "vodvor",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15417,6 +16732,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-ганвест",
+      "name": "Ганвест",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-гарри-топор",
       "name": "Гарри Топор",
       "bio": null,
@@ -15507,8 +16832,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-грязный-рамирес-prod-by-boris-redwall",
-      "name": "Грязный Рамирес (Prod. By BORIS REDWALL)",
+      "id": "a-грязный-рамирес",
+      "name": "Грязный Рамирес",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15539,16 +16864,6 @@
     {
       "id": "a-дети-rave",
       "name": "ДЕТИ RAVE",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-дети-rave-хлеб",
-      "name": "ДЕТИ RAVE, ХЛЕБ",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15699,6 +17014,16 @@
     {
       "id": "a-зипуля",
       "name": "Зипуля",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-ичи",
+      "name": "ИЧИ",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15867,8 +17192,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-комбинация-проф-сомелье-gachinskiy",
-      "name": "Комбинация, Проф. Сомелье GachinSkiy",
+      "id": "a-комбинация",
+      "name": "Комбинация",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15899,6 +17224,16 @@
     {
       "id": "a-космос-в-очке",
       "name": "Космос в Очке",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-кофта",
+      "name": "Кофта",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -15987,18 +17322,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-лсп-х-25-17",
-      "name": "ЛСП х 25/17",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-луна-astrophysics-remix",
-      "name": "ЛУНА (Astrophysics Remix)",
+      "id": "a-лсп-х-25",
+      "name": "ЛСП х 25",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -16087,16 +17412,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-луна-izzamuzzic-remix",
-      "name": "Луна (izzamuzzic remix)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-любэ",
       "name": "Любэ",
       "bio": null,
@@ -16149,16 +17464,6 @@
     {
       "id": "a-макс-корж",
       "name": "Макс Корж",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-макс-корж-fetre-prod",
-      "name": "Макс Корж (Fetre prod.)",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -16327,16 +17632,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-нюдовый-чёс-стереополина",
-      "name": "Нюдовый Чёс/Стереополина",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-обiйми",
       "name": "Обiйми",
       "bio": null,
@@ -16349,16 +17644,6 @@
     {
       "id": "a-овсянкин",
       "name": "Овсянкин",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-овсянкин-смешарик",
-      "name": "Овсянкин, Смешарик",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -16507,6 +17792,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-проф-сомелье-gachinskiy",
+      "name": "Проф. Сомелье GachinSkiy",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-пятый-регион-или-63-регион",
       "name": "Пятый регион или 63 регион",
       "bio": null,
@@ -16607,6 +17902,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-скриптонит",
+      "name": "Скриптонит",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-скруджи",
       "name": "Скруджи",
       "bio": null,
@@ -16619,6 +17924,16 @@
     {
       "id": "a-слава-кпсс",
       "name": "Слава КПСС",
+      "bio": "Vyacheslav Valeryevich Mashnov, best known by his stage name Slava KPSS is a Russian hip-hop artist and streamer.",
+      "image_path": null,
+      "bio_source": "wikidata",
+      "bio_fetched_at": 1792101116634,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
+      "id": "a-смешарик",
+      "name": "Смешарик",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -16887,16 +18202,6 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-хлеб-milkdrop-remix",
-      "name": "Хлеб (Milkdrop remix)",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-хорс",
       "name": "Хорс",
       "bio": null,
@@ -16957,8 +18262,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-эйфория-кофта-remix",
-      "name": "Эйфория (Кофта remix)",
+      "id": "a-эйфория",
+      "name": "Эйфория",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -16977,28 +18282,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-элджей-кравц",
-      "name": "Элджей, Кравц",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
       "id": "a-электрофорез",
       "name": "Электрофорез",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-электрофорез-молчат-дома",
-      "name": "Электрофорез, Молчат дома",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -17127,8 +18412,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-демон-feat-бунен-witch-house-trap-remix",
-      "name": "дЕмон (feat бунЕн (WITCH HOUSE + TRAP remix))",
+      "id": "a-демон-feat-бунен",
+      "name": "дЕмон (feat бунЕн )",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -17357,6 +18642,16 @@
       "image_fetched_at": null
     },
     {
+      "id": "a-侍-samurai",
+      "name": "侍 Samurai",
+      "bio": null,
+      "image_path": null,
+      "bio_source": null,
+      "bio_fetched_at": null,
+      "image_source": null,
+      "image_fetched_at": null
+    },
+    {
       "id": "a-松原みき",
       "name": "松原みき",
       "bio": null,
@@ -17393,6 +18688,10 @@
     {
       "artist_id": "a-158",
       "track_id": "t-fedb6db0cdfbe297"
+    },
+    {
+      "artist_id": "a-17",
+      "track_id": "t-d450ab1e52229a81"
     },
     {
       "artist_id": "a-2174-ro-e",
@@ -17447,7 +18746,7 @@
       "track_id": "t-47bc20f7d04e9c72"
     },
     {
-      "artist_id": "a-aaron-smith-krono-remix",
+      "artist_id": "a-aaron-smith",
       "track_id": "t-f7f92f9d8e64dbaf"
     },
     {
@@ -17543,6 +18842,10 @@
       "track_id": "t-01762596a0301be2"
     },
     {
+      "artist_id": "a-afk",
+      "track_id": "t-5b569738bea5063e"
+    },
+    {
       "artist_id": "a-afroman",
       "track_id": "t-a63aa4f853d29e64"
     },
@@ -17613,6 +18916,10 @@
     {
       "artist_id": "a-alekseev",
       "track_id": "t-d19c43aaa9c20b9e"
+    },
+    {
+      "artist_id": "a-alena-omargalieva",
+      "track_id": "t-0b2d4ab5f17181b0"
     },
     {
       "artist_id": "a-alex-coffman",
@@ -17803,6 +19110,10 @@
       "track_id": "t-819c5b5c05dc5f7c"
     },
     {
+      "artist_id": "a-animadrop",
+      "track_id": "t-0a32ff718dad7a02"
+    },
+    {
       "artist_id": "a-anna-yvette",
       "track_id": "t-e4d611eb3ba7e603"
     },
@@ -17927,7 +19238,11 @@
       "track_id": "t-ffd5131310eefcf1"
     },
     {
-      "artist_id": "a-arelice-blvck-cat",
+      "artist_id": "a-arcando",
+      "track_id": "t-a84b6f9005081f6a"
+    },
+    {
+      "artist_id": "a-arelice",
       "track_id": "t-99eef2f7ab2c788b"
     },
     {
@@ -17949,6 +19264,10 @@
     {
       "artist_id": "a-ark-patrol",
       "track_id": "t-75f56b152abdd7dd"
+    },
+    {
+      "artist_id": "a-ark-patrol",
+      "track_id": "t-7a7e0884388a7ee9"
     },
     {
       "artist_id": "a-ark-patrol",
@@ -18007,6 +19326,10 @@
       "track_id": "t-ad7443509ca07212"
     },
     {
+      "artist_id": "a-astrophysics",
+      "track_id": "t-7172dfd8e8bc5223"
+    },
+    {
       "artist_id": "a-atl",
       "track_id": "t-0343bb6347756647"
     },
@@ -18044,6 +19367,10 @@
     },
     {
       "artist_id": "a-atl",
+      "track_id": "t-3b3aced4361aa545"
+    },
+    {
+      "artist_id": "a-atl",
       "track_id": "t-3c0c92df2cc2cc5e"
     },
     {
@@ -18052,11 +19379,27 @@
     },
     {
       "artist_id": "a-atl",
+      "track_id": "t-44df083da45a4e83"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-488b56a80cd910d5"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-48ad433014766035"
+    },
+    {
+      "artist_id": "a-atl",
       "track_id": "t-4b1699aba3ad96e1"
     },
     {
       "artist_id": "a-atl",
       "track_id": "t-5aced3454ae58d66"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-5e84eb79dcbd4216"
     },
     {
       "artist_id": "a-atl",
@@ -18136,6 +19479,10 @@
     },
     {
       "artist_id": "a-atl",
+      "track_id": "t-a33d3757de7fd415"
+    },
+    {
+      "artist_id": "a-atl",
       "track_id": "t-a4f0405ecb2a8880"
     },
     {
@@ -18156,7 +19503,15 @@
     },
     {
       "artist_id": "a-atl",
+      "track_id": "t-b748585defd2d5a3"
+    },
+    {
+      "artist_id": "a-atl",
       "track_id": "t-b77631bdd759ed69"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-ba07d912313827bb"
     },
     {
       "artist_id": "a-atl",
@@ -18169,6 +19524,14 @@
     {
       "artist_id": "a-atl",
       "track_id": "t-d695a17a7d0216c3"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-d6e99cd419323423"
+    },
+    {
+      "artist_id": "a-atl",
+      "track_id": "t-d839760592a3d08c"
     },
     {
       "artist_id": "a-atl",
@@ -18197,42 +19560,6 @@
     {
       "artist_id": "a-atl-instr-clams-casino",
       "track_id": "t-e1400684823eee9f"
-    },
-    {
-      "artist_id": "a-atl-prod-dark-faders",
-      "track_id": "t-44df083da45a4e83"
-    },
-    {
-      "artist_id": "a-atl-prod-hugekilla",
-      "track_id": "t-b748585defd2d5a3"
-    },
-    {
-      "artist_id": "a-atl-salad-killaz-prod",
-      "track_id": "t-3b3aced4361aa545"
-    },
-    {
-      "artist_id": "a-atl-salad-killaz-remix",
-      "track_id": "t-d839760592a3d08c"
-    },
-    {
-      "artist_id": "a-atl-зараза",
-      "track_id": "t-ba07d912313827bb"
-    },
-    {
-      "artist_id": "a-atl-ичи",
-      "track_id": "t-d6e99cd419323423"
-    },
-    {
-      "artist_id": "a-atl-ка-тет",
-      "track_id": "t-488b56a80cd910d5"
-    },
-    {
-      "artist_id": "a-atl-ка-тет",
-      "track_id": "t-48ad433014766035"
-    },
-    {
-      "artist_id": "a-atl-ка-тет",
-      "track_id": "t-5e84eb79dcbd4216"
     },
     {
       "artist_id": "a-atlantida",
@@ -18299,7 +19626,7 @@
       "track_id": "t-fe9b1c6bd1f312ba"
     },
     {
-      "artist_id": "a-baadwrk-gofra-maslow-purple-fume",
+      "artist_id": "a-baadwrk",
       "track_id": "t-31a40adf6c903ac0"
     },
     {
@@ -18323,7 +19650,7 @@
       "track_id": "t-cd3a798f30f3ece1"
     },
     {
-      "artist_id": "a-bandlez-barely-alive",
+      "artist_id": "a-bandlez",
       "track_id": "t-1357984a7646aff6"
     },
     {
@@ -18331,11 +19658,15 @@
       "track_id": "t-f78885dc90c8d733"
     },
     {
+      "artist_id": "a-barely-alive",
+      "track_id": "t-1357984a7646aff6"
+    },
+    {
       "artist_id": "a-barren-gates",
       "track_id": "t-15604163ef63e045"
     },
     {
-      "artist_id": "a-barren-gates-vindon",
+      "artist_id": "a-barren-gates",
       "track_id": "t-6a235ace2e5ae8d5"
     },
     {
@@ -18359,7 +19690,7 @@
       "track_id": "t-c8dd46635fde7adf"
     },
     {
-      "artist_id": "a-basta-alena-omargalieva-krot",
+      "artist_id": "a-basta",
       "track_id": "t-0b2d4ab5f17181b0"
     },
     {
@@ -18371,11 +19702,11 @@
       "track_id": "t-121ad7edb21cef18"
     },
     {
-      "artist_id": "a-bato-atl",
+      "artist_id": "a-bato",
       "track_id": "t-a33d3757de7fd415"
     },
     {
-      "artist_id": "a-bayan-dnb-remix",
+      "artist_id": "a-bayan-dnb",
       "track_id": "t-821b3f771250db5f"
     },
     {
@@ -18417,6 +19748,14 @@
     {
       "artist_id": "a-bensley",
       "track_id": "t-6810c79808ced74a"
+    },
+    {
+      "artist_id": "a-bertie-scott",
+      "track_id": "t-8e5bf3025708c389"
+    },
+    {
+      "artist_id": "a-betavoice",
+      "track_id": "t-8ce7eb7e0c634814"
     },
     {
       "artist_id": "a-betta-lemme",
@@ -18507,12 +19846,16 @@
       "track_id": "t-c22c2f1622a44b19"
     },
     {
-      "artist_id": "a-black-tiger-sex-machine-yookie-doctor-p",
+      "artist_id": "a-black-tiger-sex-machine",
       "track_id": "t-de9563d4318faa9a"
     },
     {
       "artist_id": "a-blackpink",
       "track_id": "t-1ddf8400fd4fa34e"
+    },
+    {
+      "artist_id": "a-bladefear",
+      "track_id": "t-7d5f113eb66a97b1"
     },
     {
       "artist_id": "a-blaine-stranger",
@@ -18527,7 +19870,7 @@
       "track_id": "t-361f2846167c38dc"
     },
     {
-      "artist_id": "a-blanke-godlands",
+      "artist_id": "a-blanke",
       "track_id": "t-714d59e001741ecc"
     },
     {
@@ -18563,6 +19906,10 @@
       "track_id": "t-9766165628466def"
     },
     {
+      "artist_id": "a-blvck-cat",
+      "track_id": "t-99eef2f7ab2c788b"
+    },
+    {
       "artist_id": "a-bodiev",
       "track_id": "t-4e097ebf200f9f77"
     },
@@ -18571,7 +19918,7 @@
       "track_id": "t-7577a58410ee438b"
     },
     {
-      "artist_id": "a-boltex-whosmodz-bonjr",
+      "artist_id": "a-boltex",
       "track_id": "t-d80915fd20323ef6"
     },
     {
@@ -18591,6 +19938,10 @@
       "track_id": "t-04441bd4f94a16a3"
     },
     {
+      "artist_id": "a-bonjr",
+      "track_id": "t-d80915fd20323ef6"
+    },
+    {
       "artist_id": "a-bonobo",
       "track_id": "t-1883c5df61f19ed7"
     },
@@ -18603,7 +19954,7 @@
       "track_id": "t-a8a05527a99cfe9e"
     },
     {
-      "artist_id": "a-booker-cmh-mzlff-слава-кпсс",
+      "artist_id": "a-booker",
       "track_id": "t-ba7ea0bc45dea6ba"
     },
     {
@@ -18625,6 +19976,10 @@
     {
       "artist_id": "a-borgore",
       "track_id": "t-d9834bcb20b6e0a0"
+    },
+    {
+      "artist_id": "a-boris-redwall",
+      "track_id": "t-8bf89b67d4426274"
     },
     {
       "artist_id": "a-bosiyaw",
@@ -18763,7 +20118,7 @@
       "track_id": "t-342784c4afaf3221"
     },
     {
-      "artist_id": "a-carla-s-dreams-midi-culture-remix",
+      "artist_id": "a-carla-s-dreams",
       "track_id": "t-b3d5f73cd0267d32"
     },
     {
@@ -18788,19 +20143,23 @@
     },
     {
       "artist_id": "a-caster",
+      "track_id": "t-506ebdd206e5197d"
+    },
+    {
+      "artist_id": "a-caster",
       "track_id": "t-74943c526e83df0a"
     },
     {
       "artist_id": "a-caster",
-      "track_id": "t-e83a635ee453daa0"
-    },
-    {
-      "artist_id": "a-caster-emotiona",
       "track_id": "t-c717895f1226a1b7"
     },
     {
-      "artist_id": "a-caster-moon-rush",
-      "track_id": "t-506ebdd206e5197d"
+      "artist_id": "a-caster",
+      "track_id": "t-d8d3b7395c789e59"
+    },
+    {
+      "artist_id": "a-caster",
+      "track_id": "t-e83a635ee453daa0"
     },
     {
       "artist_id": "a-cautious-clay",
@@ -18857,6 +20216,10 @@
     {
       "artist_id": "a-cherokee",
       "track_id": "t-f3ad4c08be744fe4"
+    },
+    {
+      "artist_id": "a-chime",
+      "track_id": "t-a84b6f9005081f6a"
     },
     {
       "artist_id": "a-choppa-dunks",
@@ -18916,11 +20279,19 @@
     },
     {
       "artist_id": "a-cmh",
+      "track_id": "t-ba7ea0bc45dea6ba"
+    },
+    {
+      "artist_id": "a-cmh",
       "track_id": "t-d3f89ce46457577a"
     },
     {
       "artist_id": "a-cody-wise",
       "track_id": "t-06bd7172cd011b7c"
+    },
+    {
+      "artist_id": "a-coldsiemens",
+      "track_id": "t-cf858eb8420987c4"
     },
     {
       "artist_id": "a-cole-plante",
@@ -18941,6 +20312,10 @@
     {
       "artist_id": "a-conquer-divide",
       "track_id": "t-3b8bec9155452ece"
+    },
+    {
+      "artist_id": "a-control-freak",
+      "track_id": "t-4d5492efdf45e526"
     },
     {
       "artist_id": "a-courtney-jenae",
@@ -18968,11 +20343,11 @@
     },
     {
       "artist_id": "a-craspore",
-      "track_id": "t-df0ecb8f328186e2"
+      "track_id": "t-904de14f6254fe02"
     },
     {
-      "artist_id": "a-craspore-mufix-remix",
-      "track_id": "t-904de14f6254fe02"
+      "artist_id": "a-craspore",
+      "track_id": "t-df0ecb8f328186e2"
     },
     {
       "artist_id": "a-crazymegahell",
@@ -19001,6 +20376,10 @@
     {
       "artist_id": "a-creepymane",
       "track_id": "t-3d4906ba5dd1ee2c"
+    },
+    {
+      "artist_id": "a-crimson",
+      "track_id": "t-aed146c72deec417"
     },
     {
       "artist_id": "a-crispy-noise",
@@ -19065,6 +20444,10 @@
     {
       "artist_id": "a-d-emonic",
       "track_id": "t-fb02114dcb5546d0"
+    },
+    {
+      "artist_id": "a-d1proo",
+      "track_id": "t-dcf489354dd0cbdd"
     },
     {
       "artist_id": "a-da-gudda-jazz",
@@ -19132,6 +20515,10 @@
     },
     {
       "artist_id": "a-dark-faders",
+      "track_id": "t-44df083da45a4e83"
+    },
+    {
+      "artist_id": "a-dark-faders",
       "track_id": "t-62ee9823db7aad45"
     },
     {
@@ -19175,7 +20562,7 @@
       "track_id": "t-46d626347c64833f"
     },
     {
-      "artist_id": "a-ddrey-animadrop-scarlett-rose",
+      "artist_id": "a-ddrey",
       "track_id": "t-0a32ff718dad7a02"
     },
     {
@@ -19283,6 +20670,10 @@
       "track_id": "t-024f97d0c5184fcb"
     },
     {
+      "artist_id": "a-despersion",
+      "track_id": "t-27a1b704270c2e72"
+    },
+    {
       "artist_id": "a-destroid",
       "track_id": "t-13f67aeee3bc27d5"
     },
@@ -19356,11 +20747,11 @@
     },
     {
       "artist_id": "a-dirtyphonics",
-      "track_id": "t-c8dd46635fde7adf"
+      "track_id": "t-2d627c99d53462ad"
     },
     {
-      "artist_id": "a-dirtyphonics-ivory",
-      "track_id": "t-2d627c99d53462ad"
+      "artist_id": "a-dirtyphonics",
+      "track_id": "t-c8dd46635fde7adf"
     },
     {
       "artist_id": "a-disco-lines",
@@ -19395,8 +20786,16 @@
       "track_id": "t-a9181eacb3dd4651"
     },
     {
+      "artist_id": "a-dj-rokit",
+      "track_id": "t-ed5824c2daeaf332"
+    },
+    {
       "artist_id": "a-dj-sergey-zevs",
       "track_id": "t-c299a8857b045d47"
+    },
+    {
+      "artist_id": "a-dj-shym",
+      "track_id": "t-a6ea0393e1964e8f"
     },
     {
       "artist_id": "a-dj-snake",
@@ -19447,15 +20846,23 @@
       "track_id": "t-dd4f06bc193f505c"
     },
     {
+      "artist_id": "a-dnb",
+      "track_id": "t-26b74ad1716fc579"
+    },
+    {
       "artist_id": "a-dnmo",
       "track_id": "t-8ec6537d359d7a07"
+    },
+    {
+      "artist_id": "a-doctor-p",
+      "track_id": "t-de9563d4318faa9a"
     },
     {
       "artist_id": "a-dolboeb",
       "track_id": "t-f79dbbcb2ba0d495"
     },
     {
-      "artist_id": "a-donbor-crimson",
+      "artist_id": "a-donbor",
       "track_id": "t-aed146c72deec417"
     },
     {
@@ -19515,7 +20922,7 @@
       "track_id": "t-d67c0c525b9ca0ff"
     },
     {
-      "artist_id": "a-drummatix-dnb-remix",
+      "artist_id": "a-drummatix",
       "track_id": "t-26b74ad1716fc579"
     },
     {
@@ -19583,6 +20990,10 @@
       "track_id": "t-618702fc9a5dbe69"
     },
     {
+      "artist_id": "a-edison-cole",
+      "track_id": "t-533dd5960623d2b3"
+    },
+    {
       "artist_id": "a-eecii-m",
       "track_id": "t-b77631bdd759ed69"
     },
@@ -19599,7 +21010,7 @@
       "track_id": "t-65615d6e872ee945"
     },
     {
-      "artist_id": "a-effin-nghtmre",
+      "artist_id": "a-effin",
       "track_id": "t-765a5d66e80d6797"
     },
     {
@@ -19627,7 +21038,7 @@
       "track_id": "t-c4cee3ee3a4850f3"
     },
     {
-      "artist_id": "a-elitair-mr-bassmeister-remix",
+      "artist_id": "a-elitair",
       "track_id": "t-c44659148c1b63c9"
     },
     {
@@ -19653,6 +21064,10 @@
     {
       "artist_id": "a-embrz",
       "track_id": "t-8b4b380a2c487d59"
+    },
+    {
+      "artist_id": "a-emotiona",
+      "track_id": "t-c717895f1226a1b7"
     },
     {
       "artist_id": "a-encassator",
@@ -19703,7 +21118,7 @@
       "track_id": "t-2f8582fbfaa35c32"
     },
     {
-      "artist_id": "a-er1taga-d1proo-maladoy-prince",
+      "artist_id": "a-er1taga",
       "track_id": "t-dcf489354dd0cbdd"
     },
     {
@@ -19761,6 +21176,10 @@
     {
       "artist_id": "a-f0lk",
       "track_id": "t-fb8a4909b05b67b9"
+    },
+    {
+      "artist_id": "a-fabian-mazur",
+      "track_id": "t-fcac66bc28c6ee56"
     },
     {
       "artist_id": "a-fairlane",
@@ -19859,6 +21278,10 @@
       "track_id": "t-6c5b45d5534dcf29"
     },
     {
+      "artist_id": "a-fetre",
+      "track_id": "t-56ae7ebcfe2d73f5"
+    },
+    {
       "artist_id": "a-figure",
       "track_id": "t-a1cdf8ee86e6fab1"
     },
@@ -19867,7 +21290,7 @@
       "track_id": "t-f4a4620dfb48f067"
     },
     {
-      "artist_id": "a-fil-swan-pikebird",
+      "artist_id": "a-fil-swan",
       "track_id": "t-821b3f771250db5f"
     },
     {
@@ -19911,7 +21334,7 @@
       "track_id": "t-9a3b7aa0e6e0e41f"
     },
     {
-      "artist_id": "a-flux-pavilion-chime-spacekdet-arcando",
+      "artist_id": "a-flux-pavilion",
       "track_id": "t-a84b6f9005081f6a"
     },
     {
@@ -19955,6 +21378,10 @@
       "track_id": "t-d4fffa8520d367e6"
     },
     {
+      "artist_id": "a-foyon",
+      "track_id": "t-00f9c9947a4bc16c"
+    },
+    {
       "artist_id": "a-fractal",
       "track_id": "t-4bd0a8fad898e9f1"
     },
@@ -19965,6 +21392,10 @@
     {
       "artist_id": "a-francois-x",
       "track_id": "t-50102ace06bebfbb"
+    },
+    {
+      "artist_id": "a-franky-nuts",
+      "track_id": "t-86fe212b7c9ac3db"
     },
     {
       "artist_id": "a-fraunhofer",
@@ -19981,6 +21412,10 @@
     {
       "artist_id": "a-freaks",
       "track_id": "t-f5cb341f52f66940"
+    },
+    {
+      "artist_id": "a-fresco",
+      "track_id": "t-b12e77c2f3b67147"
     },
     {
       "artist_id": "a-fxcesplit",
@@ -20001,6 +21436,14 @@
     {
       "artist_id": "a-gammer",
       "track_id": "t-26dcaea8392306f2"
+    },
+    {
+      "artist_id": "a-gammer",
+      "track_id": "t-468fb76a8fdd2b78"
+    },
+    {
+      "artist_id": "a-gancher",
+      "track_id": "t-c25e0c4fb8be174f"
     },
     {
       "artist_id": "a-ganja-white-night",
@@ -20099,8 +21542,16 @@
       "track_id": "t-62d4ce7121fcb0f3"
     },
     {
+      "artist_id": "a-godlands",
+      "track_id": "t-714d59e001741ecc"
+    },
+    {
       "artist_id": "a-gods-of-fashion",
       "track_id": "t-c84644b461465b19"
+    },
+    {
+      "artist_id": "a-gofra-maslow",
+      "track_id": "t-31a40adf6c903ac0"
     },
     {
       "artist_id": "a-going-quantum",
@@ -20127,7 +21578,7 @@
       "track_id": "t-137d8e4f9a65c0f5"
     },
     {
-      "artist_id": "a-gotou寄生獣-vodvor",
+      "artist_id": "a-gotou寄生獣",
       "track_id": "t-91db1feb94bf5db3"
     },
     {
@@ -20140,6 +21591,10 @@
     },
     {
       "artist_id": "a-grabbitz",
+      "track_id": "t-2ac78b0cf0235e8f"
+    },
+    {
+      "artist_id": "a-grabbitz",
       "track_id": "t-4baadd7317ae3cae"
     },
     {
@@ -20149,6 +21604,10 @@
     {
       "artist_id": "a-grabbitz",
       "track_id": "t-b5245ef010b9f35d"
+    },
+    {
+      "artist_id": "a-grabbitz",
+      "track_id": "t-babb04c4e012d260"
     },
     {
       "artist_id": "a-gradvs",
@@ -20207,7 +21666,7 @@
       "track_id": "t-580861945ad27053"
     },
     {
-      "artist_id": "a-grxviton-foyon-rumusen",
+      "artist_id": "a-grxviton",
       "track_id": "t-00f9c9947a4bc16c"
     },
     {
@@ -20471,7 +21930,7 @@
       "track_id": "t-7f4d86f234cf0d30"
     },
     {
-      "artist_id": "a-hood-alliance-prod-by-pharaoh-vice",
+      "artist_id": "a-hood-alliance",
       "track_id": "t-1af08abc28636028"
     },
     {
@@ -20481,6 +21940,10 @@
     {
       "artist_id": "a-horus",
       "track_id": "t-3efbb3701ec68638"
+    },
+    {
+      "artist_id": "a-horus",
+      "track_id": "t-47e3c57ec5cf47fa"
     },
     {
       "artist_id": "a-horus",
@@ -20519,10 +21982,6 @@
       "track_id": "t-f8a4ef9676d50f24"
     },
     {
-      "artist_id": "a-horus-зараза",
-      "track_id": "t-47e3c57ec5cf47fa"
-    },
-    {
       "artist_id": "a-hotline-miami-ost",
       "track_id": "t-cf27ef4c080adc50"
     },
@@ -20531,8 +21990,20 @@
       "track_id": "t-b0da2e7c3706d558"
     },
     {
+      "artist_id": "a-hubrid",
+      "track_id": "t-af18ceea1b88c71a"
+    },
+    {
+      "artist_id": "a-hucci",
+      "track_id": "t-e3ae8a89957b2ba9"
+    },
+    {
       "artist_id": "a-hugekilla",
       "track_id": "t-9c47800960bf1b9a"
+    },
+    {
+      "artist_id": "a-hugekilla",
+      "track_id": "t-b748585defd2d5a3"
     },
     {
       "artist_id": "a-hugeloud",
@@ -20679,6 +22150,14 @@
       "track_id": "t-f8c05a4a03a9e9b9"
     },
     {
+      "artist_id": "a-ivory",
+      "track_id": "t-2d627c99d53462ad"
+    },
+    {
+      "artist_id": "a-izzamuzzic",
+      "track_id": "t-cfc393a0cbe47d94"
+    },
+    {
       "artist_id": "a-j-balvin",
       "track_id": "t-5a8a28663380008c"
     },
@@ -20717,6 +22196,10 @@
     {
       "artist_id": "a-jay-hardway",
       "track_id": "t-c635ef62db6acd34"
+    },
+    {
+      "artist_id": "a-jaynee",
+      "track_id": "t-1b66edbd001699c3"
     },
     {
       "artist_id": "a-jbka9",
@@ -20759,7 +22242,7 @@
       "track_id": "t-c00805f138b399f0"
     },
     {
-      "artist_id": "a-jessica-audiffred-samplifire",
+      "artist_id": "a-jessica-audiffred",
       "track_id": "t-756b4ed21bdd7ce8"
     },
     {
@@ -20923,7 +22406,7 @@
       "track_id": "t-eff2e9a1e2bc920e"
     },
     {
-      "artist_id": "a-karter-dark-bladefear-maskface-crick",
+      "artist_id": "a-karter-dark",
       "track_id": "t-7d5f113eb66a97b1"
     },
     {
@@ -21015,7 +22498,7 @@
       "track_id": "t-c3ce7f44786538a3"
     },
     {
-      "artist_id": "a-kill-the-noise-mija-caster",
+      "artist_id": "a-kill-the-noise",
       "track_id": "t-d8d3b7395c789e59"
     },
     {
@@ -21029,6 +22512,10 @@
     {
       "artist_id": "a-kindrid",
       "track_id": "t-14ac7bd67d9f00e6"
+    },
+    {
+      "artist_id": "a-king-stephen",
+      "track_id": "t-af18ceea1b88c71a"
     },
     {
       "artist_id": "a-kings-of-the-rollers",
@@ -21171,6 +22658,14 @@
       "track_id": "t-23a3dc65ec3a7377"
     },
     {
+      "artist_id": "a-krono",
+      "track_id": "t-f7f92f9d8e64dbaf"
+    },
+    {
+      "artist_id": "a-krot",
+      "track_id": "t-0b2d4ab5f17181b0"
+    },
+    {
       "artist_id": "a-kroww",
       "track_id": "t-4f950c4019b38e4f"
     },
@@ -21283,8 +22778,12 @@
       "track_id": "t-72ebdfd0d914a22c"
     },
     {
-      "artist_id": "a-le-castle-vania-skum",
+      "artist_id": "a-le-castle-vania",
       "track_id": "t-95e6213e49bc0ab4"
+    },
+    {
+      "artist_id": "a-leah-culver",
+      "track_id": "t-0bbb95762174fde0"
     },
     {
       "artist_id": "a-leanje",
@@ -21299,7 +22798,7 @@
       "track_id": "t-228b1ed95349f960"
     },
     {
-      "artist_id": "a-lektrique-sam-lamar",
+      "artist_id": "a-lektrique",
       "track_id": "t-8dd01a1f9379424d"
     },
     {
@@ -21464,15 +22963,15 @@
     },
     {
       "artist_id": "a-lookas",
+      "track_id": "t-533dd5960623d2b3"
+    },
+    {
+      "artist_id": "a-lookas",
       "track_id": "t-7dcc50f3c0760828"
     },
     {
       "artist_id": "a-lookas",
       "track_id": "t-fb49710b107d2696"
-    },
-    {
-      "artist_id": "a-lookas-edison-cole",
-      "track_id": "t-533dd5960623d2b3"
     },
     {
       "artist_id": "a-loopers",
@@ -21508,6 +23007,10 @@
     },
     {
       "artist_id": "a-loqiemean",
+      "track_id": "t-c1a0c20dde6d0177"
+    },
+    {
+      "artist_id": "a-loqiemean",
       "track_id": "t-cd1471b1078a67f0"
     },
     {
@@ -21519,16 +23022,16 @@
       "track_id": "t-da76bf1e4be4bde1"
     },
     {
-      "artist_id": "a-loqiemean-prod-by-thunder6",
-      "track_id": "t-c1a0c20dde6d0177"
-    },
-    {
       "artist_id": "a-lorn",
       "track_id": "t-c0723c19fc1ede3f"
     },
     {
       "artist_id": "a-low-pulse",
       "track_id": "t-31c0b6ae89146d7b"
+    },
+    {
+      "artist_id": "a-lowriderz",
+      "track_id": "t-27a1b704270c2e72"
     },
     {
       "artist_id": "a-lucaveros",
@@ -21555,7 +23058,7 @@
       "track_id": "t-994d058f2393a733"
     },
     {
-      "artist_id": "a-ly-da-buddah-magugu-zombie-cats",
+      "artist_id": "a-ly-da-buddah",
       "track_id": "t-760723e60005eb4c"
     },
     {
@@ -21611,7 +23114,7 @@
       "track_id": "t-0c817745384ba897"
     },
     {
-      "artist_id": "a-made-by-tsuki-whzly",
+      "artist_id": "a-made-by-tsuki",
       "track_id": "t-7680f5e6f4db810b"
     },
     {
@@ -21651,6 +23154,10 @@
       "track_id": "t-78564f6254bbb144"
     },
     {
+      "artist_id": "a-magugu",
+      "track_id": "t-760723e60005eb4c"
+    },
+    {
       "artist_id": "a-mai-lan",
       "track_id": "t-119737f940fe3a43"
     },
@@ -21675,6 +23182,10 @@
       "track_id": "t-2e43624413407689"
     },
     {
+      "artist_id": "a-maladoy-prince",
+      "track_id": "t-dcf489354dd0cbdd"
+    },
+    {
       "artist_id": "a-malefice",
       "track_id": "t-23b2389603f9d12c"
     },
@@ -21691,19 +23202,23 @@
       "track_id": "t-0e1e8ad54d67b1e5"
     },
     {
+      "artist_id": "a-mantis",
+      "track_id": "t-7118dbec46c10fc6"
+    },
+    {
       "artist_id": "a-manufactured-superstars",
       "track_id": "t-643c98dc596bc1c3"
+    },
+    {
+      "artist_id": "a-mark-the-beast",
+      "track_id": "t-0bbb95762174fde0"
     },
     {
       "artist_id": "a-mark-the-beast",
       "track_id": "t-3551c012bb944889"
     },
     {
-      "artist_id": "a-mark-the-beast-leah-culver",
-      "track_id": "t-0bbb95762174fde0"
-    },
-    {
-      "artist_id": "a-mark-the-beast-seids-mantis",
+      "artist_id": "a-mark-the-beast",
       "track_id": "t-7118dbec46c10fc6"
     },
     {
@@ -21772,6 +23287,10 @@
     },
     {
       "artist_id": "a-martin-garrix",
+      "track_id": "t-67af7416f12fe5fd"
+    },
+    {
+      "artist_id": "a-martin-garrix",
       "track_id": "t-70a0740628e93390"
     },
     {
@@ -21799,11 +23318,15 @@
       "track_id": "t-73aa9ee3faf4ff1f"
     },
     {
+      "artist_id": "a-maskface-crick",
+      "track_id": "t-7d5f113eb66a97b1"
+    },
+    {
       "artist_id": "a-masters-of-hardcore",
       "track_id": "t-5144d0b415afc336"
     },
     {
-      "artist_id": "a-masters-of-hardcore-2020-magnum-opus-warm-up-mix-bassline-abuser",
+      "artist_id": "a-masters-of-hardcore",
       "track_id": "t-79e55f7d6d976fa1"
     },
     {
@@ -21863,7 +23386,7 @@
       "track_id": "t-178ba62edba96c98"
     },
     {
-      "artist_id": "a-meg-myers-hucci-remix",
+      "artist_id": "a-meg-myers",
       "track_id": "t-e3ae8a89957b2ba9"
     },
     {
@@ -21955,12 +23478,24 @@
       "track_id": "t-8a73d9126db93227"
     },
     {
+      "artist_id": "a-midi-culture",
+      "track_id": "t-b3d5f73cd0267d32"
+    },
+    {
+      "artist_id": "a-mija",
+      "track_id": "t-d8d3b7395c789e59"
+    },
+    {
       "artist_id": "a-mika",
       "track_id": "t-139012ad98736416"
     },
     {
       "artist_id": "a-mike-taylor",
       "track_id": "t-81c02a7a4fa55bc5"
+    },
+    {
+      "artist_id": "a-milkdrop",
+      "track_id": "t-7e6708bdf32e042a"
     },
     {
       "artist_id": "a-mimiko",
@@ -22175,6 +23710,10 @@
       "track_id": "t-d735195037280b50"
     },
     {
+      "artist_id": "a-moon-rush",
+      "track_id": "t-506ebdd206e5197d"
+    },
+    {
       "artist_id": "a-morgenshtern",
       "track_id": "t-0de6bb8b0bebcf5d"
     },
@@ -22244,7 +23783,15 @@
     },
     {
       "artist_id": "a-mr-bassmeister",
+      "track_id": "t-c44659148c1b63c9"
+    },
+    {
+      "artist_id": "a-mr-bassmeister",
       "track_id": "t-e025f48d997f61b6"
+    },
+    {
+      "artist_id": "a-mr-fijiwiji",
+      "track_id": "t-27f893ea2dd148e4"
     },
     {
       "artist_id": "a-mr-kitty",
@@ -22253,6 +23800,10 @@
     {
       "artist_id": "a-mstrkrft",
       "track_id": "t-57fe804905553688"
+    },
+    {
+      "artist_id": "a-mufix",
+      "track_id": "t-904de14f6254fe02"
     },
     {
       "artist_id": "a-muneylxrd",
@@ -22291,6 +23842,10 @@
       "track_id": "t-8a0c1d70f461fed5"
     },
     {
+      "artist_id": "a-mylk",
+      "track_id": "t-29b030961d4e7f8b"
+    },
+    {
       "artist_id": "a-myrne",
       "track_id": "t-07433524843c1820"
     },
@@ -22301,6 +23856,10 @@
     {
       "artist_id": "a-mystery-skulls",
       "track_id": "t-8045a5cb36932fb1"
+    },
+    {
+      "artist_id": "a-mzlff",
+      "track_id": "t-ba7ea0bc45dea6ba"
     },
     {
       "artist_id": "a-mznk",
@@ -22327,7 +23886,7 @@
       "track_id": "t-30a54f1fa63e4b5b"
     },
     {
-      "artist_id": "a-n1nt3nd0-shifto-radio-remix",
+      "artist_id": "a-n1nt3nd0",
       "track_id": "t-bcffe2031d63f5ee"
     },
     {
@@ -22440,6 +23999,10 @@
     },
     {
       "artist_id": "a-neverlove",
+      "track_id": "t-a24d071ab64377b0"
+    },
+    {
+      "artist_id": "a-neverlove",
       "track_id": "t-bda0fdc268b34455"
     },
     {
@@ -22453,10 +24016,6 @@
     {
       "artist_id": "a-neverlove",
       "track_id": "t-f4c88ef0494aa8f5"
-    },
-    {
-      "artist_id": "a-neverlove-ганвест",
-      "track_id": "t-a24d071ab64377b0"
     },
     {
       "artist_id": "a-nevve",
@@ -22485,6 +24044,10 @@
     {
       "artist_id": "a-nghtmre",
       "track_id": "t-1f879a987091f7f1"
+    },
+    {
+      "artist_id": "a-nghtmre",
+      "track_id": "t-765a5d66e80d6797"
     },
     {
       "artist_id": "a-nghtmre",
@@ -22547,11 +24110,15 @@
       "track_id": "t-23a3dc65ec3a7377"
     },
     {
+      "artist_id": "a-nilxro",
+      "track_id": "t-1cfa8b2dc055b5f8"
+    },
+    {
       "artist_id": "a-nirvana",
       "track_id": "t-a40492118faac9f0"
     },
     {
-      "artist_id": "a-nitepunk-reaper",
+      "artist_id": "a-nitepunk",
       "track_id": "t-78a436364628c092"
     },
     {
@@ -22559,7 +24126,7 @@
       "track_id": "t-98adc9a940d1fa13"
     },
     {
-      "artist_id": "a-nitti-gammer",
+      "artist_id": "a-nitti",
       "track_id": "t-468fb76a8fdd2b78"
     },
     {
@@ -22607,7 +24174,7 @@
       "track_id": "t-8dc081d638b0ad9b"
     },
     {
-      "artist_id": "a-nonsens-snavs",
+      "artist_id": "a-nonsens",
       "track_id": "t-0644e2f8a91155f6"
     },
     {
@@ -22763,7 +24330,7 @@
       "track_id": "t-56545c047c8c487b"
     },
     {
-      "artist_id": "a-oliverse-bertie-scott",
+      "artist_id": "a-oliverse",
       "track_id": "t-8e5bf3025708c389"
     },
     {
@@ -22807,7 +24374,7 @@
       "track_id": "t-b1cf2b7d8adeb83e"
     },
     {
-      "artist_id": "a-osaili-gancher",
+      "artist_id": "a-osaili",
       "track_id": "t-c25e0c4fb8be174f"
     },
     {
@@ -22836,6 +24403,10 @@
     },
     {
       "artist_id": "a-oxxxymiron",
+      "track_id": "t-2b6009048c3525d3"
+    },
+    {
+      "artist_id": "a-oxxxymiron",
       "track_id": "t-406c14db4bb0ca61"
     },
     {
@@ -22861,10 +24432,6 @@
     {
       "artist_id": "a-oxxxymiron",
       "track_id": "t-e01d8783aa8fcdf3"
-    },
-    {
-      "artist_id": "a-oxxxymiron-prod-porchy",
-      "track_id": "t-2b6009048c3525d3"
     },
     {
       "artist_id": "a-oxymiron",
@@ -22955,7 +24522,7 @@
       "track_id": "t-725769f36a8a30cf"
     },
     {
-      "artist_id": "a-pendulum-grabbitz",
+      "artist_id": "a-pendulum",
       "track_id": "t-babb04c4e012d260"
     },
     {
@@ -22996,6 +24563,10 @@
     },
     {
       "artist_id": "a-pharaoh",
+      "track_id": "t-cf858eb8420987c4"
+    },
+    {
+      "artist_id": "a-pharaoh",
       "track_id": "t-d5dcb40bd020fe1f"
     },
     {
@@ -23007,16 +24578,16 @@
       "track_id": "t-dfecdecee26e0492"
     },
     {
+      "artist_id": "a-pharaoh",
+      "track_id": "t-e7b464604809ec27"
+    },
+    {
       "artist_id": "a-pharaoh-i61",
       "track_id": "t-bade2922dd9cab58"
     },
     {
-      "artist_id": "a-pharaoh-prod-by-coldsiemens",
-      "track_id": "t-cf858eb8420987c4"
-    },
-    {
-      "artist_id": "a-pharaoh-prod-by-white-punk",
-      "track_id": "t-e7b464604809ec27"
+      "artist_id": "a-pharaoh-vice",
+      "track_id": "t-1af08abc28636028"
     },
     {
       "artist_id": "a-pharaon",
@@ -23033,6 +24604,10 @@
     {
       "artist_id": "a-picklelordic",
       "track_id": "t-7f7735a9a1f55b72"
+    },
+    {
+      "artist_id": "a-pikebird",
+      "track_id": "t-821b3f771250db5f"
     },
     {
       "artist_id": "a-pink-floyd",
@@ -23073,6 +24648,10 @@
     {
       "artist_id": "a-polovinka",
       "track_id": "t-2977c6c6b95e8ba4"
+    },
+    {
+      "artist_id": "a-porchy",
+      "track_id": "t-2b6009048c3525d3"
     },
     {
       "artist_id": "a-porchy",
@@ -23124,6 +24703,10 @@
     },
     {
       "artist_id": "a-protostar",
+      "track_id": "t-29b030961d4e7f8b"
+    },
+    {
+      "artist_id": "a-protostar",
       "track_id": "t-620269487a1a6a0b"
     },
     {
@@ -23135,19 +24718,19 @@
       "track_id": "t-f9a3fffd848b264a"
     },
     {
-      "artist_id": "a-protostar-mylk",
-      "track_id": "t-29b030961d4e7f8b"
-    },
-    {
       "artist_id": "a-psylla",
       "track_id": "t-350257243d418793"
+    },
+    {
+      "artist_id": "a-purple-fume",
+      "track_id": "t-31a40adf6c903ac0"
     },
     {
       "artist_id": "a-pyatakoff",
       "track_id": "t-a4688509fc186fbf"
     },
     {
-      "artist_id": "a-qoiet-afk",
+      "artist_id": "a-qoiet",
       "track_id": "t-5b569738bea5063e"
     },
     {
@@ -23249,6 +24832,10 @@
     {
       "artist_id": "a-reaper",
       "track_id": "t-6185a33362edeb18"
+    },
+    {
+      "artist_id": "a-reaper",
+      "track_id": "t-78a436364628c092"
     },
     {
       "artist_id": "a-reaper",
@@ -23376,6 +24963,10 @@
     },
     {
       "artist_id": "a-riot",
+      "track_id": "t-86fe212b7c9ac3db"
+    },
+    {
+      "artist_id": "a-riot",
       "track_id": "t-87ae267331284a4e"
     },
     {
@@ -23385,10 +24976,6 @@
     {
       "artist_id": "a-riot",
       "track_id": "t-c571f7805482144f"
-    },
-    {
-      "artist_id": "a-riot-franky-nuts",
-      "track_id": "t-86fe212b7c9ac3db"
     },
     {
       "artist_id": "a-ripbeat",
@@ -23403,7 +24990,7 @@
       "track_id": "t-0c370912ed912514"
     },
     {
-      "artist_id": "a-robert-delong-grabbitz",
+      "artist_id": "a-robert-delong",
       "track_id": "t-2ac78b0cf0235e8f"
     },
     {
@@ -23411,7 +24998,7 @@
       "track_id": "t-aabc1643411af759"
     },
     {
-      "artist_id": "a-rocket-prod-by-fresco",
+      "artist_id": "a-rocket",
       "track_id": "t-b12e77c2f3b67147"
     },
     {
@@ -23471,7 +25058,7 @@
       "track_id": "t-11883e2f104a5fc3"
     },
     {
-      "artist_id": "a-royalston-jaynee",
+      "artist_id": "a-royalston",
       "track_id": "t-1b66edbd001699c3"
     },
     {
@@ -23483,11 +25070,15 @@
       "track_id": "t-bc18a18bbbb8396c"
     },
     {
-      "artist_id": "a-ruin-dnb-remix",
+      "artist_id": "a-ruin-dnb",
       "track_id": "t-c25e0c4fb8be174f"
     },
     {
-      "artist_id": "a-russian-village-boys-prod-by-betavoice",
+      "artist_id": "a-rumusen",
+      "track_id": "t-00f9c9947a4bc16c"
+    },
+    {
+      "artist_id": "a-russian-village-boys",
       "track_id": "t-8ce7eb7e0c634814"
     },
     {
@@ -23531,12 +25122,28 @@
       "track_id": "t-f505c0deb4aa144a"
     },
     {
+      "artist_id": "a-salad-killaz",
+      "track_id": "t-3b3aced4361aa545"
+    },
+    {
+      "artist_id": "a-salad-killaz",
+      "track_id": "t-d839760592a3d08c"
+    },
+    {
       "artist_id": "a-salem-al-fakir-radio-edit",
       "track_id": "t-5ae610af949df93e"
     },
     {
+      "artist_id": "a-sam-lamar",
+      "track_id": "t-8dd01a1f9379424d"
+    },
+    {
       "artist_id": "a-sam-martin",
       "track_id": "t-6b2f0eced443bc43"
+    },
+    {
+      "artist_id": "a-samplifire",
+      "track_id": "t-756b4ed21bdd7ce8"
     },
     {
       "artist_id": "a-san-holo",
@@ -23569,6 +25176,10 @@
     {
       "artist_id": "a-say3am",
       "track_id": "t-bed2d4912b88a6c6"
+    },
+    {
+      "artist_id": "a-scarlett-rose",
+      "track_id": "t-0a32ff718dad7a02"
     },
     {
       "artist_id": "a-scirena",
@@ -23611,6 +25222,10 @@
       "track_id": "t-ecbec342a914350d"
     },
     {
+      "artist_id": "a-seids",
+      "track_id": "t-7118dbec46c10fc6"
+    },
+    {
       "artist_id": "a-sektorjazza",
       "track_id": "t-6cbdef8e00e3a0a9"
     },
@@ -23639,7 +25254,7 @@
       "track_id": "t-9c7bab15de323c33"
     },
     {
-      "artist_id": "a-sh-kera-эндшпиль",
+      "artist_id": "a-sh-kera",
       "track_id": "t-8e13f24949ad60bb"
     },
     {
@@ -23665,6 +25280,10 @@
     {
       "artist_id": "a-shermanology",
       "track_id": "t-580861945ad27053"
+    },
+    {
+      "artist_id": "a-shifto-radio",
+      "track_id": "t-bcffe2031d63f5ee"
     },
     {
       "artist_id": "a-ship-wrek",
@@ -23831,6 +25450,10 @@
       "track_id": "t-e974f67bbd12fab1"
     },
     {
+      "artist_id": "a-skum",
+      "track_id": "t-95e6213e49bc0ab4"
+    },
+    {
       "artist_id": "a-skvnk",
       "track_id": "t-5cfd0c1d7e74100b"
     },
@@ -23863,7 +25486,7 @@
       "track_id": "t-78564f6254bbb144"
     },
     {
-      "artist_id": "a-slim-prod-by-stonecut",
+      "artist_id": "a-slim",
       "track_id": "t-7a4347e56f15c727"
     },
     {
@@ -23927,7 +25550,7 @@
       "track_id": "t-abc6bdf0471de8c6"
     },
     {
-      "artist_id": "a-smoky-d-lowriderz-despersion",
+      "artist_id": "a-smoky-d",
       "track_id": "t-27a1b704270c2e72"
     },
     {
@@ -23937,6 +25560,10 @@
     {
       "artist_id": "a-snappy-jit",
       "track_id": "t-fec91418dd4d1afa"
+    },
+    {
+      "artist_id": "a-snavs",
+      "track_id": "t-0644e2f8a91155f6"
     },
     {
       "artist_id": "a-snavs",
@@ -23956,11 +25583,11 @@
     },
     {
       "artist_id": "a-snavs",
-      "track_id": "t-fd4bee01b25bd500"
+      "track_id": "t-fcac66bc28c6ee56"
     },
     {
-      "artist_id": "a-snavs-fabian-mazur",
-      "track_id": "t-fcac66bc28c6ee56"
+      "artist_id": "a-snavs",
+      "track_id": "t-fd4bee01b25bd500"
     },
     {
       "artist_id": "a-snoop-dogg",
@@ -24011,6 +25638,10 @@
       "track_id": "t-c2659cc929cd9f13"
     },
     {
+      "artist_id": "a-spacekdet",
+      "track_id": "t-a84b6f9005081f6a"
+    },
+    {
       "artist_id": "a-spencer-ludwig",
       "track_id": "t-e4ad9614e3734e9f"
     },
@@ -24019,7 +25650,7 @@
       "track_id": "t-de5548afa80ef410"
     },
     {
-      "artist_id": "a-spook-dj-shym",
+      "artist_id": "a-spook",
       "track_id": "t-a6ea0393e1964e8f"
     },
     {
@@ -24107,6 +25738,10 @@
       "track_id": "t-f74f4da7bf7d31d3"
     },
     {
+      "artist_id": "a-stonecut",
+      "track_id": "t-7a4347e56f15c727"
+    },
+    {
       "artist_id": "a-strache",
       "track_id": "t-b288583496450b77"
     },
@@ -24183,7 +25818,7 @@
       "track_id": "t-99fe6de419688ad9"
     },
     {
-      "artist_id": "a-supermerk2-control-freak-remix",
+      "artist_id": "a-supermerk2",
       "track_id": "t-4d5492efdf45e526"
     },
     {
@@ -24228,6 +25863,10 @@
     },
     {
       "artist_id": "a-t-fest",
+      "track_id": "t-b71b441ce06f36c1"
+    },
+    {
+      "artist_id": "a-t-fest",
       "track_id": "t-d5b3777dc3a5327a"
     },
     {
@@ -24237,10 +25876,6 @@
     {
       "artist_id": "a-t-fest",
       "track_id": "t-f25cfa75d673f41d"
-    },
-    {
-      "artist_id": "a-t-fest-скриптонит",
-      "track_id": "t-b71b441ce06f36c1"
     },
     {
       "artist_id": "a-t-mass",
@@ -24287,7 +25922,7 @@
       "track_id": "t-d7a9b621d04af208"
     },
     {
-      "artist_id": "a-taylr-renee-mr-fijiwiji-remix",
+      "artist_id": "a-taylr-renee",
       "track_id": "t-27f893ea2dd148e4"
     },
     {
@@ -24431,6 +26066,10 @@
       "track_id": "t-cc7dbf0072023172"
     },
     {
+      "artist_id": "a-thunder6",
+      "track_id": "t-c1a0c20dde6d0177"
+    },
+    {
       "artist_id": "a-tiggi-hawke",
       "track_id": "t-2ec2e84e457f7bbf"
     },
@@ -24447,7 +26086,7 @@
       "track_id": "t-7eb97ce27337c43b"
     },
     {
-      "artist_id": "a-tinashe-whethan-remix",
+      "artist_id": "a-tinashe",
       "track_id": "t-59404f4a782610df"
     },
     {
@@ -24527,7 +26166,7 @@
       "track_id": "t-5e121c646d5ba2e4"
     },
     {
-      "artist_id": "a-tribeat-nilxro",
+      "artist_id": "a-tribeat",
       "track_id": "t-1cfa8b2dc055b5f8"
     },
     {
@@ -24639,12 +26278,16 @@
       "track_id": "t-84b0faf9d140e88a"
     },
     {
-      "artist_id": "a-ultrakiller-hubrid-king-stephen",
+      "artist_id": "a-ultrakiller",
       "track_id": "t-af18ceea1b88c71a"
     },
     {
       "artist_id": "a-unholy",
       "track_id": "t-02219247da303624"
+    },
+    {
+      "artist_id": "a-unifire",
+      "track_id": "t-0ac165f9241a134d"
     },
     {
       "artist_id": "a-unkle",
@@ -24779,7 +26422,7 @@
       "track_id": "t-67c3b4bdae2a7622"
     },
     {
-      "artist_id": "a-vbdx-侍-samurai",
+      "artist_id": "a-vbdx",
       "track_id": "t-2abb926db7d56fc4"
     },
     {
@@ -24835,6 +26478,10 @@
       "track_id": "t-d4bcc2eb2d8e1a11"
     },
     {
+      "artist_id": "a-vindon",
+      "track_id": "t-6a235ace2e5ae8d5"
+    },
+    {
       "artist_id": "a-virtual-riot",
       "track_id": "t-f61802402e4e02a5"
     },
@@ -24853,6 +26500,10 @@
     {
       "artist_id": "a-vo-williams",
       "track_id": "t-647e0a80c05acf82"
+    },
+    {
+      "artist_id": "a-vodvor",
+      "track_id": "t-91db1feb94bf5db3"
     },
     {
       "artist_id": "a-vosai",
@@ -24879,7 +26530,7 @@
       "track_id": "t-39e27c76bd9fd27a"
     },
     {
-      "artist_id": "a-wasted-mind-unifire-remix",
+      "artist_id": "a-wasted-mind",
       "track_id": "t-0ac165f9241a134d"
     },
     {
@@ -24887,7 +26538,11 @@
       "track_id": "t-8da072f319085dfe"
     },
     {
-      "artist_id": "a-waxteeth-we-are-the-catalyst-zardonic",
+      "artist_id": "a-waxteeth",
+      "track_id": "t-4156ac10964a7e74"
+    },
+    {
+      "artist_id": "a-we-are-the-catalyst",
       "track_id": "t-4156ac10964a7e74"
     },
     {
@@ -24904,6 +26559,10 @@
     },
     {
       "artist_id": "a-whethan",
+      "track_id": "t-59404f4a782610df"
+    },
+    {
+      "artist_id": "a-whethan",
       "track_id": "t-c0761f39619be4e8"
     },
     {
@@ -24911,8 +26570,16 @@
       "track_id": "t-3d3f22629c5d0893"
     },
     {
+      "artist_id": "a-white-punk",
+      "track_id": "t-e7b464604809ec27"
+    },
+    {
       "artist_id": "a-who3ta",
       "track_id": "t-673dceb3c8b20e18"
+    },
+    {
+      "artist_id": "a-whosmodz",
+      "track_id": "t-d80915fd20323ef6"
     },
     {
       "artist_id": "a-whyel",
@@ -24921,6 +26588,10 @@
     {
       "artist_id": "a-whyel",
       "track_id": "t-a6275148f8848800"
+    },
+    {
+      "artist_id": "a-whzly",
+      "track_id": "t-7680f5e6f4db810b"
     },
     {
       "artist_id": "a-widdly-2-diddly",
@@ -24977,6 +26648,10 @@
     {
       "artist_id": "a-willow",
       "track_id": "t-0ebd5d1f3ce35be0"
+    },
+    {
+      "artist_id": "a-witch-house-trap",
+      "track_id": "t-6c8ff63146f4f279"
     },
     {
       "artist_id": "a-wiwek",
@@ -25079,7 +26754,7 @@
       "track_id": "t-5f80a236514e99d2"
     },
     {
-      "artist_id": "a-xylo-ark-patrol-remix",
+      "artist_id": "a-xylo",
       "track_id": "t-7a7e0884388a7ee9"
     },
     {
@@ -25091,7 +26766,7 @@
       "track_id": "t-4678ab3ccd592b95"
     },
     {
-      "artist_id": "a-yanix-dj-rokit-prod",
+      "artist_id": "a-yanix",
       "track_id": "t-ed5824c2daeaf332"
     },
     {
@@ -25143,11 +26818,15 @@
       "track_id": "t-f02dca6dfcc93b0d"
     },
     {
+      "artist_id": "a-yookie",
+      "track_id": "t-de9563d4318faa9a"
+    },
+    {
       "artist_id": "a-yotta-imoto",
       "track_id": "t-eaa1781ae1c8de25"
     },
     {
-      "artist_id": "a-young-p-h-лсп",
+      "artist_id": "a-young-p-h",
       "track_id": "t-ea051568558ac3cd"
     },
     {
@@ -25201,6 +26880,10 @@
     {
       "artist_id": "a-zamilska",
       "track_id": "t-d883cfe216f65d54"
+    },
+    {
+      "artist_id": "a-zardonic",
+      "track_id": "t-4156ac10964a7e74"
     },
     {
       "artist_id": "a-zedd",
@@ -25273,6 +26956,10 @@
     {
       "artist_id": "a-zkd",
       "track_id": "t-8506aa186730180e"
+    },
+    {
+      "artist_id": "a-zombie-cats",
+      "track_id": "t-760723e60005eb4c"
     },
     {
       "artist_id": "a-zookeepers",
@@ -25559,6 +27246,10 @@
       "track_id": "t-e66539b44c604dc9"
     },
     {
+      "artist_id": "a-ганвест",
+      "track_id": "t-a24d071ab64377b0"
+    },
+    {
       "artist_id": "a-гарри-топор",
       "track_id": "t-0c9c7b29745c5383"
     },
@@ -25619,7 +27310,7 @@
       "track_id": "t-c1962c3ff9def6da"
     },
     {
-      "artist_id": "a-грязный-рамирес-prod-by-boris-redwall",
+      "artist_id": "a-грязный-рамирес",
       "track_id": "t-8bf89b67d4426274"
     },
     {
@@ -25643,7 +27334,7 @@
       "track_id": "t-3c8d7e38e12cfe9d"
     },
     {
-      "artist_id": "a-демон-feat-бунен-witch-house-trap-remix",
+      "artist_id": "a-демон-feat-бунен",
       "track_id": "t-6c8ff63146f4f279"
     },
     {
@@ -25752,6 +27443,10 @@
     },
     {
       "artist_id": "a-дети-rave",
+      "track_id": "t-d2d127e0e1113135"
+    },
+    {
+      "artist_id": "a-дети-rave",
       "track_id": "t-db3a142ab7a68d35"
     },
     {
@@ -25781,10 +27476,6 @@
     {
       "artist_id": "a-дети-rave-алёна-швец",
       "track_id": "t-ebb2514ff9a3dfe9"
-    },
-    {
-      "artist_id": "a-дети-rave-хлеб",
-      "track_id": "t-d2d127e0e1113135"
     },
     {
       "artist_id": "a-джейло",
@@ -25848,7 +27539,15 @@
     },
     {
       "artist_id": "a-зараза",
+      "track_id": "t-47e3c57ec5cf47fa"
+    },
+    {
+      "artist_id": "a-зараза",
       "track_id": "t-b77631bdd759ed69"
+    },
+    {
+      "artist_id": "a-зараза",
+      "track_id": "t-ba07d912313827bb"
     },
     {
       "artist_id": "a-зараза",
@@ -25889,6 +27588,22 @@
     {
       "artist_id": "a-илюшка",
       "track_id": "t-1289f8ce35059d1a"
+    },
+    {
+      "artist_id": "a-ичи",
+      "track_id": "t-d6e99cd419323423"
+    },
+    {
+      "artist_id": "a-ка-тет",
+      "track_id": "t-488b56a80cd910d5"
+    },
+    {
+      "artist_id": "a-ка-тет",
+      "track_id": "t-48ad433014766035"
+    },
+    {
+      "artist_id": "a-ка-тет",
+      "track_id": "t-5e84eb79dcbd4216"
     },
     {
       "artist_id": "a-ка-тет",
@@ -25947,7 +27662,7 @@
       "track_id": "t-cfe9ae278addc1be"
     },
     {
-      "artist_id": "a-комбинация-проф-сомелье-gachinskiy",
+      "artist_id": "a-комбинация",
       "track_id": "t-fe62b188fec77b4e"
     },
     {
@@ -25963,8 +27678,16 @@
       "track_id": "t-02345b1d965a784d"
     },
     {
+      "artist_id": "a-кофта",
+      "track_id": "t-031ea5b1296287e8"
+    },
+    {
       "artist_id": "a-кравц",
       "track_id": "t-9161401739ea63a0"
+    },
+    {
+      "artist_id": "a-кравц",
+      "track_id": "t-92c79beb1fbf8d6e"
     },
     {
       "artist_id": "a-криспи",
@@ -26123,7 +27846,11 @@
       "track_id": "t-dfecdecee26e0492"
     },
     {
-      "artist_id": "a-лсп-х-25-17",
+      "artist_id": "a-лсп",
+      "track_id": "t-ea051568558ac3cd"
+    },
+    {
+      "artist_id": "a-лсп-х-25",
       "track_id": "t-d450ab1e52229a81"
     },
     {
@@ -26156,6 +27883,10 @@
     },
     {
       "artist_id": "a-луна",
+      "track_id": "t-7172dfd8e8bc5223"
+    },
+    {
+      "artist_id": "a-луна",
       "track_id": "t-72f787bda62db4fb"
     },
     {
@@ -26176,6 +27907,10 @@
     },
     {
       "artist_id": "a-луна",
+      "track_id": "t-cfc393a0cbe47d94"
+    },
+    {
+      "artist_id": "a-луна",
       "track_id": "t-d055781a3a057757"
     },
     {
@@ -26189,14 +27924,6 @@
     {
       "artist_id": "a-луна",
       "track_id": "t-ec7f1a427deb60d4"
-    },
-    {
-      "artist_id": "a-луна-astrophysics-remix",
-      "track_id": "t-7172dfd8e8bc5223"
-    },
-    {
-      "artist_id": "a-луна-izzamuzzic-remix",
-      "track_id": "t-cfc393a0cbe47d94"
     },
     {
       "artist_id": "a-лчырун",
@@ -26236,6 +27963,10 @@
     },
     {
       "artist_id": "a-макс-корж",
+      "track_id": "t-56ae7ebcfe2d73f5"
+    },
+    {
+      "artist_id": "a-макс-корж",
       "track_id": "t-b6b32d27a1eaf3fb"
     },
     {
@@ -26245,10 +27976,6 @@
     {
       "artist_id": "a-макс-корж",
       "track_id": "t-ffb88aca7531692f"
-    },
-    {
-      "artist_id": "a-макс-корж-fetre-prod",
-      "track_id": "t-56ae7ebcfe2d73f5"
     },
     {
       "artist_id": "a-максим-леонидов",
@@ -26277,6 +28004,10 @@
     {
       "artist_id": "a-молчат-дома",
       "track_id": "t-3384a75ff6ff86a7"
+    },
+    {
+      "artist_id": "a-молчат-дома",
+      "track_id": "t-4db7ba8fb6374327"
     },
     {
       "artist_id": "a-монах",
@@ -26408,6 +28139,10 @@
     },
     {
       "artist_id": "a-нюдовый-чёс",
+      "track_id": "t-91480462e72f349b"
+    },
+    {
+      "artist_id": "a-нюдовый-чёс",
       "track_id": "t-a362b182f799dd97"
     },
     {
@@ -26415,12 +28150,12 @@
       "track_id": "t-bacac05fce6fe0bb"
     },
     {
-      "artist_id": "a-нюдовый-чёс-стереополина",
-      "track_id": "t-91480462e72f349b"
-    },
-    {
       "artist_id": "a-обiйми",
       "track_id": "t-48735c6e92284b7c"
+    },
+    {
+      "artist_id": "a-овсянкин",
+      "track_id": "t-5564a482b9f12e15"
     },
     {
       "artist_id": "a-овсянкин",
@@ -26429,10 +28164,6 @@
     {
       "artist_id": "a-овсянкин",
       "track_id": "t-def25f0d6dd1799d"
-    },
-    {
-      "artist_id": "a-овсянкин-смешарик",
-      "track_id": "t-5564a482b9f12e15"
     },
     {
       "artist_id": "a-отморозки",
@@ -26559,6 +28290,10 @@
       "track_id": "t-5d62bdb923c5e7c1"
     },
     {
+      "artist_id": "a-проф-сомелье-gachinskiy",
+      "track_id": "t-fe62b188fec77b4e"
+    },
+    {
       "artist_id": "a-пучибан",
       "track_id": "t-41ea431af45d0a30"
     },
@@ -26607,8 +28342,16 @@
       "track_id": "t-e2d3066c6e0f578d"
     },
     {
+      "artist_id": "a-скриптонит",
+      "track_id": "t-b71b441ce06f36c1"
+    },
+    {
       "artist_id": "a-скруджи",
       "track_id": "t-268e1aec5815da53"
+    },
+    {
+      "artist_id": "a-слава-кпсс",
+      "track_id": "t-ba7ea0bc45dea6ba"
     },
     {
       "artist_id": "a-слава-кпсс",
@@ -26617,6 +28360,10 @@
     {
       "artist_id": "a-слушай-экзорцист",
       "track_id": "t-776cce4cc2a356c2"
+    },
+    {
+      "artist_id": "a-смешарик",
+      "track_id": "t-5564a482b9f12e15"
     },
     {
       "artist_id": "a-смешарики",
@@ -26641,6 +28388,10 @@
     {
       "artist_id": "a-спит",
       "track_id": "t-4fab04824605fc4f"
+    },
+    {
+      "artist_id": "a-стереополина",
+      "track_id": "t-91480462e72f349b"
     },
     {
       "artist_id": "a-стереополина",
@@ -26784,6 +28535,10 @@
     },
     {
       "artist_id": "a-хлеб",
+      "track_id": "t-7e6708bdf32e042a"
+    },
+    {
+      "artist_id": "a-хлеб",
       "track_id": "t-9097c424ac6617ea"
     },
     {
@@ -26795,8 +28550,8 @@
       "track_id": "t-b766436ef64484ad"
     },
     {
-      "artist_id": "a-хлеб-milkdrop-remix",
-      "track_id": "t-7e6708bdf32e042a"
+      "artist_id": "a-хлеб",
+      "track_id": "t-d2d127e0e1113135"
     },
     {
       "artist_id": "a-хорс",
@@ -26851,7 +28606,7 @@
       "track_id": "t-8c3eeb3bde045de7"
     },
     {
-      "artist_id": "a-эйфория-кофта-remix",
+      "artist_id": "a-эйфория",
       "track_id": "t-031ea5b1296287e8"
     },
     {
@@ -26872,15 +28627,19 @@
     },
     {
       "artist_id": "a-элджей",
-      "track_id": "t-f479d3b37a4b3f4b"
+      "track_id": "t-92c79beb1fbf8d6e"
     },
     {
-      "artist_id": "a-элджей-кравц",
-      "track_id": "t-92c79beb1fbf8d6e"
+      "artist_id": "a-элджей",
+      "track_id": "t-f479d3b37a4b3f4b"
     },
     {
       "artist_id": "a-электрофорез",
       "track_id": "t-45a85ff8122324c1"
+    },
+    {
+      "artist_id": "a-электрофорез",
+      "track_id": "t-4db7ba8fb6374327"
     },
     {
       "artist_id": "a-электрофорез",
@@ -26893,10 +28652,6 @@
     {
       "artist_id": "a-электрофорез",
       "track_id": "t-fd5f9ffdfa439998"
-    },
-    {
-      "artist_id": "a-электрофорез-молчат-дома",
-      "track_id": "t-4db7ba8fb6374327"
     },
     {
       "artist_id": "a-энджойкин",
@@ -26925,6 +28680,10 @@
     {
       "artist_id": "a-эндшпиль",
       "track_id": "t-353c4cc48dd92ef8"
+    },
+    {
+      "artist_id": "a-эндшпиль",
+      "track_id": "t-8e13f24949ad60bb"
     },
     {
       "artist_id": "a-эндшпиль",
@@ -26995,6 +28754,10 @@
       "track_id": "t-db04a17dcb841313"
     },
     {
+      "artist_id": "a-侍-samurai",
+      "track_id": "t-2abb926db7d56fc4"
+    },
+    {
       "artist_id": "a-松原みき",
       "track_id": "t-eeb0665b786b758c"
     },
@@ -27004,6 +28767,516 @@
     }
   ],
   "tracks": [
+    {
+      "id": "sc-1610539284",
+      "file_path": "ghost://soundcloud/online/1610539284",
+      "file_hash": "sc-1610539284",
+      "title": "Macan-Asphalt 8 (gay cover)  подо мной пенис большой очень",
+      "artist": "dima",
+      "album": null,
+      "album_artist": "dima",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 135.69,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679090,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/1610539284",
+      "artwork_url": "https://i1.sndcdn.com/artworks-KxwaiFfBz4GY1p0X-C4vDqQ-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2161941273",
+      "file_path": "ghost://soundcloud/online/2161941273",
+      "file_hash": "sc-2161941273",
+      "title": "Гос. Подряд (gay remix)",
+      "artist": "ReizerLOV",
+      "album": null,
+      "album_artist": "ReizerLOV",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 88,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679091,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2161941273",
+      "artwork_url": "https://i1.sndcdn.com/artworks-QO6y3JZgcqpzyLF2-0eRlRQ-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2162180718",
+      "file_path": "ghost://soundcloud/online/2162180718",
+      "file_hash": "sc-2162180718",
+      "title": "Jet (gay remix)",
+      "artist": "ReizerLOV",
+      "album": null,
+      "album_artist": "ReizerLOV",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 87.948,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2162180718",
+      "artwork_url": "https://i1.sndcdn.com/artworks-QO6y3JZgcqpzyLF2-0eRlRQ-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2125533210",
+      "file_path": "ghost://soundcloud/online/2125533210",
+      "file_hash": "sc-2125533210",
+      "title": "MACAN - Кино (GAY REMIX)",
+      "artist": "Simon",
+      "album": null,
+      "album_artist": "Simon",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 184.576,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2125533210",
+      "artwork_url": "https://i1.sndcdn.com/artworks-xferbCItjxsxyMUt-yMhe7w-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2135972184",
+      "file_path": "ghost://soundcloud/online/2135972184",
+      "file_hash": "sc-2135972184",
+      "title": "A.V.G,MACAN -  Спой (gay remix)",
+      "artist": "ReizerLOV",
+      "album": null,
+      "album_artist": "ReizerLOV",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 97.169,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2135972184",
+      "artwork_url": "https://i1.sndcdn.com/artworks-88yTynQQEROAjL9u-hDWqBA-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-1871002836",
+      "file_path": "ghost://soundcloud/online/1871002836",
+      "file_hash": "sc-1871002836",
+      "title": "MACAN-ASPHALT 8 -gay remix",
+      "artist": "Oleg",
+      "album": null,
+      "album_artist": "Oleg",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 135.714,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/1871002836",
+      "artwork_url": "https://i1.sndcdn.com/artworks-2iXDAbylyeoTJYSi-aJEzmg-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2098054056",
+      "file_path": "ghost://soundcloud/online/2098054056",
+      "file_hash": "sc-2098054056",
+      "title": "Macan_gay_Remix",
+      "artist": "German_pointi",
+      "album": null,
+      "album_artist": "German_pointi",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 132.585,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2098054056",
+      "artwork_url": "https://i1.sndcdn.com/artworks-IIfvcjboe6KkFcGZ-q4Sylg-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2205669411",
+      "file_path": "ghost://soundcloud/online/2205669411",
+      "file_hash": "sc-2205669411",
+      "title": "macan - kino (gay remix)",
+      "artist": "bassbochka",
+      "album": null,
+      "album_artist": "bassbochka",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 184.601,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2205669411",
+      "artwork_url": "https://i1.sndcdn.com/artworks-omASbXsK5IjLdBKX-ODAMxw-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-2165074752",
+      "file_path": "ghost://soundcloud/online/2165074752",
+      "file_hash": "sc-2165074752",
+      "title": "Самый пьяный округ в мире (gay remix)",
+      "artist": "ReizerLOV",
+      "album": null,
+      "album_artist": "ReizerLOV",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 126.714,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/2165074752",
+      "artwork_url": "https://i1.sndcdn.com/artworks-EMDU6gH3mnmngD0W-CyDGJw-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
+    {
+      "id": "sc-1573614580",
+      "file_path": "ghost://soundcloud/online/1573614580",
+      "file_hash": "sc-1573614580",
+      "title": "MACAN ASPHALT 8 GAY REMIX",
+      "artist": "imrockinchanel",
+      "album": null,
+      "album_artist": "imrockinchanel",
+      "track_num": null,
+      "year": null,
+      "genre": null,
+      "genres": null,
+      "record_label": null,
+      "explicit": 0,
+      "instrumental": null,
+      "danceability": null,
+      "energy": null,
+      "track_key": null,
+      "loudness": null,
+      "mode": null,
+      "speechiness": null,
+      "acousticness": null,
+      "instrumentalness": null,
+      "liveness": null,
+      "valence": null,
+      "tempo": null,
+      "time_signature": null,
+      "duration": 135.804,
+      "artwork_path": null,
+      "bitrate": null,
+      "last_modified": 1792100679092,
+      "play_count": 0,
+      "liked": 0,
+      "added_at": 1792100679,
+      "source_url": "https://api.soundcloud.com/tracks/1573614580",
+      "artwork_url": "https://i1.sndcdn.com/artworks-zmVjs5pAylaH655F-05r4Bw-t500x500.jpg",
+      "codec": null,
+      "lossless": null,
+      "sample_rate": null,
+      "bit_depth": null,
+      "isrc": null,
+      "quality_read_at": null,
+      "spectral_cutoff": null,
+      "spectral_verdict": null,
+      "spectral_checked_at": null,
+      "download_source": null,
+      "source_ref": null,
+      "replaygain": null,
+      "comment": null,
+      "lyrics_kind": null
+    },
     {
       "id": "yt-JFOX4vKU2NM",
       "file_path": "ghost://youtube/online/JFOX4vKU2NM",
@@ -88209,11 +90482,11 @@
       "file_path": "S:\\Music\\08. Хардкор\\Masters of Hardcore 2020 - Magnum Opus  Warm-Up Mix [Bassline Abuser].mp3",
       "file_hash": "t-79e55f7d6d976fa1",
       "title": "Masters of Hardcore 2020 - Magnum Opus  Warm-Up Mix [Bassline Abuser]",
-      "artist": "Masters of Hardcore 2020 - Magnum Opus  Warm-Up Mix [Bassline Abuser]",
+      "artist": "Masters of Hardcore",
       "album": "Unknown Album",
       "album_artist": null,
       "track_num": 9,
-      "year": null,
+      "year": 2020,
       "genre": null,
       "genres": null,
       "record_label": null,
@@ -99224,8 +101497,8 @@
       "id": "t-67af7416f12fe5fd",
       "file_path": "S:\\Music\\05. Old mp3\\The_Weeknd_-_Cant_Feel_My_Face_Martin_Garrix_Remix_68088760.mp3",
       "file_hash": "t-67af7416f12fe5fd",
-      "title": "I Cant Feel My Face (Martin Garrix Remix)",
-      "artist": "The Weeknd",
+      "title": "I Cant Feel My Face",
+      "artist": "The Weeknd (Martin Garrix Remix)",
       "album": "Unknown Album",
       "album_artist": null,
       "track_num": 143,
@@ -128627,7 +130900,7 @@
       "artwork_path": "C:\\Users\\user\\AppData\\Roaming\\lokal-music\\data\\artwork\\t-fda991670be22e9a.jpg",
       "bitrate": 320,
       "last_modified": 1792086788264.9414,
-      "play_count": 0,
+      "play_count": 1,
       "liked": 0,
       "added_at": 1792079626,
       "source_url": null,
@@ -134364,18 +136637,18 @@
     "lokal-left-sidebar-scale": "1.15",
     "lokal-exclusive-panels": "1",
     "lokal-side-panel-width": "376",
-    "lokal-recent-searches": "[{\"query\":\"MACAN, YASMI - Jet (GAY REMIX)\",\"timestamp\":1792093028020},{\"query\":\"MACAN gay remix\",\"timestamp\":1792092969023},{\"query\":\"MACAN gay cover\",\"timestamp\":1792092957259},{\"query\":\"подо мной пенис большой очень\",\"timestamp\":1792092936868},{\"query\":\"MACAN as\",\"timestamp\":1792092902171},{\"query\":\"пыль\",\"timestamp\":1792085836785},{\"query\":\"Все будет хорошо\",\"timestamp\":1792085827930}]",
+    "lokal-recent-searches": "[{\"query\":\"MACAN GAY REMIX\",\"timestamp\":1792100702224},{\"query\":\"MACAN, YASMI - Jet (GAY REMIX)\",\"timestamp\":1792100642171},{\"query\":\"MACAN gay cover\",\"timestamp\":1792092957259},{\"query\":\"подо мной пенис большой очень\",\"timestamp\":1792092936868},{\"query\":\"MACAN as\",\"timestamp\":1792092902171},{\"query\":\"пыль\",\"timestamp\":1792085836785},{\"query\":\"Все будет хорошо\",\"timestamp\":1792085827930}]",
     "lokal-library-sort": "\"track_num DESC\"",
     "lokal-track-columns-v1": "{\"state\":{\"profiles\":{\"guest\":{\"actions\":false,\"artwork\":true,\"artist\":true,\"source\":false,\"rowSize\":1.25,\"comment\":true,\"genre\":true,\"order\":[\"number\",\"title\",\"time\",\"source\",\"genre\",\"album\",\"comment\",\"added\",\"quality\",\"tracknum\",\"lyrics\"],\"widths\":{\"title\":403,\"album\":139,\"genre\":129,\"comment\":162,\"tracknum\":1.5},\"tracknum\":false,\"lyrics\":true,\"quality\":false,\"rowGap\":0.1875}}},\"version\":0}",
     "lokal-post-onboarding-tour-shown": "true",
-    "lokal-recent-items": "[{\"id\":\"t-39d411d98b3c6285\",\"name\":\"Let go\",\"artist\":\"Ark Patrol (feat. Veronika Redd)\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-39d411d98b3c6285.jpg\",\"type\":\"track\"},{\"id\":\"t-f7262b02f3eb3a84\",\"name\":\"Bass Bumpin\",\"artist\":\"Jaenga\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-853d04a3df4e5c8b.jpg\",\"type\":\"track\"},{\"id\":\"t-f9a3fffd848b264a\",\"name\":\"Blood in the Water\",\"artist\":\"Protostar\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-59549cc6ce456431.jpg\",\"type\":\"track\"},{\"id\":\"t-0dccabb9379369fa\",\"name\":\"Cold Walls\",\"artist\":\"MAGE\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-0dccabb9379369fa.jpg\",\"type\":\"track\"},{\"id\":\"t-aed146c72deec417\",\"name\":\"Bleeding\",\"artist\":\"Donbor/Crimson\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-aed146c72deec417.jpg\",\"type\":\"track\"},{\"id\":\"t-760f1dd9251c0b33\",\"name\":\"Deus\",\"artist\":\"Misanthrop\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-760f1dd9251c0b33.jpg\",\"type\":\"track\"},{\"id\":\"t-ba30fdf7e15f6fb4\",\"name\":\"WET\",\"artist\":\"Omnimar\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-d2bde23ce27188d0.jpg\",\"type\":\"track\"},{\"id\":\"t-4ccc4b64e52de6ce\",\"name\":\"Deadweight\",\"artist\":\"Jawns, Party Favor\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-9f4fb1eae6632bdb.jpg\",\"type\":\"track\"},{\"id\":\"t-0b78c604a85e503e\",\"name\":\"Tiny Foldable Cities\",\"artist\":\"Orbital\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-fda991670be22e9a.jpg\",\"type\":\"track\"},{\"id\":\"t-b4fafbeba2f77780\",\"name\":\"Ящер\",\"artist\":\"ATL\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b4fafbeba2f77780.jpg\",\"type\":\"track\"},{\"id\":\"t-9c7bab15de323c33\",\"name\":\"Hurricane\",\"artist\":\"Seven Lions\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-7a9c3d3c016ab703.jpg\",\"type\":\"track\"},{\"id\":\"t-46ea46989d4f0721\",\"name\":\"NEV3R\",\"artist\":\"Blaine Stranger\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-c82cd5f6a2d4da03.jpg\",\"type\":\"track\"},{\"id\":\"t-bd12be352b6bf1c8\",\"name\":\"Still Standing\",\"artist\":\"NØRTHERN STRINGS\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-99c7a261f238d264.jpg\",\"type\":\"track\"},{\"id\":\"t-e8fed2198970931c\",\"name\":\"Undesirable Dreams\",\"artist\":\"strxwberrymilk\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-754f059dc73ef627.jpg\",\"type\":\"track\"},{\"id\":\"t-326ba99d541f57e3\",\"name\":\"RUNNIT BACK\",\"artist\":\"Madbliss\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-326ba99d541f57e3.jpg\",\"type\":\"track\"}]",
-    "lokal-last-tab": "/artists",
+    "lokal-recent-items": "[{\"id\":\"t-3f42859b7a8add7c\",\"name\":\"The Storm\",\"artist\":\"Notaker\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-3f42859b7a8add7c.jpg\",\"type\":\"track\"},{\"id\":\"t-b5245ef010b9f35d\",\"name\":\"Hero\",\"artist\":\"Grabbitz\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b5245ef010b9f35d.jpg\",\"type\":\"track\"},{\"id\":\"t-4a1e370e41ab1542\",\"name\":\"Back To Back\",\"artist\":\"RIOT\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-4a1e370e41ab1542.jpg\",\"type\":\"track\"},{\"id\":\"t-a588082c0d3d4228\",\"name\":\"Star Glide\",\"artist\":\"MUZZ, Cammie Robinson\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-a588082c0d3d4228.jpg\",\"type\":\"track\"},{\"id\":\"t-e78e4750568e9f64\",\"name\":\"Я подарю\",\"artist\":\"Эндшпиль\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-e78e4750568e9f64.jpg\",\"type\":\"track\"},{\"id\":\"t-b1396f6bb9e36ac7\",\"name\":\"Райзап\",\"artist\":\"MiyaGi & Эндшпиль x Amigo\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b1396f6bb9e36ac7.jpg\",\"type\":\"track\"},{\"id\":\"t-30d9a235b5f74de6\",\"name\":\"ТАМАДА\",\"artist\":\"MiyaGi & Эндшпиль\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-30d9a235b5f74de6.jpg\",\"type\":\"track\"},{\"id\":\"t-fcf34e42e69370ed\",\"name\":\"Сын\",\"artist\":\"MiyaGi\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-fcf34e42e69370ed.jpg\",\"type\":\"track\"},{\"id\":\"t-8e13f24949ad60bb\",\"name\":\"Бля буду\",\"artist\":\"SH Kera, Эндшпиль\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-8e13f24949ad60bb.jpg\",\"type\":\"track\"},{\"id\":\"t-26a9514606f7c83d\",\"name\":\"Revival\",\"artist\":\"V O E\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-1bbae0876b443702.jpg\",\"type\":\"track\"},{\"id\":\"t-f7262b02f3eb3a84\",\"name\":\"Bass Bumpin\",\"artist\":\"Jaenga\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-853d04a3df4e5c8b.jpg\",\"type\":\"track\"},{\"id\":\"t-73adc37d5c7ddb19\",\"name\":\"Aladdin\",\"artist\":\"Anders Crawn\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-73adc37d5c7ddb19.jpg\",\"type\":\"track\"},{\"id\":\"t-267c4a1d33c4844f\",\"name\":\"When I Turn Off The Lights\",\"artist\":\"Vanglowe\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-267c4a1d33c4844f.jpg\",\"type\":\"track\"},{\"id\":\"t-19db7da4377bc022\",\"name\":\"I DON'T LIKE IT\",\"artist\":\"ROMANTICA\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-19db7da4377bc022.jpg\",\"type\":\"track\"},{\"id\":\"t-3ae056dd75520d18\",\"name\":\"Ephemeral\",\"artist\":\"Calva Louise\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-3ae056dd75520d18.jpg\",\"type\":\"track\"}]",
+    "lokal-last-tab": "/library",
     "lokal-library-source": "\"all\"",
     "lokal-lyrics-subline": "original",
     "lokal-lastfm-like-sync-page:guest": "1",
-    "lokal-library-folder": "02. Current Tier 2",
+    "lokal-library-folder": "11. Monstercat Tier 1",
     "lokal-artists-followed": "0",
-    "lokal-lastfm-like-sync:guest": "1792098506038",
+    "lokal-lastfm-like-sync:guest": "1792138965872",
     "lokal-station-columns-v1": "{\"state\":{\"profiles\":{\"guest\":{\"rowSize\":1.25,\"rowGap\":0.1875,\"stream\":false}}},\"version\":0}",
     "lokal-side-panels": "{\"showRightSidebar\":true,\"sidePanelView\":\"lyrics\",\"showQueue\":false,\"showLyricsPanel\":false}",
     "lokal-onboarding-complete": "true",
@@ -134384,10 +136657,11 @@
     "lokal-side-lyrics-scale": "1.25",
     "lokal-auto-open-side-panel": "0",
     "lokal-dl-accepted": "1",
-    "lokal-online-provider": "yt",
+    "lokal-ytdlp-version-dismissed": "missing::2026.08.19",
+    "lokal-online-provider": "sc",
     "lokal-library-quality": "\"\"",
     "lokal-artists-density": "spaced",
-    "lokal-volume": "0.05",
+    "lokal-volume": "1",
     "lokal-library-genre": "\"\"",
     "lokal-sidebar-collapsed": "0",
     "lokal-library-problemsOnly": "false",
