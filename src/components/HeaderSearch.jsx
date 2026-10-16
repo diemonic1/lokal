@@ -242,8 +242,9 @@ export default function HeaderSearch() {
   const moodMenu = useContextMenu()
 
   return (
-    <div className="flex items-center gap-1.5 min-w-0 w-full justify-center" style={{ WebkitAppRegion: 'no-drag' }}>
-      <div className="relative flex flex-shrink-0 items-center gap-1.5">
+    // Only the controls are no-drag: the gaps between them drag the window.
+    <div className="flex items-center gap-1.5 min-w-0 w-full justify-center">
+      <div className="relative flex flex-shrink-0 items-center gap-1.5" data-no-drag>
         <ScanProgressBar />
         <RescanButton />
         <button
@@ -256,7 +257,7 @@ export default function HeaderSearch() {
         </button>
       </div>
 
-      <div className="relative min-w-0" style={{ flex: '0 1 474px' }} data-tour="search">
+      <div className="relative min-w-0" style={{ flex: '0 1 474px' }} data-tour="search" data-no-drag>
         <div
           className={`group h-7 flex items-center rounded-full bg-elevated border transition-colors ${focused ? 'border-accent/60' : 'border-transparent hover:border-border2 hover:bg-card'}`}
           onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); inputRef.current?.focus() } }}
@@ -364,7 +365,7 @@ export default function HeaderSearch() {
         </AnimatePresence>
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-0.5">
+      <div className="flex flex-shrink-0 items-center gap-0.5" data-no-drag>
         <CastButton />
         <HeaderPlayerControls />
       </div>

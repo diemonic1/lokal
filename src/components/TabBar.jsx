@@ -99,7 +99,8 @@ export default function TabBar() {
     <div
       role="tablist"
       aria-label={t('Sections')}
-      className="relative z-30 flex h-[34px] flex-shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border px-2 [scrollbar-width:none]"
+      // Its empty part drags the desktop window, like the header above it.
+      className={`${api.isElectron ? 'titlebar ' : ''}relative z-30 flex h-[34px] flex-shrink-0 items-end gap-0.5 overflow-x-auto border-b border-border px-2 [scrollbar-width:none]`}
       style={{ backgroundColor: 'rgb(var(--surface-rgb) / 0.85)', backdropFilter: 'blur(12px)' }}
     >
       {visible.map(({ icon: Icon, label, path, tour }) => {

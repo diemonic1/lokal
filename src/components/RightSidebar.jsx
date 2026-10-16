@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AudioWaveform, ChevronRight, Music, Maximize2, Mic2, Disc3, Radio, Clapperboard, Gem, ImageOff, ImagePlay } from 'lucide-react'
+import { AudioWaveform, Info, ListMusic, Music, Maximize2, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -28,8 +28,10 @@ import LikeBurst from './LikeBurst'
 import { showToast } from './Toaster'
 import { formatLabel, isSuspect, losslessMenuItem, tierOf, TIERS } from '../quality'
 import { trackGenreList } from '../genres'
-import { useAppearanceFlag } from '../appearanceFlags'
+import { useAppearanceText, useAppearanceValue, useSidePanelVisualizer } from '../appearanceFlags'
 import PowerCircle from '../visualizers/PowerCircle'
+import Anomaly from '../visualizers/Anomaly'
+import { pickColor } from '../visualizers/audio'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 
 // "Music" is a placeholder some files carry, not a genre.
@@ -165,8 +167,22 @@ export default function RightSidebar() {
   // a tab here only when the panel is shared (exclusiveSidePanels); in the
   // other mode it opens its own panel next to this one, and "Details" stays
   // highlighted.
-  // Settings > Visualizations > Side Panel: the Visualization tab can be hidden.
-  const visualTab = useAppearanceFlag('side_panel_visualizer')
+  // Settings > Visualizations > Side Panel > Visualization: which one the
+  // Visualization tab shows (the round character or the anomaly), or no tab.
+  const visualKind = useSidePanelVisualizer()
+  const visualTab = visualKind !== 'off'
+  const anomalySettings = {
+    sensitivity: Math.max(1, Math.min(10, useAppearanceValue('side_anomaly_sensitivity', 5))),
+    size: Math.max(50, Math.min(200, useAppearanceValue('side_anomaly_size', 100))) / 100,
+    color: useAppearanceText('side_anomaly_color'),
+  }
+  // Each one's own background colour (black unless picked).
+  const characterBg = useAppearanceText('side_character_bg')
+  const anomalyBg = useAppearanceText('side_anomaly_bg')
+  const visualBg = pickColor(visualKind === 'anomaly' ? anomalyBg : characterBg, '#000000')
+  const visual = visualKind === 'anomaly'
+    ? <Anomaly className="flex-1 min-h-0" {...anomalySettings} />
+    : <PowerCircle className="flex-1 min-h-0" background={visualBg} />
   const showVisual = visualTab && sidePanelView === 'visual'
   // The Lyrics tab without lyrics (still searching, or none found) shows the
   // same visualization behind it (LyricsPanel's idleVisual).
@@ -268,6 +284,21 @@ export default function RightSidebar() {
     } catch (error) { setBurst(null); showToast(error.message || t('Could not update this song’s like.')) } finally { likeBusy.current = false }
   }
 
+  // The view picker's menu, under its button, right-aligned to it.
+  const tabMenu = useContextMenu()
+  const openTabMenu = (event) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    const pick = id => () => (id === 'queue' ? (tab === 'queue' ? null : toggleQueueButton()) : setSidePanelView(id))
+    tabMenu.open({ preventDefault() {}, stopPropagation() {}, clientX: box.right, clientY: box.bottom + 4 }, [
+      { label: t('Details'), icon: Info, checked: tab === 'info', onSelect: pick('info') },
+      { label: t('Lyrics'), icon: Mic2, checked: tab === 'lyrics', onSelect: pick('lyrics') },
+      visualTab && { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
+      { label: t('Queue'), icon: ListMusic, checked: tab === 'queue', onSelect: pick('queue') },
+      { separator: true },
+      { label: t('Close the side panel'), icon: PanelRightClose, onSelect: toggleRightSidebar },
+    ])
+  }
+
   const openTrackMenu = (event) => {
     if (!currentTrack) return
     menu.open(event, [
@@ -341,25 +372,23 @@ export default function RightSidebar() {
             initial={{ x: width }}
             animate={{ x: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="h-full flex flex-col border-l border-border"
+            className="relative h-full flex flex-col border-l border-border"
             style={{ width, backgroundColor: 'rgba(var(--surface-rgb), 0.85)' }}
           >
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0 border-b border-border">
-            <div className="flex gap-0.5 p-0.5 bg-card rounded-lg border border-border/50">
-              {[['info', t('Details')], ['lyrics', t('Lyrics')], visualTab && ['visual', t('Visualization'), AudioWaveform], ['queue', t('Queue')]].filter(Boolean).map(([id, label, Icon]) => {
-                // Four names don't fit a narrow panel: Visualization is an icon there.
-                const iconOnly = Icon && width < 420
-                return (
-                  <button key={id} onClick={() => (id === 'queue' ? (tab === 'queue' ? null : toggleQueueButton()) : setSidePanelView(id))} aria-pressed={tab === id}
-                    title={iconOnly ? label : undefined} aria-label={iconOnly ? label : undefined}
-                    className={`${iconOnly ? 'px-2' : 'px-3'} py-1 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
-                    {iconOnly ? <Icon size={14} /> : label}
-                  </button>
-                )
-              })}
-            </div>
-            <button onClick={toggleRightSidebar} aria-label={t("Close the side panel")} className="text-muted hover:text-white transition-colors ml-2">
-              <ChevronRight size={16} />
+          {/* The view picker: a button in the top right corner, shown on
+              hover, opening a menu of the tabs (and closing the panel). The
+              content runs up to the top under it. */}
+          <div className="group/tabs absolute top-0 right-0 z-50 p-2">
+            <button
+              type="button"
+              onClick={openTabMenu}
+              title={t('Side panel view')}
+              aria-label={t('Side panel view')}
+              aria-haspopup="menu"
+              aria-expanded={!!tabMenu.state}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-elevated text-muted shadow-lg transition-opacity hover:text-white focus-visible:opacity-100 group-hover/tabs:opacity-100 ${tabMenu.state ? 'opacity-100' : 'opacity-0'}`}
+            >
+              <PanelLeftClose size={15} className="-rotate-90" />
             </button>
           </div>
 
@@ -513,14 +542,14 @@ export default function RightSidebar() {
                   <AnimatePresence>
                     {visualTab && lyricsIdle && currentTrack && (
                       <motion.div key="lyrics-visual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5, ease: 'easeInOut' }} className="absolute inset-0 flex flex-col bg-black">
-                        <PowerCircle className="flex-1 min-h-0" />
+                        transition={{ duration: 0.5, ease: 'easeInOut' }} className="absolute inset-0 flex flex-col" style={{ backgroundColor: visualBg }}>
+                        {visual}
                       </motion.div>
                     )}
                   </AnimatePresence>
                   <div className="relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
                     {currentTrack ? (
-                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced}
+                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarEndGap
                         idleVisual={visualTab} onIdleChange={setLyricsIdle} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
@@ -553,9 +582,10 @@ export default function RightSidebar() {
                   animate={{ y: 0 }}
                   exit={{ y: '100%' }}
                   transition={{ type: 'spring', stiffness: 300, damping: 32 }}
-                  className="absolute inset-0 flex flex-col bg-black"
+                  className="absolute inset-0 flex flex-col"
+                  style={{ backgroundColor: visualBg }}
                 >
-                  <PowerCircle className="flex-1 min-h-0" />
+                  {visual}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -573,7 +603,8 @@ export default function RightSidebar() {
                   className="absolute inset-0 flex flex-col"
                   style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}
                 >
-                  <QueueContent onClose={toggleQueueButton} />
+                  {/* No close button of its own: the view picker sits in that corner. */}
+                  <QueueContent />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -582,6 +613,7 @@ export default function RightSidebar() {
         </motion.aside>
       )}
       <ContextMenu menu={menu} />
+      <ContextMenu menu={tabMenu} />
     </>
   )
 }

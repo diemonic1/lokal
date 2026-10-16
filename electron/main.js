@@ -714,12 +714,56 @@ ipcMain.handle('window:getSize', () => {
 // window from scratch; a genuine (if imperceptible) bounds change forces
 // the same recompute without one. See e.g. electron/electron#7347 and
 // #51252 for the same class of bug.
-ipcMain.handle('window:refreshHitRegions', () => {
-  if (!mainWindow) return
+function refreshHitRegions() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
   const b = mainWindow.getBounds()
   mainWindow.setBounds({ ...b, width: b.width + 1 })
   mainWindow.setBounds(b)
+}
+ipcMain.handle('window:refreshHitRegions', refreshHitRegions)
+
+// The header's own drag, for when the native one misses: a press on an empty
+// bit of the header only reaches the page at all when the OS hit-test map
+// didn't take it as a drag (stale map, see above), so the page asks for the
+// window to follow the cursor from here until the button is released.
+let manualDrag = null
+function endManualDrag() {
+  if (!manualDrag) return
+  clearInterval(manualDrag.timer)
+  const { moved } = manualDrag
+  manualDrag = null
+  // A press that didn't move was a missed grab: put the map right for the next one.
+  if (!moved) refreshHitRegions()
+}
+ipcMain.on('window:dragStart', () => {
+  endManualDrag()
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFullScreen()) return
+  const start = screen.getCursorScreenPoint()
+  const drag = { start, bounds: mainWindow.getBounds(), moved: false, startedAt: Date.now() }
+  drag.timer = setInterval(() => {
+    // The release can be lost (focus stolen mid-drag): never follow forever.
+    if (!mainWindow || mainWindow.isDestroyed() || Date.now() - drag.startedAt > 60000) { endManualDrag(); return }
+    const p = screen.getCursorScreenPoint()
+    const dx = p.x - start.x
+    const dy = p.y - start.y
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) < 4) return
+      drag.moved = true
+      // Dragged out of maximized: back to the normal size, under the cursor
+      // at the same share of the width it was grabbed at.
+      if (mainWindow.isMaximized()) {
+        const normal = mainWindow.getNormalBounds()
+        const share = (start.x - drag.bounds.x) / Math.max(1, drag.bounds.width)
+        mainWindow.unmaximize()
+        drag.bounds = { x: Math.round(start.x - normal.width * share), y: drag.bounds.y, width: normal.width, height: normal.height }
+      }
+    }
+    // Size passed every time: setPosition alone creeps the size on scaled displays.
+    mainWindow.setBounds({ ...drag.bounds, x: drag.bounds.x + dx, y: drag.bounds.y + dy })
+  }, 8)
+  manualDrag = drag
 })
+ipcMain.on('window:dragEnd', endManualDrag)
 
 createWindow()
 

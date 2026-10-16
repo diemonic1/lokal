@@ -9,8 +9,11 @@ import { useTranslation } from '../i18n'
 import { navigateToTrackAlbum } from '../playbackContext'
 import ArtistNames from './ArtistNames'
 import Waveform from '../visualizers/Waveform'
+import Spectrum from '../visualizers/Spectrum'
+import Waves from '../visualizers/Waves'
+import Lightning from '../visualizers/Lightning'
 import { showToast } from './Toaster'
-import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
+import { useAppearanceFlag, useAppearanceText, useAppearanceValue, usePlayerVisualizer } from '../appearanceFlags'
 import CoverGradient from './CoverGradient'
 import { meshKeyFor } from './ArtworkBackdrop'
 import { trackArtURL, isStreamed, streamLabel } from '../onlineTracks'
@@ -45,7 +48,33 @@ export default function PlayerBar() {
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
-  const showWaveform = useAppearanceFlag('player_waveform')
+  // Settings > Visualizations > Player Bar > Visualization: bars beside the
+  // volume (waveform), a spectrum or waves under the seek bar, lightning
+  // across the whole bar, or none.
+  const visualizer = usePlayerVisualizer()
+  const showWaveform = visualizer === 'waveform'
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)))
+  const spectrum = {
+    bars: clamp(useAppearanceValue('player_spectrum_bars', 119), 8, 160),
+    barWidth: clamp(useAppearanceValue('player_spectrum_bar_width', 4), 1, 12),
+    height: clamp(useAppearanceValue('player_spectrum_height', 76), 10, 90),
+    strength: clamp(useAppearanceValue('player_spectrum_strength', 58), 10, 300) / 100,
+    opacity: clamp(useAppearanceValue('player_spectrum_opacity', 20), 5, 100) / 100,
+  }
+  const spectrumColor = useAppearanceText('player_spectrum_color')
+  const waves = {
+    width: clamp(useAppearanceValue('player_waves_width', 480), 120, 1200),
+    height: clamp(useAppearanceValue('player_waves_height', 50), 10, 90),
+    strength: clamp(useAppearanceValue('player_waves_strength', 100), 10, 300) / 100,
+    opacity: clamp(useAppearanceValue('player_waves_opacity', 85), 5, 100) / 100,
+    colorBack: useAppearanceText('player_waves_color_back'),
+    colorFront: useAppearanceText('player_waves_color_front'),
+  }
+  const lightningColors = [useAppearanceText('player_lightning_color_1'), useAppearanceText('player_lightning_color_2'), useAppearanceText('player_lightning_color_3')]
+  const lightning = {
+    strength: clamp(useAppearanceValue('player_lightning_strength', 150), 10, 300) / 100,
+    opacity: clamp(useAppearanceValue('player_lightning_opacity', 10), 5, 100) / 100,
+  }
   const nav = useNavigate()
   const {
     currentTrack, isPlaying, isBuffering, progress, duration, volume, shuffle, repeat,
@@ -176,6 +205,11 @@ export default function PlayerBar() {
         }}
         onWheel={onBarWheel}>
         {showGradient && <CoverGradient trackId={meshKeyFor(currentTrack)} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
+        {currentTrack && visualizer === 'lightning' && (
+          <div aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${floating ? 'rounded-2xl' : ''}`}>
+            <Lightning isPlaying={isPlaying} colors={lightningColors} {...lightning} />
+          </div>
+        )}
         <div ref={infoRef} className="relative flex flex-1 items-center gap-3 min-w-0">
         <button onClick={toggleFullscreen} disabled={!currentTrack}
           className="relative w-[70px] h-[70px] my-[10px] rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
@@ -235,7 +269,16 @@ export default function PlayerBar() {
         {streamed && <SaveToLibraryButton key={currentTrack.id} track={currentTrack} className="text-text/90" />}
         </div>
 
-        <div className="flex flex-[0_1_40rem] flex-col items-center gap-1.5 min-w-0">
+        {/* Full height, so the spectrum can stand on the bar's bottom edge. */}
+        <div className="relative flex flex-[0_1_40rem] flex-col items-center justify-center gap-1.5 min-w-0 self-stretch">
+        {currentTrack && visualizer === 'spectrum' && (
+          <Spectrum isPlaying={isPlaying} {...spectrum}
+            color={spectrumColor}
+            className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2" />
+        )}
+        {currentTrack && visualizer === 'waves' && (
+          <Waves isPlaying={isPlaying} {...waves} className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2" />
+        )}
         <div className="relative flex items-center gap-4">
           {/* Beside the buttons (not over the seek bar), without moving them. */}
           <MixingMark className="absolute left-full top-1/2 ml-4 -translate-y-1/2 whitespace-nowrap pointer-events-none" />

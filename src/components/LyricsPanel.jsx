@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban } from 'lucide-react'
+import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban } from 'lucide-react'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import Modal from './Modal'
 import LyricsSearchDrawer from './LyricsSearchDrawer'
@@ -189,7 +189,8 @@ const Row = React.memo(function Row({
             height: open ? `${baseSize * 1.5}rem` : 0,
             opacity: open ? 1 : 0,
             transition: `height 420ms ${EASE}, opacity 360ms ${EASE}`,
-            overflow: 'hidden',
+            // Not clipped: the droplets' glow runs past the row and must fade
+            // out on its own. Closed, the row is 0 high and fully transparent.
             display: 'flex',
             alignItems: 'center',
             justifyContent: alignEnd ? 'flex-end' : 'flex-start',
@@ -492,6 +493,8 @@ export default function LyricsPanel({
   // instead of the grey placeholder lines or the empty message, and "no
   // lyrics" becomes a bubble at the bottom. onIdleChange(true/false) says when.
   idleVisual = false, onIdleChange,
+  // Room kept at the toolbar's right end (the side panel's tab button sits there).
+  toolbarEndGap = false,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -530,9 +533,15 @@ export default function LyricsPanel({
   const paintedRows = useRef(new Set())
 
   const crossfadeSeconds = usePlayerStore(s => s.crossfadeSeconds)
+  // "Instrumental track without lyrics" (what the file says for an
+  // instrumental, see electron/lyrics/fileLyrics.js) is not a line to show.
+  const instrumentalText = useMemo(() => {
+    const words = (result?.lines || []).map(line => line.text || '').join(' ').replace(/\s+/g, ' ').trim()
+    return /^instrumental track without lyrics\.?$/i.test(words)
+  }, [result])
   const lines = useMemo(
-    () => withOutroBreak(result?.lines || [], { duration: track?.duration, crossfade: crossfadeSeconds, synced: result?.type === 'synced' }),
-    [result, track?.duration, crossfadeSeconds],
+    () => (instrumentalText ? [] : withOutroBreak(result?.lines || [], { duration: track?.duration, crossfade: crossfadeSeconds, synced: result?.type === 'synced' })),
+    [result, instrumentalText, track?.duration, crossfadeSeconds],
   )
   // Online radio, tuned in mid-song: the lines can't follow the song, so
   // they're shown as plain text until the next song starts.
@@ -640,7 +649,9 @@ export default function LyricsPanel({
   // Once showing, it stays until there are lines (Try again, the next song)
   // rather than going away for that second and coming back.
   const [heldIdle, setHeldIdle] = useState(false)
-  const idle = idleVisual && !lines.length && (!loading || slowSearch || heldIdle)
+  // A song the library already knows is instrumental doesn't wait.
+  const knownInstrumental = (track?.lyrics_kind || shownTrack?.lyrics_kind) === 'instrumental'
+  const idle = idleVisual && !lines.length && (!loading || slowSearch || heldIdle || knownInstrumental)
   if (heldIdle !== idle) setHeldIdle(idle)
   useEffect(() => { onIdleChange?.(idle) }, [idle, onIdleChange])
   useEffect(() => () => onIdleChange?.(false), [onIdleChange])
@@ -900,6 +911,7 @@ export default function LyricsPanel({
   const attribution = result?.attribution
   const hasContributors = !!(attribution?.uploader || attribution?.maker)
   const searching = loading || refreshing
+  const instrumental = !!result?.instrumental || instrumentalText || (knownInstrumental && !lines.length)
   // The source menu also shows while searching, so its bars can be watched.
   const showToolbar = lines.length > 0 || (searching && sources.length > 0)
 
@@ -910,7 +922,7 @@ export default function LyricsPanel({
           // The pills fade by themselves (TOOLBAR_FADE), not this row: glass
           // inside a fading parent shows as flat grey until the fade ends.
           data-hidden={toolbarHidden}
-          className={`group/toolbar absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 px-4 pt-3 pointer-events-none ${fullscreen ? '' : 'pb-6'}`}
+          className={`group/toolbar absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 pl-4 ${toolbarEndGap ? 'pr-12' : 'pr-4'} pt-3 pointer-events-none ${fullscreen ? '' : 'pb-6'}`}
           // The sidebar keeps its soft shade behind the buttons; the fullscreen
           // views already have their own header there, so they go without.
           style={fullscreen ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
@@ -991,7 +1003,7 @@ export default function LyricsPanel({
           {!loading && !lines.length && !idleVisual && (
             <div className="h-full min-h-[240px] flex flex-col items-center justify-center gap-3 text-white/35 select-none pt-24">
               <Mic2 size={fullscreen ? 40 : 28} />
-              {result?.instrumental ? (
+              {instrumental ? (
                 <p className={fullscreen ? 'text-sm' : 'text-xs'}>{t('Instrumental — nothing to sing along to.')}</p>
               ) : !isOnline ? (
                 <p className={fullscreen ? 'text-sm' : 'text-xs'}>{t("You're offline. Lyrics will load once you're back online.")}</p>
@@ -1058,9 +1070,35 @@ export default function LyricsPanel({
         </div>
       </div>
 
+      {/* An instrumental, over the side panel's visualization: just a small
+          note in the bottom left corner, saying so on hover. As far from the
+          panel's left edge as from what's below it: the window's bottom, or the
+          floating player bar's top (92px high, 12px up: 104px of the 114px
+          --player-space the side panel leaves for it). */}
+      <AnimatePresence>
+        {idleVisual && idle && instrumental && (
+          <motion.div
+            key="instrumental"
+            initial={{ opacity: 0, y: 8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="group/note absolute left-2.5 z-30"
+            style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
+          >
+            <div tabIndex={0} aria-label={t('Instrumental track: no lyrics')}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white/60 backdrop-blur-md transition-colors hover:text-white focus-visible:text-white outline-none">
+              <Music size={14} />
+            </div>
+            <div role="tooltip"
+              className="pointer-events-none absolute bottom-full left-0 mb-2 w-max max-w-[14rem] rounded-xl border border-white/10 bg-black/80 px-3 py-1.5 text-[11px] leading-snug text-white/80 opacity-0 backdrop-blur-md transition-opacity duration-150 group-hover/note:opacity-100 group-focus-within/note:opacity-100">
+              {t('Instrumental track: no lyrics')}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* No lyrics, over the side panel's visualization: a bubble by the player bar. */}
       <AnimatePresence>
-        {idleVisual && !loading && !lines.length && (
+        {idleVisual && !loading && !lines.length && !instrumental && (
           <motion.div
             key="no-lyrics"
             initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.96 }}
@@ -1068,9 +1106,9 @@ export default function LyricsPanel({
             className="absolute bottom-3 inset-x-3 z-30 flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black/70 px-4 py-2.5 text-center backdrop-blur-md"
           >
             <p className="text-xs text-white/70">
-              {result?.instrumental ? t('Instrumental — nothing to sing along to.') : !isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}
+              {!isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}
             </p>
-            {!result?.instrumental && isOnline && (
+            {isOnline && (
               <div className="flex items-center gap-4">
                 <button onClick={requestSearch} className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors">
                   <Search size={12} /> {t('Search manually')}

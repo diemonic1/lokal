@@ -5,7 +5,7 @@ import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { api, wordSyncEnabled as getWordSyncEnabled } from '../api'
 import Waveform from '../visualizers/Waveform'
-import { useAppearanceFlag } from '../appearanceFlags'
+import { usePlayerVisualizer } from '../appearanceFlags'
 import { trackArtURL } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
 import { useMusicVideo, useMusicVideoView } from '../musicVideo'
@@ -17,7 +17,8 @@ function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toStr
 
 export default function MiniPlayer({ windowed = false }) {
   const { t } = useTranslation()
-  const showWaveform = useAppearanceFlag('player_waveform')
+  // Its waveform shows unless the player bar's visualization is off.
+  const showWaveform = usePlayerVisualizer() !== 'off'
   const {
     currentTrack, isPlaying, progress, duration, volume,
     togglePlay, next, prev, setProgressWithAudioUpdate, setVolume,

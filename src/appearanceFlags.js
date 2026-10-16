@@ -5,17 +5,42 @@
 //   player_bar_floating     ... > Floating bar (off: docked to the bottom edge).
 //                           Unset: follows Glass, which used to switch both.
 //   player_bar_gradient     Settings > Visualizations > Player Bar > Cover gradient
-//   player_waveform         ... > Waveform
-//   side_panel_visualizer   Settings > Visualizations > Side Panel > the Visualization tab
+//   player_waveform         ... > Visualization, before it had a choice: '0' was Off
+//   side_panel_visualizer   Settings > Visualizations > Side Panel > Visualization, before it
+//                           had a choice: '0' was Off
 //   taskbar_progress        ... > Taskbar > Song progress on the taskbar button
 // Numbers (useAppearanceValue):
 //   player_bar_gradient_strength   0-100, how strongly the cover gradient shows
 //   player_bar_gradient_speed      0-100, how fast its colours drift (0: still)
 //   player_bar_glass_transparency  0-90, how see-through the glass is
 //   player_bar_shade_transparency  0-100, the shade under the seek bar (glass only)
+//   player_spectrum_bars        8-160, Settings > Visualizations > Player Bar > Spectrum: how many bars
+//   player_spectrum_bar_width   1-12, each bar's width (px)
+//   player_spectrum_height      10-90, the tallest a bar gets (px)
+//   player_spectrum_strength    10-300, % how high the music throws the bars
+//   player_spectrum_opacity     5-100, % how strongly they show
+//   player_waves_width          120-1200, ... > Waves: how wide (px)
+//   player_waves_height         10-90, how high they rise (px)
+//   player_waves_strength       10-300, % how high the music throws them
+//   player_waves_opacity        5-100, % how strongly they show
+//   player_lightning_strength   10-300, ... > Lightning: % how strongly the music moves it
+//   player_lightning_opacity    5-100, % how strongly it shows
+//   side_anomaly_sensitivity    1-10, Settings > Visualizations > Side Panel > Anomaly (5: as in the pen)
+//   side_anomaly_size           50-200, % how big
 //   volume_wheel_step              1-5, volume % per wheel notch over the player bar
 //   radio_buffer_sec               0-10, Settings > Online Radio > Buffer (seconds before a station starts)
 // Text (useAppearanceText):
+//   player_visualizer   Settings > Visualizations > Player Bar > Visualization: off, waveform
+//                       (bars beside the volume), spectrum or waves (under the seek bar) or
+//                       lightning (across the bar). Unset: follows player_waveform.
+//   side_panel_visual   ... > Side Panel > Visualization: off, character (the round one) or
+//                       anomaly. Unset: follows side_panel_visualizer.
+//   player_spectrum_color  #rrggbb for the spectrum, or 'accent'; unset: white
+//   player_waves_color_back, player_waves_color_front   the two waves' colours (same form)
+//   player_lightning_color_1, _2, _3   the lightning's three lines (same form)
+//   side_anomaly_color  the anomaly's colour (same form)
+//   side_anomaly_bg, side_character_bg   the colour behind each side panel visualization
+//                       (same form; unset: black)
 //   app_tabs        Settings > Appearance > App Tabs: tab order and which go to the ⋯ menu (see appTabs.js)
 //   taskbar_title   ... > Taskbar Title: what the window title (taskbar) shows
 //   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
@@ -26,7 +51,11 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
-const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps']
+const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps',
+  'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color',
+  'player_waves_width', 'player_waves_height', 'player_waves_strength', 'player_waves_opacity', 'player_waves_color_back', 'player_waves_color_front',
+  'player_lightning_strength', 'player_lightning_opacity', 'player_lightning_color_1', 'player_lightning_color_2', 'player_lightning_color_3',
+  'side_panel_visual', 'side_anomaly_sensitivity', 'side_anomaly_size', 'side_anomaly_color', 'side_anomaly_bg', 'side_character_bg']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -83,4 +112,22 @@ export function useAppearanceText(key, fallback = '') {
 export function previewAppearanceValue(key, value) {
   raw = { ...raw, [key]: String(value) }
   notify()
+}
+
+export const PLAYER_VISUALIZERS = ['off', 'waveform', 'spectrum', 'waves', 'lightning']
+
+/** Which visualization the player bar shows (one of PLAYER_VISUALIZERS). */
+export function usePlayerVisualizer() {
+  const waveform = useAppearanceFlag('player_waveform')
+  const chosen = useAppearanceText('player_visualizer')
+  return PLAYER_VISUALIZERS.includes(chosen) ? chosen : waveform ? 'waveform' : 'off'
+}
+
+export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly']
+
+/** Which visualization the side panel's Visualization tab shows ('off': no tab). */
+export function useSidePanelVisualizer() {
+  const on = useAppearanceFlag('side_panel_visualizer')
+  const chosen = useAppearanceText('side_panel_visual')
+  return SIDE_PANEL_VISUALIZERS.includes(chosen) ? chosen : on ? 'character' : 'off'
 }

@@ -640,6 +640,55 @@ export default function Settings() {
   }
   const crossfade = readCrossfadeSettings(settings)
 
+  // Settings > Visualizations: the controls each visualization's own
+  // settings are made of. They show at once (previewAppearanceValue) and save.
+  const setVisual = (key, value) => { previewAppearanceValue(key, value); set(key, value) }
+  const visualNumber = (key, fallback) => {
+    const value = settings[key]
+    return value != null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback
+  }
+  const visualSlider = (key, label, desc, min, max, fallback, unit = '', step = 1) => {
+    const value = visualNumber(key, fallback)
+    return (
+      <Row key={key} label={label} desc={desc}>
+        <div className="flex w-56 items-center gap-3">
+          <input type="range" min={min} max={max} step={step} value={value}
+            onChange={e => setVisual(key, e.target.value)}
+            className="flex-1 accent-accent" />
+          <span className="w-12 text-right text-xs tabular-nums text-muted">{value}{unit}</span>
+        </div>
+      </Row>
+    )
+  }
+  // A colour from the palette, `fallback` until one is picked, or 'accent'
+  // to follow the accent colour.
+  const visualColor = (key, label, desc, fallback) => {
+    const raw = settings[key] || ''
+    const color = /^#[0-9a-f]{6}$/i.test(raw) ? raw : raw === 'accent' ? '' : fallback
+    return (
+      <Row key={key} label={label} desc={desc}>
+        <div className="flex items-center gap-2">
+          {color && (
+            <button onClick={() => setVisual(key, 'accent')}
+              className="px-3 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted hover:text-white transition-colors">
+              {t('Accent')}
+            </button>
+          )}
+          <AccentColorPicker value={color} active={!!color} align="right" onChange={({ value }) => setVisual(key, value)} />
+        </div>
+      </Row>
+    )
+  }
+  const visualSelect = (key, value, options) => (
+    <select
+      value={value}
+      onChange={event => setVisual(key, event.target.value)}
+      className="min-w-44 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+    >
+      {options.map(([option, label]) => <option key={option} value={option}>{t(label)}</option>)}
+    </select>
+  )
+
   const applyEqGains = (nextGains, presetKey = getEqPresetKey(nextGains)) => {
     const normalized = normalizeEqGains(nextGains)
     setEqGains(normalized)
@@ -2296,13 +2345,25 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('visualizations') && (
       <Section title="Side Panel">
-        <Row label="Visualization tab" desc="A tab in the side panel with an animation that moves with the music. It only runs while the tab is open, or on the Lyrics tab while lyrics are being searched for or were not found.">
-          <button
-            onClick={() => set('side_panel_visualizer', settings.side_panel_visualizer === '0' ? '1' : '0')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.side_panel_visualizer !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-            {t(settings.side_panel_visualizer !== '0' ? 'On' : 'Off')}
-          </button>
-        </Row>
+        {(() => {
+          // Unset, it follows the old on/off switch of the Visualization tab.
+          const kind = ['off', 'character', 'anomaly'].includes(settings.side_panel_visual)
+            ? settings.side_panel_visual : settings.side_panel_visualizer === '0' ? 'off' : 'character'
+          return (
+            <>
+              <Row label="Visualization" desc="A tab in the side panel with an animation that moves with the music. It only runs while the tab is open, or on the Lyrics tab while lyrics are being searched for or were not found.">
+                {visualSelect('side_panel_visual', kind, [['off', 'Off'], ['character', 'Round character'], ['anomaly', 'Anomaly']])}
+              </Row>
+              {kind === 'character' && visualColor('side_character_bg', 'Background color', 'The colour behind the visualization.', '#000000')}
+              {kind === 'anomaly' && <>
+                {visualSlider('side_anomaly_sensitivity', 'Sensitivity', 'How strongly the sphere and its rings react to the music.', 1, 10, 5, '', 0.1)}
+                {visualSlider('side_anomaly_size', 'Size', 'How big the sphere and its rings are in the panel.', 50, 200, 100, '%')}
+                {visualColor('side_anomaly_color', 'Color', "The sphere's and rings' colour.", '#ff4e42')}
+                {visualColor('side_anomaly_bg', 'Background color', 'The colour behind the visualization.', '#000000')}
+              </>}
+            </>
+          )
+        })()}
       </Section>
       )}
 
@@ -2344,13 +2405,41 @@ activeCategory === 'data' ? usersTried
           )
         })()}
         <div className="border-t border-border" />
-        <Row label="Waveform" desc="Moving bars next to the volume while music plays.">
-          <button
-            onClick={() => set('player_waveform', settings.player_waveform === '0' ? '1' : '0')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.player_waveform !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-            {t(settings.player_waveform !== '0' ? 'On' : 'Off')}
-          </button>
-        </Row>
+        {(() => {
+          // Unset, it follows the old on/off Waveform switch.
+          const mode = ['off', 'waveform', 'spectrum', 'waves', 'lightning'].includes(settings.player_visualizer)
+            ? settings.player_visualizer : settings.player_waveform === '0' ? 'off' : 'waveform'
+          return (
+            <>
+              <Row label="Visualization" desc="Moves with the music while it plays: bars beside the volume, a spectrum or two waves under the seek bar standing on the bar's bottom edge, or lightning across the whole bar.">
+                {visualSelect('player_visualizer', mode, [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['waves', 'Waves'], ['lightning', 'Lightning']])}
+              </Row>
+              {mode === 'spectrum' && <>
+                {visualSlider('player_spectrum_bars', 'Number of bars', 'How many bars the spectrum has.', 8, 160, 119)}
+                {visualSlider('player_spectrum_bar_width', 'Bar width', 'The width of each bar. The whole spectrum is as wide as its bars.', 1, 12, 4, ' px')}
+                {visualSlider('player_spectrum_height', 'Height', 'How high the bars can jump.', 10, 90, 76, ' px')}
+                {visualSlider('player_spectrum_strength', 'Strength', 'How strongly the bars react to the music.', 10, 300, 58, '%')}
+                {visualSlider('player_spectrum_opacity', 'Opacity', 'How strongly the spectrum shows.', 5, 100, 20, '%')}
+                {visualColor('player_spectrum_color', 'Color', "The bars' colour: white, one picked from the palette, or the accent colour.", '#ffffff')}
+              </>}
+              {mode === 'waves' && <>
+                {visualSlider('player_waves_width', 'Width', 'How wide the waves are.', 120, 1200, 480, ' px')}
+                {visualSlider('player_waves_height', 'Height', 'How high the waves can rise.', 10, 90, 50, ' px')}
+                {visualSlider('player_waves_strength', 'Strength', 'How strongly the waves react to the music.', 10, 300, 100, '%')}
+                {visualSlider('player_waves_opacity', 'Opacity', 'How strongly the waves show.', 5, 100, 85, '%')}
+                {visualColor('player_waves_color_back', 'Back wave color', 'The colour of the wave behind.', '#38bdf8')}
+                {visualColor('player_waves_color_front', 'Front wave color', 'The colour of the wave in front.', '#f472d0')}
+              </>}
+              {mode === 'lightning' && <>
+                {visualSlider('player_lightning_strength', 'Strength', 'How strongly the lightning reacts to the music.', 10, 300, 150, '%')}
+                {visualSlider('player_lightning_opacity', 'Opacity', 'How strongly the lightning shows.', 5, 100, 10, '%')}
+                {visualColor('player_lightning_color_1', 'Bass line color', 'The line that jumps with the bass and the kicks.', '#ff008b')}
+                {visualColor('player_lightning_color_2', 'Mids line color', 'The line that moves with the mids.', '#c948ff')}
+                {visualColor('player_lightning_color_3', 'Highs line color', 'The line that trembles with the highs.', '#ff94e8')}
+              </>}
+            </>
+          )
+        })()}
       </Section>
       )}
 

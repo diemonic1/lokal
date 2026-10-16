@@ -18,6 +18,10 @@ const GOO_BLUR = 4.6
 const GOO_MATRIX = '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10'
 const FIELD_R = 26
 const EDGE = 24
+// The glow is drawn inside the SVG (a blurred copy of the droplets) with room
+// all round to fade out in, never as a CSS drop-shadow: that one was cut off
+// by the boxes around it and showed as a rectangle.
+const GLOW_EDGE = 90
 
 function calmPreferred() {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -28,10 +32,15 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const modelRef = useRef(null)
   if (!modelRef.current) modelRef.current = createBreakDots()
-  const svgRef = useRef(null)
   const groupRef = useRef(null)
+  const glowRef = useRef(null)
+  const glowBlurRef = useRef(null)
   const gooRefs = useRef([])
+  const glowDotRefs = useRef([])
   const fieldRefs = useRef([])
+
+  // SVG units in one rem: a droplet (R0 * 2 units) is `size` rem across.
+  const unitsPerRem = (R0 * 2) / size
 
   useEffect(() => {
     const model = modelRef.current
@@ -46,31 +55,33 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
       const frame = model.step(getTime(), (now - last) / 1000, { start, end, pulses, calm })
       last = now
       groupRef.current?.setAttribute('opacity', frame.visible ? frame.alpha.toFixed(3) : '0')
-      if (svgRef.current) {
-        svgRef.current.style.filter = frame.glow > 0.02
-          ? `drop-shadow(0 0 ${(0.25 + 0.9 * frame.glow).toFixed(2)}rem rgba(255,255,255,${(0.5 * frame.glow).toFixed(3)}))`
-          : ''
-      }
+      // A soft white halo, wider and brighter as the vocal comes back
+      // (0.25-1.15rem of blur, as the drop-shadow it replaces).
+      const glowing = frame.visible && frame.glow > 0.02
+      glowRef.current?.setAttribute('opacity', glowing ? (frame.alpha * 0.5 * frame.glow).toFixed(3) : '0')
+      if (glowing) glowBlurRef.current?.setAttribute('stdDeviation', (((0.25 + 0.9 * frame.glow) / 2) * unitsPerRem).toFixed(2))
       for (let i = 0; i < DOTS; i++) {
         const d = frame.dots[i]
         const goo = gooRefs.current[i]
+        const glowDot = glowDotRefs.current[i]
         const field = fieldRefs.current[i]
         if (goo) { goo.setAttribute('cx', d.x.toFixed(2)); goo.setAttribute('cy', d.y.toFixed(2)); goo.setAttribute('r', d.r.toFixed(2)) }
+        if (glowDot) { glowDot.setAttribute('cx', d.x.toFixed(2)); glowDot.setAttribute('cy', d.y.toFixed(2)); glowDot.setAttribute('r', d.r.toFixed(2)) }
         if (field) { field.setAttribute('cx', d.x.toFixed(2)); field.setAttribute('cy', d.y.toFixed(2)); field.setAttribute('fill-opacity', d.b.toFixed(3)) }
       }
     }
     tick()
     return () => cancelAnimationFrame(raf)
-  }, [active, start, end, getTime, pulses])
+  }, [active, start, end, getTime, pulses, unitsPerRem])
 
   const scale = size / (R0 * 2)
   const trim = `${-(PAD - R0) * scale}rem`
   const box = { x: -EDGE, y: -EDGE, width: WIDTH + EDGE * 2, height: HEIGHT + EDGE * 2 }
+  const glowBox = { x: -GLOW_EDGE, y: -GLOW_EDGE, width: WIDTH + GLOW_EDGE * 2, height: HEIGHT + GLOW_EDGE * 2 }
   const rest = (i) => WIDTH / 2 + (i - (DOTS - 1) / 2) * S0
 
   return (
     <svg
-      ref={svgRef}
       role="img"
       aria-label={t(label)}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -82,6 +93,9 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
         <filter id={`${id}-goo`} filterUnits="userSpaceOnUse" {...box} colorInterpolationFilters="sRGB">
           <feGaussianBlur in="SourceGraphic" stdDeviation={GOO_BLUR} result="blur" />
           <feColorMatrix in="blur" type="matrix" values={GOO_MATRIX} />
+        </filter>
+        <filter id={`${id}-glow`} filterUnits="userSpaceOnUse" {...glowBox} colorInterpolationFilters="sRGB">
+          <feGaussianBlur ref={glowBlurRef} in="SourceGraphic" stdDeviation="8" />
         </filter>
         <radialGradient id={`${id}-light`}>
           <stop offset="0" stopColor="#fff" stopOpacity="1" />
@@ -96,6 +110,11 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
           </g>
         </mask>
       </defs>
+      <g ref={glowRef} filter={`url(#${id}-glow)`} opacity="0">
+        {Array.from({ length: DOTS }, (_, i) => (
+          <circle key={i} ref={el => { glowDotRefs.current[i] = el }} cx={rest(i)} cy={HEIGHT / 2} r={R0 * 0.78} fill="#fff" />
+        ))}
+      </g>
       <g ref={groupRef} mask={`url(#${id}-shape)`} opacity="0">
         {Array.from({ length: DOTS }, (_, i) => (
           <circle key={i} ref={el => { fieldRefs.current[i] = el }} cx={rest(i)} cy={HEIGHT / 2} r={FIELD_R} fill={`url(#${id}-light)`} fillOpacity="0.3" />

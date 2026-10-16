@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electron', {
   getWindowSize: () => invoke('window:getSize'),
   fitMiniHeight: (height) => invoke('window:fitMiniHeight', height),
   refreshHitRegions: () => invoke('window:refreshHitRegions'),
+  dragStart: () => ipcRenderer.send('window:dragStart'),
+  dragEnd: () => ipcRenderer.send('window:dragEnd'),
   onNavigationHistory: (fn) => on('navigation:history', (_, direction) => fn(direction)),
   onWindowVisibility: (fn) => on('window:visibility', (_, hidden) => fn(!!hidden)),
   isWindowHidden: () => invoke('window:isHidden'),

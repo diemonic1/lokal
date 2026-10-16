@@ -55,3 +55,45 @@ export function createLoudness(size = 256) {
   }
   return state
 }
+
+/**
+ * Splits the analyser's spectrum into `count` slices, narrow in the bass and
+ * wider towards the highs (as ears hear it), up to `topHz`. Returns
+ * [from, to] bin positions (fractional) for sliceLevel.
+ */
+export function spectrumSlices(analyser, count, { topHz = 16000, curve = 1.8 } = {}) {
+  const bins = analyser.frequencyBinCount
+  const nyquist = (analyser.context?.sampleRate || 44100) / 2
+  const top = Math.min(bins - 1, topHz / (nyquist / bins))
+  const at = share => top * Math.pow(share, curve)
+  return Array.from({ length: count }, (_, i) => [at(i / count), at((i + 1) / count)])
+}
+
+/**
+ * One slice's level (0-255) from getByteFrequencyData's `data`: its loudest
+ * bin, or for a slice narrower than a bin (the analyser has only 128) a
+ * reading between its two nearest bins, so neighbouring bass slices don't all
+ * show the same bin.
+ */
+export function sliceLevel(data, [from, to]) {
+  if (to - from < 1) {
+    const pos = (from + to) / 2
+    const bin = Math.floor(pos)
+    const next = Math.min(data.length - 1, bin + 1)
+    return data[bin] + (data[next] - data[bin]) * (pos - bin)
+  }
+  let peak = 0
+  for (let b = Math.floor(from); b <= Math.min(data.length - 1, Math.ceil(to)); b++) if (data[b] > peak) peak = data[b]
+  return peak
+}
+
+/** The accent colour as #rrggbb (for canvases, which can't read CSS variables). */
+export function accentColor(fallback = '#ffffff') {
+  return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || fallback
+}
+
+/** `color` when it's #rrggbb, else `fallback` ('accent' is the accent colour). */
+export function pickColor(color, fallback) {
+  if (/^#[0-9a-f]{6}$/i.test(color || '')) return color
+  return color === 'accent' ? accentColor() : fallback
+}

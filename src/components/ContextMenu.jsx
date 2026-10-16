@@ -6,10 +6,12 @@
 //   <div onContextMenu={(e) => menu.open(e, items)} />
 //   <ContextMenu menu={menu} />
 //
-// items: [{ label, icon: LucideIcon, onSelect, danger, disabled, hint }, { separator: true }, ...]
+// items: [{ label, icon: LucideIcon, onSelect, danger, disabled, hint, checked }, { separator: true }, ...]
+// checked: the current choice of a set (a tick, in the accent colour).
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Check } from 'lucide-react'
 import { useTranslation } from '../i18n'
 
 export function useContextMenu() {
@@ -105,15 +107,17 @@ export default function ContextMenu({ menu, id }) {
         <button
           key={item.label}
           type="button"
-          role="menuitem"
+          role={item.checked != null ? 'menuitemradio' : 'menuitem'}
+          aria-checked={item.checked != null ? !!item.checked : undefined}
           disabled={item.disabled}
           onClick={() => pick(item)}
           onMouseEnter={() => setActive(item.disabled ? -1 : index)}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-default disabled:opacity-40 ${active === index ? (item.danger ? 'bg-red-500/15 text-red-300' : 'bg-white/10 text-white') : item.danger ? 'text-red-400' : 'text-white/85'}`}
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-default disabled:opacity-40 ${active === index ? (item.danger ? 'bg-red-500/15 text-red-300' : 'bg-white/10 text-white') : item.danger ? 'text-red-400' : item.checked ? 'text-accent' : 'text-white/85'}`}
         >
           {item.icon && <item.icon size={14} className="flex-shrink-0 opacity-80" />}
           <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
           {item.hint && <span className="flex-shrink-0 text-[11px] text-muted">{t(item.hint)}</span>}
+          {item.checked && <Check size={14} className="flex-shrink-0 text-accent" />}
         </button>
       ))}
     </div>,

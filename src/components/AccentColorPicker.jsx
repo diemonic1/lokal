@@ -13,8 +13,9 @@ export function dimHex(hex, amount = 0.12) {
 const isHex = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
 
 // A swatch button that opens a colour palette with a hex field. Changes are
-// applied while dragging and saved once the colour settles.
-export default function AccentColorPicker({ value, active, onChange }) {
+// applied while dragging and saved once the colour settles. `align="right"`
+// opens the palette leftwards, for a swatch at the right edge.
+export default function AccentColorPicker({ value, active, onChange, align = 'left' }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [color, setColor] = useState(isHex(value) ? value : '#c8ff57')
@@ -59,7 +60,7 @@ export default function AccentColorPicker({ value, active, onChange }) {
         <Pipette size={14} className="text-black/70 drop-shadow" />
       </button>
       {open && (
-        <div className="absolute z-50 left-0 top-10 p-3 rounded-xl bg-elevated border border-border shadow-2xl accent-color-picker">
+        <div className={`absolute z-50 ${align === 'right' ? 'right-0' : 'left-0'} top-10 p-3 rounded-xl bg-elevated border border-border shadow-2xl accent-color-picker`}>
           <HexColorPicker color={color} onChange={pick} />
           <div className="mt-3 flex items-center gap-2">
             <div className="w-7 h-7 rounded-md border border-border shrink-0" style={{ background: color }} />

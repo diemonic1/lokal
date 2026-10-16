@@ -6,19 +6,58 @@ import { useTranslation } from '../i18n'
 import HeaderSearch from './HeaderSearch'
 import { DownloadManagerPanel, DownloadsButton } from './DownloadManager'
 
+// What in a `.titlebar` is pressed rather than dragged.
+const NO_DRAG = 'button, input, select, textarea, a, [role="menu"], [role="listbox"], [data-no-drag]'
+
+/**
+ * The header's drag when the native one misses. A press on an empty bit of a
+ * `.titlebar` normally never reaches the page (Windows takes it as a window
+ * drag); when it does, the hit-test map is stale or something unseen covers
+ * it, so the main process moves the window with the cursor instead (and
+ * a double press maximizes, like the real title bar).
+ */
+function useWindowDragFallback(enabled) {
+  React.useEffect(() => {
+    const electron = window.electron
+    if (!enabled || !electron?.dragStart) return undefined
+    let dragging = false
+    const end = () => { if (dragging) { dragging = false; electron.dragEnd() } }
+    const onDown = (event) => {
+      if (event.button !== 0) return
+      const target = event.target
+      if (!target?.closest?.('.titlebar') || target.closest(NO_DRAG)) return
+      event.preventDefault()
+      if (event.detail === 2) { end(); electron.maximize(); return }
+      dragging = true
+      electron.dragStart()
+    }
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('mouseup', end)
+    window.addEventListener('blur', end)
+    return () => {
+      end()
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('mouseup', end)
+      window.removeEventListener('blur', end)
+    }
+  }, [enabled])
+}
+
 /**
  * The window header: on the left the app name (the draggable part in the
  * desktop app) with Settings and Downloads right after it, close to the
  * sidebar and search (Settings nearer the edge: the downloads panel opens
  * inwards, to the right, so Settings stays in reach); the Home button and
  * search in the middle; the window controls on the right. In the browser it's
- * the same bar without the window controls.
+ * the same bar without the window controls. Every empty bit of it (and of the
+ * tab row under it) drags the window.
  */
 export default function TitleBar() {
   const { t } = useTranslation()
   const desktop = api.isElectron
   const nav = useNavigate()
   const onSettings = useLocation().pathname === '/settings'
+  useWindowDragFallback(desktop)
   return (
     <div
       className={`${desktop ? 'titlebar' : ''} relative z-40 h-[35px] grid items-center gap-3 px-3 pt-2 flex-shrink-0`}

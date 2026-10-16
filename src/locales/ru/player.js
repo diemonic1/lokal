@@ -218,6 +218,8 @@ export default {
 
   // Side panel
   'Visualization': 'Визуализация',
+  'Side panel view': 'Вкладка боковой панели',
   'Time-synced': 'Синхронный',
   'Not synced': 'Несинхронный',
+  'Instrumental track: no lyrics': 'Инструментальный трек, текста нет',
 }

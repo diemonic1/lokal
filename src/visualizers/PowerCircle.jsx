@@ -160,12 +160,13 @@ function drawPolygon(ctx, points) {
   ctx.closePath()
 }
 
-function drawScene(ctx, scene, loud) {
+function drawScene(ctx, scene, loud, background = '#000000') {
   const { circle, nodes, width, height } = scene
 
-  // Background: black, a little lighter on loud parts.
+  // Background: the chosen colour (black), a little lighter on loud parts.
   const shade = (17 * (Math.min(50, 256 * loud.firstOrder) / 50)) | 0
-  ctx.fillStyle = `rgb(${shade},${shade},${shade})`
+  const [r, g, b] = [1, 3, 5].map(i => Math.min(255, parseInt(background.slice(i, i + 2), 16) + shade))
+  ctx.fillStyle = `rgb(${r},${g},${b})`
   ctx.fillRect(0, 0, width, height)
 
   // Lines from the dots near the face to its centre.
@@ -249,9 +250,12 @@ function drawScene(ctx, scene, loud) {
   ctx.restore()
 }
 
-export default function PowerCircle({ className = '' }) {
+export default function PowerCircle({ className = '', background = '#000000' }) {
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
+  // Read each frame, so a new colour applies without restarting the scene.
+  const backgroundRef = useRef(background)
+  backgroundRef.current = /^#[0-9a-f]{6}$/i.test(background) ? background : '#000000'
 
   useEffect(() => {
     const wrap = wrapRef.current
@@ -276,7 +280,7 @@ export default function PowerCircle({ className = '' }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       if (!scene) scene = makeScene(width, height, inset)
       else resizeScene(scene, width, height, inset)
-      if (!frame) drawScene(ctx, scene, feel)
+      if (!frame) drawScene(ctx, scene, feel, backgroundRef.current)
     }
 
     const tick = (now) => {
@@ -288,7 +292,7 @@ export default function PowerCircle({ className = '' }) {
         calmFloor(loud, feel, now)
         updateScene(scene, feel, dt, pointer, now)
       }
-      drawScene(ctx, scene, feel)
+      drawScene(ctx, scene, feel, backgroundRef.current)
       frame = requestAnimationFrame(tick)
     }
 

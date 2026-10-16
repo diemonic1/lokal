@@ -105,7 +105,7 @@ html[data-theme="light"] [class*="bg-black"] :is(.bg-base, .bg-surface, .bg-elev
 ::-webkit-scrollbar-thumb:hover { background: var(--muted2); }
 
 .titlebar { -webkit-app-region: drag; }
-input, button, select, textarea { -webkit-app-region: no-drag; }
+input, button, select, textarea, [data-no-drag] { -webkit-app-region: no-drag; }
 
 .wave-loader {
   display: flex;
