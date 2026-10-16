@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom'
 import { Check } from 'lucide-react'
 import { useTranslation } from '../i18n'
+import { scrollClosesMenu } from '../menuScroll'
 
 export function useContextMenu() {
   const [state, setState] = useState(null) // { x, y, items }
@@ -62,14 +63,15 @@ export default function ContextMenu({ menu, id }) {
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('resize', close)
     window.addEventListener('blur', close)
-    document.addEventListener('scroll', close, true)
+    const onScroll = (event) => { if (scrollClosesMenu(event, [ref.current])) close() }
+    document.addEventListener('scroll', onScroll, true)
     return () => {
       window.removeEventListener('mousedown', onPointer, true)
       window.removeEventListener('contextmenu', onPointer, true)
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('resize', close)
       window.removeEventListener('blur', close)
-      document.removeEventListener('scroll', close, true)
+      document.removeEventListener('scroll', onScroll, true)
     }
   }, [state, close])
 

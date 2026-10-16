@@ -76,6 +76,7 @@ const SORT_OPTIONS = [
   ['track_num ASC', 'Track number', '↑'],
   ['track_num DESC', 'Track number', '↓'],
   ['lyrics ASC', 'Lyrics'],
+  ['clip ASC', 'Music video'],
 ]
 const SORTS = SORT_OPTIONS.map(([value]) => value)
 const SOURCES = ['all', 'local', 'yt', 'sc', 'addon', 'soulseek', 'web']

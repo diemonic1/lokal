@@ -404,4 +404,5 @@ export default {
   'Where the loop starts: seconds or minutes:seconds': 'Начало зацикливания: секунды или минуты:секунды',
   'Where the loop ends: seconds or minutes:seconds': 'Конец зацикливания: секунды или минуты:секунды',
   'A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the video’s middle third when neither is.': 'Ссылка на видео (YouTube или любой сайт с видео) или путь к видеофайлу. Клип без звука зацикливается на вкладке «Визуализация + текст» правой панели вместо канваса: между двумя временами (75 или 1:15), 10 секунд от начала, если указано только оно, или средняя треть видео, если не указано ничего.',
+  'How far the video is zoomed in, in the side panel': 'Насколько приближен клип в боковой панели',
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { trackArtistParts, navigateToArtistName } from '../artistLink'
+import { setSplitWords } from '../artistNames'
 import { useTranslation } from '../i18n'
 
 // The user's "keep the comma" artists, read once for every list on screen
@@ -22,11 +23,32 @@ function loadKeepComma() {
   return keepCommaRequest
 }
 
+// The user's separator words (Settings > Separator Words): read once, then
+// every credit on screen is split again with them.
+let splitWordsRequest = null
+function applySplitWords(words) {
+  setSplitWords(words)
+  // A new list (same names) so each credit reads itself again.
+  if (!keepCommaCache) return
+  keepCommaCache = [...keepCommaCache]
+  keepCommaListeners.forEach(listener => listener(keepCommaCache))
+}
+function loadSplitWords() {
+  if (splitWordsRequest) return splitWordsRequest
+  splitWordsRequest = Promise.resolve(api.getArtistSplitWords?.()).then(result => {
+    if (Array.isArray(result?.words) && result.words.length) applySplitWords(result.words)
+  }).catch(() => {})
+  return splitWordsRequest
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('lokal:comma-artists-updated', (event) => {
     if (!Array.isArray(event.detail)) return
     keepCommaCache = event.detail
     keepCommaListeners.forEach(listener => listener(event.detail))
+  })
+  window.addEventListener('lokal:split-words-updated', (event) => {
+    if (Array.isArray(event.detail)) applySplitWords(event.detail)
   })
 }
 
@@ -34,6 +56,7 @@ export function useKeepCommaArtists() {
   const [list, setList] = useState(keepCommaCache || [])
   useEffect(() => {
     keepCommaListeners.add(setList)
+    loadSplitWords()
     if (!keepCommaCache) loadKeepComma()
     return () => { keepCommaListeners.delete(setList) }
   }, [])

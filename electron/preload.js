@@ -327,6 +327,8 @@ contextBridge.exposeInMainWorld('electron', {
   getKeepCommaArtists: () => invoke('settings:getKeepCommaArtists'),
 
   setKeepCommaArtists: (artists) => invoke('settings:setKeepCommaArtists', artists),
+  getArtistSplitWords: () => invoke('settings:getArtistSplitWords'),
+  setArtistSplitWords: (words) => invoke('settings:setArtistSplitWords', words),
   getTheme: () => invoke('settings:getTheme'),
   saveTheme: (theme, overrides) => invoke('settings:saveTheme', { theme, overrides }),
   reportRemoteState: (state) => ipcRenderer.send('remote:stateUpdate', state),

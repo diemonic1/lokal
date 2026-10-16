@@ -617,4 +617,11 @@ export default {
   'How far the bars can reach up, and as far down, from the line through the buttons.': 'Насколько высоко полосы поднимаются (и так же опускаются) от линии через кнопки.',
   'Lyrics offset from the picture': 'Отступ текста от визуализации',
   "Visualization + Lyrics tab of the side panel: how far below the picture (canvas, video or visualization) the lyrics start. Negative values move them up over the picture; 0 is right under it.": 'Вкладка «Визуализация + текст» правой панели: насколько ниже картинки (канваса, клипа или визуализации) начинается текст. Отрицательные значения поднимают текст на картинку; 0 — сразу под ней.',
+  'Separator Words': 'Слова-разделители',
+  'Words that credit a second artist, like feat., remix or prod.: add your own to split credits by them too.': 'Слова, после которых идёт ещё один исполнитель, как feat., remix или prod.: добавьте свои, чтобы исполнители разделялись и по ним.',
+  'A word here between two artists, or in brackets with one of them, credits that artist too: with "with" added, "A with B", "A (with B)" and "A (B with)" are the artists A and B. A dot at the end is optional.': 'Слово отсюда между двумя исполнителями или в скобках рядом с одним из них делает его отдельным исполнителем: если добавить «with», то «A with B», «A (with B)» и «A (B with)» — это исполнители A и B. Точка в конце необязательна.',
+  'Always on': 'Работают всегда',
+  'Your words': 'Ваши слова',
+  'e.g. with': 'например, with',
+  'Add a word': 'Добавить слово',
 }

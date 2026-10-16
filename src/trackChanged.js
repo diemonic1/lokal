@@ -42,6 +42,12 @@ export function libraryComparator(sort) {
       || binary(nocase(a.artist), nocase(b.artist))
       || binary(nocase(a.title), nocase(b.title))
   }
+  if (/^clip/i.test(value)) {
+    const noClip = track => (String(track?.clip_url ?? '').trim() ? 0 : 1)
+    return (a, b) => (noClip(a) - noClip(b))
+      || binary(nocase(a.artist), nocase(b.artist))
+      || binary(nocase(a.title), nocase(b.title))
+  }
   const [column, direction] = value.split(/\s+/)
   const desc = /^desc$/i.test(direction || '')
   return (a, b) => byValue(a?.[column], b?.[column], desc)

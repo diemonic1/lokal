@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban } from 'lucide-react'
 import ContextMenu, { useContextMenu } from './ContextMenu'
@@ -12,6 +13,7 @@ import { announceTrackChanged } from '../trackChanged'
 import { usePlayerStore } from '../store/player'
 import { isStationTrack, lyricsTrackFor, stationClockUnknown, stationSongTime } from '../radio/stations'
 import { useTranslation } from '../i18n'
+import { markAutoScroll } from '../menuScroll'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
 import {
   canGrow, growLetters, unitProgress, unitLift, activeRows, focusRow, stillSinging, lineEndOf, groupUnits, withOutroBreak,
@@ -330,15 +332,40 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
   const [confirmId, setConfirmId] = useState(null)
   useEffect(() => { if (!open) setConfirmId(null) }, [open])
   const ref = useRef(null)
+  const panelRef = useRef(null)
   // The toolbar hid (full screen idle): the menu goes with it rather than
   // staying up, unclickable, over the lyrics.
   useEffect(() => { if (hidden) setOpen(false) }, [hidden])
   useEffect(() => {
     if (!open) return
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const close = (e) => { if (!ref.current?.contains(e.target) && !panelRef.current?.contains(e.target)) setOpen(false) }
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
   }, [open])
+  // In a portal, placed by the button: the lyrics panel's own edges cut the
+  // list off. It opens on the side with more room and scrolls past that.
+  const [place, setPlace] = useState(null)
+  useLayoutEffect(() => {
+    if (!open) { setPlace(null); return undefined }
+    const measure = () => {
+      const anchor = ref.current?.getBoundingClientRect()
+      if (!anchor) return
+      const margin = 8
+      const below = window.innerHeight - anchor.bottom - margin - 6
+      const above = anchor.top - margin - 6
+      const up = openUp ? above >= 160 || above > below : below < 260 && above > below
+      setPlace({
+        right: Math.max(margin, window.innerWidth - anchor.right),
+        top: up ? undefined : anchor.bottom + 6,
+        bottom: up ? window.innerHeight - anchor.top + 6 : undefined,
+        maxHeight: Math.max(120, up ? above : below),
+        up,
+      })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [open, openUp])
   const label = sources.find(s => s.id === current)?.label || current
   return (
     // It takes the room left beside Translate/Romanize and shortens the
@@ -354,14 +381,16 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
         <span className="min-w-0 max-w-[9rem] truncate">{label || (searching ? t('Searching...') : t('Source'))}</span>
         <ChevronDown size={11} className="flex-shrink-0" />
       </button>
-      <AnimatePresence>
-        {open && (
+      {createPortal(<AnimatePresence>
+        {open && place && (
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            ref={panelRef}
+            initial={{ opacity: 0, y: place.up ? 4 : -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            exit={{ opacity: 0, y: place.up ? 4 : -4, scale: 0.98 }}
             transition={{ duration: 0.14 }}
-            className={`absolute right-0 ${openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-30 w-64 rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-1`}
+            style={{ right: place.right, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight, WebkitAppRegion: 'no-drag' }}
+            className="fixed z-[200] w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-1"
           >
             <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/35">{t('Try another source')}</p>
             {sources.map(s => {
@@ -419,7 +448,7 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
       <ContextMenu menu={actions} />
       <Modal open={!!ask} onClose={() => setAsk(null)} title={ask?.kind === 'reject' ? t('Remove wrong lyrics?') : t('Insert into track?')} width="max-w-sm">
         <div className="space-y-4">
@@ -778,6 +807,7 @@ export default function LyricsPanel({
     const target = Math.min(maxScroll, Math.max(0, refs.rowEl.offsetTop - container.clientHeight * anchorFraction))
     const before = container.scrollTop
     if (Math.abs(target - before) < 1) return
+    markAutoScroll(container)
     if (instant || Math.abs(target - before) > container.clientHeight * 1.5) {
       container.scrollTop = target
       return
@@ -1112,7 +1142,7 @@ export default function LyricsPanel({
             style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
           >
             <div tabIndex={0} aria-label={noLyricsNote}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white/60 backdrop-blur-md transition-colors hover:text-white focus-visible:text-white outline-none">
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.06] bg-black/30 text-white/35 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white focus-visible:bg-black/60 focus-visible:text-white outline-none">
               <Music size={14} />
             </div>
             <div role="tooltip"

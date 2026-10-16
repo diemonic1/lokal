@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Check, Play, Music, Settings, Camera, Share2, Radio, Globe } from 'lucide-react'
+import { ArrowLeft, Check, Play, Music, Settings, Camera, Share2, Radio, Globe, ChevronDown, ChevronUp } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import TrackList from '../components/TrackList'
 import ArtistManageModal from '../components/ArtistManageModal'
@@ -36,6 +36,10 @@ export default function Artist() {
   // this, that track silently fails to highlight with no visible fallback.
   const [standaloneTrack, setStandaloneTrack] = useState(null)
   const [showManage, setShowManage] = useState(false)
+  // "Popular" holds the five most played; "Show all tracks" lists every song
+  // of theirs there, most played first.
+  const [allTracks, setAllTracks] = useState(false)
+  useEffect(() => { setAllTracks(false) }, [id])
   // Not in the library, or only as streamed songs (a streamed song's artist
   // shortcut): their page online instead.
   const [online, setOnline] = useState(false)
@@ -185,6 +189,12 @@ export default function Artist() {
     return releaseTypeCounts([...releaseList, ...online])
   }, [releaseList, connected, onlineData.albums.items])
 
+  const ownedTracks = (artist?.tracks || []).filter(track => !String(track.file_path || '').startsWith('ghost://'))
+  const popularTracks = allTracks
+    ? [...ownedTracks].sort((a, b) => (Number(b.play_count) || 0) - (Number(a.play_count) || 0))
+    : artist?.topTracks || []
+  const canShowAll = ownedTracks.length > (artist?.topTracks?.length || 0)
+
   if (online) return <OnlineArtist key={id} id={id} name={onlineNames.current[id]?.name} anchor={onlineNames.current[id]?.anchor} />
   if (!artist) return <div className="p-6 text-muted text-sm">{t('Loading...')}</div>
 
@@ -289,7 +299,14 @@ export default function Artist() {
         {artist.topTracks?.length > 0 && (
           <section>
             <h2 className="mb-3 text-xs font-display uppercase tracking-widest text-muted">{t('Popular')}</h2>
-            <TrackList tracks={artist.topTracks} context={artistContext} highlightTrackId={highlightTrackId} highlightRequestKey={highlightRequestKey} />
+            <TrackList tracks={popularTracks} context={artistContext} highlightTrackId={highlightTrackId} highlightRequestKey={highlightRequestKey} />
+            {canShowAll && (
+              <button onClick={() => setAllTracks(value => !value)} aria-expanded={allTracks}
+                className="mt-2 flex items-center gap-1.5 rounded-full border border-border bg-elevated px-4 py-1.5 text-xs text-white/70 transition-colors hover:border-accent/30 hover:text-white">
+                {allTracks ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {allTracks ? t('Show less') : t('Show all tracks ({n})', { n: ownedTracks.length })}
+              </button>
+            )}
           </section>
         )}
 

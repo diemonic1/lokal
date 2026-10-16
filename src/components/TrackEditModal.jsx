@@ -8,7 +8,7 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
-import { clipTimeInput, clipVideoLink, formatClipTime, parseClipTime } from '../clipVideo'
+import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClipZoom } from '../clipVideo'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -49,6 +49,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     clip_url: '',
     clip_start: '',
     clip_end: '',
+    clip_zoom: 0,
     danceability: '',
     energy: '',
     track_key: '',
@@ -115,6 +116,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         clip_url: track.clip_url || '',
         clip_start: formatClipTime(track.clip_start),
         clip_end: formatClipTime(track.clip_end),
+        clip_zoom: clipZoomPercent(track.clip_zoom),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
         track_key: asInput(track.track_key),
@@ -140,7 +142,15 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    // The video's zoom shows on it at once while this window is open.
+    if (field === 'clip_zoom' && track?.id != null) previewClipZoom(track.id, value)
   }
+  // Closed (saved or not) or another song: the video goes back to its saved zoom.
+  useEffect(() => {
+    const id = track?.id
+    if (!open || id == null) return undefined
+    return () => previewClipZoom(id, null)
+  }, [open, track?.id])
 
   const handleSelectArtwork = async () => {
     if (!api.isElectron) return
@@ -214,6 +224,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (clipUrl !== (track.clip_url || '')) updateData.clip_url = clipUrl || null
       if (clipStart !== (track.clip_start ?? null)) updateData.clip_start = clipStart
       if (clipEnd !== (track.clip_end ?? null)) updateData.clip_end = clipEnd
+      const clipZoom = clipZoomPercent(formData.clip_zoom)
+      if (clipZoom !== clipZoomPercent(track.clip_zoom)) updateData.clip_zoom = clipZoom || null
       if (String(formData.danceability) !== String(track.danceability ?? '')) updateData.danceability = parseNumberField(formData.danceability)
       if (String(formData.energy) !== String(track.energy ?? '')) updateData.energy = parseNumberField(formData.energy)
       if (String(formData.track_key) !== String(track.track_key ?? '')) updateData.track_key = parseIntegerField(formData.track_key)
@@ -312,8 +324,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   // Lyrics on the left, tags on the right; Close and Save stay at the bottom
   // whatever is scrolled.
   return (
-    <Modal open={open} onClose={onClose} title={t('Edit Track')} width={showLyrics ? 'max-w-6xl' : 'max-w-2xl'}>
-      <div className="flex h-[min(46rem,calc(100vh-8rem))] flex-col gap-3">
+    <Modal open={open} onClose={onClose} title={t('Edit Track')} width={showLyrics ? 'max-w-6xl' : 'max-w-2xl'} clearBackdrop>
+      <div className="flex h-[min(calc(46rem+50px),calc(100vh-8rem))] flex-col gap-3">
         <div className={`grid min-h-0 flex-1 gap-4 ${showLyrics ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
           {showLyrics && (
             <div className="flex min-h-0 flex-col">
@@ -424,6 +436,21 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   placeholder={t('Start')} title={t('Where the loop starts: seconds or minutes:seconds')} aria-label={t('Where the loop starts: seconds or minutes:seconds')} />
                 <input inputMode="numeric" value={formData.clip_end} onChange={(e) => handleChange('clip_end', clipTimeInput(e.target.value))} className={field}
                   placeholder={t('End')} title={t('Where the loop ends: seconds or minutes:seconds')} aria-label={t('Where the loop ends: seconds or minutes:seconds')} />
+              </div>
+              {/* How far it's zoomed in, in the side panel: a slider and the same number typed. */}
+              <div className="mt-2 flex items-center gap-3" title={t('How far the video is zoomed in, in the side panel')}>
+                <span className="flex-shrink-0 text-xs text-muted">{t('Zoom')}</span>
+                <input type="range" min={0} max={CLIP_ZOOM_MAX} step={1} value={formData.clip_zoom}
+                  onChange={(e) => handleChange('clip_zoom', clipZoomPercent(e.target.value))}
+                  aria-label={t('How far the video is zoomed in, in the side panel')}
+                  className="min-w-0 flex-1 accent-accent" />
+                <div className="flex flex-shrink-0 items-center gap-1">
+                  <input inputMode="numeric" value={formData.clip_zoom}
+                    onChange={(e) => handleChange('clip_zoom', clipZoomPercent(e.target.value.replace(/[^0-9]/g, '') || 0))}
+                    aria-label={t('How far the video is zoomed in, in the side panel')}
+                    className={`${field} w-14 text-center`} />
+                  <span className="text-xs text-muted">%</span>
+                </div>
               </div>
               <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the video’s middle third when neither is.')}</p>
             </div>

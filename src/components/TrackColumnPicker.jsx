@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { scrollClosesMenu } from '../menuScroll'
 import { Columns3, GripVertical, LockKeyhole } from 'lucide-react'
 import { ALWAYS_SHOWN, ROW_GAP, ROW_SIZE, TRACK_COLUMN_DEFS } from '../trackColumns'
 import { useTranslation } from '../i18n'
@@ -58,7 +59,7 @@ export default function TrackColumnPicker({
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true) }
     }
     const resize = () => close(true)
-    const scroll = event => { if (!panel.current?.contains(event.target)) close() }
+    const scroll = event => { if (scrollClosesMenu(event, [panel.current])) close() }
     document.addEventListener('pointerdown', outside)
     document.addEventListener('focusin', outside)
     document.addEventListener('keydown', escape, true)

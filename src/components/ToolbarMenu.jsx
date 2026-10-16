@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { scrollClosesMenu } from '../menuScroll'
 
 /**
  * A song list toolbar button (same look as Columns) that opens a small
@@ -38,7 +39,7 @@ export default function ToolbarMenu({ icon: Icon, label, badge = null, active = 
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true) }
     }
     const resize = () => close(true)
-    const scroll = event => { if (!panel.current?.contains(event.target)) close() }
+    const scroll = event => { if (scrollClosesMenu(event, [panel.current])) close() }
     document.addEventListener('pointerdown', outside)
     document.addEventListener('keydown', escape, true)
     document.addEventListener('scroll', scroll, true)

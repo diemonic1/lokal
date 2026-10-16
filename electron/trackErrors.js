@@ -33,9 +33,12 @@ function trackErrors(db) {
 const SORT = /^(id|added_at|title|artist|album|album_artist|play_count|duration|year|last_modified|bitrate|track_num)(\s+(ASC|DESC))?$/i
 // "lyrics": songs without lyrics in the file first, then plain, then synced.
 const LYRICS_SORT = "CASE lyrics_kind WHEN 'sync' THEN 3 WHEN 'plain' THEN 2 WHEN 'instrumental' THEN 1 WHEN 'unfound' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
+// "clip": songs with a music video set (Edit Track > Clip) first, then the rest.
+const CLIP_SORT = "CASE WHEN TRIM(COALESCE(clip_url, '')) <> '' THEN 0 ELSE 1 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
 const safeSort = value => {
   const v = String(value || '').trim()
   if (/^lyrics(\s+ASC)?$/i.test(v)) return LYRICS_SORT
+  if (/^clip(\s+ASC)?$/i.test(v)) return CLIP_SORT
   return SORT.test(v) ? v : 'added_at DESC'
 }
 const truthy = value => value === true || value === 'true' || value === '1' || value === 1

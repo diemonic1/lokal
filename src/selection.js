@@ -3,8 +3,9 @@
 // click never selects (it clears the selection and does the item's usual
 // thing), so nothing gets selected by accident. With a
 // selection, Ctrl/Cmd+A selects everything, Escape clears it and Delete
-// (or Backspace) calls onDelete. A right click on an unselected item
-// selects just that one first, so the menu acts on what's highlighted.
+// (or Backspace) calls onDelete. A right click never starts a selection: on
+// a selected item its menu acts on the selection, on any other item on just
+// that one (and the selection, which it isn't part of, is let go).
 // One selection at a time: starting one (say in an artist's releases)
 // clears any other on the page (their popular songs), so there's only ever
 // one selection bar and it's clear what it acts on.
@@ -86,12 +87,11 @@ export function useSelection(keys, { onDelete } = {}) {
     return false
   }, [keyList])
 
-  /** A right click: keeps the selection if the item is in it, else selects just it. */
+  /** A right click: the selection if the item is in it, else just the item (selecting nothing). */
   const contextSelect = useCallback((key) => {
     key = String(key)
     if (selected.has(key)) return [...selected]
-    anchor.current = key
-    setSelected(new Set([key]))
+    if (selected.size) { anchor.current = null; setSelected(new Set()) }
     return [key]
   }, [selected])
 

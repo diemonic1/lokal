@@ -57,11 +57,44 @@ export function formatClipTime(seconds) {
 
 const timeOf = value => (value == null || value === '' || !Number.isFinite(Number(value)) ? null : Math.max(0, Number(value)))
 
-/** { link, start, end } for a song with a video (either time may be null: see clipRange). */
+export const CLIP_ZOOM_MAX = 50
+
+// The zoom being tried in Edit Track, shown on the video at once: trackId ->
+// percent while the window is open, gone when it closes (saved or not).
+const zoomPreviews = new Map()
+const zoomListeners = new Set()
+
+/** Show the video of `trackId` at `zoom` % for now; null ends the preview. */
+export function previewClipZoom(trackId, zoom) {
+  if (trackId == null) return
+  const key = String(trackId)
+  if (zoom == null) { if (!zoomPreviews.delete(key)) return }
+  else zoomPreviews.set(key, clipZoomPercent(zoom))
+  zoomListeners.forEach(listener => listener())
+}
+
+/** The zoom being tried for this song, or null. */
+export function clipZoomPreview(trackId) {
+  return trackId == null ? null : zoomPreviews.get(String(trackId)) ?? null
+}
+
+/** Calls `listener` whenever a preview starts, changes or ends. -> unsubscribe */
+export function onClipZoomPreview(listener) {
+  zoomListeners.add(listener)
+  return () => { zoomListeners.delete(listener) }
+}
+
+/** The zoom as a whole percent, 0-50 (anything else: 0). */
+export function clipZoomPercent(value) {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.max(0, Math.min(CLIP_ZOOM_MAX, n)) : 0
+}
+
+/** { link, start, end, zoom } for a song with a video (either time may be null: see clipRange; zoom 0-50 %). */
 export function trackClipLoop(track) {
   const link = clipVideoLink(track?.clip_url)
   if (!link) return null
-  return { link, start: timeOf(track?.clip_start), end: timeOf(track?.clip_end) }
+  return { link, start: timeOf(track?.clip_start), end: timeOf(track?.clip_end), zoom: clipZoomPercent(track?.clip_zoom) }
 }
 
 /** The seconds that loop, once the video's length is known (Infinity / NaN: unknown). */

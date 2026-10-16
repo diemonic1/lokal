@@ -406,7 +406,10 @@ export default function RightSidebar() {
           <div className="flex-1 overflow-hidden relative min-h-0">
             {/* The hidden Info/Lyrics pane is inert: not focusable or
                 reachable by assistive tech while the other tab covers it. */}
-            <div ref={infoRef} className="absolute inset-0 flex flex-col" inert={tab !== 'info'}>
+            <div ref={infoRef} className="absolute inset-0 flex flex-col" inert={tab !== 'info'}
+              // Hidden once another tab has slid over it (nothing of it shows
+              // through); back at once when it's the one shown again.
+              style={{ visibility: tab === 'info' ? 'visible' : 'hidden', transition: `visibility 0s linear ${tab === 'info' ? '0s' : '0.8s'}` }}>
               {/* Apple Music-style: the cover runs edge to edge and dissolves
                   into colours taken from it; a moving cover plays over the
                   still one when there is one. */}
@@ -431,8 +434,10 @@ export default function RightSidebar() {
                     <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
                         <img src={trackArtURL(track)} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                        <MotionCover trackId={track?.id} only="square" off={coverOff} />
-                        <MotionCover trackId={track?.id} only="tall" onActive={top ? setCanvasOn : undefined} off={coverOff} />
+                        {/* Off while another tab covers this one: on Windows a video can be
+                            drawn over what covers it (the cover showed through Visualization + Lyrics). */}
+                        <MotionCover trackId={track?.id} only="square" off={coverOff || tab !== 'info'} />
+                        <MotionCover trackId={track?.id} only="tall" onActive={top ? setCanvasOn : undefined} off={coverOff || tab !== 'info'} />
                       </>
                     )} />
                   ) : (

@@ -219,7 +219,12 @@ test('Videos selection supports Ctrl/Cmd, ranges, context-menu retention and pla
   assert.deepEqual(Array.from(selection.selected), ['c', 'd'])
   assert.deepEqual(Array.from(selection.contextSelect('b')), ['b'])
   selection = render()
-  assert.deepEqual(Array.from(selection.selected), ['b'])
+  assert.deepEqual(Array.from(selection.selected), [])
+  assert.deepEqual(Array.from(selection.contextSelect('b')), ['b'])
+  selection = render()
+  assert.equal(selection.count, 0)
+  assert.equal(selection.click('b', { ctrlKey: true }), true)
+  selection = render()
   let prevented = false
   handlers.get('keydown')({ key: 'a', metaKey: true, preventDefault: () => { prevented = true } })
   selection = render()

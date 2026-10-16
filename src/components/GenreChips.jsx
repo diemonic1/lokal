@@ -9,7 +9,8 @@ import { useTranslation } from '../i18n'
  * and a click on one of those takes it off again, so none is there twice.
  * A genre the library doesn't have yet is typed in and added with Enter.
  */
-export default function GenreChips({ value = [], onChange, suggestions = [], compact = false }) {
+/** @param listHeight  the library's genres' box: its Tailwind max-height class */
+export default function GenreChips({ value = [], onChange, suggestions = [], compact = false, listHeight = null }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState('')
   const chosen = new Set(value.map(genreKey))
@@ -49,7 +50,7 @@ export default function GenreChips({ value = [], onChange, suggestions = [], com
         )}
       </div>
       {suggestions.length > 0 && (
-        <div className={`${compact ? 'max-h-20' : 'max-h-24'} overflow-y-auto rounded-lg border border-border bg-card/40 px-2 py-1.5`}>
+        <div className={`${listHeight || (compact ? 'max-h-20' : 'max-h-24')} overflow-y-auto rounded-lg border border-border bg-card/40 px-2 py-1.5`}>
           <div className="flex flex-wrap gap-1.5">
             {[...value, ...others].map(genre => {
               const on = chosen.has(genreKey(genre))

@@ -10,13 +10,14 @@ import { usePageReady } from '../pageCache'
 
 const percent = (n, total) => (total ? `${((n / total) * 100).toFixed(2)}%` : '—')
 
-function Stat({ label, value, total, tone = 'text-white', note }) {
+// One short row per kind: name, count, share of all files, and any extra note.
+function Stat({ label, value = 0, total, tone = 'text-white', note }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border bg-card/50 p-3">
-      <span className="truncate text-[11px] uppercase tracking-wider text-muted">{label}</span>
-      <span className={`font-display text-2xl leading-8 tabular-nums ${tone}`}>{value.toLocaleString()}</span>
-      <span className="truncate text-[11px] tabular-nums text-muted/80">{total != null ? percent(value, total) : ' '}</span>
-      {note && <span className="truncate text-[11px] text-muted">{note}</span>}
+    <div className="flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card/50 px-4 py-2">
+      <span className="w-48 shrink-0 truncate text-[11px] uppercase tracking-wider text-muted">{label}</span>
+      <span className={`w-24 shrink-0 font-display text-xl tabular-nums ${tone}`}>{value.toLocaleString()}</span>
+      <span className="w-20 shrink-0 text-sm tabular-nums text-white/70">{total != null ? percent(value, total) : ''}</span>
+      {note && <span className="min-w-0 truncate text-sm text-muted" title={note}>{note}</span>}
     </div>
   )
 }
@@ -64,8 +65,8 @@ export default function LyricsAnalysis() {
   const totals = report?.totals
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 px-4 pb-12 pt-6">
-      <section className="rounded-[24px] border border-border bg-card/60 p-5">
+    <div className="w-full space-y-6 px-6 pb-12 pt-6">
+      <section>
         <div className="flex flex-wrap items-center gap-3">
           <ScrollText size={18} className="text-accent" />
           <h1 className="font-display text-lg uppercase tracking-[0.28em] text-white">{t('Lyrics Analysis')}</h1>
@@ -96,29 +97,31 @@ export default function LyricsAnalysis() {
         {!running && error && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
         {!running && totals && (
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-6 flex flex-col gap-1.5">
             <Stat label={t('All files')} value={totals.total} />
+            <Stat label={t('Syllable lyrics')} value={totals.syllable} total={totals.total} tone="text-accent" />
             <Stat label={t('Synced lyrics')} value={totals.synced} total={totals.total} tone="text-accent" />
             <Stat label={t('Plain lyrics')} value={totals.plain} total={totals.total} />
-            <Stat label={t('No lyrics')} value={totals.none} total={totals.total} />
             <Stat label={t('Instrumental')} value={totals.instrumental} total={totals.total} />
-            <Stat label={t("Can't be found")} value={totals.unfound} total={totals.total}
+            <Stat label={t('No lyrics')} value={totals.none} total={totals.total} tone="text-red-400" />
+            <Stat label={t("Can't be found")} value={totals.unfound} total={totals.total} tone="text-red-400"
               note={t('fish covers: {fish}, others: {others}', { fish: totals.fish, others: totals.unfound - totals.fish })} />
           </div>
         )}
       </section>
 
       {!running && report?.folders?.length > 0 && (
-        <section className="rounded-[24px] border border-border bg-card/60 p-2">
+        <section>
           <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
-                <th className="w-[34%] px-3 py-2 font-normal">{t('Folder')}</th>
+                <th className="w-[30%] px-3 py-2 font-normal">{t('Folder')}</th>
                 <th className="px-2 py-2 text-right font-normal">{t('Files')}</th>
+                <th className="px-2 py-2 text-right font-normal">{t('Syllable lyrics')}</th>
                 <th className="px-2 py-2 text-right font-normal">{t('Synced lyrics')}</th>
                 <th className="px-2 py-2 text-right font-normal">{t('Plain lyrics')}</th>
-                <th className="px-2 py-2 text-right font-normal">{t('No lyrics')}</th>
                 <th className="px-2 py-2 text-right font-normal">{t('Instrumental')}</th>
+                <th className="px-2 py-2 text-right font-normal">{t('No lyrics')}</th>
                 <th className="px-3 py-2 text-right font-normal">{t("Can't be found")}</th>
               </tr>
             </thead>
@@ -127,11 +130,12 @@ export default function LyricsAnalysis() {
                 <tr key={row.folder} className="border-t border-border/60 tabular-nums hover:bg-card">
                   <td className="truncate px-3 py-1.5 text-white" title={row.folder}>{row.folder === '.' ? report.root : row.folder}</td>
                   <td className="px-2 py-1.5 text-right text-muted">{row.total}</td>
+                  <td className={`px-2 py-1.5 text-right ${row.syllable ? 'text-accent' : 'text-muted/40'}`}>{row.syllable || 0}</td>
                   <td className={`px-2 py-1.5 text-right ${row.synced ? 'text-accent' : 'text-muted/40'}`}>{row.synced}</td>
                   <td className={`px-2 py-1.5 text-right ${row.plain ? 'text-white' : 'text-muted/40'}`}>{row.plain}</td>
-                  <td className={`px-2 py-1.5 text-right ${row.none ? 'text-white' : 'text-muted/40'}`}>{row.none}</td>
                   <td className={`px-2 py-1.5 text-right ${row.instrumental ? 'text-white' : 'text-muted/40'}`}>{row.instrumental}</td>
-                  <td className={`px-3 py-1.5 text-right ${row.unfound ? 'text-white' : 'text-muted/40'}`}>{row.unfound}</td>
+                  <td className={`px-2 py-1.5 text-right ${row.none ? 'text-red-400' : 'text-muted/40'}`}>{row.none}</td>
+                  <td className={`px-3 py-1.5 text-right ${row.unfound ? 'text-red-400' : 'text-muted/40'}`}>{row.unfound}</td>
                 </tr>
               ))}
             </tbody>

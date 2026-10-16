@@ -270,6 +270,7 @@ function getKeepCommaArtists() {
   try {
     const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
     if (setting?.value) userDefined = JSON.parse(setting.value)
+    artistSplit.applySplitWordsFrom(getDB())
   } catch {}
   return artistSplit.keepCommaSet(userDefined)
 }
@@ -688,6 +689,7 @@ router.put('/:id', (req, res) => {
     clip_url,
     clip_start,
     clip_end,
+    clip_zoom,
     danceability,
     energy,
     track_key,
@@ -715,6 +717,7 @@ router.put('/:id', (req, res) => {
   if (explicit !== undefined) { updates.push('explicit = ?'); params.push(explicit ? 1 : 0) }
   if (clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(clip_url || '').trim() || null) }
   if (clip_start !== undefined) { updates.push('clip_start = ?'); params.push(clip_start !== null && clip_start !== '' && Number.isFinite(Number(clip_start)) ? Number(clip_start) : null) }
+  if (clip_zoom !== undefined) { const n = Number(clip_zoom); updates.push('clip_zoom = ?'); params.push(clip_zoom === null || clip_zoom === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(50, n)) }
   if (clip_end !== undefined) { updates.push('clip_end = ?'); params.push(clip_end !== null && clip_end !== '' && Number.isFinite(Number(clip_end)) ? Number(clip_end) : null) }
   if (danceability !== undefined) { updates.push('danceability = ?'); params.push(danceability) }
   if (energy !== undefined) { updates.push('energy = ?'); params.push(energy) }
@@ -729,11 +732,7 @@ router.put('/:id', (req, res) => {
   if (tempo !== undefined) { updates.push('tempo = ?'); params.push(tempo) }
   if (time_signature !== undefined) { updates.push('time_signature = ?'); params.push(time_signature) }
   if (comment !== undefined) {
-    let text = String(comment || '').trim()
-    if (!String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
-      try { text = require('../../electron/fileComment').writeFileComment(currentTrack.file_path, text) } catch (e) { return res.json({ error: `Couldn't save the comment: ${e.message}` }) }
-    }
-    updates.push('comment = ?'); params.push(text)
+    updates.push('comment = ?'); params.push(String(comment || '').replace(/\r\n?/g, '\n').trim())
   }
 
   if (genre !== undefined || genres !== undefined) {
@@ -750,7 +749,16 @@ router.put('/:id', (req, res) => {
   }
   
   if (updates.length === 0) return res.json({ error: 'No fields to update' })
-  
+
+  // The edited tags go into the file too, so a rescan reads them back.
+  const tagEdits = require('../../electron/fileComment').fileTagEdits(req.body || {})
+  if (Object.keys(tagEdits).length && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
+    try {
+      require('../../electron/fileComment').writeFileTags(currentTrack.file_path, tagEdits)
+      require('../../electron/fileStamp').noteFileWritten(db, currentTrack.file_path)
+    } catch (e) { return res.json({ error: `Couldn't save the tags into the file: ${e.message}` }) }
+  }
+
   params.push(req.params.id)
   const sql = `UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`
   const result = db.prepare(sql).run(...params)

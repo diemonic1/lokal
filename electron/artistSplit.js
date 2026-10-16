@@ -12,28 +12,93 @@ const DEFAULT_KEEP_COMMA_ARTISTS = [
 
 // "Ark Patrol (feat. Veronika Redd)", "A [ft. B]" and "A feat B" all credit B
 // as a second artist; so do "A (B Remix)", "A (Remix B)", "A (B prod)" and
-// "A (prod. by B)", in any case. The bracket may sit anywhere in the credit.
+// "A (prod. by B)", in any case; "A (instr. B)" and "A (B instr.)" too. The
+// bracket may sit anywhere in the credit.
 const BRACKET = /\s*[([]\s*([^()[\]]+?)\s*[)\]]/g
-const ROLE_BEFORE = /^(?:feat\.?|ft\.?|featuring|remix(?:ed)?(?:\s+by)?|prod\.?(?:\s+by)?|produced\s+by)\s+(.+)$/i
-const ROLE_AFTER = /^(.+?)\s+(?:remix|prod\.?)$/i
-// "(Radio Remix)", "(VIP Remix)": a kind of remix, not who made it.
-const NOT_AN_ARTIST = /^(?:radio|extended|club|vip|original|official|edit|dub|instrumental|acoustic|live|short|long|bootleg|mashup|house|techno|slowed|sped up|remastered|\d{4})(?:\s+(?:edit|mix|version))?$/i
+const ROLE_BEFORE = /^(?:feat\.?|ft\.?|featuring|remix(?:ed)?(?:\s+by)?|prod\.?(?:\s+by)?|produced\s+by|instr\.?(?:\s+by)?)\s+(.+)$/i
+const ROLE_AFTER = /^(.+?)\s+(?:remix|prod\.?|instr\.?)$/i
+// "(Radio Remix)", "(VIP Remix)", "(Dubstep Remix)", "(Slowed + Reverb)": a
+// kind of remix or version (or a genre), not who made it.
+const KINDS = [
+  'radio', 'extended', 'club', 'vip', 'original', 'official', 'edit', 'dub', 'instrumental', 'acoustic', 'live',
+  'short', 'long', 'bootleg', 'mashup', 'house', 'techno', 'slowed', 'sped up', 'speed up', 'remastered', 'remaster', 'reverb',
+  'nightcore', '8d', 'bass boosted', 'bassboosted', 'dubstep', 'phonk', 'trap', 'drill', 'trance', 'hardstyle',
+  'hardcore', 'drum and bass', 'drum & bass', 'drum n bass', 'dnb', 'd&b', 'jungle', 'garage', 'uk garage',
+  'breakbeat', 'future bass', 'edm', 'electro', 'electronic', 'synthwave', 'lofi', 'lo-fi', 'jazz', 'rock', 'metal',
+  'pop', 'piano', 'orchestral', 'funk', 'jersey club', 'brazilian', 'rave', 'hyperpop', 'amapiano', 'reggaeton',
+  'hip hop', 'hip-hop', 'rap', 'emo', 'punk', 'chill', 'ambient', 'cinematic', 'epic', 'festival', 'deep house',
+  'tech house', 'bass', 'russian', 'english', 'remake',
+].sort((a, b) => b.length - a.length).map(kind => kind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+')).join('|')
+const KIND_LIST = `(?:${KINDS}|\\d{4})(?:\\s*[\\s+&/-]\\s*(?:${KINDS}|\\d{4}))*`
+const NOT_AN_ARTIST = new RegExp(`^${KIND_LIST}(?:\\s+(?:edit|mix|version))?$`, 'i')
+// A bracket that only says what the song is -- "(Remix)", "(Cover)",
+// "(Dubstep Remix)", "(Live)" -- is left out of the artists altogether.
+const NOT_A_CREDIT = new RegExp(`^(?:(?:${KIND_LIST})\\s+)?(?:remix|cover|mix|edit|version|rework|flip)$|^${KIND_LIST}$`, 'i')
 const FEAT_BARE = /\s+(?:feat\.?|ft\.?|featuring)\s+/i
+
+// The words above, as Settings > Library > Artists > Separator Words lists
+// them (the ones that always work); the user adds their own there.
+const DEFAULT_SPLIT_WORDS = [',', 'feat.', 'ft.', 'featuring', 'remix', 'remixed by', 'prod.', 'prod. by', 'produced by', 'instr.', 'instr. by']
+
+// The user's words (setSplitWords) work like "feat.": "A word B",
+// "A (word B)" and "A (B word)" all credit B too. A dot at the end is
+// optional ("w." also matches "w"); several words may be one ("mixed by").
+let extraRoles = null
+
+/** The user's words, cleaned: trimmed, lower case, no repeats, none of the built-in ones. */
+function normalizeSplitWords(words = []) {
+  const builtIn = new Set(DEFAULT_SPLIT_WORDS.map(word => word.replace(/\.$/, '')))
+  const seen = new Set()
+  const list = []
+  for (const word of Array.isArray(words) ? words : []) {
+    const clean = String(word || '').toLowerCase().replace(/\s+/g, ' ').trim()
+    const key = clean.replace(/\.$/, '').trim()
+    if (!key || builtIn.has(key) || seen.has(key)) continue
+    seen.add(key)
+    list.push(clean)
+  }
+  return list
+}
+
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** Use these words (as well as the built-in ones) to split credits from now on. */
+function setSplitWords(words = []) {
+  const patterns = normalizeSplitWords(words)
+    .map(word => word.replace(/\.$/, '').trim().split(' ').map(escapeRegExp).join('\\s+') + '\\.?')
+    // Longest first, so "mixed by" wins over "mixed".
+    .sort((a, b) => b.length - a.length)
+  if (!patterns.length) { extraRoles = null; return }
+  const any = patterns.join('|')
+  extraRoles = {
+    before: new RegExp(`^(?:${any})\\s+(.+)$`, 'i'),
+    after: new RegExp(`^(.+?)\\s+(?:${any})$`, 'i'),
+    bare: new RegExp(`\\s+(?:${any})\\s+`, 'i'),
+  }
+}
+
+function roleNames(inner) {
+  const found = inner.match(ROLE_BEFORE) || inner.match(ROLE_AFTER)
+    || (extraRoles && (inner.match(extraRoles.before) || inner.match(extraRoles.after)))
+  return found?.[1]?.trim()
+}
 // "A/B", "A \ B", "A; B".
 const LIST_SEPARATOR = /\s*[;/\\]\s*/
-// "A, B" and "A,B", but not "Tyler, the Creator" (see below) or "10,000 Maniacs".
-const COMMA = /\s*,(?!\s*[\d\p{Ll}])\s*/u
+// "A, B", "A,B" and "Akira Flay, oneohkay" (a name may start in lower case),
+// but not "10,000 Maniacs" or "Tyler, the Creator": a comma before a digit,
+// or before a lower-case "the", "and", "of", "a" or "an", is part of the name.
+const COMMA = /\s*,(?!\s*(?:\d|(?:the|and|of|a|an)\b))\s*/u
 const JOINER = /\s+(?:&|x|vs\.?)\s+/i
 
 function splitFeatured(raw) {
   const featured = []
   const main = raw.replace(BRACKET, (whole, inner) => {
-    const names = (inner.match(ROLE_BEFORE) || inner.match(ROLE_AFTER))?.[1]?.trim()
-    if (!names || NOT_AN_ARTIST.test(names)) return whole
-    featured.push(names)
-    return ' '
+    const names = roleNames(inner)
+    if (names && !NOT_AN_ARTIST.test(names)) { featured.push(names); return ' ' }
+    return NOT_A_CREDIT.test(inner) ? ' ' : whole
   })
-  return [...main.split(FEAT_BARE), ...featured].map(part => part.trim()).filter(Boolean)
+  const bare = main.split(FEAT_BARE).flatMap(part => (extraRoles ? part.split(extraRoles.bare) : [part]))
+  return [...bare, ...featured].map(part => part.trim()).filter(Boolean)
 }
 
 // A split that leaves one-letter pieces isn't a collaboration but one
@@ -53,8 +118,6 @@ function isKept(name, keepComma) {
 
 function splitCredit(raw, keepComma) {
   if (isKept(raw, keepComma)) return [raw.trim()]
-  // "Tyler, the Creator": a comma before a lower-case word is part of the name.
-  if (/,\s+[a-z]/.test(raw)) return [raw.trim()]
   return raw.split(COMMA).flatMap(part => isKept(part, keepComma) ? [part] : splitUnlessTiny(part, JOINER))
 }
 
@@ -108,4 +171,33 @@ function splitArtists(raw, keepComma = keepCommaSet()) {
   return [...new Set(artists.map(name => name.trim()).filter(Boolean))]
 }
 
-module.exports = { DEFAULT_KEEP_COMMA_ARTISTS, keepCommaSet, splitArtists }
+// The user's separator words live in the settings table (a JSON list); the
+// main process and the web server read them from there (the renderer gets
+// them through settings:getArtistSplitWords, see src/artistNames.js).
+const SPLIT_WORDS_KEY = 'artist_split_words'
+let appliedWords = null
+
+function readSplitWords(db) {
+  try {
+    const value = db.prepare('SELECT value FROM settings WHERE key = ?').get(SPLIT_WORDS_KEY)?.value
+    return normalizeSplitWords(value ? JSON.parse(value) : [])
+  } catch { return [] }
+}
+
+/** Splits with the words the settings hold now. -> the words */
+function applySplitWordsFrom(db) {
+  const words = readSplitWords(db)
+  const key = JSON.stringify(words)
+  if (key !== appliedWords) { appliedWords = key; setSplitWords(words) }
+  return words
+}
+
+/** Saves the user's words (cleaned) and splits with them from now on. -> the words */
+function saveSplitWords(db, words) {
+  const list = normalizeSplitWords(words)
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(SPLIT_WORDS_KEY, JSON.stringify(list))
+  applySplitWordsFrom(db)
+  return list
+}
+
+module.exports = { DEFAULT_KEEP_COMMA_ARTISTS, DEFAULT_SPLIT_WORDS, SPLIT_WORDS_KEY, keepCommaSet, normalizeSplitWords, setSplitWords, splitArtists, readSplitWords, applySplitWordsFrom, saveSplitWords }

@@ -1,5 +1,6 @@
 // "Lyrics analysis": what the music folder's files hold in their lyrics tags,
 // counted the way MP3_Lyrics/count_lyrics.py does it:
+//   syllable      word / syllable stamps (enhanced LRC, QRC/YRC karaoke, TTML)
 //   synced        LRC time stamps in a lyrics frame, or a SYLT frame
 //   plain         any other text
 //   instrumental  the marker text the tagging script writes for them
@@ -13,12 +14,13 @@ const path = require('path')
 const mm = require('../musicMetadata')
 const { lyricsFromMeta, isSyncedText } = require('./fileLyrics')
 const { setFileLyrics } = require('../searchIndex')
+const { isEnhanced, isKaraoke } = require('./lrc')
 
 const INSTRUMENTAL_TRACK_TEXT = 'Instrumental track without lyrics'
 const UNFOUND_TRACK_TEXT = 'Невозможно нагуглить слова этого трека'
 const FISH_COVERS_FOLDER = 'рыбные каверы'
 const SETTING_KEY = 'lyrics_analysis'
-const KINDS = ['synced', 'plain', 'instrumental', 'unfound', 'none']
+const KINDS = ['syllable', 'synced', 'plain', 'instrumental', 'unfound', 'none']
 
 function musicFolder(db) {
   try { return db.prepare("SELECT value FROM settings WHERE key = 'music_folder'").get()?.value || null } catch { return null }
@@ -45,10 +47,17 @@ function classify(text, folderRelative) {
   const trimmed = text.trim()
   if (trimmed === INSTRUMENTAL_TRACK_TEXT) return { kind: 'instrumental' }
   if (trimmed === UNFOUND_TRACK_TEXT) return { kind: 'unfound', fish: folderRelative.toLowerCase().includes(FISH_COVERS_FOLDER) }
+  if (isSyllableText(trimmed)) return { kind: 'syllable' }
   return { kind: isSyncedText(trimmed) ? 'synced' : 'plain' }
 }
 
-const emptyCounts = () => ({ total: 0, synced: 0, plain: 0, instrumental: 0, unfound: 0, fish: 0, none: 0 })
+function isSyllableText(text) {
+  if (isEnhanced(text) || isKaraoke(text)) return true
+  // TTML with timed spans inside the lines.
+  return /<tt[\s>]/i.test(text) && /<span\b[^>]*\bbegin=/i.test(text)
+}
+
+const emptyCounts = () => ({ total: 0, syllable: 0, synced: 0, plain: 0, instrumental: 0, unfound: 0, fish: 0, none: 0 })
 
 /**
  * Counts every file. onProgress({ done, total, folder }) is called as it goes;
@@ -71,7 +80,7 @@ async function runAnalysis(db, { exts, onProgress = () => {}, job = {} } = {}) {
     try { text = lyricsFromMeta(await mm.parseFile(file, { duration: false, skipCovers: true })) } catch {}
     const { kind, fish } = classify(text, relDir)
     // The song list's Lyrics column gets the same answer while we're here.
-    try { saveKind.run(kind === 'synced' ? 'sync' : require('./fileLyrics').lyricsKind(text), file) } catch {}
+    try { saveKind.run(kind === 'synced' || kind === 'syllable' ? 'sync' : require('./fileLyrics').lyricsKind(text), file) } catch {}
     try { setFileLyrics(db, trackOf.get(file)?.id, text || '') } catch {}
     const folder = folders.get(relDir) || emptyCounts()
     for (const counts of [totals, folder]) {

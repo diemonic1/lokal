@@ -141,6 +141,20 @@ router.put('/keep-comma-artists', (req, res) => {
   res.json({ ok: true })
 })
 
+router.get('/artist-split-words', (req, res) => {
+  const artistSplit = require('../../electron/artistSplit')
+  res.json({ builtIn: artistSplit.DEFAULT_SPLIT_WORDS, words: artistSplit.applySplitWordsFrom(getDB()) })
+})
+
+router.put('/artist-split-words', (req, res) => {
+  try {
+    const db = getDB()
+    const words = require('../../electron/artistSplit').saveSplitWords(db, req.body?.words || [])
+    const relinked = require('../../electron/ipc/scanner').relinkArtistsIfNeeded(db)
+    res.json({ ok: true, words, relinked })
+  } catch (e) { res.json({ ok: false, error: e.message }) }
+})
+
 router.post('/scan', async (req, res) => {
   const { folder, full } = req.body
   const target = folder || DEFAULT_MUSIC_PATH

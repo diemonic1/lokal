@@ -65,11 +65,19 @@ function slugify(str) {
 
 const artistSplit = require('../artistSplit')
 
+// The music video's zoom in the side panel: 0-50 (%), null for none.
+function clipZoomValue(value) {
+  const n = Number(value)
+  return value === null || value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(50, n)
+}
+
 function getKeepCommaArtists() {
   let userDefined = []
   try {
     const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
     if (setting?.value) userDefined = JSON.parse(setting.value)
+    // The user's separator words (Settings > Separator Words) too.
+    artistSplit.applySplitWordsFrom(getDB())
   } catch {}
   return artistSplit.keepCommaSet(userDefined)
 }
@@ -101,7 +109,10 @@ function unlockArtistLinks(db, trackId) {
 // 5: "(feat. X)" / "[ft X]" / bare "feat X" credit X as its own artist.
 // 6: "A/B", "A \ B", "A; B" and "A,B" are several artists too.
 // 7: "(B Remix)", "(Remix B)", "(B prod)", "(prod B)" credit B too.
-const ARTIST_SPLITTER_VERSION = 7
+// 8: "(instr. B)" / "(B instr.)" credit B too.
+// 9: a comma splits before a name in lower case too ("Akira Flay, oneohkay").
+// 10: "(Remix)", "(Cover)", "(Dubstep Remix)", "(Live)" are left out of the artists.
+const ARTIST_SPLITTER_VERSION = 10
 
 /**
  * Brings every track's artist links in line with splitArtists (e.g. after it
@@ -188,7 +199,8 @@ function relinkArtists(db = getDB()) {
  */
 function relinkArtistsIfNeeded(db = getDB()) {
   const keepComma = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()?.value || '[]'
-  const fingerprint = `${ARTIST_SPLITTER_VERSION}:${keepComma}`
+  const splitWords = JSON.stringify(artistSplit.applySplitWordsFrom(db))
+  const fingerprint = `${ARTIST_SPLITTER_VERSION}:${keepComma}:${splitWords}`
   const last = db.prepare("SELECT value FROM settings WHERE key = 'artist_relink_fingerprint'").get()?.value
   if (last === fingerprint) return 0
   const changed = relinkArtists(db)
@@ -1347,7 +1359,23 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
   })
 
   const updatedIds = patch()
-  return updatedIds.map(id => db.prepare('SELECT * FROM tracks WHERE id = ?').get(id)).filter(Boolean)
+  const updated = updatedIds.map(id => db.prepare('SELECT * FROM tracks WHERE id = ?').get(id)).filter(Boolean)
+  // What changed goes into each file's tags too (see track:update).
+  const { fileTagEdits, writeFileTags } = require('../fileComment')
+  const before = new Map(tracks.map(track => [track.id, track]))
+  for (const track of updated) {
+    const old = before.get(track.id) || {}
+    const changed = {}
+    for (const [field, value] of Object.entries(fileTagEdits(track))) {
+      if (field !== 'comment' && String(value ?? '') !== String(old[field] ?? '')) changed[field] = value
+    }
+    if (!Object.keys(changed).length || String(track.file_path || '').startsWith('ghost://') || !fs.existsSync(track.file_path)) continue
+    try {
+      writeFileTags(track.file_path, changed)
+      require('../fileStamp').noteFileWritten(db, track.file_path)
+    } catch (e) { console.warn(`[track:batchUpdate] couldn't write the tags of ${track.file_path}: ${e.message}`) }
+  }
+  return updated
 }
 
 function toDataUrl(filePath) {
@@ -1710,6 +1738,7 @@ function registerScannerHandlers(ipcMain) {
     if (data.explicit !== undefined) { updates.push('explicit = ?'); params.push(data.explicit ? 1 : 0) }
     if (data.clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(data.clip_url || '').trim() || null) }
     if (data.clip_start !== undefined) { updates.push('clip_start = ?'); params.push(Number.isFinite(Number(data.clip_start)) && data.clip_start !== null && data.clip_start !== '' ? Number(data.clip_start) : null) }
+    if (data.clip_zoom !== undefined) { updates.push('clip_zoom = ?'); params.push(clipZoomValue(data.clip_zoom)) }
     if (data.clip_end !== undefined) { updates.push('clip_end = ?'); params.push(Number.isFinite(Number(data.clip_end)) && data.clip_end !== null && data.clip_end !== '' ? Number(data.clip_end) : null) }
     if (data.danceability !== undefined) { updates.push('danceability = ?'); params.push(data.danceability) }
     if (data.energy !== undefined) { updates.push('energy = ?'); params.push(data.energy) }
@@ -1725,19 +1754,10 @@ function registerScannerHandlers(ipcMain) {
     if (data.time_signature !== undefined) { updates.push('time_signature = ?'); params.push(data.time_signature) }
     // The comment goes into the file's tags too (rescans read it from there).
     if (data.comment !== undefined) {
-      let comment = String(data.comment || '').trim()
-      if (!String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
-        try { comment = require('../fileComment').writeFileComment(currentTrack.file_path, comment); wroteFile = true } catch (e) { return { error: `Couldn't save the comment: ${e.message}` } }
-      }
-      updates.push('comment = ?'); params.push(comment)
+      updates.push('comment = ?'); params.push(String(data.comment || '').replace(/\r\n?/g, '\n').trim())
     }
 
     if (data.genre !== undefined || data.genres !== undefined) {
-      // The tag editor's genres go into the file too (one value each).
-      if (data.genres !== undefined && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
-        const list = String(data.genres || '').split(',').map(part => part.trim()).filter(Boolean)
-        try { require('../fileComment').writeFileGenres(currentTrack.file_path, list); wroteFile = true } catch (e) { return { error: `Couldn't save the genres: ${e.message}` } }
-      }
       const normalizedGenres = data.genres !== undefined
         ? normalizeGenresForBatch(data.genres)
         : normalizeGenresForBatch(currentTrack.genres || data.genre || currentTrack.genre)
@@ -1751,7 +1771,14 @@ function registerScannerHandlers(ipcMain) {
     }
     
     if (updates.length === 0) return { error: 'No fields to update' }
-    
+
+    // Title, artist, album, album artist, number, year, label, genres and
+    // comment go into the file's tags too, so a rescan reads them back.
+    const tagEdits = require('../fileComment').fileTagEdits(data)
+    if (Object.keys(tagEdits).length && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
+      try { require('../fileComment').writeFileTags(currentTrack.file_path, tagEdits); wroteFile = true } catch (e) { return { error: `Couldn't save the tags into the file: ${e.message}` } }
+    }
+
     params.push(trackId)
     const sql = `UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`
     const result = db.prepare(sql).run(...params)
@@ -1796,6 +1823,17 @@ function registerScannerHandlers(ipcMain) {
   })
   ipcMain.handle('settings:getKeepCommaArtists', () => { try { const db = getDB(); const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get(); return setting?.value ? JSON.parse(setting.value) : [] } catch { return [] } })
   ipcMain.handle('settings:setKeepCommaArtists', (_, artists) => getDB().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('keep_comma_artists', ?)").run(JSON.stringify(artists)))
+  // Separator words: the built-in ones (always on) and the user's own. Saving
+  // re-links the library's artists straight away.
+  ipcMain.handle('settings:getArtistSplitWords', () => ({ builtIn: artistSplit.DEFAULT_SPLIT_WORDS, words: artistSplit.applySplitWordsFrom(getDB()) }))
+  ipcMain.handle('settings:setArtistSplitWords', (_, words) => {
+    try {
+      const db = getDB()
+      const saved = artistSplit.saveSplitWords(db, words)
+      const relinked = relinkArtistsIfNeeded(db)
+      return { ok: true, words: saved, relinked }
+    } catch (e) { return { ok: false, error: e.message } }
+  })
 
   ipcMain.handle('settings:getTheme', () => {
     const db = getDB()

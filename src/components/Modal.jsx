@@ -8,7 +8,8 @@ import { X } from 'lucide-react'
  *                   content (long lists with artwork) can mount after it
  *                   instead of stuttering it.
  */
-export default function Modal({ open, onClose, title, children, width = 'max-w-md', onEntered }) {
+/** @param clearBackdrop  the page behind stays as it is (not dimmed or blurred); a click on it still closes. */
+export default function Modal({ open, onClose, title, children, width = 'max-w-md', onEntered, clearBackdrop = false }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose?.() }
     if (open) document.addEventListener('keydown', handler)
@@ -27,7 +28,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-m
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
         >
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+          <div className={`absolute inset-0 ${clearBackdrop ? 'bg-transparent' : 'bg-black/70 backdrop-blur-sm'}`} onClick={onClose} />
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

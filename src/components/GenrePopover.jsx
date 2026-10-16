@@ -72,7 +72,8 @@ export default function GenrePopover({ track, anchor, onClose, onSaved }) {
       onClick={event => event.stopPropagation()} onContextMenu={event => event.stopPropagation()}
       style={{ width: WIDTH, left: position?.left ?? -9999, top: position?.top ?? -9999 }}
       className="fixed z-[200] rounded-xl border border-white/10 bg-elevated p-3 shadow-[0_18px_48px_rgba(0,0,0,0.55)]">
-      <GenreChips compact value={genres} onChange={setGenres} suggestions={suggestions} />
+      {/* The panel half as tall again as with the tag editor's list: more genres show at once. */}
+      <GenreChips compact listHeight="max-h-44" value={genres} onChange={setGenres} suggestions={suggestions} />
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={onClose}

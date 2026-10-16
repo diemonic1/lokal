@@ -17,7 +17,7 @@ import { motion } from 'framer-motion'
 import { api } from '../api'
 import { usePlayerStore } from '../store/player'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
-import { clipRange, trackClipLoop } from '../clipVideo'
+import { clipRange, clipZoomPreview, onClipZoomPreview, trackClipLoop } from '../clipVideo'
 import { useAppearanceValue } from '../appearanceFlags'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover from './MotionCover'
@@ -31,7 +31,7 @@ const PICTURE_SHARE = 46
 const FADE = 'linear-gradient(to bottom, black 0%, black 52%, rgba(0,0,0,0.75) 68%, rgba(0,0,0,0.35) 84%, transparent 100%)'
 
 /** The song's own video looping, muted: between its two times, or the part clipRange picks. */
-function ClipLoop({ link, start, end, onActive, onFail }) {
+function ClipLoop({ link, start, end, zoom = 0, onActive, onFail }) {
   const ref = useRef(null)
   const [src, setSrc] = useState(null)
   const [ready, setReady] = useState(false)
@@ -136,13 +136,19 @@ function ClipLoop({ link, start, end, onActive, onFail }) {
       onError={failed}
       onContextMenu={e => e.preventDefault()}
       className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-      style={{ opacity: ready ? 1 : 0, transition: 'opacity 320ms ease' }}
+      // Zoomed in from its centre by the song's Edit Track setting (0-50 %).
+      style={{ opacity: ready ? 1 : 0, transition: 'opacity 320ms ease', transform: zoom > 0 ? `scale(${1 + zoom / 100})` : undefined }}
     />
   )
 }
 
 export default function SideVisualLyrics({ track, progress, visual, visualBg, coverOff = false, wordSync, textScale, isAutoSynced }) {
   const loop = trackClipLoop(track)
+  // Edit Track open on this song: the zoom being tried shows straight away.
+  const [, setPreviewTick] = useState(0)
+  useEffect(() => onClipZoomPreview(() => setPreviewTick(n => n + 1)), [])
+  const zoom = clipZoomPreview(track?.id) ?? loop?.zoom ?? 0
+  // Not the zoom: changing it only rescales the video playing.
   const loopKey = loop ? `${track?.id}:${loop.link}:${loop.start}:${loop.end}` : null
   // The video stays off for this song once it fails to play.
   const [failedLoop, setFailedLoop] = useState(null)
@@ -177,7 +183,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
         {/* The built-in visualization only runs while no video shows. */}
         {!videoOn && visual}
         {useLoop ? (
-          <ClipLoop key={loopKey} link={loop.link} start={loop.start} end={loop.end}
+          <ClipLoop key={loopKey} link={loop.link} start={loop.start} end={loop.end} zoom={zoom}
             onActive={setLoopOn} onFail={() => { setLoopOn(false); setFailedLoop(loopKey) }} />
         ) : (
           <MotionCover trackId={track?.id} only="tall" onActive={setCanvasOn} off={coverOff} className="pointer-events-none" />

@@ -16,6 +16,7 @@ import { DEFAULT_DISCORD_CLIENT_ID } from '../discord'
 import PlaybackSourceSettings from '../components/PlaybackSourceSettings'
 import { useAppStore, usePlayerStore } from '../store/player'
 import Modal from '../components/Modal'
+import SplitWordsSettings from '../components/SplitWordsSettings'
 import LyricsSourcesSettings from '../components/LyricsSourcesSettings'
 import AccentColorPicker from '../components/AccentColorPicker'
 import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
@@ -1384,6 +1385,9 @@ activeCategory === 'data' ? usersTried
             className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
             {t('Configure ({n})', { n: keepCommaArtists.length })}
           </button>
+        </Row>
+        <Row label="Separator Words" desc="Words that credit a second artist, like feat., remix or prod.: add your own to split credits by them too.">
+          <SplitWordsSettings />
         </Row>
         <Row label="Fill In Artist Pages" desc="When you open an artist, look up their bio and picture if they're missing.">
           <button

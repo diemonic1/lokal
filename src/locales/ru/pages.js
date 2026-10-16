@@ -405,9 +405,11 @@ export default {
   'Looking for files...': 'Поиск файлов…',
   'All files': 'Всего файлов',
   'Synced lyrics': 'Синхронный текст',
+  'Syllable lyrics': 'Текст по слогам',
   'Plain lyrics': 'Обычный текст',
   'No lyrics': 'Без текста',
   "Can't be found": 'Невозможно найти',
   'fish covers: {fish}, others: {others}': 'рыбные каверы: {fish}, остальные: {others}',
   'Lyrics analysis works in the desktop app.': 'Анализ текстов работает только в приложении для компьютера.',
+  'Show all tracks ({n})': 'Показать все треки ({n})',
 }
