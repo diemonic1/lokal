@@ -327,14 +327,6 @@ function firstGenreForBatch(value) {
   return normalizeGenresForBatch(value)?.split(',').map(part => part.trim()).filter(Boolean)[0] || null
 }
 
-function clearLyricsStateForTrack(db, trackId, filePath = null) {
-  db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(trackId)
-  db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId)
-  if (filePath) {
-    try { db.prepare('DELETE FROM lyrics_cache WHERE file_path = ?').run(filePath) } catch {}
-  }
-}
-
 function collectAllGenres(db) {
   const rows = db.prepare(`
     SELECT genre, genres
@@ -450,7 +442,7 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
       const updates = []
       const params = []
       const nextValues = {}
-      for (const field of ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit', 'instrumental']) {
+      for (const field of ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit']) {
         const result = applyBatchField(track[field], operations[field])
         if (result.changed) {
           updates.push(`${field} = ?`)
@@ -488,9 +480,6 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
       params.push(track.id)
       db.prepare(`UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`).run(...params)
       updatedIds.push(track.id)
-      if (nextValues.instrumental === 1) {
-        clearLyricsStateForTrack(db, track.id, track.file_path)
-      }
       if (Object.prototype.hasOwnProperty.call(nextValues, 'artist')) {
         db.prepare('DELETE FROM artist_track_links WHERE track_id = ?').run(track.id)
         const artistNames = splitArtists(nextValues.artist)
@@ -696,7 +685,9 @@ router.put('/:id', (req, res) => {
     genres,
     record_label,
     explicit,
-    instrumental,
+    clip_url,
+    clip_start,
+    clip_end,
     danceability,
     energy,
     track_key,
@@ -722,7 +713,9 @@ router.put('/:id', (req, res) => {
   if (year !== undefined) { updates.push('year = ?'); params.push(year) }
   if (record_label !== undefined) { updates.push('record_label = ?'); params.push(record_label) }
   if (explicit !== undefined) { updates.push('explicit = ?'); params.push(explicit ? 1 : 0) }
-  if (instrumental !== undefined) { updates.push('instrumental = ?'); params.push(instrumental === null ? null : instrumental ? 1 : 0) }
+  if (clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(clip_url || '').trim() || null) }
+  if (clip_start !== undefined) { updates.push('clip_start = ?'); params.push(clip_start !== null && clip_start !== '' && Number.isFinite(Number(clip_start)) ? Number(clip_start) : null) }
+  if (clip_end !== undefined) { updates.push('clip_end = ?'); params.push(clip_end !== null && clip_end !== '' && Number.isFinite(Number(clip_end)) ? Number(clip_end) : null) }
   if (danceability !== undefined) { updates.push('danceability = ?'); params.push(danceability) }
   if (energy !== undefined) { updates.push('energy = ?'); params.push(energy) }
   if (track_key !== undefined) { updates.push('track_key = ?'); params.push(track_key) }
@@ -770,9 +763,6 @@ router.put('/:id', (req, res) => {
       db.prepare('INSERT OR IGNORE INTO artist_track_links (artist_id, track_id) VALUES (?, ?)').run(artistId, req.params.id)
     }
     db.prepare('DELETE FROM artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM artist_track_links)').run()
-  }
-  if (instrumental === 1 || instrumental === true) {
-    clearLyricsStateForTrack(db, req.params.id, currentTrack.file_path)
   }
   const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(req.params.id)
   res.json({ success: true, changes: result.changes, track })

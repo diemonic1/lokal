@@ -163,13 +163,18 @@ function parseKaraokeLRC(raw) {
   return out
 }
 
-/** Untimed lyrics: one line each, no stamps. */
+/** Untimed lyrics: one line each, no stamps. An empty line between verses stays, as one `blank` line. */
 function parsePlain(text) {
   if (!text) return []
-  return String(text).replace(/\r/g, '').split('\n')
-    .map(l => l.trim())
-    .filter(l => l && !META_TAG.test(l))
-    .map(l => ({ time: null, end: null, text: l, words: [] }))
+  const out = []
+  for (const raw of String(text).replace(/\r/g, '').split('\n')) {
+    const l = raw.trim()
+    if (META_TAG.test(l)) continue
+    if (l) out.push({ time: null, end: null, text: l, words: [] })
+    else if (out.length && !out[out.length - 1].blank) out.push({ time: null, end: null, text: '', words: [], blank: true })
+  }
+  while (out.length && out[out.length - 1].blank) out.pop()
+  return out
 }
 
 module.exports = { parseLRC, parseEnhancedLRC, parseKaraokeLRC, parsePlain, isEnhanced, isKaraoke, stampToSeconds }

@@ -334,6 +334,11 @@ async function backfillComments(db) {
       db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'plain'").run()
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v2', '1')").run()
     }
+    // v3: so did "Невозможно нагуглить слова этого трека".
+    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'lyrics_kind_v3'").get()) {
+      db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'plain'").run()
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v3', '1')").run()
+    }
     // v3: only the comment frame without a description counts.
     if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v3'").get()) {
       db.prepare("UPDATE tracks SET comment = NULL WHERE comment IS NOT NULL AND comment <> ''").run()
@@ -417,7 +422,8 @@ function trackParams(item, trackId = item?.id) {
 // again instead of skipping the unchanged ones.
 // 2: ID3v1 is ignored (see ../musicMetadata).
 // 3: every value of a multi-value genre tag is kept (see withFileGenres).
-const TAG_READER_VERSION = 3
+// 4: an ID3v2.3 artist "A/B/C" is kept whole, not cut to "A" (see ../musicMetadata).
+const TAG_READER_VERSION = 4
 
 // One scan at a time: asking again while one runs waits for it (a full
 // re-read asked meanwhile runs right after).
@@ -1243,14 +1249,6 @@ function firstGenreForBatch(value) {
   return normalizeGenresForBatch(value)?.split(',').map(part => part.trim()).filter(Boolean)[0] || null
 }
 
-function clearLyricsStateForTrack(db, trackId, filePath = null) {
-  db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(trackId)
-  db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId)
-  if (filePath) {
-    try { db.prepare('DELETE FROM lyrics_cache WHERE file_path = ?').run(filePath) } catch {}
-  }
-}
-
 function collectAllGenres(db) {
   const rows = db.prepare(`
     SELECT genre, genres
@@ -1292,7 +1290,7 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
       const updates = []
       const params = []
       const nextValues = {}
-      const fields = ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit', 'instrumental']
+      const fields = ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit']
       for (const field of fields) {
         const result = applyBatchField(track[field], operations[field])
         if (result.changed) {
@@ -1331,10 +1329,6 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
       params.push(track.id)
       db.prepare(`UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`).run(...params)
       updatedIds.push(track.id)
-
-      if (nextValues.instrumental === 1) {
-        clearLyricsStateForTrack(db, track.id, track.file_path)
-      }
 
       if (Object.prototype.hasOwnProperty.call(nextValues, 'artist')) {
         db.prepare('DELETE FROM artist_track_links WHERE track_id = ?').run(track.id)
@@ -1714,7 +1708,9 @@ function registerScannerHandlers(ipcMain) {
     if (data.year !== undefined) { updates.push('year = ?'); params.push(data.year) }
     if (data.record_label !== undefined) { updates.push('record_label = ?'); params.push(data.record_label) }
     if (data.explicit !== undefined) { updates.push('explicit = ?'); params.push(data.explicit ? 1 : 0) }
-    if (data.instrumental !== undefined) { updates.push('instrumental = ?'); params.push(data.instrumental === null ? null : data.instrumental ? 1 : 0) }
+    if (data.clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(data.clip_url || '').trim() || null) }
+    if (data.clip_start !== undefined) { updates.push('clip_start = ?'); params.push(Number.isFinite(Number(data.clip_start)) && data.clip_start !== null && data.clip_start !== '' ? Number(data.clip_start) : null) }
+    if (data.clip_end !== undefined) { updates.push('clip_end = ?'); params.push(Number.isFinite(Number(data.clip_end)) && data.clip_end !== null && data.clip_end !== '' ? Number(data.clip_end) : null) }
     if (data.danceability !== undefined) { updates.push('danceability = ?'); params.push(data.danceability) }
     if (data.energy !== undefined) { updates.push('energy = ?'); params.push(data.energy) }
     if (data.track_key !== undefined) { updates.push('track_key = ?'); params.push(data.track_key) }
@@ -1762,9 +1758,6 @@ function registerScannerHandlers(ipcMain) {
     if (wroteFile) require('../fileStamp').noteFileWritten(db, currentTrack.file_path)
     if (data.artist !== undefined) {
       updateTrackArtistLinks(db, trackId, data.artist)
-    }
-    if (data.instrumental === 1 || data.instrumental === true) {
-      clearLyricsStateForTrack(db, trackId, currentTrack.file_path)
     }
     const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId)
     return { success: true, changes: result.changes, track }

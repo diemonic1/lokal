@@ -1379,7 +1379,7 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('library') && (
       <Section title="Artists">
-              <Row label="Names With a Comma" desc="Artists whose name has a comma, like Tyler, The Creator, so they aren't split into two artists.">
+              <Row label="Whole Artist Names" desc="Artists whose name holds a separator -- a comma, &, /, x and so on, like Tyler, The Creator or AC/DC -- so they aren't split into several artists.">
           <button onClick={() => setShowCommaModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
             {t('Configure ({n})', { n: keepCommaArtists.length })}
@@ -2200,7 +2200,7 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
 
-      {inCategory('appearance') && (
+      {inCategory('visualizations') && (
       <Section title="Now Playing">
         <Row label="Colour Background" desc="Colour the side panel and full screen player from the album cover. Off: a dark background.">
           <button
@@ -2407,14 +2407,15 @@ activeCategory === 'data' ? usersTried
         <div className="border-t border-border" />
         {(() => {
           // Unset, it follows the old on/off Waveform switch.
-          const mode = ['off', 'waveform', 'spectrum', 'waves', 'lightning'].includes(settings.player_visualizer)
+          const mode = ['off', 'waveform', 'spectrum', 'spectrumCenter', 'waves', 'lightning'].includes(settings.player_visualizer)
             ? settings.player_visualizer : settings.player_waveform === '0' ? 'off' : 'waveform'
           return (
             <>
               <Row label="Visualization" desc="Moves with the music while it plays: bars beside the volume, a spectrum or two waves under the seek bar standing on the bar's bottom edge, or lightning across the whole bar.">
-                {visualSelect('player_visualizer', mode, [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['waves', 'Waves'], ['lightning', 'Lightning']])}
+                {visualSelect('player_visualizer', mode, [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['spectrumCenter', 'Spectrum from the center'], ['waves', 'Waves'], ['lightning', 'Lightning']])}
               </Row>
-              {mode === 'spectrum' && <>
+              {/* The centre spectrum is the same one, mirrored: the same settings. */}
+              {(mode === 'spectrum' || mode === 'spectrumCenter') && <>
                 {visualSlider('player_spectrum_bars', 'Number of bars', 'How many bars the spectrum has.', 8, 160, 119)}
                 {visualSlider('player_spectrum_bar_width', 'Bar width', 'The width of each bar. The whole spectrum is as wide as its bars.', 1, 12, 4, ' px')}
                 {visualSlider('player_spectrum_height', 'Height', 'How high the bars can jump.', 10, 90, 76, ' px')}
@@ -2788,15 +2789,15 @@ activeCategory === 'data' ? usersTried
         </div>
       </Modal>
 
-      <Modal open={showCommaModal} onClose={() => setShowCommaModal(false)} title={t('Keep Comma in Artist Names')} width="max-w-md">
+      <Modal open={showCommaModal} onClose={() => setShowCommaModal(false)} title={t('Whole Artist Names')} width="max-w-md">
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            {t('These artists won\'t have their comma removed. This prevents "Tyler, The Creator" from becoming "Tyler" and "The Creator". Enter one artist per line.')}
+            {t('These names always stay one artist, whatever separator they hold (a comma, &, /, x...): "Tyler, The Creator" isn’t split into "Tyler" and "The Creator", and "Simon & Garfunkel" or "AC/DC" stay whole, also next to other artists. Enter one artist per line.')}
           </p>
           <div className="bg-card/50 rounded-lg p-3 mb-2">
             <p className="text-xs text-muted mb-2">{t('Examples (one per line):')}</p>
             <div className="flex flex-wrap gap-2">
-              {['Tyler, The Creator', 'Earth, Wind & Fire'].map(ex => (
+              {['Tyler, The Creator', 'Earth, Wind & Fire', 'Simon & Garfunkel', 'AC/DC'].map(ex => (
                 <span key={ex} className="text-xs bg-accent/20 text-accent px-2 py-1 rounded">{ex}</span>
               ))}
             </div>

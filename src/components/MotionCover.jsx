@@ -9,6 +9,7 @@ import { api } from '../api'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { seamlessLoop } from '../seamlessLoop'
 import { useTranslation } from '../i18n'
+import { usePlayerStore } from '../store/player'
 
 const COVER_FADE = 0.8 // s: the end of a moving cover fading into its start
 
@@ -91,6 +92,18 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
     return seamlessLoop([firstRef.current, secondRef.current], { fade: COVER_FADE, onSwap: video => { activeRef.current = video } })
   }, [clip, canvas])
 
+  // A canvas stops with the song (paused, it holds its frame) and goes on
+  // with it; a moving album cover keeps looping.
+  const isPlaying = usePlayerStore(s => s.isPlaying)
+  const runsRef = useRef(true)
+  runsRef.current = !canvas || isPlaying
+  useEffect(() => {
+    const v = firstRef.current
+    if (!canvas || !v) return
+    if (isPlaying && !isWindowHidden()) v.play().catch(() => {})
+    else v.pause()
+  }, [canvas, clip, isPlaying])
+
   // Don't spend the GPU on a clip nobody can see.
   // (Minimized counts too: see windowVisibility.js.) A clip that arrives
   // while nobody can see it (loaded or changed while minimized) doesn't
@@ -98,7 +111,7 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
   useEffect(() => onWindowVisibility((hidden) => {
     const v = activeRef.current
     if (!v) return
-    if (hidden) v.pause()
+    if (hidden || !runsRef.current) v.pause()
     else v.play().catch(() => {})
   }), [])
 
@@ -112,10 +125,12 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
         src={clip.src}
         muted
         loop
-        autoPlay={!isWindowHidden()}
+        autoPlay={!isWindowHidden() && isPlaying}
         playsInline
         preload="auto"
         disablePictureInPicture
+        // Shown from its first frame, also while the song is paused.
+        onLoadedData={() => { if (!ready) { setReady(true); onActive?.(true) } }}
         onPlaying={() => { if (!ready) { setReady(true); onActive?.(true) } }}
         onError={() => { setClip(null); onActive?.(false) }}
         className={`absolute inset-0 h-full w-full object-cover ${className}`}

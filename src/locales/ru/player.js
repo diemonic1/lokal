@@ -222,4 +222,6 @@ export default {
   'Time-synced': 'Синхронный',
   'Not synced': 'Несинхронный',
   'Instrumental track: no lyrics': 'Инструментальный трек, текста нет',
+  "These lyrics can't be found: the track's tag says so": 'Слова этого трека найти невозможно — так указано в теге трека',
+  'Visualization + Lyrics': 'Визуализация + текст',
 }

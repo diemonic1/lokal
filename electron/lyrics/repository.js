@@ -22,6 +22,7 @@
 const { PROVIDERS, BY_ID, DEFAULT_ORDER, identify } = require('./providers')
 const { readIsrc } = require('./providers/local')
 const { parseAny } = require('./detect')
+const { parsePlain } = require('./lrc')
 const { finish } = require('./postprocess')
 
 const IDENTIFY_TIMEOUT_MS = 2500
@@ -173,7 +174,7 @@ async function lookup(query, options = {}) {
 function parseImported(content, type) {
   const raw = String(content || '')
   if (type === 'plain' || type === 'txt') {
-    return finish(raw.split('\n').map(t => t.trim()).filter(Boolean).map(text => ({ text, time: null, words: [] })), { source: 'imported' })
+    return finish(parsePlain(raw), { source: 'imported' })
   }
   const parsed = parseAny(raw)
   if (!parsed) return null

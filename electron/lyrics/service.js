@@ -202,15 +202,6 @@ function rejectedSources(db, trackId) {
 
 // ---------------------------------------------------------------- public API
 
-function instrumentalResult(db, trackId) {
-  if (!trackId) return null
-  try {
-    const track = db.prepare('SELECT instrumental FROM tracks WHERE id = ?').get(trackId)
-    if (!track?.instrumental) return null
-  } catch { return null }
-  return { type: 'instrumental', sync: 'none', lines: [], source: 'instrumental-tag', instrumental: true }
-}
-
 /** The lyrics in the file itself (sidecar, Lokal's tag, USLT/SYLT...), finished; null when none. */
 async function readLocal(filePath) {
   if (!filePath) return null
@@ -241,8 +232,6 @@ async function getLyrics(db, args) {
   ensureSchema(db)
   const { trackId, title, artist, album, duration } = args
   const filePath = trustedFilePath(db, trackId)
-  const instrumental = instrumentalResult(db, trackId)
-  if (instrumental) return instrumental
   const settings = readSettings(db)
   // Cached lyrics with untimed stamps, as plain text: kept when the fresh
   // lookup finds nothing better (every source down, say).

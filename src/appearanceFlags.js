@@ -114,7 +114,7 @@ export function previewAppearanceValue(key, value) {
   notify()
 }
 
-export const PLAYER_VISUALIZERS = ['off', 'waveform', 'spectrum', 'waves', 'lightning']
+export const PLAYER_VISUALIZERS = ['off', 'waveform', 'spectrum', 'spectrumCenter', 'waves', 'lightning']
 
 /** Which visualization the player bar shows (one of PLAYER_VISUALIZERS). */
 export function usePlayerVisualizer() {

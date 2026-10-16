@@ -2,8 +2,8 @@
 // web server; src/artistNames.js is the renderer's copy (keep them in step,
 // scripts/artist-split.test.mjs checks they agree).
 
-// Names that hold a separator but are one artist. The user's own list
-// (Settings > keep_comma_artists) is added to these.
+// Names that hold a separator (a comma, "&", "/", " x "...) but are one
+// artist. The user's own list (Settings > keep_comma_artists) is added to these.
 const DEFAULT_KEEP_COMMA_ARTISTS = [
   'tyler, the creator', 'earth, wind & fire', 'crosby, stills & nash',
   'crosby, stills, nash & young', 'simon & garfunkel', 'emerson, lake & palmer',
@@ -67,13 +67,44 @@ function keepCommaSet(userList = []) {
   return keep
 }
 
+// A kept name anywhere in a credit ("AC/DC/Foyon", "Simon & Garfunkel x
+// Foyon"), whatever separator it holds -- "/", "&", ",", " x "...: stands in
+// for itself as a mark no separator matches while the credit is split, and
+// comes back as written. Only as a whole name (not inside a longer word).
+const MARK = /\uE000(\d+)\uE001/g
+const WORD_CHAR = /[\p{L}\p{N}]/u
+
+function protectKept(raw, keepComma) {
+  const names = []
+  let text = raw
+  const lowerOf = () => text.toLowerCase()
+  for (const known of [...keepComma].sort((a, b) => b.length - a.length)) {
+    if (!known) continue
+    let from = 0
+    for (;;) {
+      const lower = lowerOf()
+      const start = lower.indexOf(known, from)
+      if (start < 0) break
+      const end = start + known.length
+      if ((start > 0 && WORD_CHAR.test(text[start - 1])) || (end < text.length && WORD_CHAR.test(text[end]))) { from = start + 1; continue }
+      const mark = `\uE000${names.length}\uE001`
+      names.push(text.slice(start, end))
+      text = text.slice(0, start) + mark + text.slice(end)
+      from = start + mark.length
+    }
+  }
+  return { text, restore: part => part.replace(MARK, (_, i) => names[Number(i)] ?? '') }
+}
+
 /** "A/B (feat. C), D & E" -> ['A', 'B', 'D', 'E', 'C'], without repeats. */
 function splitArtists(raw, keepComma = keepCommaSet()) {
   if (!raw) return []
   if (keepComma.has(String(raw).toLowerCase().trim())) return [String(raw).trim()]
-  const artists = splitFeatured(String(raw))
+  const { text, restore } = protectKept(String(raw), keepComma)
+  const artists = splitFeatured(text)
     .flatMap(part => isKept(part, keepComma) ? [part] : splitUnlessTiny(part, LIST_SEPARATOR))
     .flatMap(part => splitCredit(part, keepComma))
+    .map(restore)
   return [...new Set(artists.map(name => name.trim()).filter(Boolean))]
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
+import ExplicitBadge from './ExplicitBadge'
 import { navigateToTrackAlbum } from '../playbackContext'
 import ArtistNames from './ArtistNames'
 import Waveform from '../visualizers/Waveform'
@@ -95,6 +96,21 @@ export default function PlayerBar() {
     toggleLyricsButton, toggleRightSidebar, toggleFullscreen, toggleQueueButton,
     likedIds, setLiked, audioRef, cfAudioRef, activeAudioElement,
   })))
+  // Spectrum from the center: its middle line runs through the playback
+  // buttons' middle (measured: the seek bar under them moves it off the
+  // column's centre).
+  const controlsRef = useRef(null)
+  const [controlsMid, setControlsMid] = useState(null)
+  const centerSpectrum = visualizer === 'spectrumCenter' && !!currentTrack
+  useLayoutEffect(() => {
+    const row = controlsRef.current
+    if (!centerSpectrum || !row || typeof ResizeObserver === 'undefined') return undefined
+    const update = () => setControlsMid(row.offsetTop + row.offsetHeight / 2)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(row.parentElement || row)
+    return () => observer.disconnect()
+  }, [centerSpectrum])
   const { user, openAddToPlaylist } = useAppStore()
   const [likeAnim, setLikeAnim] = useState(false)
   const scrubbing = useRef(false)
@@ -242,11 +258,7 @@ export default function PlayerBar() {
                 ) : (
                    <p className="text-lg leading-7 font-medium truncate text-text">—</p>
                 )}
-                {!!currentTrack?.explicit && (
-                  <span className="px-1.5 py-0.5 rounded border border-border bg-card text-[10px] font-display uppercase tracking-wide text-muted flex-shrink-0">
-                    E
-                  </span>
-                )}
+                {!!currentTrack?.explicit && <ExplicitBadge />}
               </div>
               {currentTrack ? (
                 <div className="min-w-0">
@@ -279,7 +291,15 @@ export default function PlayerBar() {
         {currentTrack && visualizer === 'waves' && (
           <Waves isPlaying={isPlaying} {...waves} className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2" />
         )}
-        <div className="relative flex items-center gap-4">
+        {/* Kept inside the bar's height (clipped above and below), under the buttons. */}
+        {centerSpectrum && controlsMid != null && (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ overflowY: 'clip' }}>
+            <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: controlsMid }}>
+              <Spectrum isPlaying={isPlaying} {...spectrum} mirrored color={spectrumColor} />
+            </div>
+          </div>
+        )}
+        <div ref={controlsRef} className="relative flex items-center gap-4">
           {/* Beside the buttons (not over the seek bar), without moving them. */}
           <MixingMark className="absolute left-full top-1/2 ml-4 -translate-y-1/2 whitespace-nowrap pointer-events-none" />
           <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={shuffle ? t("Shuffle on") : t("Shuffle off")}><Shuffle size={15} /></button>

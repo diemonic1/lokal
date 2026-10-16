@@ -145,14 +145,14 @@ function readSidePanels() {
   try {
     const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null')
     if (!saved || typeof saved !== 'object') return {}
-    const view = ['info', 'lyrics', 'visual', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
+    const view = ['info', 'lyrics', 'visual', 'visualLyrics', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
     if (readExclusiveSidePanelsSetting()) {
       return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
     }
     return {
       showRightSidebar: !!saved.showRightSidebar,
-      // Visualization is a tab of this panel in both modes.
-      sidePanelView: view === 'visual' ? 'visual' : 'info',
+      // Visualization (and Visualization + Lyrics) is a tab of this panel in both modes.
+      sidePanelView: view === 'visual' || view === 'visualLyrics' ? view : 'info',
       showQueue: !!saved.showQueue,
       showLyricsPanel: !!saved.showLyricsPanel,
     }

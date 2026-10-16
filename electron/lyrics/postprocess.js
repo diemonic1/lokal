@@ -231,7 +231,9 @@ function finish(rawLines, { source, doc = null, isrc = null, language = null, ti
   lines = dropCredits(lines, { title, artist })
   const sync = classify(lines)
   if (sync === 'none') {
-    lines = lines.map(l => ({ text: l.text, time: null, end: null, words: [] }))
+    lines = lines.map(l => ({ text: l.text, time: null, end: null, words: [], ...(l.blank ? { blank: true } : {}) }))
+    while (lines.length && lines[0].blank) lines.shift()
+    while (lines.length && lines[lines.length - 1].blank) lines.pop()
     return { type: lines.length ? 'unsynced' : null, sync, lines, source, isrc, language, duet: false }
   }
   lines.sort((a, b) => (a.time ?? 0) - (b.time ?? 0))

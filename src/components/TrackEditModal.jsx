@@ -8,6 +8,7 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
+import { youtubeVideoId } from '../youtubeClip'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -45,7 +46,9 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     record_label: '',
     comment: '',
     explicit: false,
-    instrumental: '',
+    clip_url: '',
+    clip_start: '',
+    clip_end: '',
     danceability: '',
     energy: '',
     track_key: '',
@@ -109,7 +112,9 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         record_label: track.record_label || '',
         comment: track.comment || '',
         explicit: !!track.explicit,
-        instrumental: track.instrumental === null || track.instrumental === undefined ? '' : String(track.instrumental),
+        clip_url: track.clip_url || '',
+        clip_start: asInput(track.clip_start),
+        clip_end: asInput(track.clip_end),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
         track_key: asInput(track.track_key),
@@ -184,7 +189,24 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (formData.record_label !== (track.record_label || '')) updateData.record_label = formData.record_label || null
       if (formData.comment.trim() !== (track.comment || '').trim()) updateData.comment = formData.comment.trim()
       if (formData.explicit !== !!track.explicit) updateData.explicit = formData.explicit ? 1 : 0
-      if (String(formData.instrumental) !== String(track.instrumental ?? '')) updateData.instrumental = formData.instrumental === '' ? null : formData.instrumental === '1' ? 1 : 0
+      // The music video: always a YouTube link; the seconds it loops between
+      // in the side panel's Visualization + Lyrics tab.
+      const clipUrl = formData.clip_url.trim()
+      if (clipUrl && !youtubeVideoId(clipUrl)) {
+        setStatus({ type: 'error', message: t('The music video must be a YouTube link') })
+        setSaving(false)
+        return
+      }
+      const clipStart = parseNumberField(formData.clip_start)
+      const clipEnd = parseNumberField(formData.clip_end)
+      if (clipStart != null && clipEnd != null && clipEnd <= clipStart) {
+        setStatus({ type: 'error', message: t('The loop must end after it starts') })
+        setSaving(false)
+        return
+      }
+      if (clipUrl !== (track.clip_url || '')) updateData.clip_url = clipUrl || null
+      if (clipStart !== (track.clip_start ?? null)) updateData.clip_start = clipStart
+      if (clipEnd !== (track.clip_end ?? null)) updateData.clip_end = clipEnd
       if (String(formData.danceability) !== String(track.danceability ?? '')) updateData.danceability = parseNumberField(formData.danceability)
       if (String(formData.energy) !== String(track.energy ?? '')) updateData.energy = parseNumberField(formData.energy)
       if (String(formData.track_key) !== String(track.track_key ?? '')) updateData.track_key = parseIntegerField(formData.track_key)
@@ -382,20 +404,21 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               <textarea value={formData.comment} onChange={(e) => handleChange('comment', e.target.value)} rows={2} className={`${field} resize-y`} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2" title={t('Show the track with the explicit badge.')}>
-                <input type="checkbox" checked={formData.explicit} onChange={(e) => handleChange('explicit', e.target.checked)} className="rounded border-border bg-card text-accent focus:ring-accent/40" />
-                <span className="text-sm text-white">{t('Explicit')}</span>
-              </label>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5" title={t('Instrumental tracks skip LRCLIB and lyrics lookups.')}>
-                <span className="text-[10px] font-display uppercase tracking-widest text-muted">{t('Instrumental')}</span>
-                <select value={formData.instrumental} onChange={(e) => handleChange('instrumental', e.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-xs text-white outline-none focus:border-accent/50">
-                  <option value="">{t('Unknown')}</option>
-                  <option value="1">{t('Instrumental')}</option>
-                  <option value="0">{t('Has vocals')}</option>
-                </select>
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2" title={t('Show the track with the explicit badge.')}>
+              <input type="checkbox" checked={formData.explicit} onChange={(e) => handleChange('explicit', e.target.checked)} className="rounded border-border bg-card text-accent focus:ring-accent/40" />
+              <span className="text-sm text-white">{t('Explicit')}</span>
+            </label>
+
+            <div>
+              <label className={label}>{t('Music video')}</label>
+              <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">
+                <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder="https://www.youtube.com/watch?v=…" spellCheck={false} />
+                <input type="number" min="0" step="0.1" value={formData.clip_start} onChange={(e) => handleChange('clip_start', e.target.value)} className={field}
+                  placeholder={t('Start')} title={t('Where the loop starts, in seconds')} aria-label={t('Where the loop starts, in seconds')} />
+                <input type="number" min="0" step="0.1" value={formData.clip_end} onChange={(e) => handleChange('clip_end', e.target.value)} className={field}
+                  placeholder={t('End')} title={t('Where the loop ends, in seconds')} aria-label={t('Where the loop ends, in seconds')} />
               </div>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A YouTube link. With both times set, the video loops between them, muted, in the side panel’s Visualization + Lyrics tab, instead of the canvas.')}</p>
             </div>
 
             <details className="rounded-lg border border-border bg-card/70 px-3 py-2">

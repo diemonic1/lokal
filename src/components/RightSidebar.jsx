@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AudioWaveform, Info, ListMusic, Music, Maximize2, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay } from 'lucide-react'
+import { AudioWaveform, Info, ListMusic, Music, Maximize2, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import LyricsPanel from './LyricsPanel'
+import SideVisualLyrics from './SideVisualLyrics'
 import { QueueContent } from './QueuePanel'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover, { loadMotionCover } from './MotionCover'
@@ -21,6 +22,7 @@ import {
 } from '../playbackContext'
 import ArtistNames from './ArtistNames'
 import { isStreamed, trackArtURL } from '../onlineTracks'
+import { commentLink, openLink } from '../trackLinks'
 
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
@@ -56,7 +58,7 @@ function InfoRow({ label, value, onClick = null, title = null, fx = true }) {
   )
 }
 
-const LYRICS_KINDS = { sync: 'Time-synced', plain: 'Not synced', instrumental: 'Instrumental' }
+const LYRICS_KINDS = { sync: 'Time-synced', plain: 'Not synced', instrumental: 'Instrumental', unfound: "Can't be found" }
 
 /** "FLAC · 16-bit / 44.1 kHz" for a track whose source says so, else null. */
 function streamQualityLabel(track) {
@@ -142,7 +144,7 @@ export default function RightSidebar() {
   // pending) and overwriting the newer settings with stale ones.
   const settingsSeqRef = useRef(0)
   useEffect(() => {
-    if (sidePanelView !== 'lyrics') return
+    if (sidePanelView !== 'lyrics' && sidePanelView !== 'visualLyrics') return
     const loadSettings = () => {
       const seq = ++settingsSeqRef.current
       api.getSettings()
@@ -187,7 +189,10 @@ export default function RightSidebar() {
   // The Lyrics tab without lyrics (still searching, or none found) shows the
   // same visualization behind it (LyricsPanel's idleVisual).
   const [lyricsIdle, setLyricsIdle] = useState(false)
-  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
+  // Visualization + Lyrics: the picture over the lyrics (SideVisualLyrics);
+  // a tab whatever the Visualization setting (off, it uses the round character).
+  const showVisualLyrics = sidePanelView === 'visualLyrics'
+  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
 
   // Cosmetic case: when the panel is closed and Queue/Lyrics is clicked,
   // toggleQueueButton/toggleLyricsButton opens it straight to that
@@ -202,6 +207,7 @@ export default function RightSidebar() {
   const openedFreshToQueue = !wasSidebarOpenRef.current && showRightSidebar && sidePanelView === 'queue'
   const openedFreshToLyrics = !wasSidebarOpenRef.current && showRightSidebar && sidePanelView === 'lyrics'
   const openedFreshToVisual = !wasSidebarOpenRef.current && showRightSidebar && showVisual
+  const openedFreshToVisualLyrics = !wasSidebarOpenRef.current && showRightSidebar && showVisualLyrics
   useEffect(() => {
     wasSidebarOpenRef.current = showRightSidebar
   })
@@ -293,6 +299,7 @@ export default function RightSidebar() {
       { label: t('Details'), icon: Info, checked: tab === 'info', onSelect: pick('info') },
       { label: t('Lyrics'), icon: Mic2, checked: tab === 'lyrics', onSelect: pick('lyrics') },
       visualTab && { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
+      { label: t('Visualization + Lyrics'), icon: MonitorPlay, checked: tab === 'visualLyrics', onSelect: pick('visualLyrics') },
       { label: t('Queue'), icon: ListMusic, checked: tab === 'queue', onSelect: pick('queue') },
       { separator: true },
       { label: t('Close the side panel'), icon: PanelRightClose, onSelect: toggleRightSidebar },
@@ -515,7 +522,8 @@ export default function RightSidebar() {
                           title={t(TIERS[tier].desc)} onClick={() => nav('/quality', { state: { tier } })} />
                       })()}
                       <InfoRow fx={fx} label={t('Lyrics')} value={LYRICS_KINDS[currentTrack.lyrics_kind] ? t(LYRICS_KINDS[currentTrack.lyrics_kind]) : null} />
-                      <InfoRow fx={fx} label={t('Comment')} value={String(currentTrack.comment || '').trim()} />
+                      <InfoRow fx={fx} label={t('Comment')} value={String(currentTrack.comment || '').trim()}
+                        onClick={commentLink(currentTrack) ? () => openLink(commentLink(currentTrack)) : null} title={commentLink(currentTrack)} />
                       <InfoRow fx={fx} label={t('Plays')} value={plays > 0 ? plays.toLocaleString() : null} />
                     </div>
                   )}
@@ -586,6 +594,28 @@ export default function RightSidebar() {
                   style={{ backgroundColor: visualBg }}
                 >
                   {visual}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Visualization + Lyrics: same overlay again, mounted only while it shows. */}
+            <AnimatePresence key={`visual-lyrics-${reveal}`} initial={reveal === 0}>
+              {showVisualLyrics && (
+                <motion.div
+                  key="visual-lyrics-overlay"
+                  initial={openedFreshToVisualLyrics ? false : { y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+                  className="absolute inset-0 flex flex-col"
+                  style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}
+                >
+                  {currentTrack ? (
+                    <SideVisualLyrics track={currentTrack} progress={progress} visual={visual} visualBg={visualBg} coverOff={coverOff}
+                      wordSync={wordSync} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
+                  ) : (
+                    <div className="flex flex-1 flex-col" style={{ backgroundColor: visualBg }}>{visual}</div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

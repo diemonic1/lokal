@@ -30,7 +30,19 @@ const CASES = [
   ['The Weeknd (prod. by Martin Garrix)', ['The Weeknd', 'Martin Garrix']],
   ['The Weeknd (Radio Remix)', ['The Weeknd (Radio Remix)']],
   ['Sigur Rós (Live)', ['Sigur Rós (Live)']],
+  ['Protostar/Laminar/imallryt', ['Protostar', 'Laminar', 'imallryt']],
+  ['AC/DC/Foyon', ['AC/DC', 'Foyon']],
+  ['Foyon & Simon & Garfunkel', ['Foyon', 'Simon & Garfunkel']],
 ]
+
+test("a name from the keep list stays whole whatever separator it holds", () => {
+  const keep = main.keepCommaSet(['Mumford & Sons', 'Above/Beyond'])
+  assert.deepEqual(main.splitArtists('Mumford & Sons/Protostar', keep), ['Mumford & Sons', 'Protostar'])
+  assert.deepEqual(main.splitArtists('Protostar & Above/Beyond (feat. Mumford & Sons)', keep), ['Protostar', 'Above/Beyond', 'Mumford & Sons'])
+  assert.deepEqual(main.splitArtists('Mumford & Sonsy', keep), ['Mumford', 'Sonsy'])
+  const rendererKeep = renderer.keepCommaSet(['Mumford & Sons', 'Above/Beyond'])
+  assert.deepEqual(renderer.splitArtists('Protostar & Above/Beyond (feat. Mumford & Sons)', rendererKeep), ['Protostar', 'Above/Beyond', 'Mumford & Sons'])
+})
 
 test('artist credits split into every credited artist', () => {
   for (const [credit, expected] of CASES) assert.deepEqual(main.splitArtists(credit), expected, credit)

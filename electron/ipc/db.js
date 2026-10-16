@@ -237,6 +237,11 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN comment TEXT`,
     // Lyrics in the file's tags: 'sync', 'plain', '' (none); NULL while unread.
     `ALTER TABLE tracks ADD COLUMN lyrics_kind TEXT`,
+    // The song's music video (a YouTube link) and the part of it, in seconds,
+    // that loops in the side panel's Visualization + Lyrics tab.
+    `ALTER TABLE tracks ADD COLUMN clip_url TEXT`,
+    `ALTER TABLE tracks ADD COLUMN clip_start REAL`,
+    `ALTER TABLE tracks ADD COLUMN clip_end REAL`,
     // Downloaded songs: where from ('yt', 'sc', an addon 'a-<key>', 'soulseek',
     // 'web') and which online song ("yt:<id>", "a-<key>:<id>"...), so the same
     // song isn't downloaded twice and versions from different places can be
@@ -289,6 +294,11 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN comment TEXT`,
     // Lyrics in the file's tags: 'sync', 'plain', '' (none); NULL while unread.
     `ALTER TABLE tracks ADD COLUMN lyrics_kind TEXT`,
+    // The song's music video (a YouTube link) and the part of it, in seconds,
+    // that loops in the side panel's Visualization + Lyrics tab.
+    `ALTER TABLE tracks ADD COLUMN clip_url TEXT`,
+    `ALTER TABLE tracks ADD COLUMN clip_start REAL`,
+    `ALTER TABLE tracks ADD COLUMN clip_end REAL`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_by TEXT DEFAULT 'guest'`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_at INTEGER`,
     
@@ -497,7 +507,7 @@ function importAppData(payload = {}) {
       )
     }
 
-    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, instrumental, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, clip_url, clip_start, clip_end, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     for (const track of tracks) {
       insertTrack.run(
         track.id,
@@ -513,7 +523,9 @@ function importAppData(payload = {}) {
         track.genres || null,
         track.record_label || null,
         track.explicit ? 1 : 0,
-        track.instrumental ?? null,
+        track.clip_url || null,
+        track.clip_start ?? null,
+        track.clip_end ?? null,
         track.danceability ?? null,
         track.energy ?? null,
         track.track_key ?? null,

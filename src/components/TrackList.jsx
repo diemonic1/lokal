@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, Globe, Radio, ChevronUp, ChevronDown, FolderOpen, ExternalLink, Link2 } from 'lucide-react'
+import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, Globe, Radio, ChevronUp, ChevronDown, FolderOpen, ExternalLink, Link2, Clapperboard } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { showToast, showLoadingToast } from './Toaster'
 import { canGetLossless, openLossless, formatLabel, isSuspect, tierOf, TIERS } from '../quality'
@@ -36,11 +36,12 @@ import { useGhostDownloadSources } from './useGhostDownloadSources'
 import { useGhostDurationConfirmation } from './useGhostDurationConfirmation'
 import { nextPlaylistSort } from '../playlistSorting'
 import { useTranslation, translate } from '../i18n'
+import ExplicitBadge from './ExplicitBadge'
 import { genreText } from '../genres'
 import ArtistNames from './ArtistNames'
 import GenrePopover from './GenrePopover'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
-import { TRACK_SEARCH_SITES, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
+import { TRACK_SEARCH_SITES, clipLink, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -724,6 +725,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
       { separator: true },
       ...(one && trackSearchText(one) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: ExternalLink, onSelect: () => openLink(trackSearchUrl(site, one)) })) : []),
       one && commentLink(one) && { label: t('Open comment'), icon: Link2, onSelect: () => openLink(commentLink(one)) },
+      one && clipLink(one) && { label: t('Open music video'), icon: Clapperboard, onSelect: () => openLink(clipLink(one)) },
       { separator: true },
       onRemove && { label: one ? t('Remove from this playlist') : t('Remove {n} songs from this playlist', { n }), icon: ListMinus, onSelect: () => removeMany(list) },
       deletable.length > 0 && { label: deletable.length > 1 ? t('Delete {n} from library', { n: deletable.length }) : t('Delete from library'), icon: Trash2, danger: true, onSelect: () => askDelete(deletable) },
@@ -952,6 +954,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
             : key === 'quality' ? <span className="text-center">{t('Quality')}</span>
             : key === 'genre' ? <span className="truncate tracking-normal">{t('Genre')}</span>
             : key === 'comment' ? <span className="truncate tracking-normal">{t('Comment')}</span>
+            : key === 'clip' ? <span className="truncate tracking-normal">{t('Music video')}</span>
             : key === 'lyrics' ? <span className="truncate tracking-normal">{t('Lyrics')}</span>
             : key === 'added' ? <SortableHeader column="added" label="date added" sort={sort} onSortChange={onSortChange} className="justify-end truncate text-right tracking-normal">{t('Date added')}</SortableHeader>
             : key === 'time' ? <SortableHeader column="time" label="duration" sort={sort} onSortChange={onSortChange} className="justify-end text-right">{t('Time')}</SortableHeader>
@@ -1064,7 +1067,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                   {columns.source && !layout.source && <TrackSourceIcon track={track} addonNames={addonNames} />}
                   <p title={track.title} className={`min-w-0 text-sm font-medium truncate ${isCurrent ? 'text-accent' : 'text-white'}`}>{track.title}</p>
-                  {!!track.explicit && <span className="px-1.5 py-0.5 rounded border border-border bg-card text-[10px] leading-[14px] font-display uppercase tracking-wide text-muted flex-shrink-0">E</span>}
+                  {!!track.explicit && <ExplicitBadge />}
                   {isMissing && <span className="px-1.5 py-0.5 rounded-full bg-red-400/10 border border-red-400/20 text-[10px] leading-[14px] uppercase tracking-wide text-red-200 flex-shrink-0">{t("Missing file")}</span>}
                   {!isMissing && isGhost && <span className="px-1.5 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-[10px] leading-[14px] uppercase tracking-wide text-yellow-200 flex-shrink-0">{t("Ghost")}</span>}
                   {!isMissing && track.playback_error && <span title={track.playback_error} className="px-1.5 py-0.5 rounded-full bg-red-400/10 border border-red-400/20 text-[10px] leading-[14px] uppercase tracking-wide text-red-200 flex-shrink-0">{t('Can\'t play')}</span>}
@@ -1108,8 +1111,15 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                     </button>
                   )
                 }
-                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['sync', 'plain', 'instrumental'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
-                case 'comment': return <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
+                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['sync', 'plain', 'instrumental', 'unfound'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
+                case 'comment': return commentLink(track)
+                  ? <button key={key} type="button" data-track-column="comment" onClick={e => { e.stopPropagation(); openLink(commentLink(track)) }} onDoubleClick={e => e.stopPropagation()}
+                      title={commentLink(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{commentLink(track)}</button>
+                  : <p key={key} data-track-column="comment" className="truncate text-xs text-muted" title={track.comment || undefined}>{track.comment || ''}</p>
+                case 'clip': return clipLink(track)
+                  ? <button key={key} type="button" data-track-column="clip" onClick={e => { e.stopPropagation(); openLink(clipLink(track)) }} onDoubleClick={e => e.stopPropagation()}
+                      title={clipLink(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{clipLink(track)}</button>
+                  : <span key={key} data-track-column="clip" />
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
                 case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>
                 default: return null

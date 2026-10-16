@@ -16,7 +16,6 @@ const FIELD_LABELS = {
   genres: 'Genres',
   record_label: 'Record Label',
   explicit: 'Explicit',
-  instrumental: 'Instrumental',
   artwork: 'Artwork',
 }
 
@@ -31,7 +30,6 @@ const DEFAULT_MODES = {
   genres: 'ignore',
   record_label: 'ignore',
   explicit: 'ignore',
-  instrumental: 'ignore',
   artwork: 'ignore',
 }
 
@@ -72,14 +70,12 @@ function createDefaultValues() {
     genres: '',
     record_label: '',
     explicit: '',
-    instrumental: '',
     artwork: '',
   }
 }
 
 function formatPreviewValue(field, value) {
   if (field === 'explicit') return value === '1' ? translate('Explicit') : translate('Clean')
-  if (field === 'instrumental') return value === '1' ? translate('Instrumental') : translate('Has vocals')
   return value
 }
 
@@ -119,7 +115,7 @@ export default function BatchEditModal({ tracks = [], open, onClose, onSave }) {
     const rows = []
     for (const track of tracks.slice(0, 12)) {
       const changes = []
-      for (const field of ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit', 'instrumental']) {
+      for (const field of ['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit']) {
         const mode = modes[field]
         if (mode === 'ignore') continue
         if (mode === 'clear') {
@@ -194,7 +190,6 @@ export default function BatchEditModal({ tracks = [], open, onClose, onSave }) {
         genres: { mode: modes.genres, value: values.genres || null },
         record_label: { mode: modes.record_label, value: values.record_label || null },
         explicit: { mode: modes.explicit, value: values.explicit === '' ? null : values.explicit === '1' ? 1 : 0 },
-        instrumental: { mode: modes.instrumental, value: values.instrumental === '' ? null : values.instrumental === '1' ? 1 : 0 },
         artwork: { mode: modes.artwork, value: values.artwork || null },
       }
       const result = await api.batchUpdateTracks(tracks.map(track => track.id), operations)
@@ -228,7 +223,7 @@ export default function BatchEditModal({ tracks = [], open, onClose, onSave }) {
           <span className="text-xs font-display text-muted uppercase tracking-widest">{t('Mode')}</span>
           <span className="text-xs font-display text-muted uppercase tracking-widest">{t('Value')}</span>
 
-          {['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit', 'instrumental'].map(field => (
+          {['title', 'artist', 'album', 'album_artist', 'track_num', 'year', 'genre', 'genres', 'record_label', 'explicit'].map(field => (
             <React.Fragment key={field}>
               <label className="text-sm text-white">{t(FIELD_LABELS[field])}</label>
               <select
@@ -244,7 +239,7 @@ export default function BatchEditModal({ tracks = [], open, onClose, onSave }) {
                 {TEXT_FIELDS.has(field) && <option value="keepBeforeText">{t('Keep before text')}</option>}
                 <option value="clear">{t('Clear')}</option>
               </select>
-              {field === 'explicit' || field === 'instrumental' ? (
+              {field === 'explicit' ? (
                 <select
                   value={values[field]}
                   onChange={(e) => setValue(field, e.target.value)}
@@ -252,8 +247,8 @@ export default function BatchEditModal({ tracks = [], open, onClose, onSave }) {
                   className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50 disabled:opacity-40"
                 >
                   <option value="">{t('Select...')}</option>
-                  <option value="1">{field === 'explicit' ? t('Explicit') : t('Instrumental')}</option>
-                  <option value="0">{field === 'explicit' ? t('Clean') : t('Has vocals')}</option>
+                  <option value="1">{t('Explicit')}</option>
+                  <option value="0">{t('Clean')}</option>
                 </select>
               ) : field === 'genre' || field === 'genres' ? (
                 <GenreValueInput
