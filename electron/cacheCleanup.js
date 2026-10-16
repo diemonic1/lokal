@@ -12,7 +12,8 @@
 const fs = require('fs')
 const path = require('path')
 const cache = require('./cache')
-const { artwork, measure } = require('./cacheAnalysis')
+const { artwork, measure, ghostTracks } = require('./cacheAnalysis')
+const { dropTracks } = require('./libraryPrune')
 
 const rm = async (p) => { try { await fs.promises.rm(p, { recursive: true, force: true }); return true } catch { return false } }
 
@@ -108,6 +109,17 @@ async function clean({ mode, userData, dataDir, db, electron, activePartition, c
     }
     return { removed }
   })
+
+  // Online songs kept as ghost tracks: the ones nothing refers to (safe), and
+  // the ones with only play history, with that history (full). Ones in a
+  // playlist or liked stay. Before the VACUUM below, so their space is freed.
+  if (db) {
+    await step('ghostTracks', () => {
+      const ghosts = ghostTracks(db)
+      const ids = full ? [...ghosts.unused.ids, ...ghosts.history.ids] : ghosts.unused.ids
+      return { removed: dropTracks(db, ids.map(id => ({ id })), () => null).removed }
+    })
+  }
 
   // The database: fold the write-ahead log back in and drop unused pages.
   if (db) {

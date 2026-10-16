@@ -31,7 +31,7 @@ const ITEMS = {
   motionCovers: 'Motion covers (video)', playbackCache: 'Playback copies (converted files)', musicVideoCache: 'Music video cache',
   castCache: 'Cast copies', addonCache: 'Addon audio cache', musicVideoIndex: 'Music video index',
   lyricsFiles: 'Lyrics files', avatars: 'Avatars', plugins: 'Plugins', youtubeCookies: 'YouTube cookies',
-  ytMusicSession: 'YouTube Music sign-in', youtubeAttest: 'YouTube verification', webSession: 'Web session',
+  ghostTracks: 'Online tracks (ghost)', ytMusicSession: 'YouTube Music sign-in', youtubeAttest: 'YouTube verification', webSession: 'Web session',
 }
 
 // What Chromium's own folders hold, shown next to their names.
@@ -69,6 +69,7 @@ const CLEAN = {
       'Motion covers and converted copies (made again when needed)',
       'Sign-in profiles left over from unfinished sign-ins',
       'Logs of earlier launches',
+      'Online tracks nobody uses (not in playlists, likes or history)',
       'Unused space inside the database (it is compacted)',
     ],
     keep: 'Your library, playlists, settings, covers in use and sign-ins stay.',
@@ -81,8 +82,9 @@ const CLEAN = {
       'Cookies and stored data of every web service and sign-in profile',
       'YouTube cookies exported for downloads',
       'Music video cache',
+      'Online tracks with only play history, and that history',
     ],
-    keep: 'Your library, playlists, settings and covers in use stay. You will need to sign in to web services again.',
+    keep: 'Your library, playlists, settings, covers in use and online tracks in playlists or likes stay. You will need to sign in to web services again.',
   },
 }
 
@@ -156,11 +158,13 @@ export default function CacheAnalysis() {
 
   const total = report?.total
   const itemLabel = (it) => {
+    if (it.id === 'ghostTracks') return `${t(ITEMS.ghostTracks)} · ${it.rows}`
     if (ITEMS[it.id] && it.name) return `${t(ITEMS[it.id])} · ${it.name}`
     if (ITEMS[it.id]) return t(ITEMS[it.id])
     return it.name || it.id
   }
   const itemNote = (it) => {
+    if (it.id === 'ghostTracks') return t('{unused} unused, {history} with only history, {kept} in playlists or likes', it)
     if (it.average) return t('{size} per file on average', { size: bytes(it.average) })
     if (it.name && HINTS[it.name]) return t(HINTS[it.name])
     return null
@@ -279,7 +283,7 @@ export default function CacheAnalysis() {
                 <Stat label={t(meta.label || s.id)} size={s.size} total={total.size} files={s.files} color={meta.color}
                   note={meta.desc && t(meta.desc)} open={isOpen} onClick={() => setOpen(o => ({ ...o, [s.id]: !isOpen }))} />
                 {isOpen && s.items.map((it, i) => (
-                  <Stat key={`${it.id}-${it.name || i}`} small label={itemLabel(it)} size={it.size} total={total.size} files={it.files}
+                  <Stat key={`${it.id}-${it.name || i}`} small label={itemLabel(it)} size={it.size} total={total.size} files={it.id === 'ghostTracks' ? null : it.files}
                     color={meta.color} note={itemNote(it)} tone="text-white/90" />
                 ))}
                 {isOpen && s.id === 'artwork' && report.artwork?.unused && (

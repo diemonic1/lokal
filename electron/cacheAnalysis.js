@@ -77,6 +77,48 @@ function tableSizes(db) {
   } catch { return [] }
 }
 
+// Online songs kept as ghost tracks (ghost://<platform>/online/<id>, see
+// electron/online/sources.js): rows in the database, not files.
+//   kept     in a playlist or liked: never removed
+//   history  only in the play history: removed by the full clean-up, with it
+//   unused   nothing refers to them: removed by the safe clean-up
+// bytes: their rough share of the tables they live in.
+function ghostTracks(db) {
+  const empty = () => ({ count: 0, ids: [], bytes: 0 })
+  const out = { total: 0, unused: empty(), history: empty(), kept: { count: 0 } }
+  if (!db) return out
+  let rows = []
+  try { rows = db.prepare("SELECT id, liked FROM tracks WHERE file_path LIKE 'ghost://%'").all() } catch { return out }
+  out.total = rows.length
+  if (!rows.length) return out
+  const idsIn = (sql) => { try { return new Set(db.prepare(sql).all().map(r => r.track_id)) } catch { return new Set() } }
+  const kept = new Set([...idsIn('SELECT DISTINCT track_id FROM playlist_tracks'), ...idsIn('SELECT DISTINCT track_id FROM user_likes')])
+  const counts = (table) => { try { return new Map(db.prepare(`SELECT track_id, COUNT(*) AS n FROM ${table} GROUP BY track_id`).all().map(r => [r.track_id, r.n])) } catch { return new Map() } }
+  const pageBytes = (pattern) => { try { return db.prepare('SELECT COALESCE(SUM(pgsize), 0) AS s FROM dbstat WHERE name LIKE ?').get(pattern).s } catch { return 0 } }
+  const rowCount = (table) => { try { return db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n || 1 } catch { return 1 } }
+  const history = { play_history: counts('play_history'), listening_events: counts('listening_events') }
+  // The row in tracks, and about as much again in the search index (a ghost
+  // has no lyrics there, which is most of that index's size).
+  const perTrack = 2 * pageBytes('tracks') / rowCount('tracks')
+  const perRow = Object.fromEntries(Object.keys(history).map(t => [t, pageBytes(t) / rowCount(t)]))
+  for (const row of rows) {
+    if (row.liked || kept.has(row.id)) { out.kept.count++; continue }
+    let size = perTrack
+    let played = false
+    for (const [table, map] of Object.entries(history)) {
+      const n = map.get(row.id) || 0
+      if (n) { played = true; size += n * perRow[table] }
+    }
+    const group = played ? out.history : out.unused
+    group.count++
+    group.ids.push(row.id)
+    group.bytes += size
+  }
+  out.unused.bytes = Math.round(out.unused.bytes)
+  out.history.bytes = Math.round(out.history.bytes)
+  return out
+}
+
 // Covers in data/artwork: by kind, plus the ones nothing in the library uses any more.
 async function artwork(dir, db) {
   const m = await measure(dir, { keepFiles: true })
@@ -120,7 +162,7 @@ async function artwork(dir, db) {
 const ENGINE_CACHE = new Set(['Cache', 'Code Cache', 'GPUCache', 'GrShaderCache', 'ShaderCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'GPUPersistentCache'])
 const SITE_DATA = new Set(['Network', 'IndexedDB', 'Service Worker', 'blob_storage', 'Shared Dictionary'])
 const SAFE_DATA = new Set(['motion-covers', 'playback-cache', 'cast-cache'])
-function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], activePartition, currentLog, freeBytes = 0 }) {
+function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], activePartition, currentLog, freeBytes = 0, ghosts }) {
   const lower = p => path.resolve(p).toLowerCase()
   const unused = new Set(unusedFiles.map(lower))
   const active = String(activePartition || '').replace(/^persist:/, '').toLowerCase()
@@ -145,8 +187,8 @@ function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], activePar
     if (SITE_DATA.has(parts[0])) return 'full'
     return null
   }
-  let safe = freeBytes
-  let full = 0
+  let safe = freeBytes + (ghosts?.unused.bytes || 0)
+  let full = ghosts?.history.bytes || 0
   for (const f of files) {
     const k = kind(f.path)
     if (k === 'safe') safe += f.size
@@ -231,6 +273,11 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
     try { pageSize = db.pragma('page_size', { simple: true }); pages = db.pragma('page_count', { simple: true }); free = db.pragma('freelist_count', { simple: true }) } catch {}
     database = { tables, pageSize, pages, freeBytes: free * pageSize }
   }
+  const ghosts = ghostTracks(db)
+  if (ghosts.total) {
+    const bytes = ghosts.unused.bytes + ghosts.history.bytes
+    push('database', { id: 'ghostTracks', size: bytes, disk: bytes, files: 0, rows: ghosts.total, unused: ghosts.unused.count, history: ghosts.history.count, kept: ghosts.kept.count })
+  }
 
   const sections = Object.entries(groups).map(([id, items]) => {
     const total = items.reduce((a, it) => add(a, { size: it.size, disk: it.disk, files: it.files, dirs: 0 }), empty())
@@ -238,7 +285,7 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
   }).filter(s => s.items.length).sort((a, b) => b.size - a.size)
 
   const total = sections.reduce((a, s) => add(a, { size: s.size, disk: s.disk, files: s.files, dirs: 0 }), empty())
-  const cleanup = cleanupEstimate({ files: allFiles, userData, dataDir, unusedFiles: artworkInfo?.unusedFiles, activePartition, currentLog, freeBytes: database?.freeBytes })
+  const cleanup = cleanupEstimate({ files: allFiles, userData, dataDir, unusedFiles: artworkInfo?.unusedFiles, activePartition, currentLog, freeBytes: database?.freeBytes, ghosts })
   const largestFiles = allFiles.sort((a, b) => b.size - a.size).slice(0, 15)
     .map(f => ({ path: path.relative(userData, f.path) || f.path, size: f.size }))
 
@@ -252,7 +299,8 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
     artwork: artworkInfo && { files: artworkInfo.total.files, size: artworkInfo.total.size, unused: artworkInfo.unused, largest: artworkInfo.largest },
     largestFiles,
     cleanup,
+    ghosts: { total: ghosts.total, unused: ghosts.unused.count, history: ghosts.history.count, kept: ghosts.kept.count },
   }
 }
 
-module.exports = { analyze, artwork, measure }
+module.exports = { analyze, artwork, measure, ghostTracks }

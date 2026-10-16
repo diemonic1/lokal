@@ -94,4 +94,4 @@ function pruneGonePaths(db, gonePaths, { exists = fs.existsSync } = {}) {
   return { ...dropTracks(db, [...stale.values()], copyOf), ids: [...stale.keys()] }
 }
 
-module.exports = { pruneMissingTracks, pruneGonePaths }
+module.exports = { pruneMissingTracks, pruneGonePaths, dropTracks }
