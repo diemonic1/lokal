@@ -1,5 +1,5 @@
 {
-  "exported_at": 1792152272781,
+  "exported_at": 1792154979264,
   "version": 1,
   "theme": "dark",
   "theme_overrides": {
@@ -47,9 +47,7 @@
     "comment_tags_v3": "1",
     "clean_download_metadata": "0",
     "auto_fetch_artist_metadata": "1",
-    "artist_relink_fingerprint": "7:[]",
     "player_spectrum_color": "#ffffff",
-    "player_spectrum_strength": "58",
     "side_anomaly_size": "82",
     "side_anomaly_sensitivity": "10",
     "side_anomaly_color": "accent",
@@ -64,7 +62,6 @@
     "player_lightning_opacity": "10",
     "side_character_bg": "#000000",
     "side_anomaly_bg": "#0f0f0f",
-    "side_panel_visual": "character",
     "player_bar_gradient": "1",
     "theme": "dark",
     "theme_overrides": "{\"--text-scale\":\"1\",\"--accent\":\"#ffb0d6\",\"--accent-dim\":\"#e09bbc\",\"--bg\":\"#161616\",\"--surface\":\"#161616\"}",
@@ -79,16 +76,33 @@
     "discord_use_default_app_id": "0",
     "motion_cover_sources": "[\"apple\",\"tidal\",\"community\",\"spotify\"]",
     "spotify_canvas_first": "1",
-    "music_folder": "S:\\Music",
     "tag_reader_version": "4",
     "motion_covers": "1",
-    "player_spectrum_height": "28",
-    "player_visualizer": "spectrumCenter",
     "player_spectrum_opacity": "6",
-    "player_spectrum_bars": "50",
     "player_spectrum_bar_width": "3",
-    "artwork_backdrop": "1",
-    "keep_comma_artists": "[\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Freaks & Geeks\",\"Kalwi & Remi\"]"
+    "keep_comma_artists": "[\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Freaks & Geeks\",\"Kalwi & Remi\"]",
+    "artist_relink_fingerprint": "7:[\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Tyler, The Creator\",\"Earth, Wind & Fire\",\"Freaks & Geeks\",\"Kalwi & Remi\"]",
+    "player_center_spectrum_radius": "6",
+    "player_center_spectrum_bar_width": "2",
+    "player_center_spectrum_bars": "79",
+    "player_center_spectrum_opacity": "9",
+    "player_center_spectrum_strength": "39",
+    "player_spectrum_height": "58",
+    "player_spectrum_strength": "53",
+    "player_spectrum_bars": "160",
+    "player_spectrum_radius": "6",
+    "player_visualizer": "spectrumCenter",
+    "side_lyrics_backdrop_strength": "10",
+    "artwork_backdrop": "0",
+    "music_folder": "S:\\Music",
+    "side_panel_visual": "character",
+    "yt_account_partition": "persist:lokal-ytmusic-84f89a7f-6d75-45a6-b033-53e49cfbb991",
+    "yt_account_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+    "yt_account_context": "{}",
+    "yt_account_session": "1",
+    "yt_account_revision": "1792154603003",
+    "yt_cookies": "1",
+    "yt_cookie_browser": "session"
   },
   "users": [],
   "user_settings": [
@@ -102,6 +116,318 @@
   "playlist_tracks": [],
   "user_likes": [],
   "play_history": [
+    {
+      "id": 222,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "seconds_played": 94,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154703
+    },
+    {
+      "id": 221,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "seconds_played": 39,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154609
+    },
+    {
+      "id": 220,
+      "user_id": "guest",
+      "track_id": "t-26a9514606f7c83d",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154339
+    },
+    {
+      "id": 219,
+      "user_id": "guest",
+      "track_id": "t-b4fafbeba2f77780",
+      "seconds_played": 56,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154336
+    },
+    {
+      "id": 218,
+      "user_id": "guest",
+      "track_id": "t-bd12be352b6bf1c8",
+      "seconds_played": 17,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154280
+    },
+    {
+      "id": 217,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "seconds_played": 17,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154263
+    },
+    {
+      "id": 216,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154245
+    },
+    {
+      "id": 215,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792154238
+    },
+    {
+      "id": 214,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153776
+    },
+    {
+      "id": 213,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 23,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153746
+    },
+    {
+      "id": 212,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153723
+    },
+    {
+      "id": 211,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 15,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153717
+    },
+    {
+      "id": 210,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 24,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153516
+    },
+    {
+      "id": 209,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 7,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153486
+    },
+    {
+      "id": 208,
+      "user_id": "guest",
+      "track_id": "t-d461015fd811c425",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153439
+    },
+    {
+      "id": 207,
+      "user_id": "guest",
+      "track_id": "t-821e986941dd0ceb",
+      "seconds_played": 28,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153425
+    },
+    {
+      "id": 206,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "seconds_played": 13,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153335
+    },
+    {
+      "id": 205,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153298
+    },
+    {
+      "id": 204,
+      "user_id": "guest",
+      "track_id": "t-e1ae02ac9c28df92",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153251
+    },
+    {
+      "id": 203,
+      "user_id": "guest",
+      "track_id": "t-363da67f69918ca5",
+      "seconds_played": 5,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153135
+    },
+    {
+      "id": 202,
+      "user_id": "guest",
+      "track_id": "t-72f787bda62db4fb",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153123
+    },
+    {
+      "id": 201,
+      "user_id": "guest",
+      "track_id": "t-65c1b6705272980c",
+      "seconds_played": 24,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792153071
+    },
+    {
+      "id": 200,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "seconds_played": 23,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152915
+    },
+    {
+      "id": 199,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "seconds_played": 38,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152888
+    },
+    {
+      "id": 198,
+      "user_id": "guest",
+      "track_id": "t-cdd5a71130ccdcf6",
+      "seconds_played": 32,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152850
+    },
+    {
+      "id": 197,
+      "user_id": "guest",
+      "track_id": "t-72f787bda62db4fb",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152818
+    },
+    {
+      "id": 196,
+      "user_id": "guest",
+      "track_id": "t-65c1b6705272980c",
+      "seconds_played": 6,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152814
+    },
+    {
+      "id": 195,
+      "user_id": "guest",
+      "track_id": "t-1010e56b9f26ef14",
+      "seconds_played": 51,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152808
+    },
+    {
+      "id": 194,
+      "user_id": "guest",
+      "track_id": "t-e1ae02ac9c28df92",
+      "seconds_played": 22,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152757
+    },
+    {
+      "id": 193,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 4,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152735
+    },
+    {
+      "id": 192,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 8,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152715
+    },
+    {
+      "id": 191,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 8,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152706
+    },
+    {
+      "id": 190,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 5,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152698
+    },
+    {
+      "id": 189,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 10,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152694
+    },
+    {
+      "id": 188,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "seconds_played": 17,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152683
+    },
+    {
+      "id": 187,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 3,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152667
+    },
+    {
+      "id": 186,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "seconds_played": 62,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152663
+    },
+    {
+      "id": 185,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "seconds_played": 14,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152393
+    },
+    {
+      "id": 184,
+      "user_id": "guest",
+      "track_id": "t-1010e56b9f26ef14",
+      "seconds_played": 9,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "played_at": 1792152374
+    },
     {
       "id": 183,
       "user_id": "guest",
@@ -1544,6 +1870,552 @@
     }
   ],
   "listening_events": [
+    {
+      "id": 223,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 94,
+      "track_duration": 248.0065306122449,
+      "started_at": 1792154609,
+      "ended_at": 1792154703,
+      "created_at": 1792154703
+    },
+    {
+      "id": 222,
+      "user_id": "guest",
+      "track_id": "t-f7262b02f3eb3a84",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 39,
+      "track_duration": 224.70530612244897,
+      "started_at": 1792154570,
+      "ended_at": 1792154609,
+      "created_at": 1792154609
+    },
+    {
+      "id": 221,
+      "user_id": "guest",
+      "track_id": "t-26a9514606f7c83d",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 4,
+      "track_duration": 252.13387755102042,
+      "started_at": 1792154335,
+      "ended_at": 1792154339,
+      "created_at": 1792154339
+    },
+    {
+      "id": 220,
+      "user_id": "guest",
+      "track_id": "t-b4fafbeba2f77780",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 56,
+      "track_duration": 146.44244897959183,
+      "started_at": 1792154280,
+      "ended_at": 1792154336,
+      "created_at": 1792154336
+    },
+    {
+      "id": 219,
+      "user_id": "guest",
+      "track_id": "t-bd12be352b6bf1c8",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 17,
+      "track_duration": 206.15836734693877,
+      "started_at": 1792154263,
+      "ended_at": 1792154280,
+      "created_at": 1792154280
+    },
+    {
+      "id": 218,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 17,
+      "track_duration": 209.2930612244898,
+      "started_at": 1792154246,
+      "ended_at": 1792154263,
+      "created_at": 1792154263
+    },
+    {
+      "id": 217,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 6,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792154239,
+      "ended_at": 1792154245,
+      "created_at": 1792154245
+    },
+    {
+      "id": 216,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 3,
+      "track_duration": 264.04571428571427,
+      "started_at": 1792154235,
+      "ended_at": 1792154238,
+      "created_at": 1792154238
+    },
+    {
+      "id": 215,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 6,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792153770,
+      "ended_at": 1792153776,
+      "created_at": 1792153776
+    },
+    {
+      "id": 214,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 23,
+      "track_duration": 169.32,
+      "started_at": 1792153723,
+      "ended_at": 1792153746,
+      "created_at": 1792153746
+    },
+    {
+      "id": 213,
+      "user_id": "guest",
+      "track_id": "t-56545c047c8c487b",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 6,
+      "track_duration": 264.04571428571427,
+      "started_at": 1792153717,
+      "ended_at": 1792153723,
+      "created_at": 1792153723
+    },
+    {
+      "id": 212,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 15,
+      "track_duration": 169.32,
+      "started_at": 1792153702,
+      "ended_at": 1792153717,
+      "created_at": 1792153717
+    },
+    {
+      "id": 211,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 24,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792153492,
+      "ended_at": 1792153516,
+      "created_at": 1792153516
+    },
+    {
+      "id": 210,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 7,
+      "track_duration": 169.32,
+      "started_at": 1792153479,
+      "ended_at": 1792153486,
+      "created_at": 1792153486
+    },
+    {
+      "id": 209,
+      "user_id": "guest",
+      "track_id": "t-d461015fd811c425",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 4,
+      "track_duration": 180.24489795918367,
+      "started_at": 1792153435,
+      "ended_at": 1792153439,
+      "created_at": 1792153439
+    },
+    {
+      "id": 208,
+      "user_id": "guest",
+      "track_id": "t-821e986941dd0ceb",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 28,
+      "track_duration": 57.286530612244896,
+      "started_at": 1792153397,
+      "ended_at": 1792153425,
+      "created_at": 1792153425
+    },
+    {
+      "id": 207,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 13,
+      "track_duration": 248.0065306122449,
+      "started_at": 1792153322,
+      "ended_at": 1792153335,
+      "created_at": 1792153335
+    },
+    {
+      "id": 206,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 9,
+      "track_duration": 248.0065306122449,
+      "started_at": 1792153289,
+      "ended_at": 1792153298,
+      "created_at": 1792153298
+    },
+    {
+      "id": 205,
+      "user_id": "guest",
+      "track_id": "t-e1ae02ac9c28df92",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 4,
+      "track_duration": 108.90448979591837,
+      "started_at": 1792153247,
+      "ended_at": 1792153251,
+      "created_at": 1792153251
+    },
+    {
+      "id": 204,
+      "user_id": "guest",
+      "track_id": "t-363da67f69918ca5",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 5,
+      "track_duration": 199.2881632653061,
+      "started_at": 1792153130,
+      "ended_at": 1792153135,
+      "created_at": 1792153135
+    },
+    {
+      "id": 203,
+      "user_id": "guest",
+      "track_id": "t-72f787bda62db4fb",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 9,
+      "track_duration": 266.1877551020408,
+      "started_at": 1792153114,
+      "ended_at": 1792153123,
+      "created_at": 1792153123
+    },
+    {
+      "id": 202,
+      "user_id": "guest",
+      "track_id": "t-65c1b6705272980c",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 24,
+      "track_duration": 234.2661224489796,
+      "started_at": 1792153047,
+      "ended_at": 1792153071,
+      "created_at": 1792153071
+    },
+    {
+      "id": 201,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 23,
+      "track_duration": 248.0065306122449,
+      "started_at": 1792152892,
+      "ended_at": 1792152915,
+      "created_at": 1792152915
+    },
+    {
+      "id": 200,
+      "user_id": "guest",
+      "track_id": "t-2e43624413407689",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 38,
+      "track_duration": 248.0065306122449,
+      "started_at": 1792152850,
+      "ended_at": 1792152888,
+      "created_at": 1792152888
+    },
+    {
+      "id": 199,
+      "user_id": "guest",
+      "track_id": "t-cdd5a71130ccdcf6",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 32,
+      "track_duration": 267.2587755102041,
+      "started_at": 1792152818,
+      "ended_at": 1792152850,
+      "created_at": 1792152850
+    },
+    {
+      "id": 198,
+      "user_id": "guest",
+      "track_id": "t-72f787bda62db4fb",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 4,
+      "track_duration": 266.1877551020408,
+      "started_at": 1792152814,
+      "ended_at": 1792152818,
+      "created_at": 1792152818
+    },
+    {
+      "id": 197,
+      "user_id": "guest",
+      "track_id": "t-65c1b6705272980c",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 6,
+      "track_duration": 234.2661224489796,
+      "started_at": 1792152808,
+      "ended_at": 1792152814,
+      "created_at": 1792152814
+    },
+    {
+      "id": 196,
+      "user_id": "guest",
+      "track_id": "t-1010e56b9f26ef14",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 51,
+      "track_duration": 201.14285714285714,
+      "started_at": 1792152757,
+      "ended_at": 1792152808,
+      "created_at": 1792152808
+    },
+    {
+      "id": 195,
+      "user_id": "guest",
+      "track_id": "t-e1ae02ac9c28df92",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 22,
+      "track_duration": 108.90448979591837,
+      "started_at": 1792152735,
+      "ended_at": 1792152757,
+      "created_at": 1792152757
+    },
+    {
+      "id": 194,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 4,
+      "track_duration": 169.32,
+      "started_at": 1792152731,
+      "ended_at": 1792152735,
+      "created_at": 1792152735
+    },
+    {
+      "id": 193,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 8,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792152707,
+      "ended_at": 1792152715,
+      "created_at": 1792152715
+    },
+    {
+      "id": 192,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 8,
+      "track_duration": 169.32,
+      "started_at": 1792152698,
+      "ended_at": 1792152706,
+      "created_at": 1792152706
+    },
+    {
+      "id": 191,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 5,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792152693,
+      "ended_at": 1792152698,
+      "created_at": 1792152698
+    },
+    {
+      "id": 190,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 10,
+      "track_duration": 169.32,
+      "started_at": 1792152684,
+      "ended_at": 1792152694,
+      "created_at": 1792152694
+    },
+    {
+      "id": 189,
+      "user_id": "guest",
+      "track_id": "t-e1b000ba2119dda9",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 17,
+      "track_duration": 209.2930612244898,
+      "started_at": 1792152666,
+      "ended_at": 1792152683,
+      "created_at": 1792152683
+    },
+    {
+      "id": 188,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 3,
+      "track_duration": 169.32,
+      "started_at": 1792152664,
+      "ended_at": 1792152667,
+      "created_at": 1792152667
+    },
+    {
+      "id": 187,
+      "user_id": "guest",
+      "track_id": "t-e0d82f025bc44394",
+      "event_type": "qualified_play",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 62,
+      "track_duration": 342.0995918367347,
+      "started_at": 1792152601,
+      "ended_at": 1792152663,
+      "created_at": 1792152663
+    },
+    {
+      "id": 186,
+      "user_id": "guest",
+      "track_id": "t-f5cb341f52f66940",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 14,
+      "track_duration": 169.32,
+      "started_at": 1792152379,
+      "ended_at": 1792152393,
+      "created_at": 1792152393
+    },
+    {
+      "id": 185,
+      "user_id": "guest",
+      "track_id": "t-1010e56b9f26ef14",
+      "event_type": "skipped",
+      "source_type": null,
+      "source_id": null,
+      "session_id": "ls-guest-1792150484-sqj4gc",
+      "seconds_played": 9,
+      "track_duration": 201.14285714285714,
+      "started_at": 1792152365,
+      "ended_at": 1792152374,
+      "created_at": 1792152374
+    },
     {
       "id": 184,
       "user_id": "guest",
@@ -8641,8 +9513,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-freaks",
-      "name": "Freaks",
+      "id": "a-freaks-geeks",
+      "name": "Freaks & Geeks",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -8893,16 +9765,6 @@
     {
       "id": "a-gaudino",
       "name": "Gaudino",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-geeks",
-      "name": "Geeks",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -10411,8 +11273,8 @@
       "image_fetched_at": null
     },
     {
-      "id": "a-kalwi",
-      "name": "Kalwi",
+      "id": "a-kalwi-remi",
+      "name": "Kalwi & Remi",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -14133,16 +14995,6 @@
     {
       "id": "a-relanium",
       "name": "Relanium",
-      "bio": null,
-      "image_path": null,
-      "bio_source": null,
-      "bio_fetched_at": null,
-      "image_source": null,
-      "image_fetched_at": null
-    },
-    {
-      "id": "a-remi",
-      "name": "Remi",
       "bio": null,
       "image_path": null,
       "bio_source": null,
@@ -24483,11 +25335,11 @@
       "track_id": "t-922fcb27875dcfe0"
     },
     {
-      "artist_id": "a-freaks",
+      "artist_id": "a-freaks-geeks",
       "track_id": "t-ac6760ee1fb495ee"
     },
     {
-      "artist_id": "a-freaks",
+      "artist_id": "a-freaks-geeks",
       "track_id": "t-f5cb341f52f66940"
     },
     {
@@ -24553,14 +25405,6 @@
     {
       "artist_id": "a-gazirovka",
       "track_id": "t-e4f6cdf4bdd5a81c"
-    },
-    {
-      "artist_id": "a-geeks",
-      "track_id": "t-ac6760ee1fb495ee"
-    },
-    {
-      "artist_id": "a-geeks",
-      "track_id": "t-f5cb341f52f66940"
     },
     {
       "artist_id": "a-gefalsht",
@@ -25611,11 +26455,11 @@
       "track_id": "t-5d2006dea44d122d"
     },
     {
-      "artist_id": "a-kalwi",
+      "artist_id": "a-kalwi-remi",
       "track_id": "t-5304ee4500e8c1d0"
     },
     {
-      "artist_id": "a-kalwi",
+      "artist_id": "a-kalwi-remi",
       "track_id": "t-f93c2ff78aac1110"
     },
     {
@@ -28345,14 +29189,6 @@
     {
       "artist_id": "a-relanium",
       "track_id": "t-6bff143ffb9525f7"
-    },
-    {
-      "artist_id": "a-remi",
-      "track_id": "t-5304ee4500e8c1d0"
-    },
-    {
-      "artist_id": "a-remi",
-      "track_id": "t-f93c2ff78aac1110"
     },
     {
       "artist_id": "a-restrained",
@@ -89382,9 +90218,9 @@
       "download_source": null,
       "source_ref": null,
       "replaygain": null,
-      "clip_url": null,
-      "clip_start": null,
-      "clip_end": null
+      "clip_url": "https://youtu.be/z0XgeBBvprw?si=2AuGXvXoN5xNkGFa",
+      "clip_start": 123,
+      "clip_end": 149
     },
     {
       "id": "t-024a83dfb7e4d79b",
@@ -89922,9 +90758,9 @@
       "download_source": null,
       "source_ref": null,
       "replaygain": null,
-      "clip_url": null,
-      "clip_start": null,
-      "clip_end": null
+      "clip_url": "https://youtu.be/agngX2PJBEs?si=9REZ2_HKO84wJVZ-",
+      "clip_start": 200,
+      "clip_end": 221
     },
     {
       "id": "t-570132831064286f",
@@ -101782,13 +102618,13 @@
       "duration": 57.286530612244896,
       "artwork_path": "C:\\Users\\user\\AppData\\Roaming\\lokal-music\\data\\artwork\\t-821e986941dd0ceb.jpg",
       "bitrate": 320,
-      "last_modified": 1792078610868.2568,
+      "last_modified": 1792153367284.2083,
       "play_count": 0,
       "liked": 0,
       "added_at": 1792079631,
       "source_url": null,
       "artwork_url": null,
-      "comment": "https://vk.com/video-187248079_456239026",
+      "comment": "",
       "lyrics_kind": "instrumental",
       "codec": "MPEG 1 Layer 3",
       "lossless": 0,
@@ -101802,9 +102638,9 @@
       "download_source": null,
       "source_ref": null,
       "replaygain": null,
-      "clip_url": null,
-      "clip_start": null,
-      "clip_end": null
+      "clip_url": "https://vk.com/video-187248079_456239026",
+      "clip_start": 23,
+      "clip_end": 35
     },
     {
       "id": "t-cf45c68aa674ed7c",
@@ -115985,7 +116821,7 @@
       "artwork_path": "C:\\Users\\user\\AppData\\Roaming\\lokal-music\\data\\artwork\\t-b4fafbeba2f77780.jpg",
       "bitrate": 320,
       "last_modified": 1792078573469.3542,
-      "play_count": 2,
+      "play_count": 3,
       "liked": 0,
       "added_at": 1792079630,
       "source_url": null,
@@ -140177,7 +141013,7 @@
       "artwork_path": "C:\\Users\\user\\AppData\\Roaming\\lokal-music\\data\\artwork\\t-2f27963e95b76a30.jpg",
       "bitrate": 320,
       "last_modified": 1792151907102.087,
-      "play_count": 0,
+      "play_count": 1,
       "liked": 0,
       "added_at": 1792079626,
       "source_url": null,
@@ -140196,7 +141032,7 @@
       "download_source": null,
       "source_ref": null,
       "replaygain": null,
-      "clip_url": "https://youtu.be/LXj9dgPvnv4?si=PwUxUS_jjbMqb0Zn",
+      "clip_url": "https://www.youtube.com/watch?v=LXj9dgPvnv4",
       "clip_start": 216,
       "clip_end": 237
     },
@@ -141202,7 +142038,7 @@
       "duration": 342.0995918367347,
       "artwork_path": "C:\\Users\\user\\AppData\\Roaming\\lokal-music\\data\\artwork\\t-c0063e2511a8f41b.jpg",
       "bitrate": 196,
-      "last_modified": 1792086789081.221,
+      "last_modified": 1792153782582.4888,
       "play_count": 0,
       "liked": 0,
       "added_at": 1792079626,
@@ -146851,20 +147687,20 @@
     "lokal-library-sort": "\"track_num DESC\"",
     "lokal-track-columns-v1": "{\"state\":{\"profiles\":{\"guest\":{\"actions\":false,\"artwork\":true,\"artist\":true,\"source\":false,\"rowSize\":1.25,\"comment\":true,\"genre\":true,\"order\":[\"number\",\"title\",\"time\",\"source\",\"genre\",\"album\",\"comment\",\"added\",\"quality\",\"tracknum\",\"lyrics\"],\"widths\":{\"title\":478,\"album\":153,\"genre\":101,\"comment\":113,\"tracknum\":1.5,\"clip\":81},\"tracknum\":false,\"lyrics\":true,\"quality\":false,\"rowGap\":0.1875,\"clip\":true}}},\"version\":0}",
     "lokal-post-onboarding-tour-shown": "true",
-    "lokal-recent-items": "[{\"id\":\"t-63f98e95e0e827dc\",\"name\":\"Never Change - Sullivan King Remix\",\"artist\":\"Apashe/Sullivan King\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-70bef4bdf8a0eeaf.jpg\",\"type\":\"track\"},{\"id\":\"t-3551c012bb944889\",\"name\":\"Breathe (feat Niks) - Original Mix\",\"artist\":\"Mark The Beast\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-57147db8b149667b.jpg\",\"type\":\"track\"},{\"id\":\"t-db59109ba9681fc2\",\"name\":\"WTH - Tempo Switchups\",\"artist\":\"MADZI\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-129294002abbd186.jpg\",\"type\":\"track\"},{\"id\":\"t-57a2a0fed74f3dee\",\"name\":\"Snowflakes\",\"artist\":\"Rawtekk (Rawtekk Neuropop VIP)\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-3835b5392992bccc.jpg\",\"type\":\"track\"},{\"id\":\"t-2e43624413407689\",\"name\":\"Заебало\",\"artist\":\"MAKOSH\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-2f27963e95b76a30.jpg\",\"type\":\"track\"},{\"id\":\"t-d03ac7f481b9cd86\",\"name\":\"Привет\",\"artist\":\"Receptor\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b4bbde18d7d8708d.jpg\",\"type\":\"track\"},{\"id\":\"t-405db86b39a7335c\",\"name\":\"Through the Screen\",\"artist\":\"Rxlzq\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-8652e9fc05b57a4b.jpg\",\"type\":\"track\"},{\"id\":\"t-4446e403f0c3c010\",\"name\":\"Fancy\",\"artist\":\"Fatloaf/Subminderz/Malstrom\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-e2b6635c9a6ac2db.jpg\",\"type\":\"track\"},{\"id\":\"t-8602b2551e8ae6f8\",\"name\":\"vbe mer\",\"artist\":\"Skeler/vowl․\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-19b9d30d53e1da55.jpg\",\"type\":\"track\"},{\"id\":\"t-5304ee4500e8c1d0\",\"name\":\"Explosion\",\"artist\":\"Kalwi & Remi, DC2, Nuwei\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-5f0dbe8a501a7b8e.jpg\",\"type\":\"track\"},{\"id\":\"t-1010e56b9f26ef14\",\"name\":\"Free Love\",\"artist\":\"Луна\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-1010e56b9f26ef14.jpg\",\"type\":\"track\"},{\"id\":\"t-46ea46989d4f0721\",\"name\":\"NEV3R\",\"artist\":\"Blaine Stranger\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-9e13eabfac7ce65d.jpg\",\"type\":\"track\"},{\"id\":\"t-2ee6ca5ef7629893\",\"name\":\"Over Me\",\"artist\":\"Fairlane/DJ Mii/Ames\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-2cfe7da86d68541d.jpg\",\"type\":\"track\"},{\"id\":\"t-4ccc4b64e52de6ce\",\"name\":\"Deadweight\",\"artist\":\"Jawns, Party Favor\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-9f4fb1eae6632bdb.jpg\",\"type\":\"track\"},{\"id\":\"t-e1ae02ac9c28df92\",\"name\":\"Кухня breakcore | KITCHEN.BREAKCORE\",\"artist\":\"Neskif\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-e1ae02ac9c28df92.jpg\",\"type\":\"track\"}]",
+    "lokal-recent-items": "[{\"id\":\"t-5503910fdfa5d0d6\",\"name\":\"not forgive\",\"artist\":\"KALXSH\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-5503910fdfa5d0d6.jpg\",\"type\":\"track\"},{\"id\":\"t-2e43624413407689\",\"name\":\"Заебало\",\"artist\":\"MAKOSH\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-2f27963e95b76a30.jpg\",\"type\":\"track\"},{\"id\":\"t-f7262b02f3eb3a84\",\"name\":\"Bass Bumpin\",\"artist\":\"Jaenga\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-853d04a3df4e5c8b.jpg\",\"type\":\"track\"},{\"id\":\"t-26a9514606f7c83d\",\"name\":\"Revival\",\"artist\":\"V O E\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-1bbae0876b443702.jpg\",\"type\":\"track\"},{\"id\":\"t-b4fafbeba2f77780\",\"name\":\"Ящер\",\"artist\":\"ATL\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b4fafbeba2f77780.jpg\",\"type\":\"track\"},{\"id\":\"t-bd12be352b6bf1c8\",\"name\":\"Still Standing\",\"artist\":\"NØRTHERN STRINGS\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-99c7a261f238d264.jpg\",\"type\":\"track\"},{\"id\":\"t-e1b000ba2119dda9\",\"name\":\"Pray\",\"artist\":\"Vana\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-1e007988c2b1956c.jpg\",\"type\":\"track\"},{\"id\":\"t-e0d82f025bc44394\",\"name\":\"Everything Hertz\",\"artist\":\"Sinister Souls, OA (TR Tactics Remix)\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-c0063e2511a8f41b.jpg\",\"type\":\"track\"},{\"id\":\"t-f5cb341f52f66940\",\"name\":\"Night Is Gone\",\"artist\":\"Freaks & Geeks/Mugatu/Alika\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-e74965772a7cba19.jpg\",\"type\":\"track\"},{\"id\":\"t-56545c047c8c487b\",\"name\":\"Eat Your Heart Out\",\"artist\":\"Oliverse/Dani King\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-56d31d79f529a9f6.jpg\",\"type\":\"track\"},{\"id\":\"t-8a119f291f4b366e\",\"name\":\"Disaster\",\"artist\":\"NEOTEK & Bella Renee\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-adc0d8fd47826b03.jpg\",\"type\":\"track\"},{\"id\":\"t-821e986941dd0ceb\",\"name\":\"КОГДА ШЕФУ ВЫПАЛ НОЖ\",\"artist\":\"kanash & tupa kiso4ka\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-821e986941dd0ceb.jpg\",\"type\":\"track\"},{\"id\":\"t-d03ac7f481b9cd86\",\"name\":\"Привет\",\"artist\":\"Receptor\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-b4bbde18d7d8708d.jpg\",\"type\":\"track\"},{\"id\":\"t-e1ae02ac9c28df92\",\"name\":\"Кухня breakcore | KITCHEN.BREAKCORE\",\"artist\":\"Neskif\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-e1ae02ac9c28df92.jpg\",\"type\":\"track\"},{\"id\":\"t-72f787bda62db4fb\",\"name\":\"Пули\",\"artist\":\"Луна\",\"artwork_path\":\"C:\\\\Users\\\\user\\\\AppData\\\\Roaming\\\\lokal-music\\\\data\\\\artwork\\\\t-72f787bda62db4fb.jpg\",\"type\":\"track\"}]",
     "lokal-last-tab": "/library",
     "lokal-library-source": "\"all\"",
     "lokal-lyrics-subline": "original",
     "lokal-lastfm-like-sync-page:guest": "1",
-    "lokal-library-folder": "01. Current Tier 1",
+    "lokal-library-folder": "04. Я. Музыка Best",
     "lokal-artists-followed": "0",
-    "lokal-lastfm-like-sync:guest": "1792152253242",
+    "lokal-lastfm-like-sync:guest": "1792154802740",
     "lokal-station-columns-v1": "{\"state\":{\"profiles\":{\"guest\":{\"rowSize\":1.25,\"rowGap\":0.1875,\"stream\":false}}},\"version\":0}",
     "lokal-side-panels": "{\"showRightSidebar\":true,\"sidePanelView\":\"visualLyrics\",\"showQueue\":false,\"showLyricsPanel\":false}",
     "lokal-onboarding-complete": "true",
     "lokal-left-sidebar-width": "281",
     "lokal-recap-opened:guest": "[\"m-2026-10-so-far\"]",
-    "lokal-side-lyrics-scale": "1.15",
+    "lokal-side-lyrics-scale": "1.2",
     "lokal-auto-open-side-panel": "0",
     "lokal-dl-accepted": "1",
     "lokal-ytdlp-version-dismissed": "missing::2026.08.19",

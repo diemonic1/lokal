@@ -90,7 +90,10 @@ async function resolveClipVideo(link, { fallback = false, ytdlp = null, settings
   }
   if (!videoId && VIDEO_FILE.test(url.pathname)) return { src: url.href }
 
-  const key = videoId ? `yt:${videoId}` : url.href
+  // Signing in to YouTube (or changing the cookies) asks again at once: an
+  // age-restricted video refused without an account may play with one.
+  const account = `${settings.yt_cookies === '1' ? settings.yt_cookie_browser || 'paste' : 'none'}:${settings.yt_account_revision || ''}`
+  const key = `${videoId ? `yt:${videoId}` : url.href}|${account}`
   const kept = remembered.get(key)
   if (kept && now() - kept.at < (kept.result.src ? FOUND_TTL_MS : FAILED_TTL_MS)) return kept.result
   const result = await ytdlpDirectLink(videoId ? `https://www.youtube.com/watch?v=${videoId}` : url.href, { ytdlp, settings })

@@ -1051,7 +1051,8 @@ export default function LyricsPanel({
           {!loading && lines.length > 0 && (
             <motion.div initial={idleVisual ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
               <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '3.5rem', minHeight: synced ? '5rem' : undefined }} />
-              {!synced && (
+              {/* The side panel goes without these notes (full screen keeps them). */}
+              {!synced && fullscreen && (
                 <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
               )}
               {lines.map((line, i) => (
@@ -1076,7 +1077,7 @@ export default function LyricsPanel({
                 />
               ))}
               <div style={{ height: fullscreen ? '55vh' : 0 }} />
-              {sourceLabel && (
+              {sourceLabel && fullscreen && (
                 <p className="px-3 pb-10 text-[11px] text-white/30">
                   {t('Lyrics via {source}', { source: sourceLabel })}{result?.sync ? ` · ${SYNC_LABEL[result.sync] ? t(SYNC_LABEL[result.sync]) : ''}` : ''}
                   {translationFrom ? ` · ${translationFrom === 'source' ? t('Apple Music translation') : t('Translated to {language}', { language: translateTarget })}` : ''}
@@ -1122,28 +1123,33 @@ export default function LyricsPanel({
         )}
       </AnimatePresence>
 
-      {/* No lyrics, over the side panel's visualization: a bubble by the player bar. */}
+      {/* No lyrics, over the side panel's visualization: one small line by the
+          bottom edge (as low as the instrumental note above), in the panel's
+          grey, see-through until the mouse is over it. */}
       <AnimatePresence>
         {idleVisual && !loading && !lines.length && !noLyricsNote && (
           <motion.div
             key="no-lyrics"
-            initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="absolute bottom-3 inset-x-3 z-30 flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black/70 px-4 py-2.5 text-center backdrop-blur-md"
+            className="absolute inset-x-2.5 z-30 flex justify-center"
+            style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
           >
-            <p className="text-xs text-white/70">
-              {!isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}
-            </p>
-            {isOnline && (
-              <div className="flex items-center gap-4">
-                <button onClick={requestSearch} className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors">
-                  <Search size={12} /> {t('Search manually')}
-                </button>
-                <button onClick={() => load({ refresh: true })} className="flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors">
-                  <RotateCcw size={12} /> {t('Try again')}
-                </button>
-              </div>
-            )}
+            <div className="flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/80 opacity-60 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
+              style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
+              <span className="truncate">{!isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}</span>
+              {isOnline && (
+                <>
+                  <span className="text-white/40">—</span>
+                  <button onClick={requestSearch} className="flex items-center gap-1 text-white hover:text-white/70 transition-colors">
+                    <Search size={11} /> {t('Search manually')}
+                  </button>
+                  <button onClick={() => load({ refresh: true })} className="flex items-center gap-1 text-white hover:text-white/70 transition-colors">
+                    <RotateCcw size={11} /> {t('Try again')}
+                  </button>
+                </>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

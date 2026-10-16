@@ -57,11 +57,29 @@ function splitArtists(s) {
     .filter(Boolean)
 }
 
-function artistsMatch(wanted, got) {
-  const want = splitArtists(wanted)
+// The song's own credit read the way the library reads it ("A/B/C",
+// "A, B (C Remix)": A, B and C), each name split further the way a source
+// may write it.
+function wantedArtists(wanted) {
+  const names = require('../artistSplit').splitArtists(String(wanted || ''))
+  return (names.length ? names : [String(wanted || '')]).map(name => splitArtists(name)).filter(parts => parts.length)
+}
+
+/** How many of the song's artists `got` credits (0 when its first one isn't among them). */
+function artistsMatchCount(wanted, got) {
+  const want = wantedArtists(wanted)
   const have = new Set((Array.isArray(got) ? got : [got]).flatMap(splitArtists))
   const joined = [...have].join(' ')
-  return want.length > 0 && want.every(a => have.has(a) || joined.includes(a))
+  const credited = parts => parts.every(a => have.has(a) || joined.includes(a))
+  if (!want.length || !credited(want[0])) return 0
+  return want.filter(credited).length
+}
+
+// The first artist, and at least half of the rest: a source often leaves out
+// a featured artist or the remixer the file's tag credits.
+function artistsMatch(wanted, got) {
+  const count = artistsMatchCount(wanted, got)
+  return count > 0 && count * 2 >= wantedArtists(wanted).length
 }
 
 // ---------------------------------------------------------------- http
@@ -235,7 +253,7 @@ function fromSpotifyCanvas(track, settings) {
   // Any failure here is Spotify's (cookie, token, rate limit), not proof the
   // song has no canvas -- so never let it be remembered as a miss.
   return Promise.resolve()
-    .then(() => require('./spotify').fromSpotify(track, settings, { norm, cleanTitle, artistsMatch, splitFirstArtist: firstArtist }))
+    .then(() => require('./spotify').fromSpotify(track, settings, { norm, cleanTitle, artistsMatch, artistsMatchCount, splitFirstArtist: firstArtist }))
     .catch(e => { const err = e instanceof Error ? e : new Error(String(e)); err.transient = true; throw err })
 }
 
@@ -381,7 +399,9 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
   // "|v2": lookups from before the provider-call fix above are ignored (they
   // were cached as "no moving cover" for days).
   // "|v3": lookups made before "Unknown Album" was ignored are looked up again.
-  const key = keyFor(track) + `|${sources.join(',')}|v3` + (sources.includes('spotify') ? '|s3' : '')
+  // "|v4": and those from before a credit like "A/B/C" or "A, B (C Remix)"
+  // matched a source listing only some of them.
+  const key = keyFor(track) + `|${sources.join(',')}|v4` + (sources.includes('spotify') ? '|s3' : '')
   const row = db.prepare('SELECT data, fetched_at FROM motion_covers WHERE key = ?').get(key)
   let found
   if (row) {
@@ -403,4 +423,4 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
   return file ? { file, source: found.source, tall: !!found.tall } : null
 }
 
-module.exports = { motionCoverFor, fromApple, fromTidal, fromCommunity, artistsMatch, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }
+module.exports = { motionCoverFor, fromApple, fromTidal, fromCommunity, artistsMatch, artistsMatchCount, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }

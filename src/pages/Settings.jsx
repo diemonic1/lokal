@@ -2210,6 +2210,7 @@ activeCategory === 'data' ? usersTried
           </button>
         </Row>
         {settings.artwork_backdrop !== '0' && visualSlider('side_lyrics_backdrop_strength', 'Colour under the lyrics', "How strongly the album's colours show under the lyrics in the side panel's Visualization + Lyrics tab. 0%: the plain grey background.", 0, 100, 50, '%')}
+        {visualSlider('side_lyrics_offset', 'Lyrics offset from the picture', "Visualization + Lyrics tab of the side panel: how far below the picture (canvas, video or visualization) the lyrics start. Negative values move them up over the picture; 0 is right under it.", -400, 400, 0, ' px')}
         <Row label="Moving Covers" desc="Play an album's animated cover in the side panel and full screen player, when there is one.">
           <button
             onClick={() => set('motion_covers', settings.motion_covers === '0' ? '1' : '0')}

@@ -1,8 +1,8 @@
 // The side panel's Visualization + Lyrics tab: a picture at the top, the
 // song's lyrics (synced or plain) under it, like the Details tab's cover over
 // its info. The picture is, first that the song has:
-//   1. its video, set by hand in Edit Track (any link or video file, and the
-//      seconds it loops between: without both it isn't shown),
+//   1. its video, set by hand in Edit Track (any link or video file), looping
+//      over the part its times give (see clipRange in ../clipVideo.js),
 //   2. its Spotify Canvas (MotionCover's tall clip),
 //   3. the side panel's own visualization.
 // Both videos are muted, have no controls, can't be clicked, and stop with
@@ -17,19 +17,20 @@ import { motion } from 'framer-motion'
 import { api } from '../api'
 import { usePlayerStore } from '../store/player'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
-import { trackClipLoop } from '../clipVideo'
+import { clipRange, trackClipLoop } from '../clipVideo'
 import { useAppearanceValue } from '../appearanceFlags'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover from './MotionCover'
 import LyricsPanel from './LyricsPanel'
 
-// How much of the panel the picture takes above the lyrics, and how far it
-// reaches under them while fading out.
+// How much of the panel the picture takes above the lyrics (which start
+// where it has faded out).
+// Settings > Visualizations > Now Playing moves the lyrics up or down from
+// there (px; 0: right under it).
 const PICTURE_SHARE = 46
-const LYRICS_FROM = 36
 const FADE = 'linear-gradient(to bottom, black 0%, black 52%, rgba(0,0,0,0.75) 68%, rgba(0,0,0,0.35) 84%, transparent 100%)'
 
-/** The song's own video looping between two of its seconds, muted. */
+/** The song's own video looping, muted: between its two times, or the part clipRange picks. */
 function ClipLoop({ link, start, end, onActive, onFail }) {
   const ref = useRef(null)
   const [src, setSrc] = useState(null)
@@ -70,14 +71,16 @@ function ClipLoop({ link, start, end, onActive, onFail }) {
     const v = ref.current
     if (!v || !src) return undefined
     let frame = 0
-    const stopAt = () => (Number.isFinite(v.duration) && v.duration > 0 ? Math.min(end, v.duration - 0.05) : end)
+    const range = () => clipRange(start, end, v.duration)
+    const stopAt = (to) => (Number.isFinite(v.duration) && v.duration > 0 ? Math.min(to, v.duration - 0.05) : to)
     const check = () => {
-      if (v.currentTime >= stopAt() || v.currentTime < start - 0.5) v.currentTime = start
+      const part = range()
+      if (v.currentTime >= stopAt(part.end) || v.currentTime < part.start - 0.5) v.currentTime = part.start
       frame = requestAnimationFrame(check)
     }
     const run = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(check) }
     const halt = () => cancelAnimationFrame(frame)
-    const ended = () => { v.currentTime = start; if (playingRef.current && !isWindowHidden()) v.play().catch(() => {}) }
+    const ended = () => { v.currentTime = range().start; if (playingRef.current && !isWindowHidden()) v.play().catch(() => {}) }
     v.addEventListener('playing', run)
     v.addEventListener('pause', halt)
     v.addEventListener('ended', ended)
@@ -127,7 +130,7 @@ function ClipLoop({ link, start, end, onActive, onFail }) {
       controls={false}
       tabIndex={-1}
       aria-hidden="true"
-      onLoadedMetadata={e => { e.currentTarget.currentTime = start }}
+      onLoadedMetadata={e => { e.currentTarget.currentTime = clipRange(start, end, e.currentTarget.duration).start }}
       onSeeked={show}
       onPlaying={show}
       onError={failed}
@@ -150,6 +153,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
   const videoOn = (useLoop && loopOn) || (!useLoop && canvasOn)
   const fx = useArtworkBackdropEnabled()
   const strength = Math.max(0, Math.min(100, useAppearanceValue('side_lyrics_backdrop_strength', 50))) / 100
+  const lyricsOffset = Math.max(-400, Math.min(400, useAppearanceValue('side_lyrics_offset', 0)))
 
   return (
     <div className="absolute inset-0" style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
@@ -179,8 +183,8 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
           <MotionCover trackId={track?.id} only="tall" onActive={setCanvasOn} off={coverOff} className="pointer-events-none" />
         )}
       </motion.div>
-      {/* The lyrics start over the picture's fading bottom part. */}
-      <div className="absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)]" style={{ top: `${LYRICS_FROM}%` }}>
+      {/* The lyrics start under the picture (none of them over it), moved by the setting. */}
+      <div className="absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)]" style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
         <div className="relative h-full min-h-0 overflow-hidden">
           <LyricsPanel track={track} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={textScale} isAutoSynced={isAutoSynced}
             idleVisual onIdleChange={setIdle} toolbarAtBottom />

@@ -615,4 +615,6 @@ export default {
   'Bar rounding': 'Скругление полос',
   "How round the bars' ends are.": 'Насколько скруглены концы полос.',
   'How far the bars can reach up, and as far down, from the line through the buttons.': 'Насколько высоко полосы поднимаются (и так же опускаются) от линии через кнопки.',
+  'Lyrics offset from the picture': 'Отступ текста от визуализации',
+  "Visualization + Lyrics tab of the side panel: how far below the picture (canvas, video or visualization) the lyrics start. Negative values move them up over the picture; 0 is right under it.": 'Вкладка «Визуализация + текст» правой панели: насколько ниже картинки (канваса, клипа или визуализации) начинается текст. Отрицательные значения поднимают текст на картинку; 0 — сразу под ней.',
 }

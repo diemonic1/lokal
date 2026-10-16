@@ -325,14 +325,17 @@ function authFailed(status) {
 }
 
 
-function pickTrack(items, { title, artist, album }, { norm, cleanTitle, artistsMatch }) {
+function pickTrack(items, { title, artist, album }, { norm, cleanTitle, artistsMatch, artistsMatchCount }) {
   const wantTitle = norm(cleanTitle(title))
   // Spotify appends " - Remastered 2011" etc. to titles; compare without it.
   const bare = s => norm(String(s || '').replace(/\s+-\s+.*$/, ''))
   const candidates = items
     .filter(it => (norm(it.name) === wantTitle || bare(it.name) === wantTitle) && artistsMatch(artist, it.artists))
-    // The plain title before "- Sped Up", "- Remastered"... versions.
-    .sort((a, b) => (norm(a.name) === wantTitle ? 0 : 1) - (norm(b.name) === wantTitle ? 0 : 1))
+    // The one crediting most of the song's artists (the remix the tag
+    // credits its remixer for), then the plain title before "- Sped Up",
+    // "- Remastered"... versions.
+    .sort((a, b) => ((artistsMatchCount?.(artist, b.artists) || 0) - (artistsMatchCount?.(artist, a.artists) || 0))
+      || ((norm(a.name) === wantTitle ? 0 : 1) - (norm(b.name) === wantTitle ? 0 : 1)))
   const wantAlbum = norm(album)
   const exact = wantAlbum ? candidates.find(it => norm(it.album) === wantAlbum) : null
   // Canvases belong to the track, and the single and the album cut usually

@@ -8,7 +8,7 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
-import { clipVideoLink } from '../clipVideo'
+import { clipTimeInput, clipVideoLink, formatClipTime, parseClipTime } from '../clipVideo'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -113,8 +113,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         comment: track.comment || '',
         explicit: !!track.explicit,
         clip_url: track.clip_url || '',
-        clip_start: asInput(track.clip_start),
-        clip_end: asInput(track.clip_end),
+        clip_start: formatClipTime(track.clip_start),
+        clip_end: formatClipTime(track.clip_end),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
         track_key: asInput(track.track_key),
@@ -198,8 +198,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         setSaving(false)
         return
       }
-      const clipStart = parseNumberField(formData.clip_start)
-      const clipEnd = parseNumberField(formData.clip_end)
+      // Typed as seconds or minutes:seconds; either may be left empty (see clipVideo.js).
+      const clipStart = parseClipTime(formData.clip_start)
+      const clipEnd = parseClipTime(formData.clip_end)
+      if (Number.isNaN(clipStart) || Number.isNaN(clipEnd)) {
+        setStatus({ type: 'error', message: t('Loop times are seconds or minutes:seconds, like 75 or 1:15') })
+        setSaving(false)
+        return
+      }
       if (clipStart != null && clipEnd != null && clipEnd <= clipStart) {
         setStatus({ type: 'error', message: t('The loop must end after it starts') })
         setSaving(false)
@@ -414,12 +420,12 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               <label className={label}>{t('Music video')}</label>
               <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">
                 <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder={t('A link to the video, or a video file')} spellCheck={false} />
-                <input type="number" min="0" step="0.1" value={formData.clip_start} onChange={(e) => handleChange('clip_start', e.target.value)} className={field}
-                  placeholder={t('Start')} title={t('Where the loop starts, in seconds')} aria-label={t('Where the loop starts, in seconds')} />
-                <input type="number" min="0" step="0.1" value={formData.clip_end} onChange={(e) => handleChange('clip_end', e.target.value)} className={field}
-                  placeholder={t('End')} title={t('Where the loop ends, in seconds')} aria-label={t('Where the loop ends, in seconds')} />
+                <input inputMode="numeric" value={formData.clip_start} onChange={(e) => handleChange('clip_start', clipTimeInput(e.target.value))} className={field}
+                  placeholder={t('Start')} title={t('Where the loop starts: seconds or minutes:seconds')} aria-label={t('Where the loop starts: seconds or minutes:seconds')} />
+                <input inputMode="numeric" value={formData.clip_end} onChange={(e) => handleChange('clip_end', clipTimeInput(e.target.value))} className={field}
+                  placeholder={t('End')} title={t('Where the loop ends: seconds or minutes:seconds')} aria-label={t('Where the loop ends: seconds or minutes:seconds')} />
               </div>
-              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. With both times set, it loops between them, muted, in the side panel’s Visualization + Lyrics tab, instead of the canvas.')}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the video’s middle third when neither is.')}</p>
             </div>
 
             <details className="rounded-lg border border-border bg-card/70 px-3 py-2">
