@@ -215,4 +215,9 @@ export default {
   '[00:12.30] A synced line, or plain text': '[00:12.30] Синхронная строка или обычный текст',
   'Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.': 'Сохраняется прямо в файл: текст с метками [мм:сс.хх] записывается в обе рамки текста (USLT и SYLT), обычный текст — в поле текста.',
   'A lyrics file next to the song ({file}) is shown instead of these.': 'Рядом с треком лежит файл текста ({file}) — показывается он, а не этот текст.',
+
+  // Side panel
+  'Visualization': 'Визуализация',
+  'Time-synced': 'Синхронный',
+  'Not synced': 'Несинхронный',
 }

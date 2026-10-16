@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronRight, Music, Maximize2, Mic2, Disc3, Radio, Clapperboard, Gem, ImageOff, ImagePlay } from 'lucide-react'
+import { AudioWaveform, ChevronRight, Music, Maximize2, Mic2, Disc3, Radio, Clapperboard, Gem, ImageOff, ImagePlay } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -26,7 +26,10 @@ import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
 import LikeBurst from './LikeBurst'
 import { showToast } from './Toaster'
-import { losslessMenuItem } from '../quality'
+import { formatLabel, isSuspect, losslessMenuItem, tierOf, TIERS } from '../quality'
+import { trackGenreList } from '../genres'
+import { useAppearanceFlag } from '../appearanceFlags'
+import PowerCircle from '../visualizers/PowerCircle'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 
 // "Music" is a placeholder some files carry, not a genre.
@@ -50,6 +53,8 @@ function InfoRow({ label, value, onClick = null, title = null, fx = true }) {
     </div>
   )
 }
+
+const LYRICS_KINDS = { sync: 'Time-synced', plain: 'Not synced', instrumental: 'Instrumental' }
 
 /** "FLAC · 16-bit / 44.1 kHz" for a track whose source says so, else null. */
 function streamQualityLabel(track) {
@@ -115,8 +120,10 @@ export default function RightSidebar() {
     Promise.resolve(api.onlineGenre?.(id)).then(genre => { if (current && genre) setFoundGenre({ id, genre }) }).catch(() => {})
     return () => { current = false }
   }, [currentTrack?.id, currentTrack?.genre]) // eslint-disable-line react-hooks/exhaustive-deps
-  // "Music" is a placeholder some files carry, not a genre: not shown.
-  const genre = (!isPlaceholderGenre(currentTrack?.genre) && currentTrack.genre) || (foundGenre.id === currentTrack?.id ? foundGenre.genre : null)
+  // Every genre the song has (its tag and the library's list); "Music" is a
+  // placeholder some files carry, not a genre: not shown.
+  const ownGenres = trackGenreList(currentTrack).filter(name => !isPlaceholderGenre(name))
+  const genres = ownGenres.length ? ownGenres : (foundGenre.id === currentTrack?.id && foundGenre.genre ? [foundGenre.genre] : [])
   const canOpenContext = isContextNavigable(playbackContext)
   const wordSync = wordSyncEnabled()
   // Backend-persisted setting (Settings' Unsynced Lyrics Auto-Sync toggle
@@ -158,7 +165,13 @@ export default function RightSidebar() {
   // a tab here only when the panel is shared (exclusiveSidePanels); in the
   // other mode it opens its own panel next to this one, and "Details" stays
   // highlighted.
-  const tab = sidePanelView === 'lyrics' ? 'lyrics' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
+  // Settings > Visualizations > Side Panel: the Visualization tab can be hidden.
+  const visualTab = useAppearanceFlag('side_panel_visualizer')
+  const showVisual = visualTab && sidePanelView === 'visual'
+  // The Lyrics tab without lyrics (still searching, or none found) shows the
+  // same visualization behind it (LyricsPanel's idleVisual).
+  const [lyricsIdle, setLyricsIdle] = useState(false)
+  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
 
   // Cosmetic case: when the panel is closed and Queue/Lyrics is clicked,
   // toggleQueueButton/toggleLyricsButton opens it straight to that
@@ -172,6 +185,7 @@ export default function RightSidebar() {
   const wasSidebarOpenRef = useRef(showRightSidebar)
   const openedFreshToQueue = !wasSidebarOpenRef.current && showRightSidebar && sidePanelView === 'queue'
   const openedFreshToLyrics = !wasSidebarOpenRef.current && showRightSidebar && sidePanelView === 'lyrics'
+  const openedFreshToVisual = !wasSidebarOpenRef.current && showRightSidebar && showVisual
   useEffect(() => {
     wasSidebarOpenRef.current = showRightSidebar
   })
@@ -332,11 +346,17 @@ export default function RightSidebar() {
           >
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0 border-b border-border">
             <div className="flex gap-0.5 p-0.5 bg-card rounded-lg border border-border/50">
-              {[['info', t('Details')], ['lyrics', t('Lyrics')], ['queue', t('Queue')]].map(([id, label]) => (
-                <button key={id} onClick={() => (id === 'queue' ? (tab === 'queue' ? null : toggleQueueButton()) : setSidePanelView(id))} aria-pressed={tab === id} className={`px-3 py-1 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
-                  {label}
-                </button>
-              ))}
+              {[['info', t('Details')], ['lyrics', t('Lyrics')], visualTab && ['visual', t('Visualization'), AudioWaveform], ['queue', t('Queue')]].filter(Boolean).map(([id, label, Icon]) => {
+                // Four names don't fit a narrow panel: Visualization is an icon there.
+                const iconOnly = Icon && width < 420
+                return (
+                  <button key={id} onClick={() => (id === 'queue' ? (tab === 'queue' ? null : toggleQueueButton()) : setSidePanelView(id))} aria-pressed={tab === id}
+                    title={iconOnly ? label : undefined} aria-label={iconOnly ? label : undefined}
+                    className={`${iconOnly ? 'px-2' : 'px-3'} py-1 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
+                    {iconOnly ? <Icon size={14} /> : label}
+                  </button>
+                )
+              })}
             </div>
             <button onClick={toggleRightSidebar} aria-label={t("Close the side panel")} className="text-muted hover:text-white transition-colors ml-2">
               <ChevronRight size={16} />
@@ -350,7 +370,7 @@ export default function RightSidebar() {
           <div className="flex-1 overflow-hidden relative min-h-0">
             {/* The hidden Info/Lyrics pane is inert: not focusable or
                 reachable by assistive tech while the other tab covers it. */}
-            <div ref={infoRef} className="absolute inset-0 flex flex-col" inert={sidePanelView !== 'info'}>
+            <div ref={infoRef} className="absolute inset-0 flex flex-col" inert={tab !== 'info'}>
               {/* Apple Music-style: the cover runs edge to edge and dissolves
                   into colours taken from it; a moving cover plays over the
                   still one when there is one. */}
@@ -453,11 +473,20 @@ export default function RightSidebar() {
                       />
                       {currentTrack.album_artist && currentTrack.album_artist !== currentTrack.artist && <InfoRow fx={fx} label={t('Alb. Artist')} value={currentTrack.album_artist} />}
                       <InfoRow fx={fx} label={t('Year')} value={currentTrack.year} />
-                      <InfoRow fx={fx} label={t('Genre')} value={genre} />
+                      <InfoRow fx={fx} label={t(genres.length > 1 ? 'Genres' : 'Genre')} value={genres.join(', ')} />
                       <InfoRow fx={fx} label={t('Track #')} value={currentTrack.track_num ? `${currentTrack.track_num}` : null} />
                       <InfoRow fx={fx} label={t('Bitrate')} value={currentTrack.bitrate ? t('{n} kbps', { n: currentTrack.bitrate }) : null} />
-                      {/* A stream (an addon's) has no file to measure: what the source says of it. */}
-                      {!currentTrack.bitrate && <InfoRow fx={fx} label={t('Quality')} value={streamQualityLabel(currentTrack)} />}
+                      {/* A file: its tier on the Audio Quality page (opens it there).
+                          A stream (an addon's) has no file to measure: what the source says of it. */}
+                      {(() => {
+                        const tier = isStreamed(currentTrack) ? 'unknown' : isSuspect(currentTrack) ? 'suspect' : tierOf(currentTrack)
+                        if (tier === 'unknown') return <InfoRow fx={fx} label={t('Quality')} value={streamQualityLabel(currentTrack)} />
+                        const format = formatLabel(currentTrack)
+                        return <InfoRow fx={fx} label={t('Quality')} value={[t(TIERS[tier].label), format].filter(Boolean).join(' · ')}
+                          title={t(TIERS[tier].desc)} onClick={() => nav('/quality', { state: { tier } })} />
+                      })()}
+                      <InfoRow fx={fx} label={t('Lyrics')} value={LYRICS_KINDS[currentTrack.lyrics_kind] ? t(LYRICS_KINDS[currentTrack.lyrics_kind]) : null} />
+                      <InfoRow fx={fx} label={t('Comment')} value={String(currentTrack.comment || '').trim()} />
                       <InfoRow fx={fx} label={t('Plays')} value={plays > 0 ? plays.toLocaleString() : null} />
                     </div>
                   )}
@@ -481,18 +510,52 @@ export default function RightSidebar() {
                   className="absolute inset-0 flex flex-col"
                   style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}
                 >
-                  <div className="flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
+                  <AnimatePresence>
+                    {visualTab && lyricsIdle && currentTrack && (
+                      <motion.div key="lyrics-visual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.5, ease: 'easeInOut' }} className="absolute inset-0 flex flex-col bg-black">
+                        <PowerCircle className="flex-1 min-h-0" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <div className="relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
                     {currentTrack ? (
-                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
+                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced}
+                        idleVisual={visualTab} onIdleChange={setLyricsIdle} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
                     )}
                   </div>
-                  <div className="p-3 border-t border-border flex-shrink-0">
-                    <button onClick={toggleLyricsFullscreen} className="w-full py-2 bg-card border border-border rounded-xl text-xs text-muted hover:text-white hover:border-accent/30 transition-all font-display uppercase tracking-wider flex items-center justify-center gap-1.5">
-                      <Maximize2 size={11} /> {t('Expand Lyrics')}
-                    </button>
-                  </div>
+                  {/* Nothing to expand while there are no lyrics. */}
+                  <AnimatePresence initial={false}>
+                    {!(visualTab && lyricsIdle && currentTrack) && (
+                      <motion.div key="expand" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }} className="relative flex-shrink-0 overflow-hidden">
+                        <div className="p-3 border-t border-border">
+                          <button onClick={toggleLyricsFullscreen} className="w-full py-2 bg-card border border-border rounded-xl text-xs text-muted hover:text-white hover:border-accent/30 transition-all font-display uppercase tracking-wider flex items-center justify-center gap-1.5">
+                            <Maximize2 size={11} /> {t('Expand Lyrics')}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Visualization: same overlay as Lyrics. Mounted only while it
+                shows, so it doesn't run while another tab (or no panel) is open. */}
+            <AnimatePresence key={`visual-${reveal}`} initial={reveal === 0}>
+              {showVisual && (
+                <motion.div
+                  key="visual-overlay"
+                  initial={openedFreshToVisual ? false : { y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+                  className="absolute inset-0 flex flex-col bg-black"
+                >
+                  <PowerCircle className="flex-1 min-h-0" />
                 </motion.div>
               )}
             </AnimatePresence>

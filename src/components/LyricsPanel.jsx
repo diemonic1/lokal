@@ -487,6 +487,11 @@ export default function LyricsPanel({
   // The full screen player hides the buttons along with its own after a few
   // seconds without the mouse moving.
   toolbarHidden = false,
+  // The side panel: while there are no lines to show (still searching after
+  // a second, or none found), it shows its visualization behind this panel
+  // instead of the grey placeholder lines or the empty message, and "no
+  // lyrics" becomes a bubble at the bottom. onIdleChange(true/false) says when.
+  idleVisual = false, onIdleChange,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -622,6 +627,23 @@ export default function LyricsPanel({
   }, [trackKey, load])
 
   useEffect(() => { if (!loading) onLyricsAvailable?.(lines.length > 0) }, [loading, lines.length, onLyricsAvailable])
+
+  // Lyrics from the file come in at once: the visualization waits a second
+  // before taking over from a search that is still running.
+  const [slowSearch, setSlowSearch] = useState(false)
+  useEffect(() => {
+    setSlowSearch(false)
+    if (!idleVisual || !loading) return undefined
+    const timer = setTimeout(() => setSlowSearch(true), 1000)
+    return () => clearTimeout(timer)
+  }, [idleVisual, loading, trackKey])
+  // Once showing, it stays until there are lines (Try again, the next song)
+  // rather than going away for that second and coming back.
+  const [heldIdle, setHeldIdle] = useState(false)
+  const idle = idleVisual && !lines.length && (!loading || slowSearch || heldIdle)
+  if (heldIdle !== idle) setHeldIdle(idle)
+  useEffect(() => { onIdleChange?.(idle) }, [idle, onIdleChange])
+  useEffect(() => () => onIdleChange?.(false), [onIdleChange])
 
   useEffect(() => {
     api.getLyricsSources?.().then(s => { setSources(s?.providers || []); setEnabledSources(Array.isArray(s?.enabled) ? s.enabled : null) }).catch(() => {})
@@ -963,10 +985,10 @@ export default function LyricsPanel({
         }}
       >
         <div className={`w-full ${fullscreen ? 'max-w-3xl mx-auto px-6' : 'px-3'}`}>
-          {loading && <div style={fullscreen ? FULLSCREEN_TOP : { height: '18%' }} />}
-          {loading && <Loading />}
+          {loading && !idleVisual && <div style={fullscreen ? FULLSCREEN_TOP : { height: '18%' }} />}
+          {loading && !idleVisual && <Loading />}
 
-          {!loading && !lines.length && (
+          {!loading && !lines.length && !idleVisual && (
             <div className="h-full min-h-[240px] flex flex-col items-center justify-center gap-3 text-white/35 select-none pt-24">
               <Mic2 size={fullscreen ? 40 : 28} />
               {result?.instrumental ? (
@@ -990,7 +1012,7 @@ export default function LyricsPanel({
           )}
 
           {!loading && lines.length > 0 && (
-            <>
+            <motion.div initial={idleVisual ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
               <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '3.5rem', minHeight: synced ? '5rem' : undefined }} />
               {!synced && (
                 <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
@@ -1031,10 +1053,36 @@ export default function LyricsPanel({
                   )}
                 </p>
               )}
-            </>
+            </motion.div>
           )}
         </div>
       </div>
+
+      {/* No lyrics, over the side panel's visualization: a bubble by the player bar. */}
+      <AnimatePresence>
+        {idleVisual && !loading && !lines.length && (
+          <motion.div
+            key="no-lyrics"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="absolute bottom-3 inset-x-3 z-30 flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black/70 px-4 py-2.5 text-center backdrop-blur-md"
+          >
+            <p className="text-xs text-white/70">
+              {result?.instrumental ? t('Instrumental — nothing to sing along to.') : !isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}
+            </p>
+            {!result?.instrumental && isOnline && (
+              <div className="flex items-center gap-4">
+                <button onClick={requestSearch} className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors">
+                  <Search size={12} /> {t('Search manually')}
+                </button>
+                <button onClick={() => load({ refresh: true })} className="flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors">
+                  <RotateCcw size={12} /> {t('Try again')}
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {searchOpen && track && (

@@ -137,21 +137,22 @@ function readAutoOpenSidePanelSetting() {
 }
 
 // The side panels as they were left last session: open or closed, and which
-// view (Details / Lyrics / Queue) the merged panel showed. A view the
-// current Side Panels mode can't show falls back as a mode switch would.
+// view (Details / Lyrics / Visualization / Queue) the merged panel showed. A
+// view the current Side Panels mode can't show falls back as a mode switch would.
 const SIDE_PANELS_KEY = 'lokal-side-panels'
 const SIDE_PANEL_KEYS = ['showRightSidebar', 'sidePanelView', 'showQueue', 'showLyricsPanel']
 function readSidePanels() {
   try {
     const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null')
     if (!saved || typeof saved !== 'object') return {}
-    const view = ['info', 'lyrics', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
+    const view = ['info', 'lyrics', 'visual', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
     if (readExclusiveSidePanelsSetting()) {
       return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
     }
     return {
       showRightSidebar: !!saved.showRightSidebar,
-      sidePanelView: 'info',
+      // Visualization is a tab of this panel in both modes.
+      sidePanelView: view === 'visual' ? 'visual' : 'info',
       showQueue: !!saved.showQueue,
       showLyricsPanel: !!saved.showLyricsPanel,
     }

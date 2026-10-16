@@ -10,17 +10,18 @@ export const STATION_COLUMN_DEFS = {
   title: { label: 'Station', flex: 3, min: 11 },
   genre: { label: 'Genre', flex: 1.2, min: 5 },
   comment: { label: 'Comment', flex: 2, min: 6 },
+  history: { label: 'History', flex: 2, min: 6 },
   nowPlaying: { label: 'Now playing', flex: 2.5, min: 8 },
   stream: { label: 'Stream', fixed: 6, min: 4 },
 }
-export const STATION_DEFAULT_ORDER = ['number', 'title', 'genre', 'comment', 'nowPlaying', 'stream']
+export const STATION_DEFAULT_ORDER = ['number', 'title', 'genre', 'comment', 'history', 'nowPlaying', 'stream']
 export const STATION_ALWAYS_SHOWN = new Set(['title'])
 // Shown inside Station: switched on and off, not moved.
 export const STATION_OTHER_OPTIONS = [['artwork', 'Icon']]
-const TOGGLES = ['number', 'artwork', 'genre', 'comment', 'nowPlaying', 'stream']
+const TOGGLES = ['number', 'artwork', 'genre', 'comment', 'history', 'nowPlaying', 'stream']
 
 export function stationColumnDefaults() {
-  return { number: true, artwork: true, genre: true, comment: true, nowPlaying: true, stream: false }
+  return { number: true, artwork: true, genre: true, comment: true, history: true, nowPlaying: true, stream: false }
 }
 
 /** The saved order, minus unknown keys, with any newer column in its default place. */
@@ -64,7 +65,7 @@ export function stationColumnLayout(width, columns) {
   const widths = columns.widths || {}
   let remaining = width - 2 - STATION_COLUMN_DEFS.title.min - 0.5
   const size = key => (STATION_COLUMN_DEFS[key].flex ? STATION_COLUMN_DEFS[key].min : stationColumnWidth(key, widths))
-  for (const key of ['number', 'nowPlaying', 'genre', 'comment', 'stream']) {
+  for (const key of ['number', 'nowPlaying', 'genre', 'comment', 'history', 'stream']) {
     visible[key] = !!columns[key] && remaining >= size(key) + 0.5
     if (visible[key]) remaining -= size(key) + 0.5
   }

@@ -91,6 +91,7 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
   const openMenu = (event, station) => menu.open(event, [
     { label: t(currentTrack?.id === station.id && isPlaying ? 'Pause' : 'Play'), icon: currentTrack?.id === station.id && isPlaying ? Pause : Play, onSelect: () => play(station) },
     { label: t('Copy stream link'), icon: Link2, onSelect: () => copyLink(station) },
+    ...(isLink(station.history) ? [{ label: t('Open station history'), icon: ExternalLink, onSelect: () => api.openExternal(station.history.trim()) }] : []),
   ])
 
   // Dragging a header edge: a fixed column takes the new width in rem; a flex
@@ -144,6 +145,7 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
     title: <span>{t('Station')}</span>,
     genre: <span className="truncate tracking-normal">{t('Genre')}</span>,
     comment: <span className="truncate tracking-normal">{t('Comment')}</span>,
+    history: <span className="truncate tracking-normal">{t('History')}</span>,
     nowPlaying: <span className="truncate tracking-normal">{t('Now playing')}</span>,
     stream: <span className="truncate text-right tracking-normal">{t('Stream')}</span>,
   })[key] || null
@@ -243,6 +245,10 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
                     ? <button key={key} type="button" onClick={e => { e.stopPropagation(); api.openExternal(station.description.trim()) }}
                         title={station.description} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{station.description}</button>
                     : <p key={key} className="truncate text-xs text-muted" title={station.description || undefined}>{station.description || ''}</p>
+                  case 'history': return isLink(station.history)
+                    ? <button key={key} type="button" onClick={e => { e.stopPropagation(); api.openExternal(station.history.trim()) }}
+                        title={station.history} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{station.history}</button>
+                    : <p key={key} className="truncate text-xs text-muted" title={station.history || undefined}>{station.history || ''}</p>
                   case 'nowPlaying': return <p key={key} className={`truncate text-xs ${isCurrent ? 'text-text' : 'text-muted'}`} title={song || undefined}>{song}</p>
                   case 'stream': return (
                     <span key={key} className="truncate text-right text-xs text-muted font-display">

@@ -555,4 +555,10 @@ export default {
   'The folder is not available': 'папка недоступна',
   'Python was not found': 'Python не найден',
   'Windows Script Host was not found': 'Windows Script Host не найден',
+
+  // Visualizations
+  'Visualizations': 'Визуализации',
+  'Side Panel': 'Боковая панель',
+  'Visualization tab': 'Вкладка «Визуализация»',
+  'A tab in the side panel with an animation that moves with the music. It only runs while the tab is open, or on the Lyrics tab while lyrics are being searched for or were not found.': 'Вкладка в боковой панели с анимацией, которая движется в такт музыке. Работает, только пока открыта эта вкладка, или на вкладке «Текст», пока текст ищется или если он не найден.',
 }

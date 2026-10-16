@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+// The player bar's (and mini player's) visualization: bars beside the volume.
+
+import React, { useEffect, useRef } from 'react'
+import { getAnalyser, useAnalyserVersion } from './audio'
 
 export default function Waveform({
   isPlaying,
@@ -22,13 +25,7 @@ export default function Waveform({
   // determined by whatever flex-shrinkable wrapper it's placed in) and
   // observing the canvas's own resulting box size instead of the parent's.
   const sizeRef = useRef({ w: defaultWidth, h: defaultHeight })
-  const [analyserVersion, setAnalyserVersion] = useState(0)
-
-  useEffect(() => {
-    const onAnalyserReady = () => setAnalyserVersion(v => v + 1)
-    window.addEventListener('lokal:analyser-ready', onAnalyserReady)
-    return () => window.removeEventListener('lokal:analyser-ready', onAnalyserReady)
-  }, [])
+  const analyserVersion = useAnalyserVersion()
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -64,7 +61,7 @@ export default function Waveform({
       smoothedRef.current = new Array(barCount).fill(2)
     }
 
-    const analyser = window.__lokalAnalyser
+    const analyser = getAnalyser()
     const drawCapsule = (x, y, w, h, r, fill) => {
       const radius = Math.min(r, w / 2, h / 2)
       ctx.beginPath()

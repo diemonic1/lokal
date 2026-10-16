@@ -4,8 +4,9 @@
 //   glass_player_bar        Settings > Appearance > Player Bar > Glass (see-through, blurred)
 //   player_bar_floating     ... > Floating bar (off: docked to the bottom edge).
 //                           Unset: follows Glass, which used to switch both.
-//   player_bar_gradient     ... > Cover gradient
+//   player_bar_gradient     Settings > Visualizations > Player Bar > Cover gradient
 //   player_waveform         ... > Waveform
+//   side_panel_visualizer   Settings > Visualizations > Side Panel > the Visualization tab
 //   taskbar_progress        ... > Taskbar > Song progress on the taskbar button
 // Numbers (useAppearanceValue):
 //   player_bar_gradient_strength   0-100, how strongly the cover gradient shows
@@ -24,7 +25,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
-const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'taskbar_progress']
+const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
 const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}

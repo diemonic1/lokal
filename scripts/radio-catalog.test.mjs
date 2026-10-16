@@ -13,7 +13,7 @@ const SAMPLE = JSON.stringify({
   version: 1,
   title: 'Мой каталог радиостанций',
   stations: [
-    { title: 'Record Rap Hits', url: 'https://radiorecord.hostingradio.ru/rap96.aacp', genre: 'Рэп', description: 'http://direct.radiorecord.ru/station/rap', api: { type: 'radiorecord', station: 'rap' } },
+    { title: 'Record Rap Hits', url: 'https://radiorecord.hostingradio.ru/rap96.aacp', genre: 'Рэп', history: 'http://direct.radiorecord.ru/station/rap', api: { type: 'radiorecord', station: 'rap' } },
     { title: 'Радио Эрмитаж', url: 'https://hermitage.hostingradio.ru/hermitage128.mp3', description: 'Классика' },
     { title: 'LoFi Radio', url: 'https://live.lofiradio.ru/lofi_mp3_128', description: 'LoFi Girl', icon: 'https://raw.githubusercontent.com/x/lofi.jpg' },
     { title: 'Rivendell', url: 'https://play.radiorivendell.com/radio/8000/radio.mp3', genre: 'DnD', api: { type: 'azuracast', url: 'https://play.radiorivendell.com/api/nowplaying/radio_rivendell' } },
@@ -29,6 +29,8 @@ test('a catalogue keeps its stations in order with only the fields it has', () =
   assert.equal(catalog.stations[1].genre, undefined)
   assert.equal(catalog.stations[1].icon, undefined)
   assert.equal(catalog.stations[1].api, undefined)
+  assert.equal(catalog.stations[1].history, undefined)
+  assert.equal(catalog.stations[0].history, 'http://direct.radiorecord.ru/station/rap')
   assert.equal(catalog.stations[2].icon, 'https://raw.githubusercontent.com/x/lofi.jpg')
   assert.deepEqual(catalog.stations[0].api, { type: 'radiorecord', station: 'rap' })
   assert.equal(new Set(catalog.stations.map(s => s.id)).size, 4)
@@ -116,7 +118,7 @@ test('the buffer setting is 0-10 seconds, 3 by default', () => {
 test('station columns: title always, others while they fit, in the saved order', () => {
   const columns = stationColumnPreferences({ order: ['title', 'number'], stream: true })
   const wide = stationColumnLayout(80, columns)
-  assert.deepEqual(wide.order, ['title', 'genre', 'comment', 'nowPlaying', 'stream', 'number'])
+  assert.deepEqual(wide.order, ['title', 'genre', 'comment', 'history', 'nowPlaying', 'stream', 'number'])
   const narrow = stationColumnLayout(20, columns)
   assert.deepEqual(narrow.order, ['title', 'number'])
   assert.equal(stationColumnLayout(80, stationColumnPreferences({ genre: false })).genre, false)

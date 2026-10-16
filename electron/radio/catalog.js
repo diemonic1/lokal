@@ -91,7 +91,7 @@ function stationId(index, url) {
  * The catalogue in `text`: { ok: true, catalog } or { ok: false, errors }.
  * Every problem is reported at once, each with the path of the field.
  * Required: stations[], and each station's title and url. Optional: genre,
- * description, icon, api. Unknown fields are ignored.
+ * description, history, icon, api. Unknown fields are ignored.
  */
 function parseCatalog(text) {
   const source = String(text ?? '').replace(/^﻿/, '')
@@ -118,13 +118,14 @@ function parseCatalog(text) {
     else url = station.url.trim()
     const genre = checkOptionalString(errors, station, 'genre', path)
     const description = checkOptionalString(errors, station, 'description', path)
+    const history = checkOptionalString(errors, station, 'history', path)
     let icon = checkOptionalString(errors, station, 'icon', path)
     if (icon && !isHttpUrl(icon)) { errors.push({ path: `${path}.icon`, code: 'bad-url', field: 'icon' }); icon = undefined }
     const api = parseApi(errors, station.api, `${path}.api`)
     if (errors.length !== before) return
     stations.push({
       id: stationId(index, url), index, title, url,
-      ...(genre ? { genre } : {}), ...(description ? { description } : {}), ...(icon ? { icon } : {}), ...(api ? { api } : {}),
+      ...(genre ? { genre } : {}), ...(description ? { description } : {}), ...(history ? { history } : {}), ...(icon ? { icon } : {}), ...(api ? { api } : {}),
     })
   })
   if (errors.length) return { ok: false, errors }

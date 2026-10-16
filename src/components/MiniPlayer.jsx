@@ -4,7 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX, Heart, Clapper
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { api, wordSyncEnabled as getWordSyncEnabled } from '../api'
-import Waveform from './Waveform'
+import Waveform from '../visualizers/Waveform'
 import { useAppearanceFlag } from '../appearanceFlags'
 import { trackArtURL } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'

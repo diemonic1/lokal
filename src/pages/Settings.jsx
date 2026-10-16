@@ -4,7 +4,7 @@ import { collectLocalPrefs, restoreLocalPrefs } from '../localPrefsBackup'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
-import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon } from 'lucide-react'
+import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
 import { peekCache, writeCache, usePageReady } from '../pageCache'
@@ -51,6 +51,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'radio', label: 'Online Radio', icon: RadioIcon },
   { key: 'addons', label: 'Addons', icon: Blocks },
   { key: 'appearance', label: 'Appearance', icon: Palette },
+  { key: 'visualizations', label: 'Visualizations', icon: AudioWaveform },
   { key: 'data', label: 'Data', icon: Download },
   { key: 'about', label: 'About', icon: Info },
 ]
@@ -2280,6 +2281,33 @@ activeCategory === 'data' ? usersTried
             </Row>
           )
         })()}
+        <Row label="Volume wheel step" desc="How much the volume changes per notch of the mouse wheel over the player bar.">
+          <select
+            value={String(Math.max(1, Math.min(5, Math.round(Number(settings.volume_wheel_step) || 5))))}
+            onChange={event => { previewAppearanceValue('volume_wheel_step', event.target.value); set('volume_wheel_step', event.target.value) }}
+            aria-label={t('Volume wheel step')}
+            className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
+          >
+            {[1, 2, 3, 4, 5].map(n => <option key={n} value={String(n)}>{n}%</option>)}
+          </select>
+        </Row>
+      </Section>
+      )}
+
+      {inCategory('visualizations') && (
+      <Section title="Side Panel">
+        <Row label="Visualization tab" desc="A tab in the side panel with an animation that moves with the music. It only runs while the tab is open, or on the Lyrics tab while lyrics are being searched for or were not found.">
+          <button
+            onClick={() => set('side_panel_visualizer', settings.side_panel_visualizer === '0' ? '1' : '0')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.side_panel_visualizer !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.side_panel_visualizer !== '0' ? 'On' : 'Off')}
+          </button>
+        </Row>
+      </Section>
+      )}
+
+      {inCategory('visualizations') && (
+      <Section title="Player Bar">
         <Row label="Cover gradient" desc="A soft glow in the cover's colours behind the cover, title and artist.">
           <button
             onClick={() => set('player_bar_gradient', settings.player_bar_gradient === '0' ? '1' : '0')}
@@ -2315,16 +2343,7 @@ activeCategory === 'data' ? usersTried
             </Row>
           )
         })()}
-        <Row label="Volume wheel step" desc="How much the volume changes per notch of the mouse wheel over the player bar.">
-          <select
-            value={String(Math.max(1, Math.min(5, Math.round(Number(settings.volume_wheel_step) || 5))))}
-            onChange={event => { previewAppearanceValue('volume_wheel_step', event.target.value); set('volume_wheel_step', event.target.value) }}
-            aria-label={t('Volume wheel step')}
-            className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
-          >
-            {[1, 2, 3, 4, 5].map(n => <option key={n} value={String(n)}>{n}%</option>)}
-          </select>
-        </Row>
+        <div className="border-t border-border" />
         <Row label="Waveform" desc="Moving bars next to the volume while music plays.">
           <button
             onClick={() => set('player_waveform', settings.player_waveform === '0' ? '1' : '0')}
