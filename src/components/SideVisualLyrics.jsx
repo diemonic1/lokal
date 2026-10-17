@@ -28,7 +28,10 @@ import LyricsPanel from './LyricsPanel'
 // Settings > Visualizations > Now Playing moves the lyrics up or down from
 // there (px; 0: right under it).
 const PICTURE_SHARE = 46
-const FADE = 'linear-gradient(to bottom, black 0%, black 52%, rgba(0,0,0,0.75) 68%, rgba(0,0,0,0.35) 84%, transparent 100%)'
+// Drawn over the picture's bottom (not a mask on it: a mask left stripes in
+// the video): clear, then into the panel's colour.
+const FADE = 'linear-gradient(rgb(var(--surface-rgb) / 0) 0%, rgb(var(--surface-rgb) / 0.18) 75%, rgb(var(--surface-rgb) / 0.8) 90%, rgb(var(--surface-rgb)) 100%)'
+const PICTURE_MOTION = { duration: 0.55, ease: [0.4, 0, 0.2, 1] }
 
 /** The song's own video looping, muted: between its two times, or the part clipRange picks. */
 function ClipLoop({ link, start, end, zoom = 0, onActive, onFail }) {
@@ -174,13 +177,8 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
         className="absolute inset-x-0 top-0 flex flex-col overflow-hidden"
         initial={false}
         animate={{ height: idle ? '100%' : `${PICTURE_SHARE}%` }}
-        transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
-        style={{
-          backgroundColor: videoOn ? '#000000' : visualBg,
-          // A long fade into the colours under the lyrics: no edge between them.
-          WebkitMaskImage: idle ? 'none' : FADE,
-          maskImage: idle ? 'none' : FADE,
-        }}
+        transition={PICTURE_MOTION}
+        style={{ backgroundColor: videoOn ? '#000000' : visualBg }}
       >
         {/* The built-in visualization only runs while no video shows. */}
         {!videoOn && visual}
@@ -191,6 +189,16 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
           <MotionCover trackId={track?.id} only="tall" onActive={setCanvasOn} off={coverOff} className="pointer-events-none" />
         )}
       </motion.div>
+      {/* A long fade from the picture into the colours under the lyrics: no
+          edge between them. Same size and place as the picture, over it. */}
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0"
+        initial={false}
+        animate={{ height: idle ? '100%' : `${PICTURE_SHARE}%`, opacity: idle ? 0 : 1 }}
+        transition={PICTURE_MOTION}
+        style={{ background: FADE }}
+      />
       {/* The lyrics start under the picture (none of them over it), moved by the setting. */}
       <div className="absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)]" style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
         <div className="relative h-full min-h-0 overflow-hidden">
