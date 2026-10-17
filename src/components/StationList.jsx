@@ -7,7 +7,7 @@ import { ExternalLink, Link2, Loader2, Pause, Play, Radio, RefreshCw } from 'luc
 import { useShallow } from 'zustand/react/shallow'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useRadioStore } from '../store/radio'
-import { useStationColumnsStore } from '../store/stationColumns'
+import { savedStationColumns, useStationColumnsStore } from '../store/stationColumns'
 import { RADIO_CONTEXT, stationTrack } from '../radio/stations'
 import { MAX_FIXED_WIDTH } from '../trackColumns'
 import { STATION_ALWAYS_SHOWN, STATION_COLUMN_DEFS, STATION_OTHER_OPTIONS, stationColumnLayout, stationColumnPreferences } from '../radio/stationColumns'
@@ -41,7 +41,7 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
   }
   const { user } = useAppStore()
   const profile = String(user?.id || 'guest')
-  const saved = useStationColumnsStore(s => s.profiles[profile])
+  const saved = useStationColumnsStore(s => savedStationColumns(s.profiles, profile))
   const setColumn = useStationColumnsStore(s => s.setColumn)
   const resetColumns = useStationColumnsStore(s => s.resetColumns)
   const columns = stationColumnPreferences(saved)

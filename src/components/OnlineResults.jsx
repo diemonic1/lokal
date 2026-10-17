@@ -38,7 +38,7 @@ function fmtDuration(seconds) {
 }
 
 function storedProvider() {
-  try { return localStorage.getItem(PROVIDER_KEY) || 'yt' } catch { return 'yt' }
+  try { return localStorage.getItem(PROVIDER_KEY) || 'sc' } catch { return 'sc' }
 }
 
 /** The sources to switch between (refreshed when addons change in Settings). */

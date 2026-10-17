@@ -23,6 +23,17 @@ function ensureStorageDirs() {
   fs.ensureDirSync(path.join(_dataDir, 'avatars'))
 }
 
+// Every setting's default (electron/defaultSettings.json): written for each
+// one not saved yet, so the main process, the server and the app all read the
+// same value. A saved one is never changed.
+const DEFAULT_SETTINGS = require('../defaultSettings.json')
+function seedDefaultSettings(database) {
+  const insert = database.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+  database.transaction(() => {
+    for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, String(value))
+  })()
+}
+
 function initDB() {
   _dataDir = getDataDir()
   ensureStorageDirs()
@@ -394,10 +405,7 @@ function initDB() {
   }
 
   try {
-    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('lyrics_auto_translate', '0')").run()
-    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('lyrics_translate_target', 'en')").run()
-    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('prefer_media_keys', '0')").run()
-    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_fetch_artist_metadata', '0')").run()
+    seedDefaultSettings(db)
     // key that would cause SMTC to not work.
     db.prepare("UPDATE settings SET value = '0' WHERE key = 'prefer_media_keys' AND value = '1'").run()
   } catch {}
@@ -438,10 +446,7 @@ function resetAppData() {
     fs.removeSync(path.join(_dataDir, dir))
   }
   ensureStorageDirs()
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('lyrics_auto_translate', '0')").run()
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('lyrics_translate_target', 'en')").run()
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('prefer_media_keys', '0')").run()
-  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_fetch_artist_metadata', '0')").run()
+  seedDefaultSettings(db)
   return { ok: true }
 }
 
@@ -471,6 +476,8 @@ function importAppData(payload = {}) {
     for (const [key, value] of Object.entries(settings)) {
       insertSetting.run(String(key), String(value))
     }
+    // Whatever the backup didn't have gets its default.
+    seedDefaultSettings(db)
 
     const insertUser = db.prepare('INSERT INTO users (id, username, display_name, password_hash, avatar_path, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
     for (const user of users) {

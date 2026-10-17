@@ -98,7 +98,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   // Kept across visits (with the sort and folder they were shown in), so coming
   // back paints the list at once instead of "No tracks yet" first.
   const [tracks, setTracks, wasCached] = useCachedState(cacheKey + 'tracks', [])
-  const [sort, setSort] = usePersistentState('sort', 'added_at DESC', v => SORTS.includes(v), prefsKey)
+  const [sort, setSort] = usePersistentState('sort', inGenre ? 'added_at DESC' : 'track_num DESC', v => SORTS.includes(v), prefsKey)
   // Where the songs came from (see sourceFilter in electron/ipc/scanner.js).
   const [source, setSource] = usePersistentState('source', 'all', v => SOURCES.includes(v), prefsKey)
   // One genre, or '' for all (matches a song's main genre or any of its genres).

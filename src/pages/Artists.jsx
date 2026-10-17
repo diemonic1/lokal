@@ -149,7 +149,7 @@ const VIEWS = [
 
 export default function Artists() {
   const { t } = useTranslation()
-  const [sort, setSort] = useState(() => localStorage.getItem('lokal-artists-sort') || 'name')
+  const [sort, setSort] = useState(() => localStorage.getItem('lokal-artists-sort') || 'tracks')
   // All artists, or only the ones you follow (their releases fill Home → Releases).
   const [followedOnly, setFollowedOnly] = useState(() => { try { return localStorage.getItem('lokal-artists-followed') === '1' } catch { return false } })
   const followedRef = useRef(followedOnly)

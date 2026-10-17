@@ -125,14 +125,14 @@ function readExclusiveSidePanelsSetting() {
   }
 }
 
-// Settings > Appearance > Layout > "Open the side panel on play". On unless
-// switched off; read synchronously here (the backend copy is synced by
+// Settings > Appearance > Layout > "Open the side panel on play". Off unless
+// switched on; read synchronously here (the backend copy is synced by
 // Settings).
 function readAutoOpenSidePanelSetting() {
   try {
-    return localStorage.getItem('lokal-auto-open-side-panel') !== '0'
+    return localStorage.getItem('lokal-auto-open-side-panel') === '1'
   } catch {
-    return true
+    return false
   }
 }
 
@@ -143,8 +143,9 @@ const SIDE_PANELS_KEY = 'lokal-side-panels'
 const SIDE_PANEL_KEYS = ['showRightSidebar', 'sidePanelView', 'showQueue', 'showLyricsPanel']
 function readSidePanels() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null')
-    if (!saved || typeof saved !== 'object') return {}
+    // Nothing saved yet: open, on Visualization + Lyrics.
+    const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null') || { showRightSidebar: true, sidePanelView: 'visualLyrics' }
+    if (typeof saved !== 'object') return {}
     const view = ['info', 'lyrics', 'visual', 'visualLyrics', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
     if (readExclusiveSidePanelsSetting()) {
       return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
@@ -252,7 +253,7 @@ export const usePlayerStore = create((set, get) => ({
   queue: [], queueIndex: -1, currentTrack: null,
   playbackContext: null,
   isPlaying: false, isBuffering: false, progress: 0, duration: 0,
-  volume: parseFloat(localStorage.getItem('lokal-volume') || '0.8'),
+  volume: parseFloat(localStorage.getItem('lokal-volume') || '1'),
   shuffle: false, repeat: 'none',
   showLyrics: false, showLyricsFullscreen: false,
   showRightSidebar: false, showFullscreen: false, showQueue: false, showLyricsPanel: false,

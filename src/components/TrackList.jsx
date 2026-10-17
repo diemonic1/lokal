@@ -21,7 +21,7 @@ import DeleteTracksDialog from './DeleteTracksDialog'
 import { useSelection } from '../selection'
 import { addToPlaylistMany, addToQueueMany, libraryTracks, playNextMany } from '../trackActions'
 import { trackColumnLayout, trackColumnPreferences, TRACK_COLUMN_DEFS, MAX_FIXED_WIDTH } from '../trackColumns'
-import { useTrackColumnsStore } from '../store/trackColumns'
+import { savedTrackColumns, useTrackColumnsStore } from '../store/trackColumns'
 import { TRACK_CHANGED, readTrack, announceTrackChanged } from '../trackChanged'
 import TrackColumnPicker from './TrackColumnPicker'
 import { TrackSourceIcon } from './SourceIcon'
@@ -144,7 +144,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const { currentTrack, isPlaying, playTrack, togglePlay, likedIds, setLiked, playNext, addToQueue, syncTrack, syncTracks } = usePlayerStore(useShallow(({ currentTrack, isPlaying, playTrack, togglePlay, likedIds, setLiked, playNext, addToQueue, syncTrack, syncTracks }) => ({ currentTrack, isPlaying, playTrack, togglePlay, likedIds, setLiked, playNext, addToQueue, syncTrack, syncTracks })))
   const { user, openAddToPlaylist, openAddMultipleToPlaylist } = useAppStore()
   const profile = String(user?.id || 'guest')
-  const savedColumns = useTrackColumnsStore(state => state.profiles[profile])
+  const savedColumns = useTrackColumnsStore(state => savedTrackColumns(state.profiles, profile))
   const setColumn = useTrackColumnsStore(state => state.setColumn)
   const resetColumns = useTrackColumnsStore(state => state.resetColumns)
   const columns = trackColumnPreferences(savedColumns, showQuality, !!playlistId || !!onSortChange)

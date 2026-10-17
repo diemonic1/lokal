@@ -7,8 +7,8 @@ const WIDTH_KEY = 'lokal-side-panel-width'
 const LYRICS_SCALE_KEY = 'lokal-side-lyrics-scale'
 const CHANGED = 'lokal:side-panel-prefs'
 
-export const SIDE_PANEL_WIDTH = { min: 260, max: 640, initial: 300 }
-export const SIDE_LYRICS_SCALE = { min: 0.7, max: 2, step: 0.05, initial: 1.4 }
+export const SIDE_PANEL_WIDTH = { min: 260, max: 640, initial: 449 }
+export const SIDE_LYRICS_SCALE = { min: 0.7, max: 2, step: 0.05, initial: 1.2 }
 
 const clamp = (value, { min, max, initial }) => {
   const n = Number(value)
@@ -53,8 +53,8 @@ export const setSideLyricsScale = value => write(LYRICS_SCALE_KEY, SIDE_LYRICS_S
 const LEFT_WIDTH_KEY = 'lokal-left-sidebar-width'
 const LEFT_SCALE_KEY = 'lokal-left-sidebar-scale'
 
-export const LEFT_SIDEBAR_WIDTH = { min: 160, max: 480, initial: 224 }
-export const LEFT_SIDEBAR_SCALE = { min: 0.8, max: 2, step: 0.05, initial: 1 }
+export const LEFT_SIDEBAR_WIDTH = { min: 160, max: 480, initial: 238 }
+export const LEFT_SIDEBAR_SCALE = { min: 0.8, max: 2, step: 0.05, initial: 1.15 }
 
 export const useLeftSidebarWidth = () => usePref(LEFT_WIDTH_KEY, LEFT_SIDEBAR_WIDTH)
 export const setLeftSidebarWidth = (value, { persist = true } = {}) => write(LEFT_WIDTH_KEY, LEFT_SIDEBAR_WIDTH, value, persist)

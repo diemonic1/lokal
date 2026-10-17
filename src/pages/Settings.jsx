@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
 import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform } from 'lucide-react'
 import { api, peekSettings } from '../api'
+import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
 import { peekCache, writeCache, usePageReady } from '../pageCache'
 import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex, startGenres, readGenresStatus } from '../libraryJobs'
@@ -754,13 +755,15 @@ export default function Settings() {
   }
   // Each player bar visualization's settings (side_* are the side panel's).
   const PLAYER_VISUAL_PREFIX = { spectrum: 'player_spectrum_', spectrumCenter: 'player_center_spectrum_', waves: 'player_waves_', lightning: 'player_lightning_' }
-  // Back to the defaults: every saved setting whose key starts with `prefix`
-  // is cleared (unset, each reads its default again).
+  // Back to the defaults: every setting whose key starts with `prefix` gets
+  // its default (electron/defaultSettings.json), or is cleared if it has none
+  // there (it reads its own default again).
   const visualReset = (prefix, label = 'Reset to defaults') => {
-    const saved = Object.keys(settings).filter(key => key.startsWith(prefix) && settings[key] != null && settings[key] !== '')
+    const keys = [...new Set([...Object.keys(settings), ...Object.keys(DEFAULT_SETTINGS)])].filter(key => key.startsWith(prefix))
+    const changed = keys.filter(key => (settings[key] ?? '') !== (DEFAULT_SETTINGS[key] ?? ''))
     return (
       <Row key={`reset-${prefix}`} label={label} desc="Puts every setting of this visualization back to its default.">
-        <button onClick={() => saved.forEach(key => setVisual(key, ''))} disabled={!saved.length}
+        <button onClick={() => changed.forEach(key => setVisual(key, DEFAULT_SETTINGS[key] ?? ''))} disabled={!changed.length}
           className="px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted transition-colors hover:text-white disabled:opacity-40 disabled:hover:text-muted">
           {t('Reset')}
         </button>
