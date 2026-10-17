@@ -33,14 +33,22 @@
 //   player_visualizer   Settings > Visualizations > Player Bar > Visualization: off, waveform
 //                       (bars beside the volume), spectrum or waves (under the seek bar) or
 //                       lightning (across the bar). Unset: follows player_waveform.
-//   side_panel_visual   ... > Side Panel > Visualization: off, character (the round one) or
-//                       anomaly. Unset: follows side_panel_visualizer.
+//   side_visual_text    ... > Side Panel > Visualization with lyrics: off, character (the round
+//                       one), anomaly or splashes (colour splashes). Unset: character
+//   side_visual_full    ... > Fullscreen visualization (the Visualization tab), same values.
+//                       Unset: splashes Unset: follows side_panel_visualizer.
 //   player_spectrum_color  #rrggbb for the spectrum, or 'accent'; unset: white
 //   player_waves_color_back, player_waves_color_front   the two waves' colours (same form)
 //   player_lightning_color_1, _2, _3   the lightning's three lines (same form)
 //   side_anomaly_color  the anomaly's colour (same form)
-//   side_anomaly_bg, side_character_bg   the colour behind each side panel visualization
-//                       (same form; unset: black)
+//   side_anomaly_bg, side_character_bg, side_splash_bg   the colour behind each side panel
+//                       visualization (same form; unset: #161616)
+//   side_character_cover, side_anomaly_cover, side_splash_cover   '1': the song's cover over
+//                       that colour, filling the visualization's box
+//   side_*_cover_opacity  0-100, how strongly that cover shows (50)
+//   side_visual_gradient_off  Settings > Visualizations > Side Panel: '0' keeps the fade under the
+//                       Visualization + Lyrics picture while the visualization shows (unset: off then)
+//   side_splash_*       the colour splashes' own settings (see SPLASH_KEYS in visualizers/Splashes.jsx)
 //   app_tabs        Settings > Appearance > App Tabs: tab order and which go to the ⋯ menu (see appTabs.js)
 //   taskbar_title   ... > Taskbar Title: what the window title (taskbar) shows
 //   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
@@ -49,15 +57,18 @@
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
+import { SPLASH_SETTING_KEYS } from './visualizers/splashSettings'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
 const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps',
   'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color', 'player_spectrum_radius',
   'player_center_spectrum_bars', 'player_center_spectrum_bar_width', 'player_center_spectrum_height', 'player_center_spectrum_strength', 'player_center_spectrum_opacity', 'player_center_spectrum_color', 'player_center_spectrum_radius',
-  'side_lyrics_backdrop_strength', 'side_lyrics_offset',
+  'side_lyrics_backdrop_strength', 'side_lyrics_offset', 'side_visual_gradient_off',
   'player_waves_width', 'player_waves_height', 'player_waves_strength', 'player_waves_opacity', 'player_waves_color_back', 'player_waves_color_front',
   'player_lightning_strength', 'player_lightning_opacity', 'player_lightning_color_1', 'player_lightning_color_2', 'player_lightning_color_3',
-  'side_panel_visual', 'side_anomaly_sensitivity', 'side_anomaly_size', 'side_anomaly_color', 'side_anomaly_bg', 'side_character_bg']
+  'side_visual_text', 'side_visual_full', 'side_anomaly_sensitivity', 'side_anomaly_size', 'side_anomaly_color', 'side_anomaly_bg', 'side_character_bg',
+  'side_splash_bg', ...SPLASH_SETTING_KEYS,
+  'side_character_cover', 'side_character_cover_opacity', 'side_anomaly_cover', 'side_anomaly_cover_opacity', 'side_splash_cover', 'side_splash_cover_opacity']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -110,6 +121,11 @@ export function useAppearanceText(key, fallback = '') {
   return useSubscribed(() => (raw[key] != null && raw[key] !== '' ? String(raw[key]) : fallback))
 }
 
+/** `read(get)` over the appearance settings (get(key): the saved text, or undefined). */
+export function useAppearanceSettings(read) {
+  return useSubscribed(() => read(key => raw[key]))
+}
+
 /** Shows a value at once (a slider being dragged), before the save comes back. */
 export function previewAppearanceValue(key, value) {
   raw = { ...raw, [key]: String(value) }
@@ -125,11 +141,10 @@ export function usePlayerVisualizer() {
   return PLAYER_VISUALIZERS.includes(chosen) ? chosen : waveform ? 'waveform' : 'off'
 }
 
-export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly']
+export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes']
 
-/** Which visualization the side panel's Visualization tab shows ('off': no tab). */
-export function useSidePanelVisualizer() {
-  const on = useAppearanceFlag('side_panel_visualizer')
-  const chosen = useAppearanceText('side_panel_visual')
-  return SIDE_PANEL_VISUALIZERS.includes(chosen) ? chosen : on ? 'character' : 'off'
+/** The side panel visualization chosen in `key` (side_visual_text / _full; 'off': just the background). */
+export function useSideVisual(key, fallback) {
+  const chosen = useAppearanceText(key)
+  return SIDE_PANEL_VISUALIZERS.includes(chosen) ? chosen : fallback
 }

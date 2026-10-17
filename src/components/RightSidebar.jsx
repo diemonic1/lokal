@@ -30,9 +30,11 @@ import LikeBurst from './LikeBurst'
 import { showToast } from './Toaster'
 import { formatLabel, isSuspect, losslessMenuItem, tierOf, TIERS } from '../quality'
 import { trackGenreList } from '../genres'
-import { useAppearanceText, useAppearanceValue, useSidePanelVisualizer } from '../appearanceFlags'
+import { useAppearanceSettings, useAppearanceText, useAppearanceValue, useSideVisual } from '../appearanceFlags'
 import PowerCircle from '../visualizers/PowerCircle'
 import Anomaly from '../visualizers/Anomaly'
+import Splashes from '../visualizers/Splashes'
+import { readSplashSettings } from '../visualizers/splashSettings'
 import { pickColor } from '../visualizers/audio'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 
@@ -169,28 +171,53 @@ export default function RightSidebar() {
   // a tab here only when the panel is shared (exclusiveSidePanels); in the
   // other mode it opens its own panel next to this one, and "Details" stays
   // highlighted.
-  // Settings > Visualizations > Side Panel > Visualization: which one the
-  // Visualization tab shows (the round character or the anomaly), or no tab.
-  const visualKind = useSidePanelVisualizer()
-  const visualTab = visualKind !== 'off'
+  // Settings > Visualizations > Side Panel: the visualization shown with the
+  // lyrics (over them on Visualization + Lyrics) and the fullscreen one: the
+  // Visualization tab, and wherever the lyrics are hidden (being searched
+  // for, not found, instrumental...). Off: just the background colour.
+  const textKind = useSideVisual('side_visual_text', 'character')
+  const fullKind = useSideVisual('side_visual_full', 'splashes')
   const anomalySettings = {
     sensitivity: Math.max(1, Math.min(10, useAppearanceValue('side_anomaly_sensitivity', 5))),
     size: Math.max(50, Math.min(200, useAppearanceValue('side_anomaly_size', 100))) / 100,
     color: useAppearanceText('side_anomaly_color'),
   }
-  // Each one's own background colour (black unless picked).
-  const characterBg = useAppearanceText('side_character_bg')
-  const anomalyBg = useAppearanceText('side_anomaly_bg')
-  const visualBg = pickColor(visualKind === 'anomaly' ? anomalyBg : characterBg, '#000000')
-  const visual = visualKind === 'anomaly'
-    ? <Anomaly className="flex-1 min-h-0" {...anomalySettings} />
-    : <PowerCircle className="flex-1 min-h-0" background={visualBg} />
-  const showVisual = visualTab && sidePanelView === 'visual'
+  const splashSettings = useAppearanceSettings(readSplashSettings)
+  // Each one's own background colour (#161616 unless picked), and maybe the
+  // song's cover over it (filling the box, as see-through as set).
+  const looks = {
+    character: { bg: useAppearanceText('side_character_bg'), cover: useAppearanceText('side_character_cover') === '1', coverOpacity: useAppearanceValue('side_character_cover_opacity', 50) },
+    anomaly: { bg: useAppearanceText('side_anomaly_bg'), cover: useAppearanceText('side_anomaly_cover') === '1', coverOpacity: useAppearanceValue('side_anomaly_cover_opacity', 50) },
+    splashes: { bg: useAppearanceText('side_splash_bg'), cover: useAppearanceText('side_splash_cover') === '1', coverOpacity: useAppearanceValue('side_splash_cover_opacity', 50) },
+  }
+  const backgroundOf = kind => (looks[kind] ? pickColor(looks[kind].bg, '#161616') : 'rgb(var(--surface-rgb))')
+  const renderVisual = (kind) => {
+    const look = looks[kind]
+    if (!look) return <div className="flex-1 min-h-0" />
+    const cover = look.cover ? trackArtURL(currentTrack) : null
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {cover && (
+          <img src={cover} alt="" aria-hidden="true" draggable={false}
+            className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+            style={{ opacity: Math.max(0, Math.min(100, look.coverOpacity)) / 100 }} />
+        )}
+        {kind === 'anomaly' ? <Anomaly className="relative flex-1 min-h-0" {...anomalySettings} />
+          : kind === 'splashes' ? <Splashes className="relative flex-1 min-h-0" settings={splashSettings} />
+          : <PowerCircle className="relative flex-1 min-h-0" background={backgroundOf(kind)} transparent={!!cover} />}
+      </div>
+    )
+  }
+  const visualBg = backgroundOf(textKind)
+  const visual = renderVisual(textKind)
+  const fullVisualBg = backgroundOf(fullKind)
+  const fullVisual = renderVisual(fullKind)
+  const showVisual = sidePanelView === 'visual'
   // The Lyrics tab without lyrics (still searching, or none found) shows the
   // same visualization behind it (LyricsPanel's idleVisual).
   const [lyricsIdle, setLyricsIdle] = useState(false)
   // Visualization + Lyrics: the picture over the lyrics (SideVisualLyrics);
-  // a tab whatever the Visualization setting (off, it uses the round character).
+  // a tab whatever the settings (its picture is the visualization with lyrics).
   const showVisualLyrics = sidePanelView === 'visualLyrics'
   const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
 
@@ -298,7 +325,7 @@ export default function RightSidebar() {
     tabMenu.open({ preventDefault() {}, stopPropagation() {}, clientX: box.right, clientY: box.bottom + 4 }, [
       { label: t('Details'), icon: Info, checked: tab === 'info', onSelect: pick('info') },
       { label: t('Lyrics'), icon: Mic2, checked: tab === 'lyrics', onSelect: pick('lyrics') },
-      visualTab && { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
+      { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
       { label: t('Visualization + Lyrics'), icon: MonitorPlay, checked: tab === 'visualLyrics', onSelect: pick('visualLyrics') },
       { label: t('Queue'), icon: ListMusic, checked: tab === 'queue', onSelect: pick('queue') },
       { separator: true },
@@ -553,24 +580,25 @@ export default function RightSidebar() {
                   style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}
                 >
                   <AnimatePresence>
-                    {visualTab && lyricsIdle && currentTrack && (
+                    {lyricsIdle && currentTrack && (
                       <motion.div key="lyrics-visual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5, ease: 'easeInOut' }} className="absolute inset-0 flex flex-col" style={{ backgroundColor: visualBg }}>
-                        {visual}
+                        transition={{ duration: 0.5, ease: 'easeInOut' }} className="absolute inset-0 flex flex-col" style={{ backgroundColor: fullVisualBg }}>
+                        {fullVisual}
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <div className="relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)]">
+                  {/* Hidden over the visualization, the lyrics let the mouse through to it. */}
+                  <div className={`relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)] ${lyricsIdle && currentTrack ? 'pointer-events-none' : ''}`}>
                     {currentTrack ? (
                       <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarEndGap
-                        idleVisual={visualTab} onIdleChange={setLyricsIdle} />
+                        idleVisual onIdleChange={setLyricsIdle} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
                     )}
                   </div>
                   {/* Nothing to expand while there are no lyrics. */}
                   <AnimatePresence initial={false}>
-                    {!(visualTab && lyricsIdle && currentTrack) && (
+                    {!(lyricsIdle && currentTrack) && (
                       <motion.div key="expand" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }} className="relative flex-shrink-0 overflow-hidden">
                         <div className="p-3 border-t border-border">
@@ -596,9 +624,9 @@ export default function RightSidebar() {
                   exit={{ y: '100%' }}
                   transition={{ type: 'spring', stiffness: 300, damping: 32 }}
                   className="absolute inset-0 flex flex-col"
-                  style={{ backgroundColor: visualBg }}
+                  style={{ backgroundColor: fullVisualBg }}
                 >
-                  {visual}
+                  {fullVisual}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -616,10 +644,10 @@ export default function RightSidebar() {
                   style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}
                 >
                   {currentTrack ? (
-                    <SideVisualLyrics track={currentTrack} progress={progress} visual={visual} visualBg={visualBg} coverOff={coverOff}
+                    <SideVisualLyrics track={currentTrack} progress={progress} visual={visual} visualBg={visualBg} fullVisual={fullVisual} fullVisualBg={fullVisualBg} coverOff={coverOff}
                       wordSync={wordSync} textScale={lyricsScale} isAutoSynced={isAutoSynced} />
                   ) : (
-                    <div className="flex flex-1 flex-col" style={{ backgroundColor: visualBg }}>{visual}</div>
+                    <div className="flex flex-1 flex-col" style={{ backgroundColor: fullVisualBg }}>{fullVisual}</div>
                   )}
                 </motion.div>
               )}

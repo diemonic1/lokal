@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast, Clock, ListEnd, Download, Disc3, Edit2, Camera, FolderOpen, ExternalLink, Link2, Clapperboard } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { useNavigate } from 'react-router-dom'
@@ -13,11 +13,15 @@ import Waveform from '../visualizers/Waveform'
 import Spectrum from '../visualizers/Spectrum'
 import Waves from '../visualizers/Waves'
 import Lightning from '../visualizers/Lightning'
-import { showToast } from './Toaster'
+import { showToast, showLoadingToast } from './Toaster'
+import TrackEditModal from './TrackEditModal'
+import { addToQueueMany, playNextMany } from '../trackActions'
+import { TRACK_SEARCH_SITES, clipLink, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
+import { announceTrackChanged } from '../trackChanged'
 import { useAppearanceFlag, useAppearanceText, useAppearanceValue, usePlayerVisualizer } from '../appearanceFlags'
 import CoverGradient from './CoverGradient'
 import { meshKeyFor } from './ArtworkBackdrop'
-import { trackArtURL, isStreamed, streamLabel } from '../onlineTracks'
+import { trackArtURL, isStreamed, streamLabel, saveTracksToLibrary, libraryDownloadMessage } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
@@ -133,14 +137,39 @@ export default function PlayerBar() {
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat
 
 
-  const handleScrub = useCallback((e) => {
+  const scrubAt = useCallback((bar, clientX) => {
     if (!duration || isStationTrack(usePlayerStore.getState().currentTrack)) return
-    const r = e.currentTarget.getBoundingClientRect()
-    const t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * duration
+    const r = bar.getBoundingClientRect()
+    const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * duration
     setLocalProg(t)
     // Through the store: it seeks the playing element, or the TV while casting.
     if (scrubbing.current) usePlayerStore.getState().setProgressWithAudioUpdate(t)
   }, [duration])
+  const handleScrub = useCallback((e) => { if (!scrubbing.current) scrubAt(e.currentTarget, e.clientX) }, [scrubAt])
+  // A drag follows the mouse anywhere in the window and ends wherever the
+  // button is let go (also off the bar), so hovering later never seeks.
+  const endScrub = useRef(null)
+  const startScrub = useCallback((e) => {
+    if (e.button !== 0) return
+    const bar = e.currentTarget
+    endScrub.current?.()
+    scrubbing.current = true
+    scrubAt(bar, e.clientX)
+    const move = ev => scrubAt(bar, ev.clientX)
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      window.removeEventListener('blur', up)
+      endScrub.current = null
+      scrubbing.current = false
+      setLocalProg(null)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    window.addEventListener('blur', up)
+    endScrub.current = up
+  }, [scrubAt])
+  useEffect(() => () => endScrub.current?.(), [])
 
   const toggleLike = async () => {
     if (!currentTrack) return
@@ -200,13 +229,55 @@ export default function PlayerBar() {
     setProgressWithAudioUpdate(Math.max(0, Math.min(duration, p + (e.deltaY < 0 ? 1 : -1))))
   }
 
+  // Edit info from the bar's menu (as from a song's row).
+  const [editingTrack, setEditingTrack] = useState(null)
+  const saveToLibrary = async (track) => {
+    const toast = showLoadingToast(t('Preparing downloads…'))
+    try {
+      const result = await saveTracksToLibrary([track], { onProgress: message => toast.update(message) })
+      toast.close(libraryDownloadMessage(result))
+    } catch { toast.close(t('Could not download the selected songs.')) }
+  }
+  // The picture (.jpg/.png) goes into the song's file too (electron/trackCover.js).
+  const replaceArtwork = async (track) => {
+    const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
+    if (!fp) return
+    try {
+      const dataUrl = await api.readFileAsDataURL(fp)
+      if (!dataUrl) throw new Error(t('Could not read the picture'))
+      const updated = await api.trackSetArtwork(track.id, dataUrl)
+      if (updated?.error) throw new Error(updated.error)
+      if (updated?.id) { usePlayerStore.getState().syncTrack(updated); announceTrackChanged(updated.id) }
+      showToast(t('Cover saved into the file'))
+    } catch (err) {
+      showToast(t("Couldn't set the cover: {error}", { error: String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '') }))
+    }
+  }
+
+  // A right click anywhere on the bar: the playing song's menu, as on its row
+  // in a list, without removing or deleting it.
   const openTrackMenu = (event) => {
     if (!currentTrack || station) return
+    const track = currentTrack
+    const ghost = !track.file_path || track.missing
     menu.open(event, [
-      { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
-      currentTrack.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
-      losslessMenuItem(currentTrack, Gem),
-    ].filter(Boolean))
+      { label: isPlaying ? t('Pause') : t('Play'), icon: isPlaying ? Pause : Play, onSelect: togglePlay },
+      { label: t('Play next'), icon: Clock, onSelect: () => playNextMany([track]) },
+      { label: t('Add to queue'), icon: ListEnd, onSelect: () => addToQueueMany([track]) },
+      { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, track, user?.id) },
+      track.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: track.artist, type: 'artist' }, user?.id) },
+      losslessMenuItem(track, Gem),
+      isStreamed(track) && { label: t('Save to library'), icon: Download, onSelect: () => saveToLibrary(track) },
+      { separator: true },
+      track.album && { label: t('Go to album'), icon: Disc3, onSelect: () => navigateToTrackAlbum(nav, track) },
+      { label: t('Edit info'), icon: Edit2, onSelect: () => setEditingTrack(track) },
+      api.isElectron && { label: t('Replace artwork'), icon: Camera, onSelect: () => replaceArtwork(track) },
+      !ghost && !isStreamed(track) && api.isElectron && { label: t('Show in Explorer'), icon: FolderOpen, onSelect: () => api.showItemInFolder(track.file_path) },
+      { separator: true },
+      ...(trackSearchText(track) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: ExternalLink, onSelect: () => openLink(trackSearchUrl(site, track)) })) : []),
+      commentLink(track) && { label: t('Open comment'), icon: Link2, onSelect: () => openLink(commentLink(track)) },
+      clipLink(track) && { label: t('Open music video'), icon: Clapperboard, onSelect: () => openLink(clipLink(track)) },
+    ].filter(Boolean).filter((item, index, all) => !(item.separator && (index === 0 || index === all.length - 1 || all[index - 1]?.separator))))
   }
 
   // The playing song's audio quality, when it's been read (not for streams).
@@ -233,7 +304,8 @@ export default function PlayerBar() {
           backgroundColor: glass ? `rgb(var(--surface-rgb) / ${(1 - glassTransparency / 100).toFixed(2)})` : 'rgb(var(--surface-rgb))',
           '--cover-gradient-width': infoWidth ? `${Math.round(infoWidth + 16 + 48)}px` : undefined,
         }}
-        onWheel={onBarWheel}>
+        onWheel={onBarWheel}
+        onContextMenu={openTrackMenu}>
         {showGradient && <CoverGradient trackId={meshKeyFor(currentTrack)} strength={gradientStrength} speed={gradientSpeed} rounded={floating} />}
         {currentTrack && visualizer === 'lightning' && (
           <div aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${floating ? 'rounded-2xl' : ''}`}>
@@ -340,8 +412,7 @@ export default function PlayerBar() {
           <div className={`flex-1 h-1 bg-text/25 rounded-full group relative overflow-hidden ${station ? '' : 'cursor-pointer'}`}
             onWheel={station ? undefined : onSeekWheel}
             onMouseMove={handleScrub}
-            onMouseDown={e => { scrubbing.current = true; handleScrub(e) }}
-            onMouseUp={() => { scrubbing.current = false; setLocalProg(null) }}
+            onMouseDown={startScrub}
             onMouseLeave={() => { if (!scrubbing.current) setLocalProg(null) }}>
             <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
               {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
@@ -401,6 +472,17 @@ export default function PlayerBar() {
       </div>
 
       <ContextMenu menu={menu} />
+      <TrackEditModal
+        track={editingTrack}
+        open={!!editingTrack}
+        onClose={() => setEditingTrack(null)}
+        onSave={(updated) => {
+          if (!updated?.id) return
+          usePlayerStore.getState().syncTrack(updated)
+          setEditingTrack(updated)
+          announceTrackChanged(updated.id)
+        }}
+      />
       {coverDrop.dialog}
     </>
   )

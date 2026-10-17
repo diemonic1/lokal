@@ -2,8 +2,8 @@ export const THEMES = {
   dark: {
     name: 'Dark',
     vars: {
-      '--bg': '#0a0a0a',
-      '--surface': '#111111',
+      '--bg': '#161616',
+      '--surface': '#161616',
       '--surface2': '#181818',
       '--surface3': '#202020',
       '--border': '#2a2a2a',
@@ -11,8 +11,8 @@ export const THEMES = {
       '--text': '#e8e8e8',
       '--muted': '#888888',
       '--muted2': '#555555',
-      '--accent': '#e8ff57',
-      '--accent-dim': '#c8df47',
+      '--accent': '#ffd6f0',
+      '--accent-dim': '#e0bcd3',
       '--red': '#ff5757',
       '--purple': '#7c6aff',
       '--orange': '#ff9f43',
@@ -252,6 +252,7 @@ export const THEMES = {
 }
 
 export const ACCENT_COLORS = [
+  { name: 'Soft pink', value: '#ffd6f0', dim: '#e0bcd3' },
   { name: 'Lime', value: '#c8ff57', dim: '#a8d94a' },
   { name: 'Purple', value: '#7c6aff', dim: '#6a5ae8' },
   { name: 'Pink', value: '#ff57c8', dim: '#e04ab3' },

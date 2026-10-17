@@ -89,6 +89,43 @@ function fmtBytes(bytes) {
   return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`
 }
 
+// A slider's value as a field to type into, in place of its label: a number
+// within min-max applies as it's typed; leaving the field (or Enter) puts an
+// out-of-range one at the nearest end and a wrong one back to the value.
+function SliderNumber({ value, min, max, unit = '', onChange, label }) {
+  const [text, setText] = useState(String(value))
+  const [editing, setEditing] = useState(false)
+  useEffect(() => { if (!editing) setText(String(value)) }, [value, editing])
+  const parse = raw => {
+    const trimmed = String(raw).trim().replace(',', '.')
+    const n = Number(trimmed)
+    return trimmed !== '' && Number.isFinite(n) ? n : null
+  }
+  const finish = () => {
+    setEditing(false)
+    const n = parse(text)
+    if (n == null) { setText(String(value)); return }
+    const clamped = Math.min(Number(max), Math.max(Number(min), n))
+    if (clamped !== Number(value)) onChange(clamped)
+    setText(String(clamped))
+  }
+  return (
+    <span className="flex flex-shrink-0 items-center gap-1 text-xs text-muted">
+      <input type="text" inputMode="decimal" value={text} aria-label={label} spellCheck={false}
+        onFocus={() => setEditing(true)}
+        onChange={e => {
+          setText(e.target.value)
+          const n = parse(e.target.value)
+          if (n != null && n >= Number(min) && n <= Number(max)) onChange(n)
+        }}
+        onBlur={finish}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setText(String(value)); setEditing(false); e.currentTarget.blur() } }}
+        className="w-14 rounded-md border border-border bg-card px-1.5 py-0.5 text-right tabular-nums text-text outline-none focus:border-accent/50" />
+      {unit && <span className="whitespace-nowrap">{unit.trim()}</span>}
+    </span>
+  )
+}
+
 // `stacked`: the control goes under the text, full width (a wide control
 // beside it would squeeze the description into a narrow column).
 function Row({ label, desc, children, stacked = false }) {
@@ -651,6 +688,8 @@ export default function Settings() {
   // Settings > Visualizations: the controls each visualization's own
   // settings are made of. They show at once (previewAppearanceValue) and save.
   const setVisual = (key, value) => { previewAppearanceValue(key, value); set(key, value) }
+  // Side Panel: which visualization's settings are shown (it doesn't pick one).
+  const [visualEditKind, setVisualEditKind] = useState('character')
   const visualNumber = (key, fallback) => {
     const value = settings[key]
     return value != null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback
@@ -663,7 +702,7 @@ export default function Settings() {
           <input type="range" min={min} max={max} step={step} value={value}
             onChange={e => setVisual(key, e.target.value)}
             className="flex-1 accent-accent" />
-          <span className="w-12 text-right text-xs tabular-nums text-muted">{value}{unit}</span>
+          <SliderNumber value={value} min={min} max={max} unit={unit} label={t(label)} onChange={n => setVisual(key, String(n))} />
         </div>
       </Row>
     )
@@ -684,6 +723,47 @@ export default function Settings() {
           )}
           <AccentColorPicker value={color} active={!!color} align="right" onChange={({ value }) => setVisual(key, value)} />
         </div>
+      </Row>
+    )
+  }
+  // On / Off, `fallback` until it's switched.
+  const visualToggle = (key, label, desc, fallback = true) => {
+    const on = settings[key] == null || settings[key] === '' ? fallback : settings[key] !== '0'
+    return (
+      <Row key={key} label={label} desc={desc}>
+        <button onClick={() => setVisual(key, on ? '0' : '1')}
+          className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${on ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+          {t(on ? 'On' : 'Off')}
+        </button>
+      </Row>
+    )
+  }
+  // The song's cover over a side panel visualization's background colour.
+  const visualCover = (kind) => {
+    const key = `side_${kind}_cover`
+    const on = settings[key] === '1'
+    return <>
+      <Row key={key} label="Album cover in the background" desc="The song's cover over the background colour, filling the whole visualization.">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-text">
+          <input type="checkbox" checked={on} onChange={e => setVisual(key, e.target.checked ? '1' : '0')} className="accent-accent" />
+          {t(on ? 'On' : 'Off')}
+        </label>
+      </Row>
+      {on && visualSlider(`side_${kind}_cover_opacity`, 'Cover opacity', 'How strongly the cover shows over the background colour.', 0, 100, 50, '%')}
+    </>
+  }
+  // Each player bar visualization's settings (side_* are the side panel's).
+  const PLAYER_VISUAL_PREFIX = { spectrum: 'player_spectrum_', spectrumCenter: 'player_center_spectrum_', waves: 'player_waves_', lightning: 'player_lightning_' }
+  // Back to the defaults: every saved setting whose key starts with `prefix`
+  // is cleared (unset, each reads its default again).
+  const visualReset = (prefix, label = 'Reset to defaults') => {
+    const saved = Object.keys(settings).filter(key => key.startsWith(prefix) && settings[key] != null && settings[key] !== '')
+    return (
+      <Row key={`reset-${prefix}`} label={label} desc="Puts every setting of this visualization back to its default.">
+        <button onClick={() => saved.forEach(key => setVisual(key, ''))} disabled={!saved.length}
+          className="px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted transition-colors hover:text-white disabled:opacity-40 disabled:hover:text-muted">
+          {t('Reset')}
+        </button>
       </Row>
     )
   }
@@ -1573,7 +1653,7 @@ activeCategory === 'data' ? usersTried
           <div className="flex items-center gap-2">
             <input type="range" min={1} max={20} step={0.5} value={crossfade.beforeEnd}
               onChange={e => set('crossfade_seconds', e.target.value)} className="w-24 accent-accent" />
-            <span className="text-xs text-muted w-10">{t('{n}s', { n: crossfade.beforeEnd })}</span>
+            <SliderNumber value={crossfade.beforeEnd} min={1} max={20} unit={t('{n}s', { n: '' })} label={t('Crossfade')} onChange={n => set('crossfade_seconds', String(n))} />
           </div>
         </Row>
         )}
@@ -1582,14 +1662,14 @@ activeCategory === 'data' ? usersTried
             <div className="flex items-center gap-2">
               <input type="range" min={0} max={10} step={0.1} value={crossfade.fadeIn}
                 onChange={e => set('crossfade_fade_in', e.target.value)} className="w-24 accent-accent" />
-              <span className="text-xs text-muted w-10">{t('{n}s', { n: crossfade.fadeIn.toFixed(1) })}</span>
+              <SliderNumber value={crossfade.fadeIn} min={0} max={10} unit={t('{n}s', { n: '' })} label={t('Fade in')} onChange={n => set('crossfade_fade_in', String(n))} />
             </div>
           </Row>
           <Row label="Fade out" desc="How long the current song takes to fade away. It stops at the end of the song either way.">
             <div className="flex items-center gap-2">
               <input type="range" min={0.5} max={20} step={0.5} value={crossfade.fadeOut}
                 onChange={e => set('crossfade_fade_out', e.target.value)} className="w-24 accent-accent" />
-              <span className="text-xs text-muted w-10">{t('{n}s', { n: crossfade.fadeOut.toFixed(1) })}</span>
+              <SliderNumber value={crossfade.fadeOut} min={0.5} max={20} unit={t('{n}s', { n: '' })} label={t('Fade out')} onChange={n => set('crossfade_fade_out', String(n))} />
             </div>
           </Row>
           <Row label="Fade curve" desc="Logarithmic fades evenly to the ear. Linear stays loud, then drops off near the end.">
@@ -1863,7 +1943,8 @@ activeCategory === 'data' ? usersTried
             <input type="range" min={0} max={RADIO_BUFFER_MAX} step={1} value={radioBufferSeconds(settings.radio_buffer_sec)}
               onChange={event => { previewAppearanceValue('radio_buffer_sec', event.target.value); set('radio_buffer_sec', event.target.value) }}
               aria-label={t('Buffer')} className="w-40 accent-accent" />
-            <span className="w-10 text-right text-sm tabular-nums text-white">{t('{n} s', { n: radioBufferSeconds(settings.radio_buffer_sec) })}</span>
+            <SliderNumber value={radioBufferSeconds(settings.radio_buffer_sec)} min={0} max={RADIO_BUFFER_MAX} unit={t('{n} s', { n: '' })} label={t('Buffer')}
+              onChange={n => { const v = String(Math.round(n)); previewAppearanceValue('radio_buffer_sec', v); set('radio_buffer_sec', v) }} />
           </div>
         </Row>
       </Section>
@@ -2316,7 +2397,7 @@ activeCategory === 'data' ? usersTried
                 <input type="range" min="0" max="90" step="1" value={value}
                   onChange={e => { previewAppearanceValue('player_bar_glass_transparency', e.target.value); set('player_bar_glass_transparency', e.target.value) }}
                   className="flex-1 accent-accent" />
-                <span className="w-9 text-right text-xs tabular-nums text-muted">{value}%</span>
+                <SliderNumber value={value} min={0} max={90} unit="%" onChange={n => { const v = String(Math.round(n)); previewAppearanceValue('player_bar_glass_transparency', v); set('player_bar_glass_transparency', v) }} />
               </div>
             </Row>
           )
@@ -2330,7 +2411,7 @@ activeCategory === 'data' ? usersTried
                 <input type="range" min="0" max="100" step="1" value={value}
                   onChange={e => { previewAppearanceValue('player_bar_shade_transparency', e.target.value); set('player_bar_shade_transparency', e.target.value) }}
                   className="flex-1 accent-accent" />
-                <span className="w-9 text-right text-xs tabular-nums text-muted">{value}%</span>
+                <SliderNumber value={value} min={0} max={100} unit="%" onChange={n => { const v = String(Math.round(n)); previewAppearanceValue('player_bar_shade_transparency', v); set('player_bar_shade_transparency', v) }} />
               </div>
             </Row>
           )
@@ -2367,21 +2448,98 @@ activeCategory === 'data' ? usersTried
       {inCategory('visualizations') && (
       <Section title="Side Panel">
         {(() => {
-          // Unset, it follows the old on/off switch of the Visualization tab.
-          const kind = ['off', 'character', 'anomaly'].includes(settings.side_panel_visual)
-            ? settings.side_panel_visual : settings.side_panel_visualizer === '0' ? 'off' : 'character'
+          const KINDS = [['character', 'Round character'], ['anomaly', 'Anomaly'], ['splashes', 'Colour splashes']]
+          const chosen = (key, fallback) => (KINDS.some(([k]) => k === settings[key]) || settings[key] === 'off' ? settings[key] : fallback)
+          const kind = visualEditKind
           return (
             <>
-              <Row label="Visualization" desc="A tab in the side panel with an animation that moves with the music. It only runs while the tab is open, or on the Lyrics tab while lyrics are being searched for or were not found.">
-                {visualSelect('side_panel_visual', kind, [['off', 'Off'], ['character', 'Round character'], ['anomaly', 'Anomaly']])}
+              <Row label="Visualization with lyrics" desc="Above the lyrics on the Visualization + Lyrics tab. Off: just the background colour.">
+                {visualSelect('side_visual_text', chosen('side_visual_text', 'character'), [['off', 'Off'], ...KINDS])}
               </Row>
-              {kind === 'character' && visualColor('side_character_bg', 'Background color', 'The colour behind the visualization.', '#000000')}
+              <Row label="Fullscreen visualization" desc="Fills the side panel's Visualization tab, and the Lyrics and Visualization + Lyrics tabs whenever the lyrics are hidden: while they're searched for, when none were found, for an instrumental or a song marked as having none. Off: just the background colour.">
+                {visualSelect('side_visual_full', chosen('side_visual_full', 'splashes'), [['off', 'Off'], ...KINDS])}
+              </Row>
+              {visualToggle('side_visual_gradient_off', 'Turn off the smooth gradient while the visualization shows', 'On the Visualization + Lyrics tab, no fade from the picture into the lyrics while it shows the visualization. A music video or canvas keeps it.')}
+              <div className="border-t border-white" />
+              <Row label="Visualization settings" desc="Whose settings to show below. This doesn't change which visualization is used.">
+                <select value={kind} onChange={e => setVisualEditKind(e.target.value)}
+                  className="min-w-44 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50">
+                  {KINDS.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
+                </select>
+              </Row>
+              {visualReset({ character: 'side_character_', anomaly: 'side_anomaly_', splashes: 'side_splash_' }[kind])}
+              {kind === 'character' && <>
+                {visualColor('side_character_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
+                {visualCover('character')}
+              </>}
               {kind === 'anomaly' && <>
                 {visualSlider('side_anomaly_sensitivity', 'Sensitivity', 'How strongly the sphere and its rings react to the music.', 1, 10, 5, '', 0.1)}
                 {visualSlider('side_anomaly_size', 'Size', 'How big the sphere and its rings are in the panel.', 50, 200, 100, '%')}
                 {visualColor('side_anomaly_color', 'Color', "The sphere's and rings' colour.", '#ff4e42')}
-                {visualColor('side_anomaly_bg', 'Background color', 'The colour behind the visualization.', '#000000')}
+                {visualColor('side_anomaly_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
+                {visualCover('anomaly')}
               </>}
+              {kind === 'splashes' && (() => {
+                const colorMode = settings.side_splash_color_mode === 'color' ? 'color' : 'rainbow'
+                const audio = settings.side_splash_audio !== '0'
+                const idle = settings.side_splash_idle === '1'
+                const bloom = settings.side_splash_bloom !== '0'
+                const resolution = (key, label, desc, options, fallback) => (
+                  <Row key={key} label={label} desc={desc}>
+                    {visualSelect(key, String(Math.round(visualNumber(key, fallback))), options.map(n => [String(n), String(n)]))}
+                  </Row>
+                )
+                return <>
+                  {visualToggle('side_splash_audio', 'React to music', 'The music throws splashes into the panel.')}
+                  {audio && <>
+                    {visualSlider('side_splash_sensitivity', 'Sensitivity', 'How many splashes the music throws, as in the wallpaper (5: its default).', 0.01, 10, 5, '', 0.01)}
+                    {visualSlider('side_splash_audio_gain', 'Signal level', "How loud the music reads to the splashes. Lokal hears it louder than Wallpaper Engine: at 4% the wallpaper's sensitivity gives about the same splashes here.", 0.1, 100, 4, '%', 0.1)}
+                    {visualSlider('side_splash_audio_curve', 'Response curve', 'Higher: quiet parts throw almost nothing and only the loud hits splash; lower: splashes follow the music more evenly.', 1, 8, 4, '', 0.1)}
+                    {visualSlider('side_splash_audio_floor', 'Noise floor', 'Anything quieter than this counts as silence, so a quiet background throws no splashes.', 0, 90, 0, '%', 1)}
+                    {visualToggle('side_splash_dyn', 'Floating threshold', 'Follows how loud the song is: while nothing splashes, the music needs less to splash, so quiet songs and quiet parts splash too; while a lot splashes, it needs more again.')}
+                    {settings.side_splash_dyn !== '0' && <>
+                      {visualSlider('side_splash_dyn_target', 'Splashes it aims for', 'How many splashes a second the threshold settles at. It only climbs while there are more than this.', 1, 300, 30, '/s')}
+                      {visualSlider('side_splash_dyn_fall', 'Sinking speed', 'How much the threshold sinks each second there are no splashes. It starts as soon as they stop.', 1, 90, 30, '%')}
+                      {visualSlider('side_splash_dyn_rise', 'Climbing speed', 'How much the threshold climbs each second while there are too many splashes.', 1, 500, 50, '%')}
+                      {visualSlider('side_splash_dyn_window', 'Counting time', 'How many seconds of splashes are counted before the threshold climbs. Longer: a short burst of splashes barely moves it.', 0.2, 10, 2, ' s', 0.1)}
+                      {visualSlider('side_splash_dyn_min', 'Lowest threshold', 'The lowest it sinks to. 10%: quiet music can splash as if it were ten times louder.', 1, 100, 10, '%')}
+                      {visualSlider('side_splash_dyn_max', 'Highest threshold', 'The highest it climbs to. 300%: loud music splashes as if it were three times quieter.', 100, 1000, 300, '%')}
+                      {visualToggle('side_splash_dyn_reset', 'Reset on a new song', 'Each new song starts from 100% instead of where the last one left it.', false)}
+                    </>}
+                    {visualSlider('side_splash_freq_range', 'Frequency range', 'How many of the 64 frequency bands it listens to.', 1, 62, 8)}
+                    {visualSlider('side_splash_freq_start', 'Frequency range start', 'The first band it listens to: 0 is the deepest bass, higher is higher notes.', 0, 62, 0)}
+                  </>}
+                  {visualToggle('side_splash_mouse', 'Splashes from the mouse', 'Moving the mouse over the visualization leaves a trail of colour.')}
+                  {visualToggle('side_splash_click', 'Splash on click', 'A click on the visualization throws a burst of splashes.')}
+                  {visualToggle('side_splash_idle', 'Random splashes', 'Splashes now and then on their own, with or without music.', false)}
+                  {idle && <>
+                    {visualSlider('side_splash_idle_interval', 'Random splash interval', 'Seconds between random splashes.', 0, 30, 1, ' s', 0.1)}
+                    {visualSlider('side_splash_idle_amount', 'Random splash amount', 'How many splashes at a time.', 1, 100, 10)}
+                  </>}
+                  <Row key="side_splash_color_mode" label="Splash colors" desc="Any colour of the rainbow, or one colour and the hues around it.">
+                    {visualSelect('side_splash_color_mode', colorMode, [['rainbow', 'Random rainbow'], ['color', 'One color']])}
+                  </Row>
+                  {colorMode === 'color' && <>
+                    {visualColor('side_splash_color', 'Color', 'The colour the splashes are made around.', '#00ff66')}
+                    {visualSlider('side_splash_hue_range', 'Hue range', 'How far from that colour the splashes may go round the colour wheel. 0: only that colour.', 0, 180, 30, '°')}
+                  </>}
+                  {visualSlider('side_splash_radius', 'Splash radius', 'How big each splash is.', 0.01, 1, 0.3, '', 0.01)}
+                  {visualSlider('side_splash_curl', 'Vorticity', 'How much the colours swirl.', 0, 50, 30)}
+                  {visualSlider('side_splash_density', 'Density diffusion', 'How long the colour stays before it fades.', 0.9, 1, 0.97, '', 0.001)}
+                  {visualSlider('side_splash_velocity', 'Velocity diffusion', 'How long the colours keep moving.', 0.9, 1, 0.98, '', 0.001)}
+                  {visualSlider('side_splash_pressure', 'Pressure diffusion', 'How much of the pressure carries over from frame to frame.', 0, 1, 0.8, '', 0.01)}
+                  {resolution('side_splash_sim_res', 'Simulation resolution', 'The grid the flow is worked out on. Lower is lighter on the graphics card.', [32, 64, 128, 256], 256)}
+                  {resolution('side_splash_dye_res', 'Dye resolution', 'How sharp the colour is. Lower is lighter on the graphics card.', [32, 64, 128, 256, 512, 1024, 2048, 4096], 512)}
+                  {visualToggle('side_splash_shading', 'Shading', 'A little relief on the colour.')}
+                  {visualToggle('side_splash_bloom', 'Bloom', 'A glow around the brightest colour.')}
+                  {bloom && <>
+                    {visualSlider('side_splash_bloom_intensity', 'Bloom intensity', 'How strong the glow is.', 0.1, 2, 0.8, '', 0.01)}
+                    {visualSlider('side_splash_bloom_threshold', 'Bloom threshold', 'How bright the colour must be to glow.', 0, 1, 0.6, '', 0.01)}
+                  </>}
+                  {visualColor('side_splash_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
+                  {visualCover('splash')}
+                </>
+              })()}
             </>
           )
         })()}
@@ -2406,7 +2564,7 @@ activeCategory === 'data' ? usersTried
                 <input type="range" min="5" max="100" step="1" value={strength}
                   onChange={e => { previewAppearanceValue('player_bar_gradient_strength', e.target.value); set('player_bar_gradient_strength', e.target.value) }}
                   className="flex-1 accent-accent" />
-                <span className="w-9 text-right text-xs tabular-nums text-muted">{strength}%</span>
+                <SliderNumber value={strength} min={5} max={100} unit="%" onChange={n => { const v = String(Math.round(n)); previewAppearanceValue('player_bar_gradient_strength', v); set('player_bar_gradient_strength', v) }} />
               </div>
             </Row>
           )
@@ -2420,7 +2578,7 @@ activeCategory === 'data' ? usersTried
                 <input type="range" min="0" max="100" step="1" value={speed}
                   onChange={e => { previewAppearanceValue('player_bar_gradient_speed', e.target.value); set('player_bar_gradient_speed', e.target.value) }}
                   className="flex-1 accent-accent" />
-                <span className="w-9 text-right text-xs tabular-nums text-muted">{speed}%</span>
+                <SliderNumber value={speed} min={0} max={100} unit="%" onChange={n => { const v = String(Math.round(n)); previewAppearanceValue('player_bar_gradient_speed', v); set('player_bar_gradient_speed', v) }} />
               </div>
             </Row>
           )
@@ -2435,6 +2593,7 @@ activeCategory === 'data' ? usersTried
               <Row label="Visualization" desc="Moves with the music while it plays: bars beside the volume, a spectrum or two waves under the seek bar standing on the bar's bottom edge, or lightning across the whole bar.">
                 {visualSelect('player_visualizer', mode, [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['spectrumCenter', 'Spectrum from the center'], ['waves', 'Waves'], ['lightning', 'Lightning']])}
               </Row>
+              {PLAYER_VISUAL_PREFIX[mode] && visualReset(PLAYER_VISUAL_PREFIX[mode])}
               {mode === 'spectrum' && <>
                 {visualSlider('player_spectrum_bars', 'Number of bars', 'How many bars the spectrum has.', 8, 160, 119)}
                 {visualSlider('player_spectrum_bar_width', 'Bar width', 'The width of each bar. The whole spectrum is as wide as its bars.', 1, 12, 4, ' px')}

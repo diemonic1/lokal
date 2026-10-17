@@ -18,7 +18,7 @@ import { api } from '../api'
 import { usePlayerStore } from '../store/player'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { clipPreview, clipRange, onClipPreview, trackClipLoop } from '../clipVideo'
-import { useAppearanceValue } from '../appearanceFlags'
+import { useAppearanceText, useAppearanceValue } from '../appearanceFlags'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover from './MotionCover'
 import LyricsPanel from './LyricsPanel'
@@ -145,7 +145,9 @@ function ClipLoop({ link, start, end, zoom = 0, onActive, onFail }) {
   )
 }
 
-export default function SideVisualLyrics({ track, progress, visual, visualBg, coverOff = false, wordSync, textScale, isAutoSynced }) {
+// visual / visualBg: the visualization with lyrics; fullVisual / fullVisualBg:
+// the fullscreen one, while the lyrics are hidden (the picture fills the panel).
+export default function SideVisualLyrics({ track, progress, visual, visualBg, fullVisual = visual, fullVisualBg = visualBg, coverOff = false, wordSync, textScale, isAutoSynced }) {
   // Edit Track open on this song: the video being tried (link, times, zoom)
   // shows straight away, before it's saved.
   const [, setPreviewTick] = useState(0)
@@ -165,6 +167,10 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
   const fx = useArtworkBackdropEnabled()
   const strength = Math.max(0, Math.min(100, useAppearanceValue('side_lyrics_backdrop_strength', 50))) / 100
   const lyricsOffset = Math.max(-400, Math.min(400, useAppearanceValue('side_lyrics_offset', 0)))
+  // Settings > Visualizations > Side Panel: no fade over the visualization
+  // (only over a video), unless switched off.
+  const keepFade = useAppearanceText('side_visual_gradient_off') === '0'
+  const fadeOn = videoOn || keepFade
 
   return (
     <div className="absolute inset-0" style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
@@ -178,10 +184,10 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
         initial={false}
         animate={{ height: idle ? '100%' : `${PICTURE_SHARE}%` }}
         transition={PICTURE_MOTION}
-        style={{ backgroundColor: videoOn ? '#000000' : visualBg }}
+        style={{ backgroundColor: videoOn ? '#000000' : idle ? fullVisualBg : visualBg }}
       >
         {/* The built-in visualization only runs while no video shows. */}
-        {!videoOn && visual}
+        {!videoOn && (idle ? fullVisual : visual)}
         {useLoop ? (
           <ClipLoop key={loopKey} link={loop.link} start={loop.start} end={loop.end} zoom={zoom}
             onActive={setLoopOn} onFail={() => { setLoopOn(false); setFailedLoop(loopKey) }} />
@@ -191,16 +197,16 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, co
       </motion.div>
       {/* A long fade from the picture into the colours under the lyrics: no
           edge between them. Same size and place as the picture, over it. */}
-      <motion.div
+      {fadeOn && <motion.div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0"
         initial={false}
         animate={{ height: idle ? '100%' : `${PICTURE_SHARE}%`, opacity: idle ? 0 : 1 }}
         transition={PICTURE_MOTION}
         style={{ background: FADE }}
-      />
+      />}
       {/* The lyrics start under the picture (none of them over it), moved by the setting. */}
-      <div className="absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)]" style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
+      <div className={`absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)] ${idle ? 'pointer-events-none' : ''}`} style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
         <div className="relative h-full min-h-0 overflow-hidden">
           <LyricsPanel track={track} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={textScale} isAutoSynced={isAutoSynced}
             idleVisual onIdleChange={setIdle} toolbarAtBottom />

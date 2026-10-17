@@ -961,8 +961,11 @@ export default function LyricsPanel({
   const [toolbarHover, setToolbarHover] = useState(false)
   const toolbarFaded = toolbarAtBottom ? !toolbarHover : toolbarHidden
 
+  // Hidden over the visualization (no lines to show): the mouse goes through
+  // to it (the splashes follow it), only the small notes and buttons take it.
+  const passThrough = idleVisual && idle && !searchOpen
   return (
-    <div className="relative w-full h-full">
+    <div className={`relative w-full h-full ${passThrough ? 'pointer-events-none' : 'pointer-events-auto'}`}>
       {showToolbar && (
         <div
           // The pills fade by themselves (TOOLBAR_FADE), not this row: glass
@@ -1080,7 +1083,7 @@ export default function LyricsPanel({
 
           {!loading && lines.length > 0 && (
             <motion.div initial={idleVisual ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
-              <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '3.5rem', minHeight: synced ? '5rem' : undefined }} />
+              <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '1rem', minHeight: synced ? '5rem' : undefined }} />
               {/* The side panel goes without these notes (full screen keeps them). */}
               {!synced && fullscreen && (
                 <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
@@ -1138,7 +1141,7 @@ export default function LyricsPanel({
             key="instrumental"
             initial={{ opacity: 0, y: 8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="group/note absolute left-2.5 z-30"
+            className="group/note pointer-events-auto absolute left-2.5 z-30"
             style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
           >
             <div tabIndex={0} aria-label={noLyricsNote}
@@ -1165,7 +1168,7 @@ export default function LyricsPanel({
             className="absolute inset-x-2.5 z-30 flex justify-center"
             style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
           >
-            <div className="flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/80 opacity-60 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
+            <div className="pointer-events-auto flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/80 opacity-60 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
               style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
               <span className="truncate">{!isOnline ? t("You're offline. Lyrics will load once you're back online.") : t('No lyrics found')}</span>
               {isOnline && (

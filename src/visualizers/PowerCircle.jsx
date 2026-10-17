@@ -160,14 +160,15 @@ function drawPolygon(ctx, points) {
   ctx.closePath()
 }
 
-function drawScene(ctx, scene, loud, background = '#000000') {
+function drawScene(ctx, scene, loud, background = '#161616') {
   const { circle, nodes, width, height } = scene
 
-  // Background: the chosen colour (black), a little lighter on loud parts.
-  const shade = (17 * (Math.min(50, 256 * loud.firstOrder) / 50)) | 0
-  const [r, g, b] = [1, 3, 5].map(i => Math.min(255, parseInt(background.slice(i, i + 2), 16) + shade))
-  ctx.fillStyle = `rgb(${r},${g},${b})`
-  ctx.fillRect(0, 0, width, height)
+  // Background: the chosen colour (black), always the same; null:
+  // see-through (what's behind shows).
+  if (background) {
+    ctx.fillStyle = background
+    ctx.fillRect(0, 0, width, height)
+  } else ctx.clearRect(0, 0, width, height)
 
   // Lines from the dots near the face to its centre.
   ctx.lineWidth = 1
@@ -250,12 +251,13 @@ function drawScene(ctx, scene, loud, background = '#000000') {
   ctx.restore()
 }
 
-export default function PowerCircle({ className = '', background = '#000000' }) {
+// transparent: no background of its own (the cover behind it shows).
+export default function PowerCircle({ className = '', background = '#161616', transparent = false }) {
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
   // Read each frame, so a new colour applies without restarting the scene.
   const backgroundRef = useRef(background)
-  backgroundRef.current = /^#[0-9a-f]{6}$/i.test(background) ? background : '#000000'
+  backgroundRef.current = transparent ? null : /^#[0-9a-f]{6}$/i.test(background) ? background : '#161616'
 
   useEffect(() => {
     const wrap = wrapRef.current

@@ -149,7 +149,7 @@ export async function renderShareCard(spec) {
   const fonts = ['600 64px "DM Sans"', '400 30px "DM Sans"', '500 30px "DM Mono"']
   await Promise.all(fonts.map(font => document.fonts?.load(font).catch(() => null)))
   const images = (await Promise.all((spec.art || []).slice(0, 4).map(loadImage))).filter(Boolean)
-  const accent = themeColor('--accent', '#e8ff57')
+  const accent = themeColor('--accent', '#ffd6f0')
   const sans = '"DM Sans", system-ui, sans-serif'
   const mono = '"DM Mono", ui-monospace, monospace'
 
