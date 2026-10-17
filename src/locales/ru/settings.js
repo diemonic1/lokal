@@ -490,6 +490,8 @@ export default {
   // Folder order, files, volume, build
   'Could not play “{title}”.': 'Не удалось воспроизвести «{title}».',
   'Reorder': 'Изменить порядок',
+  'Search in folder...': 'Поиск в папке...',
+  'Nothing in this folder matches your search.': 'В этой папке ничего не найдено.',
   'Drag the songs into a new order; saving writes their new track numbers into the files.': 'Перетаскивайте треки, чтобы изменить порядок; при сохранении новые номера треков запишутся в файлы.',
   "Couldn't save {n} track numbers: {error}": 'Не удалось сохранить номера у {n} треков: {error}',
   'Could not save: {error}': 'Не удалось сохранить: {error}',

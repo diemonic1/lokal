@@ -1,6 +1,21 @@
 @import "tailwindcss";
 @config "../tailwind.config.mjs";
 
+/* Everything that can be clicked shows the hand (Tailwind 4 leaves buttons
+   on the arrow); disabled ones stay on it. In the base layer, so a cursor-*
+   class on an element (grab, text...) still wins. */
+@layer base {
+  button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], [role="radio"],
+  a[href], summary, label:has(> input[type="checkbox"], > input[type="radio"]), select,
+  input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"], input[type="file"],
+  input[type="button"], input[type="submit"], input[type="reset"] {
+    cursor: pointer;
+  }
+  :is(button, select, input):disabled, [aria-disabled="true"] {
+    cursor: default;
+  }
+}
+
 :root {
   --bg: #0a0a0a;
   --surface: #111111;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download } from 'lucide-react'
 import { api } from '../api'
@@ -11,7 +11,7 @@ import { announceLyricsFileChanged } from '../lyricLine'
 import { announceTrackChanged } from '../trackChanged'
 import { useCoverDrop, coverError } from './CoverDrop'
 import ClipAvailability from './ClipAvailability'
-import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClipZoom } from '../clipVideo'
+import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClip } from '../clipVideo'
 
 function asInput(value) {
   return value === null || value === undefined ? '' : String(value)
@@ -148,16 +148,31 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     }
   }, [track])
 
+  // Once a video field is touched, the video as typed plays in the side panel
+  // at once (the link once it stops changing), before it's saved.
+  const [clipTouched, setClipTouched] = useState(false)
+  const previewedUrl = useRef(null)
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    // The video's zoom shows on it at once while this window is open.
-    if (field === 'clip_zoom' && track?.id != null) previewClipZoom(track.id, value)
+    if (field.startsWith('clip_')) setClipTouched(true)
   }
-  // Closed (saved or not) or another song: the video goes back to its saved zoom.
+  useEffect(() => {
+    const id = track?.id
+    if (!open || !clipTouched || id == null) return undefined
+    const { clip_url: url, clip_start: start, clip_end: end, clip_zoom: zoom } = formData
+    const timer = setTimeout(() => {
+      previewedUrl.current = url
+      previewClip(id, { url, start, end, zoom })
+    }, url === previewedUrl.current ? 0 : 450)
+    return () => clearTimeout(timer)
+  }, [open, clipTouched, track?.id, formData.clip_url, formData.clip_start, formData.clip_end, formData.clip_zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Closed (saved or not) or another song: the video goes back to the saved one.
   useEffect(() => {
     const id = track?.id
     if (!open || id == null) return undefined
-    return () => previewClipZoom(id, null)
+    setClipTouched(false)
+    previewedUrl.current = null
+    return () => previewClip(id, null)
   }, [open, track?.id])
 
   // The picture (.jpg/.png) goes into the song's file (electron/trackCover.js).
@@ -503,7 +518,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   <span className="text-xs text-muted">%</span>
                 </div>
               </div>
-              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the video’s middle third when neither is.')}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the whole video when neither is.')}</p>
             </div>
 
             <details className="rounded-lg border border-border bg-card/70 px-3 py-2">

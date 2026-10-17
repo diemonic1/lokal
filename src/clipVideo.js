@@ -7,7 +7,7 @@
 //   both times      that part;
 //   only the start  10 seconds from it (or to the video's end);
 //   only the end    the 10 seconds before it;
-//   neither         the video's middle third (60-120 s of a 3-minute one).
+//   neither         the whole video, start to end.
 
 const LOCAL_PATH = /^(?:[a-z]:[\\/]|\\\\|file:\/\/)/i
 const SHORT_LOOP = 10
@@ -59,29 +59,33 @@ const timeOf = value => (value == null || value === '' || !Number.isFinite(Numbe
 
 export const CLIP_ZOOM_MAX = 100
 
-// The zoom being tried in Edit Track, shown on the video at once: trackId ->
-// percent while the window is open, gone when it closes (saved or not).
-const zoomPreviews = new Map()
-const zoomListeners = new Set()
+// The video being tried in Edit Track, shown at once: trackId -> { link,
+// start, end, zoom } while the window is open, gone when it closes (saved or
+// not).
+const clipPreviews = new Map()
+const previewListeners = new Set()
 
-/** Show the video of `trackId` at `zoom` % for now; null ends the preview. */
-export function previewClipZoom(trackId, zoom) {
+/** Show `clip` ({ url, start, end, zoom } as typed) as the video of `trackId` for now; null ends the preview. */
+export function previewClip(trackId, clip) {
   if (trackId == null) return
   const key = String(trackId)
-  if (zoom == null) { if (!zoomPreviews.delete(key)) return }
-  else zoomPreviews.set(key, clipZoomPercent(zoom))
-  zoomListeners.forEach(listener => listener())
+  if (clip == null) { if (!clipPreviews.delete(key)) return }
+  else {
+    const time = value => { const n = parseClipTime(value); return Number.isNaN(n) ? null : n }
+    clipPreviews.set(key, { link: clipVideoLink(clip.url), start: time(clip.start), end: time(clip.end), zoom: clipZoomPercent(clip.zoom) })
+  }
+  previewListeners.forEach(listener => listener())
 }
 
-/** The zoom being tried for this song, or null. */
-export function clipZoomPreview(trackId) {
-  return trackId == null ? null : zoomPreviews.get(String(trackId)) ?? null
+/** The video being tried for this song ({ link, start, end, zoom }; link null: none), or null. */
+export function clipPreview(trackId) {
+  return trackId == null ? null : clipPreviews.get(String(trackId)) ?? null
 }
 
 /** Calls `listener` whenever a preview starts, changes or ends. -> unsubscribe */
-export function onClipZoomPreview(listener) {
-  zoomListeners.add(listener)
-  return () => { zoomListeners.delete(listener) }
+export function onClipPreview(listener) {
+  previewListeners.add(listener)
+  return () => { previewListeners.delete(listener) }
 }
 
 /** The zoom as a whole percent, 0-100 (anything else: 0). */
@@ -104,5 +108,5 @@ export function clipRange(start, end, duration) {
   if (start != null && end != null && end > start) return { start, end: cap(end) }
   if (start != null) return { start: cap(start), end: cap(start + SHORT_LOOP) }
   if (end != null) return { start: Math.max(0, cap(end) - SHORT_LOOP), end: cap(end) }
-  return length ? { start: length / 3, end: (length * 2) / 3 } : { start: 0, end: Infinity }
+  return { start: 0, end: length ?? Infinity }
 }

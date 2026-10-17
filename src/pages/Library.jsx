@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowDownUp, ArrowLeft, Check, FolderInput, ListOrdered, Music, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, Check, FolderInput, ListOrdered, Music, Search, SlidersHorizontal, X } from 'lucide-react'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toaster'
 import { setLibraryFolder } from '../libraryNav'
@@ -138,6 +138,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     const all = await Promise.resolve(api.getTracks({ folder, sort: 'track_num DESC', limit: 5000 })).catch(() => null)
     if (!Array.isArray(all)) { showToast(t('Could not load this folder.')); return }
     const list = all.filter(track => !String(track?.file_path || '').startsWith('ghost://'))
+    setFolderQuery('')
     setReorder({ tracks: list, numbers: draftNumbers(list) })
   }
   const saveReorder = async () => {
@@ -267,6 +268,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     window.dispatchEvent(new Event('lokal:refresh'))
   }
 
+  const listFilters = () => ({ ...(folder ? { folder } : {}), ...(source !== 'all' ? { source } : {}), ...(genre ? { genre } : {}), ...(quality ? { quality } : {}), ...(problemsOnly ? { problems: true } : {}) })
   const load = async (append = false) => {
     // Synchronous in-flight check: the observer's `loading` can be stale, and a
     // load-more mustn't supersede the first-page refresh (or run twice).
@@ -276,7 +278,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     loadingRef.current = true
     setLoading(true)
     try {
-      const filters = { ...(folder ? { folder } : {}), ...(source !== 'all' ? { source } : {}), ...(genre ? { genre } : {}), ...(quality ? { quality } : {}), ...(problemsOnly ? { problems: true } : {}) }
+      const filters = listFilters()
       if (!append) {
         Promise.resolve(api.getTracks({ ...filters, count: true }))
           .then(r => { if (requestId === requestIdRef.current && Number.isFinite(r?.count)) setTotal(r.count) })
@@ -383,6 +385,68 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const activeFilters = (source !== 'all' ? 1 : 0) + (genre && !inGenre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
   const clearFilters = () => { setSource('all'); if (!inGenre) setGenre(''); setQuality(''); setProblemsOnly(false) }
 
+  // "Search in folder": only this list's songs that the library search finds
+  // for the text (the same fields as the header's search: names, comments,
+  // lyrics...), in the list's order and numbered afresh. null: not searching.
+  const [folderQuery, setFolderQuery] = useState('')
+  const [searchHits, setSearchHits] = useState(null)
+  const [searchTick, setSearchTick] = useState(0)
+  const searching = !!folderQuery.trim()
+  useEffect(() => { setFolderQuery('') }, [folder, fixedGenre])
+  useEffect(() => {
+    const q = folderQuery.trim()
+    if (!q) { setSearchHits(null); return undefined }
+    let alive = true
+    const timer = setTimeout(async () => {
+      const filters = listFilters()
+      // The whole list, a page at a time (the main process sends 200 at most).
+      const readAll = async () => {
+        const all = []
+        for (let offset = 0; ; offset += 200) {
+          const page = await api.getTracks({ sort, limit: 200, offset, ...filters })
+          if (!Array.isArray(page)) return null
+          all.push(...page)
+          if (page.length < 200) return all
+        }
+      }
+      const [found, all] = await Promise.all([
+        Promise.resolve(api.searchTracks(q)).catch(() => null),
+        readAll().catch(() => null),
+      ])
+      if (!alive) return
+      const foundTracks = Array.isArray(found) ? found : found?.tracks || []
+      const ids = new Set(foundTracks.map(track => String(track.id)))
+      const list = (all || tracks).filter(track => problemsOnly || !String(track?.file_path || '').startsWith('ghost://'))
+      setSearchHits(list.filter(track => ids.has(String(track.id))))
+    }, 200)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [folderQuery, folder, sort, source, genre, quality, problemsOnly, searchTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A song edited or the library rescanned while searching: search again.
+  useEffect(() => {
+    if (!searching) return undefined
+    const again = () => setSearchTick(n => n + 1)
+    window.addEventListener(TRACK_CHANGED, again)
+    window.addEventListener('lokal:refresh', again)
+    return () => { window.removeEventListener(TRACK_CHANGED, again); window.removeEventListener('lokal:refresh', again) }
+  }, [searching])
+  const shownTracks = searching ? (searchHits ?? []) : tracks
+
+  const folderSearch = (
+    <div className="mr-1 flex h-7 w-56 items-center gap-1.5 rounded-full bg-elevated px-2.5 text-muted transition-colors focus-within:bg-card focus-within:text-text">
+      <Search size={13} className="flex-shrink-0" aria-hidden="true" />
+      <input type="text" value={folderQuery} onChange={e => setFolderQuery(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape' && folderQuery) { e.stopPropagation(); setFolderQuery('') } }}
+        placeholder={t('Search in folder...')} aria-label={t('Search in folder...')} spellCheck={false}
+        className="min-w-0 flex-1 bg-transparent text-xs text-text outline-none placeholder:text-muted" />
+      {folderQuery && (
+        <button type="button" onClick={() => setFolderQuery('')} title={t('Clear search')} aria-label={t('Clear search')}
+          className="flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:text-white">
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  )
+
   const header = (
     <div className="flex min-w-0 items-center gap-3">
       {onBack && (
@@ -411,6 +475,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
       <Check size={13} /> {savingOrder ? t('Saving...') : t('Save')}
     </button>
   </> : <>
+    {folderSearch}
     {folderOrder && activeFilters === 0 && (
       <button type="button" onClick={startReorder} title={t('Drag the songs into a new order; saving writes their new track numbers into the files.')}
         className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted hover:bg-elevated hover:text-text focus-visible:outline focus-visible:outline-accent">
@@ -482,11 +547,11 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
             return { ...prev, tracks: ids.map(id => byId.get(id)).filter(Boolean) }
           })}
           toolbarStart={header} toolbarEnd={controls} />
-      ) : tracks.length > 0 ? (
+      ) : shownTracks.length > 0 || searching ? (
         // No per-row entrance: the page fades in as a whole, and 50 row
         // animations in the same frames made that fade stutter.
         <div key={transition === 'fade' || transition === 'none' ? undefined : listFolder} {...folderTransitionProps(transition, switchingFolder)}>
-          <TrackList stickyBleed="1.5rem" tracks={tracks} showQuality reduceMotion toolbarStart={header} toolbarEnd={controls}
+          <TrackList stickyBleed="1.5rem" tracks={shownTracks} showQuality reduceMotion toolbarStart={header} toolbarEnd={controls}
             highlightTrackId={revealId} highlightQuiet
             onGrab={folderOrder && activeFilters === 0 ? grab.start : null} />
         </div>
@@ -549,13 +614,20 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
         </div>
       </Modal>
 
-      {!reorder && (hasMore || loading) && (
+      {searching && searchHits && !searchHits.length && (
+        <div className="text-center py-16 text-muted">
+          <Search size={40} className="mx-auto mb-4 opacity-20" />
+          <p>{t('Nothing in this folder matches your search.')}</p>
+        </div>
+      )}
+
+      {!reorder && !searching && (hasMore || loading) && (
         <div ref={loadMoreRef} className="flex justify-center pt-2 min-h-10">
           {loading && tracks.length > 0 && <p className="text-xs text-muted">{t("Loading more tracks...")}</p>}
         </div>
       )}
 
-      {loaded && !loading && !tracks.length && (
+      {loaded && !loading && !tracks.length && !searching && (
         <div className="text-center py-24 text-muted">
           <Music size={48} className="mx-auto mb-4 opacity-20" />
           <p>{problemsOnly ? t('No songs with errors: everything here can be played.') : source === 'all' && !genre && !quality ? (musicFolderSet ? t('This folder is empty.') : t('No tracks yet — pick your music folder above.')) : quality ? t('No songs of this quality with these filters.') : genre ? (source === 'all' ? t('No {genre} songs.', { genre: inGenre ? folderName : genre }) : t('No {genre} songs from this source.', { genre: inGenre ? folderName : genre })) : t('No songs from this source.')}</p>
