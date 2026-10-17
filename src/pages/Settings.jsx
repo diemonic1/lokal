@@ -398,6 +398,13 @@ export default function Settings() {
   const [missingRepairJob, setMissingRepairJob] = useState(null)
   const lyricsIndexJob = useLibraryJobs(s => s.lyrics)
   const indexAllLyrics = () => (lyricsIndexJob?.running ? cancelLyricsIndex() : startLyricsIndex())
+  // Fix Lyrics for AIMP: rewrites SYLT frames AIMP shows as CJK.
+  const [syltJob, setSyltJob] = useState(null)
+  useEffect(() => api.onRepairSyltProgress(setSyltJob), [])
+  const repairSylt = () => (syltJob?.running ? api.cancelRepairSylt() : api.repairSylt())
+  const syltText = syltJob?.running
+    ? t('{done} of {total} MP3s checked · {fixed} fixed', { done: syltJob.done || 0, total: syltJob.total || '…', fixed: syltJob.fixed || 0 })
+    : syltJob ? t('Done: {fixed} of {done} MP3s fixed', { fixed: syltJob.fixed || 0, done: syltJob.done || 0 }) + (syltJob.failed ? ` · ${t('{failed} could not be saved', { failed: syltJob.failed })}` : '') : ''
   // Only used for lyrics (Index Lyrics below).
   const indexText = (job) => job?.running
     ? `${t('{done} of {total} songs · {found} lyrics found', { done: job.done || 0, total: job.total || '…', found: job.found || 0 })}${job.title ? ` · ${job.title}` : ''}`
@@ -1283,6 +1290,14 @@ activeCategory === 'data' ? usersTried
           <button onClick={indexAllLyrics}
             className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
             {t(lyricsIndexJob?.running ? 'Stop' : 'Index All')}
+          </button>
+        </Row>
+        )}
+        {api.isElectron && (
+        <Row label="Fix Lyrics for AIMP" desc={`${t('AIMP shows the synced lyrics (SYLT) of some MP3s as hieroglyphs. Rewrites them in a form it reads; the words and timings stay the same.')} ${syltText}`.trim()}>
+          <button onClick={repairSylt}
+            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
+            {t(syltJob?.running ? 'Stop' : 'Fix')}
           </button>
         </Row>
         )}
@@ -2836,7 +2851,7 @@ Earth, Wind & Fire"
         </div>
       </Modal>
 
-      <Modal open={showDups} onClose={() => { setShowDups(false); setMergeAllResult(null) }} title={t('Duplicate Tracks')} width="max-w-2xl">
+      <Modal open={showDups} onClose={() => { setShowDups(false); setMergeAllResult(null) }} title={t('Duplicate Tracks')} width="max-w-[84rem]">
         {duplicateMessage && <p role="alert" className="text-sm text-amber-400 mb-3 break-words">{duplicateMessage}</p>}
         {dups?.length === 0 && <p className="text-accent text-sm text-center py-6">{t('✓ No duplicates found!')}</p>}
         
@@ -2859,23 +2874,48 @@ Earth, Wind & Fire"
         )}
         
         {dups?.length > 0 && (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-3 max-h-[min(48rem,calc(100vh-14rem))] overflow-y-auto pr-1">
             <p className="text-xs text-muted mb-2">{t('Merge keeps the selected copy and fills missing metadata from the others. Removed copies’ audio files go to Trash on desktop and are permanently deleted in web mode, even when “Delete files too” is off.')}</p>
             {dups.map((d, i) => {
+              // Every copy on its own line, with its cover (the first is the one Merge keeps).
+              const copies = d.tracks?.length ? d.tracks : String(d.paths || '').split(',').map((file_path, n) => ({ id: `${i}-${n}`, file_path }))
               return (
-                <div key={i} className="p-3 bg-card border border-border rounded-xl flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium">{d.title}</p>
-                    <p className="text-xs text-muted">{d.artist} · {t('{n} copies', { n: d.count })}</p>
-                    <p className="text-xs text-muted/40 mt-0.5 truncate">{d.paths}</p>
+                <div key={d.ids || i} className="p-4 bg-card border border-border rounded-xl space-y-3">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base text-white font-medium break-words">{d.title}</p>
+                      <p className="text-sm text-muted">{d.artist} · {t('{n} copies', { n: d.count })}</p>
+                    </div>
+                    <button
+                      disabled={mergingAll || mergingDuplicate}
+                      onClick={() => mergeDup(d)}
+                      className="flex-shrink-0 px-3 py-1.5 bg-accent/15 border border-accent/30 text-accent rounded-lg text-xs font-display uppercase tracking-wider hover:bg-accent/25 transition-colors"
+                    >
+                      {t('Merge → Keep First')}
+                    </button>
                   </div>
-                  <button
-                    disabled={mergingAll || mergingDuplicate}
-                    onClick={() => mergeDup(d)}
-                    className="flex-shrink-0 px-3 py-1.5 bg-accent/15 border border-accent/30 text-accent rounded-lg text-xs font-display uppercase tracking-wider hover:bg-accent/25 transition-colors"
-                  >
-                    {t('Merge → Keep First')}
-                  </button>
+                  <div className="space-y-2">
+                    {copies.map((track, n) => (
+                      <div key={track.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${n === 0 ? 'border-accent/40 bg-accent/10' : 'border-border bg-elevated/40'}`}>
+                        <div className="w-14 h-14 rounded-md overflow-hidden bg-card border border-border flex items-center justify-center flex-shrink-0">
+                          {track.artwork_path ? (
+                            <img src={api.isElectron ? `file://${track.artwork_path}` : api.artworkURL(track.id)} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          ) : (
+                            <Music2 size={18} className="text-muted" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {track.album !== undefined && (
+                            <p className="text-sm text-white/90 truncate">
+                              {track.album || t('No album')} · {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : '--:--'} · {track.bitrate ? `${track.bitrate}kbps` : t('Unknown bitrate')}
+                            </p>
+                          )}
+                          <p className="text-sm text-muted break-all">{track.file_path}</p>
+                        </div>
+                        {n === 0 && <span className="flex-shrink-0 text-[10px] text-accent uppercase tracking-widest">{t('Kept')}</span>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })}

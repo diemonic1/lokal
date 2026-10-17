@@ -1,4 +1,4 @@
-const { mergeDuplicates, mergeAllDuplicates } = require('./mergeDuplicates')
+const { mergeDuplicates, mergeAllDuplicates, exactDuplicateGroups } = require('./mergeDuplicates')
 const path = require('path')
 const fs = require('fs-extra')
 const crypto = require('crypto')
@@ -65,10 +65,10 @@ function slugify(str) {
 
 const artistSplit = require('../artistSplit')
 
-// The music video's zoom in the side panel: 0-50 (%), null for none.
+// The music video's zoom in the side panel: 0-100 (%), null for none.
 function clipZoomValue(value) {
   const n = Number(value)
-  return value === null || value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(50, n)
+  return value === null || value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(100, n)
 }
 
 function getKeepCommaArtists() {
@@ -310,7 +310,7 @@ function pickPreferredArtist(common) {
 
 // Lyrics in the file's tags, for the song list's Lyrics column.
 function lyricsKindOf(meta) {
-  return require('../lyrics/fileLyrics').lyricsKind(lyricsFromMeta(meta))
+  return require('../lyrics/fileLyrics').lyricsKindOfMeta(meta)
 }
 
 /** Every value of the file's genre tag, into the track's genre list. */
@@ -351,6 +351,11 @@ async function backfillComments(db) {
       db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'plain'").run()
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v3', '1')").run()
     }
+    // v4: word-timed lyrics ('syllable') split off from 'sync'.
+    if (!db.prepare("SELECT 1 FROM settings WHERE key = 'lyrics_kind_v4'").get()) {
+      db.prepare("UPDATE tracks SET lyrics_kind = NULL WHERE lyrics_kind = 'sync'").run()
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('lyrics_kind_v4', '1')").run()
+    }
     // v3: only the comment frame without a description counts.
     if (!db.prepare("SELECT 1 FROM settings WHERE key = 'comment_tags_v3'").get()) {
       db.prepare("UPDATE tracks SET comment = NULL WHERE comment IS NOT NULL AND comment <> ''").run()
@@ -372,7 +377,7 @@ async function backfillComments(db) {
       const meta = await mm.parseFile(row.file_path, { duration: false, skipCovers: true })
       comment = commentText(meta.common)
       text = lyricsFromMeta(meta) || ''
-      lyrics = require('../lyrics/fileLyrics').lyricsKind(text)
+      lyrics = lyricsKindOf(meta)
     } catch {}
     save.run(comment, lyrics, row.id)
     setFileLyrics(db, row.id, text)
@@ -1287,12 +1292,13 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
 
   let artworkPath = null
   const artworkOp = operations.artwork
+  // A replaced cover goes into each song's file too (see ../trackCover).
+  const coverPaths = new Map()
   if (artworkOp?.mode === 'replace' && artworkOp?.value) {
-    const base64 = String(artworkOp.value).split(',')[1] || ''
     artworkPath = '__pending__'
     for (const track of tracks) {
-      const nextArtPath = path.join(getStorageDir(), 'artwork', `${track.id}.jpg`)
-      await fs.writeFile(nextArtPath, Buffer.from(base64, 'base64'))
+      const { artPath } = await require('../trackCover').setTrackCover(db, track, artworkOp.value, getStorageDir())
+      coverPaths.set(track.id, artPath)
     }
   }
 
@@ -1335,7 +1341,7 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
         params.push(null)
       } else if (artworkOp?.mode === 'replace' && artworkOp?.value) {
         updates.push('artwork_path = ?')
-        params.push(path.join(getStorageDir(), 'artwork', `${track.id}.jpg`))
+        params.push(coverPaths.get(track.id) || path.join(getStorageDir(), 'artwork', `${track.id}.jpg`))
       }
       if (!updates.length) continue
       params.push(track.id)
@@ -1694,13 +1700,20 @@ function registerScannerHandlers(ipcMain) {
     }
   });
   ipcMain.handle('artist:delete', (_, artistId) => { const db = getDB(); lockArtistLinks(db, artistId); db.prepare('DELETE FROM artist_track_links WHERE artist_id = ?').run(artistId); db.prepare('DELETE FROM artists WHERE id = ?').run(artistId) })
+  // The picture goes into the song's file too (see ../trackCover).
   ipcMain.handle('track:setArtwork', async (_, trackId, imageData) => {
-    const buf = Buffer.from(imageData.split(',')[1], 'base64')
-    const artPath = path.join(getStorageDir(), 'artwork', `${trackId}.jpg`)
-    await fs.writeFile(artPath, buf)
     const db = getDB()
-    db.prepare('UPDATE tracks SET artwork_path = ? WHERE id = ?').run(artPath, trackId)
+    const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId)
+    if (!track) throw new Error('Track not found')
+    await require('../trackCover').setTrackCover(db, track, imageData, getStorageDir())
     return db.prepare('SELECT * FROM tracks WHERE id = ?').get(trackId) || null
+  })
+  // "Download cover" in Edit Track: into Downloads as "Artist - Title - Album Art".
+  ipcMain.handle('track:saveCover', async (_, trackId) => {
+    const track = getDB().prepare('SELECT * FROM tracks WHERE id = ?').get(trackId)
+    if (!track) throw new Error('Track not found')
+    const { app } = require('electron')
+    return { path: await require('../trackCover').saveTrackCover(track, app.getPath('downloads')) }
   })
   ipcMain.handle('track:setGenre', (_, trackId, genre) => getDB().prepare('UPDATE tracks SET genre = ? WHERE id = ?').run(genre || null, trackId))
   // A folder's order lives in its songs' track numbers (see ../folderTracks).
@@ -2272,7 +2285,7 @@ module.exports = { sourceFilter, genreFilter, userStats, registerScannerHandlers
 function registerExtraHandlers(ipcMain) {
   ipcMain.handle('artist:setImageUrl', async (_, artistId, url) => { const db = getDB(); const imgPath = path.join(getStorageDir(), 'artwork', `artist-${artistId}.jpg`); await downloadToFile(url, imgPath); db.prepare('UPDATE artists SET image_path = ?, image_source = ?, image_fetched_at = ? WHERE id = ?').run(imgPath, 'manual', Date.now(), artistId); return imgPath })
   ipcMain.handle('album:setImageUrl', async (_, albumTitle, url) => { const db = getDB(); const safeTitle = albumTitle.replace(/[^a-z0-9]+/gi, '-'); const imgPath = path.join(getStorageDir(), 'artwork', `album-${safeTitle}.jpg`); await downloadToFile(url, imgPath); db.prepare('UPDATE tracks SET artwork_path = ? WHERE album = ?').run(imgPath, albumTitle); return imgPath })
-  ipcMain.handle('scanner:checkDuplicates', () => getDB().prepare(`SELECT title, artist, COUNT(*) as count, GROUP_CONCAT(id) as ids, GROUP_CONCAT(file_path) as paths FROM tracks GROUP BY LOWER(title), LOWER(artist) HAVING count > 1`).all())
+  ipcMain.handle('scanner:checkDuplicates', () => exactDuplicateGroups(getDB()))
   ipcMain.handle('scanner:checkPossibleDuplicates', () => {
     const tracks = getDB().prepare('SELECT * FROM tracks ORDER BY artist, title').all()
     return buildPossibleDuplicateGroups(tracks)

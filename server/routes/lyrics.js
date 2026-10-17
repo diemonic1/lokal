@@ -50,8 +50,10 @@ router.get('/:trackId/file', async (req, res) => {
   try { res.json(await service.readFileLyrics(getDB(), req.params.trackId)) } catch (e) { res.json({ ok: false, error: e.message }) }
 })
 
-router.put('/:trackId/file', (req, res) => {
-  try { res.json(service.writeFileLyrics(getDB(), req.params.trackId, String(req.body?.text ?? ''))) } catch (e) { res.json({ ok: false, error: e.message }) }
+router.put('/:trackId/file', async (req, res) => {
+  const b = req.body || {}
+  const syllable = typeof b.syllable === 'string' ? b.syllable : null
+  try { res.json(await service.writeFileLyrics(getDB(), req.params.trackId, b.text == null ? null : String(b.text), syllable)) } catch (e) { res.json({ ok: false, error: e.message }) }
 })
 
 router.post('/:trackId/embed/:providerId', async (req, res) => {

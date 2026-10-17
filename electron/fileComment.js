@@ -5,6 +5,7 @@
 
 const fs = require('fs')
 
+const { aimpSafeSylt } = require('./syltEncoding')
 let taglib = null
 function lib() {
   if (taglib === null) {
@@ -44,6 +45,7 @@ function writeFileComment(filePath, text) {
     else file.tag.comment = clean || undefined
     // taglib adds an ID3v1 tag to MP3s that never had one; don't.
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
     file.save()
   } catch (e) {
     const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))
@@ -72,6 +74,7 @@ function writeFileGenres(filePath, genres) {
     const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
     file.tag.genres = list
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
     file.save()
   } catch (e) {
     const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))
@@ -147,6 +150,7 @@ function writeFileTags(filePath, edits = {}) {
       }
     }
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
     file.save()
   } catch (e) {
     const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))

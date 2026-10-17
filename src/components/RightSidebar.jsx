@@ -58,7 +58,7 @@ function InfoRow({ label, value, onClick = null, title = null, fx = true }) {
   )
 }
 
-const LYRICS_KINDS = { sync: 'Time-synced', plain: 'Not synced', instrumental: 'Instrumental', unfound: "Can't be found" }
+const LYRICS_KINDS = { syllable: 'Synced by syllable', sync: 'Time-synced', plain: 'Not synced', instrumental: 'Instrumental', unfound: "Can't be found" }
 
 /** "FLAC · 16-bit / 44.1 kHz" for a track whose source says so, else null. */
 function streamQualityLabel(track) {

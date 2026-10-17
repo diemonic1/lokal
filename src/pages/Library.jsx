@@ -233,16 +233,27 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const canDropFiles = api.isElectron && !inGenre && !!folder && !reorder
   const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files')
   const dropHandlers = canDropFiles ? {
-    onDragOver: event => { if (!hasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDropping(true) },
+    // Only over the page itself: a window on top (Edit Track, a portal) passes its drags on too.
+    onDragOver: event => { if (!hasFiles(event) || !event.currentTarget.contains(event.target)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDropping(true) },
     onDragLeave: event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropping(false) },
     onDrop: event => {
-      if (!hasFiles(event)) return
+      if (!hasFiles(event) || !event.currentTarget.contains(event.target)) { setDropping(false); return }
       event.preventDefault()
       setDropping(false)
       const paths = Array.from(event.dataTransfer.files || []).map(file => api.pathForFile(file)).filter(Boolean)
       if (paths.length) setPendingFiles(paths)
     },
   } : {}
+  // Dropped (or let go) anywhere else, or the drag left the window: the hint goes.
+  useEffect(() => {
+    if (!dropping) return undefined
+    const off = () => setDropping(false)
+    const leftWindow = event => { if (!event.relatedTarget && (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight)) off() }
+    window.addEventListener('drop', off)
+    window.addEventListener('dragend', off)
+    window.addEventListener('dragleave', leftWindow)
+    return () => { window.removeEventListener('drop', off); window.removeEventListener('dragend', off); window.removeEventListener('dragleave', leftWindow) }
+  }, [dropping])
   const addFiles = async () => {
     const paths = pendingFiles
     setAddingFiles(true)
@@ -486,8 +497,9 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
       {grab.ghost}
 
       {dropping && (
-        <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-2xl border-2 border-dashed border-accent/60 bg-bg/70 backdrop-blur-sm">
-          <p className="flex items-center gap-2 font-display text-sm uppercase tracking-widest text-accent"><FolderInput size={18} /> {t('Drop to add to {folder}', { folder: folderName })}</p>
+        // The page is as tall as its list: the words stay in the middle of what's on screen, wherever it's scrolled to.
+        <div className="pointer-events-none absolute inset-2 z-30 flex flex-col items-center rounded-2xl border-2 border-dashed border-accent/60 bg-bg/70 pt-[calc(50vh-7rem)] backdrop-blur-sm">
+          <p className="sticky top-[calc(50vh-7rem)] flex items-center gap-2 font-display text-sm uppercase tracking-widest text-accent"><FolderInput size={18} /> {t('Drop to add to {folder}', { folder: folderName })}</p>
         </div>
       )}
 

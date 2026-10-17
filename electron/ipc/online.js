@@ -194,6 +194,9 @@ function registerOnlineHandlers(ipcMain) {
   ipcMain.handle('clipVideo:resolve', (_, link, options) => require('../online/clipVideo').resolveClipVideo(link, {
     fallback: options?.fallback === true, ytdlp: findYtDlp(), settings: settings(), streamBase: videoStreamBase,
   }).catch(e => ({ error: e.message })))
+  // Edit Track's badge: is the video still there (a 404, a removed YouTube video...)?
+  ipcMain.handle('clipVideo:check', (_, link) => require('../online/clipVideo').checkClipLink(link)
+    .catch(e => ({ ok: null, reason: e.message })))
   ipcMain.handle('musicVideo:deleteDownload', async (_, trackId) => {
     try {
       const video = await musicVideoFor(trackId)

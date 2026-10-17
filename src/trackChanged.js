@@ -33,7 +33,7 @@ function byValue(a, b, desc) {
   const order = typeof a === 'number' && typeof b === 'number' ? a - b : binary(String(a), String(b))
   return desc ? -order : order
 }
-const LYRICS_RANK = { sync: 3, plain: 2, instrumental: 1, unfound: 1 }
+const LYRICS_RANK = { syllable: 4, sync: 3, plain: 2, instrumental: 1, unfound: 1 }
 
 export function libraryComparator(sort) {
   const value = String(sort || '').trim()

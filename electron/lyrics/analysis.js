@@ -1,6 +1,7 @@
 // "Lyrics analysis": what the music folder's files hold in their lyrics tags,
 // counted the way MP3_Lyrics/count_lyrics.py does it:
-//   syllable      word / syllable stamps (enhanced LRC, QRC/YRC karaoke, TTML)
+//   syllable      word / syllable stamps (enhanced LRC, QRC/YRC karaoke, TTML),
+//                 or Lokal's own LOKAL_LYRICS tag holding them
 //   synced        LRC time stamps in a lyrics frame, or a SYLT frame
 //   plain         any other text
 //   instrumental  the marker text the tagging script writes for them
@@ -12,9 +13,9 @@
 const fs = require('fs')
 const path = require('path')
 const mm = require('../musicMetadata')
-const { lyricsFromMeta, isSyncedText } = require('./fileLyrics')
+const { lyricsFromMeta, isSyncedText, isSyllableText, lyricsKind } = require('./fileLyrics')
 const { setFileLyrics } = require('../searchIndex')
-const { isEnhanced, isKaraoke } = require('./lrc')
+const { privateTagText, hasSyllables } = require('./embedded')
 
 const INSTRUMENTAL_TRACK_TEXT = 'Instrumental track without lyrics'
 const UNFOUND_TRACK_TEXT = 'Невозможно нагуглить слова этого трека'
@@ -42,19 +43,16 @@ function listAudioFiles(root, exts) {
   return out.sort((a, b) => a.localeCompare(b))
 }
 
-function classify(text, folderRelative) {
+function classify(text, folderRelative, ownSyllables = false) {
+  // Lokal keeps word timings in its own tag and only line-synced LRC in the
+  // standard one, so the standard tag alone would read as merely synced.
+  if (ownSyllables) return { kind: 'syllable' }
   if (!text || !text.trim()) return { kind: 'none' }
   const trimmed = text.trim()
   if (trimmed === INSTRUMENTAL_TRACK_TEXT) return { kind: 'instrumental' }
   if (trimmed === UNFOUND_TRACK_TEXT) return { kind: 'unfound', fish: folderRelative.toLowerCase().includes(FISH_COVERS_FOLDER) }
   if (isSyllableText(trimmed)) return { kind: 'syllable' }
   return { kind: isSyncedText(trimmed) ? 'synced' : 'plain' }
-}
-
-function isSyllableText(text) {
-  if (isEnhanced(text) || isKaraoke(text)) return true
-  // TTML with timed spans inside the lines.
-  return /<tt[\s>]/i.test(text) && /<span\b[^>]*\bbegin=/i.test(text)
 }
 
 const emptyCounts = () => ({ total: 0, syllable: 0, synced: 0, plain: 0, instrumental: 0, unfound: 0, fish: 0, none: 0 })
@@ -77,10 +75,15 @@ async function runAnalysis(db, { exts, onProgress = () => {}, job = {} } = {}) {
     const file = files[i]
     const relDir = path.relative(root, path.dirname(file)).split(path.sep).join('/') || '.'
     let text = null
-    try { text = lyricsFromMeta(await mm.parseFile(file, { duration: false, skipCovers: true })) } catch {}
-    const { kind, fish } = classify(text, relDir)
+    let ownSyllables = false
+    try {
+      const meta = await mm.parseFile(file, { duration: false, skipCovers: true })
+      text = lyricsFromMeta(meta)
+      ownSyllables = hasSyllables(privateTagText(meta))
+    } catch {}
+    const { kind, fish } = classify(text, relDir, ownSyllables)
     // The song list's Lyrics column gets the same answer while we're here.
-    try { saveKind.run(kind === 'synced' || kind === 'syllable' ? 'sync' : require('./fileLyrics').lyricsKind(text), file) } catch {}
+    try { saveKind.run(lyricsKind(text, ownSyllables), file) } catch {}
     try { setFileLyrics(db, trackOf.get(file)?.id, text || '') } catch {}
     const folder = folders.get(relDir) || emptyCounts()
     for (const counts of [totals, folder]) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Save, RefreshCw, Check, AlertCircle } from 'lucide-react'
+import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import GenreChips from './GenreChips'
@@ -8,6 +8,9 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
+import { announceTrackChanged } from '../trackChanged'
+import { useCoverDrop, coverError } from './CoverDrop'
+import ClipAvailability from './ClipAvailability'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClipZoom } from '../clipVideo'
 
 function asInput(value) {
@@ -67,20 +70,25 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   const [status, setStatus] = useState(null)
   const [artworkPreview, setArtworkPreview] = useState(null)
   const [genreOptions, setGenreOptions] = useState([])
-  // The lyrics inside the file's tags: one field, saved to USLT (and SYLT
-  // when it has LRC time stamps) on "Save Changes".
-  const [lyrics, setLyrics] = useState({ text: '', original: '', state: 'idle', sidecar: null, error: null })
+  // The lyrics inside the file's tags, saved on "Save Changes":
+  //   text      the standard tags: USLT (and SYLT when it has LRC time stamps)
+  //   syllable  Lokal's own LOKAL_LYRICS word timings, as enhanced LRC; ''
+  //             when the file has none
+  // Both are edited side by side; `mode` only picks which one the field shows.
+  const emptyLyrics = { text: '', original: '', syllable: '', syllableOriginal: '', mode: 'plain', sidecar: null, error: null }
+  const [lyrics, setLyrics] = useState({ ...emptyLyrics, state: 'idle' })
 
   useEffect(() => {
-    if (!open || !track?.id || !hasLocalFile(track)) { setLyrics({ text: '', original: '', state: 'none', sidecar: null, error: null }); return }
+    if (!open || !track?.id || !hasLocalFile(track)) { setLyrics({ ...emptyLyrics, state: 'none' }); return }
     let active = true
-    setLyrics({ text: '', original: '', state: 'loading', sidecar: null, error: null })
+    setLyrics({ ...emptyLyrics, state: 'loading' })
     api.readFileLyrics(track.id).then((r) => {
       if (!active) return
-      if (!r || r.ok === false) { setLyrics({ text: '', original: '', state: 'error', sidecar: null, error: r?.error || null }); return }
+      if (!r || r.ok === false) { setLyrics({ ...emptyLyrics, state: 'error', error: r?.error || null }); return }
       const text = String(r.text || '')
-      setLyrics({ text, original: text, state: 'ready', sidecar: r.sidecar || null, error: null })
-    }).catch((e) => { if (active) setLyrics({ text: '', original: '', state: 'error', sidecar: null, error: e?.message || null }) })
+      const syllable = String(r.syllable || '')
+      setLyrics({ ...emptyLyrics, text, original: text, syllable, syllableOriginal: syllable, mode: syllable ? 'syllable' : 'plain', state: 'ready', sidecar: r.sidecar || null })
+    }).catch((e) => { if (active) setLyrics({ ...emptyLyrics, state: 'error', error: e?.message || null }) })
     return () => { active = false }
   }, [open, track?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -152,29 +160,37 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     return () => previewClipZoom(id, null)
   }, [open, track?.id])
 
+  // The picture (.jpg/.png) goes into the song's file (electron/trackCover.js).
+  const showArtwork = (row) => setArtworkPreview(row?.artwork_path ? (api.isElectron ? `file://${row.artwork_path}` : api.artworkURL(row.id)) : null)
   const handleSelectArtwork = async () => {
     if (!api.isElectron) return
     
     const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg', 'jpeg', 'png', 'webp'] }])
     if (!fp) return
     
-    const dataUrl = await api.readFileAsDataURL(fp)
-    setArtworkPreview(dataUrl)
-    
     setSaving(true)
     try {
+      const dataUrl = await api.readFileAsDataURL(fp)
       const updatedTrack = await api.trackSetArtwork(track.id, dataUrl)
+      if (updatedTrack?.error) throw new Error(updatedTrack.error)
       if (updatedTrack?.id) {
+        showArtwork(updatedTrack)
         syncTrack(updatedTrack)
         if (onSave) onSave(updatedTrack)
+        announceTrackChanged(updatedTrack.id)
       }
-      setStatus({ type: 'success', message: t('Artwork updated!') })
+      setStatus({ type: 'success', message: t('Cover saved into the file') })
       setTimeout(() => setStatus(null), 2000)
     } catch (e) {
-      setStatus({ type: 'error', message: e.message })
+      setStatus({ type: 'error', message: coverError(e) })
     }
     setSaving(false)
   }
+  // A .jpg/.png dragged onto the cover: asks first, then into the file.
+  const coverDrop = useCoverDrop(track, (updatedTrack) => {
+    showArtwork(updatedTrack)
+    if (onSave) onSave(updatedTrack)
+  })
 
   const handleSave = async () => {
     if (!track) return
@@ -239,16 +255,24 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (String(formData.tempo) !== String(track.tempo ?? '')) updateData.tempo = parseNumberField(formData.tempo)
       if (String(formData.time_signature) !== String(track.time_signature ?? '')) updateData.time_signature = parseIntegerField(formData.time_signature)
       
-      const lyricsChanged = lyrics.state === 'ready' && lyrics.text.trim() !== lyrics.original.trim()
+      const textChanged = lyrics.state === 'ready' && lyrics.text.trim() !== lyrics.original.trim()
+      const syllableChanged = lyrics.state === 'ready' && lyrics.syllable.trim() !== lyrics.syllableOriginal.trim()
+      const lyricsChanged = textChanged || syllableChanged
       let lyricsKind = null
       if (lyricsChanged) {
-        const written = await api.writeFileLyrics(track.id, lyrics.text)
+        // Edited syllables with the standard text untouched: the server
+        // rewrites that text from them, the way "Insert into track" does.
+        const written = await api.writeFileLyrics(
+          track.id,
+          textChanged || !syllableChanged ? lyrics.text : null,
+          syllableChanged ? lyrics.syllable : undefined,
+        )
         if (!written || written.ok === false) {
           setStatus({ type: 'error', message: t("Couldn't save the lyrics: {error}", { error: written?.error || '?' }) })
           setSaving(false)
           return
         }
-        setLyrics(prev => ({ ...prev, original: prev.text }))
+        setLyrics(prev => ({ ...prev, original: prev.text, syllableOriginal: prev.syllable }))
         announceLyricsFileChanged(track.id)
         lyricsKind = written.lyricsKind ?? null
       }
@@ -285,30 +309,27 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     setSaving(false)
   }
 
-  const fetchFromiTunes = async () => {
-    if (!track) return
-    
-    setSaving(true)
-    setStatus({ type: 'loading', message: t('Searching iTunes for artwork...') })
-    
+  // Yandex Images for "Artist - Title", square pictures, in the default
+  // browser. Slashes become commas: a link with them may not open.
+  const searchCover = () => {
+    const name = [formData.artist || track?.artist, formData.title || track?.title]
+      .map(part => String(part || '').trim()).filter(Boolean).join(' - ').replace(/[\\/]+/g, ',')
+    if (!name) return
+    api.openExternal(`https://yandex.ru/images/search?text=${encodeURIComponent(name)}&iorient=square`)
+  }
+
+  // The cover into the computer's Downloads, named after the song's tags.
+  const downloadCover = async () => {
+    if (!track?.id) return
+    const base = [track.artist, track.title].map(part => String(part || '').trim().replace(/[\\/]+/g, ',')).filter(Boolean).join(' - ')
     try {
-      const result = await api.fetchExternalArtwork(track.id, track.title, track.artist)
-      
-      if (result?.success && result.artworkPath) {
-        const updatedTrack = result?.track || { ...track, artwork_path: result.artworkPath }
-        setArtworkPreview(api.isElectron ? `file://${updatedTrack.artwork_path}` : api.artworkURL(track.id))
-        syncTrack(updatedTrack)
-        setStatus({ type: 'success', message: t('Artwork found and updated!') })
-        if (onSave) onSave(updatedTrack)
-      } else {
-        setStatus({ type: 'error', message: result?.error || t('No artwork found on iTunes') })
-      }
+      const result = await api.trackSaveCover(track.id, `${base || 'Cover'} - Album Art.jpg`)
+      const name = result?.path ? String(result.path).split(/[\\/]/).pop() : null
+      setStatus({ type: 'success', message: name ? t('Saved to Downloads: {name}', { name }) : t('Cover downloaded') })
+      setTimeout(() => setStatus(null), 3000)
     } catch (e) {
-      setStatus({ type: 'error', message: e.message })
+      setStatus({ type: 'error', message: coverError(e) })
     }
-    
-    setSaving(false)
-    setTimeout(() => setStatus(null), 3000)
   }
 
   const field = 'w-full bg-card border border-border rounded-lg px-2.5 py-1.5 text-sm text-white outline-none focus:border-accent/50'
@@ -331,7 +352,18 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             <div className="flex min-h-0 flex-col">
               <div className="mb-1 flex items-center justify-between">
                 <label className={`${label} mb-0`}>{t('Lyrics')}</label>
-                {lyrics.state === 'ready' && lyrics.text.trim() && (
+                {lyrics.state === 'ready' && lyrics.syllableOriginal ? (
+                  <div className="flex rounded-lg border border-border bg-card p-0.5 text-[11px]">
+                    {[['syllable', t('By syllable')], ['plain', t('In the lyrics tag')]].map(([mode, name]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setLyrics(prev => ({ ...prev, mode }))}
+                        className={`rounded-md px-2 py-0.5 transition-colors ${lyrics.mode === mode ? 'bg-accent/20 text-white' : 'text-muted hover:text-white'}`}
+                      >{name}</button>
+                    ))}
+                  </div>
+                ) : lyrics.state === 'ready' && lyrics.text.trim() && (
                   <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
                 )}
               </div>
@@ -341,14 +373,20 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                 <p className="text-xs text-red-400">{t("Couldn't read the lyrics from the file")}{lyrics.error ? `: ${lyrics.error}` : ''}</p>
               ) : (
                 <textarea
-                  value={lyrics.text}
-                  onChange={(e) => { const text = e.target.value; setLyrics(prev => ({ ...prev, text })) }}
+                  key={lyrics.mode}
+                  value={lyrics.mode === 'syllable' ? lyrics.syllable : lyrics.text}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setLyrics(prev => (prev.mode === 'syllable' ? { ...prev, syllable: value } : { ...prev, text: value }))
+                  }}
                   spellCheck={false}
                   className="min-h-0 w-full flex-1 resize-none rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs leading-relaxed text-white outline-none focus:border-accent/50"
-                  placeholder={t('[00:12.30] A synced line, or plain text')}
+                  placeholder={lyrics.mode === 'syllable' ? '[00:12.300]<00:12.300>Сло<00:12.610>ва<00:13.020>' : t('[00:12.30] A synced line, or plain text')}
                 />
               )}
-              <p className="mt-1 text-[11px] leading-snug text-muted">{t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{lyrics.mode === 'syllable'
+                ? t("Lokal's own tag with word and syllable timings: <mm:ss.xxx> before each syllable, a space after a word. Edited here and left alone in the other mode, the lyrics tag is rewritten from these lines on save.")
+                : t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
               {lyrics.sidecar && (
                 <p className="mt-1 text-[11px] text-orange-400">{t('A lyrics file next to the song ({file}) is shown instead of these.', { file: lyrics.sidecar.split(/[\\/]/).pop() })}</p>
               )}
@@ -358,7 +396,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
           <div className="min-h-0 space-y-2.5 overflow-y-auto pr-1">
             <div className="flex gap-3">
               <div className="flex-shrink-0">
-                <div className="group relative h-24 w-24 overflow-hidden rounded-lg border border-border bg-card">
+                <div {...coverDrop.dropProps} className={`group relative h-24 w-24 overflow-hidden rounded-lg border bg-card ${coverDrop.over ? 'border-accent ring-2 ring-accent' : 'border-border'}`}>
                   {artworkPreview ? (
                     <img src={artworkPreview} alt={t('Artwork')} className="h-full w-full object-cover" />
                   ) : (
@@ -368,11 +406,21 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                     className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                     <Camera size={20} className="text-white" />
                   </button>
+                  {coverDrop.over && (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 text-[10px] text-white">
+                      <ImagePlus size={18} />{t('Drop cover')}
+                    </div>
+                  )}
                 </div>
-                <button onClick={fetchFromiTunes} disabled={saving}
-                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent">
-                  {saving ? <RefreshCw size={11} className="animate-spin" /> : null}
-                  {t('iTunes Artwork')}
+                <button onClick={searchCover} disabled={!(formData.title || formData.artist)} title={t('Search for the cover on Yandex Images')}
+                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-50">
+                  <Search size={11} />
+                  {t('Find cover')}
+                </button>
+                <button onClick={downloadCover} disabled={!artworkPreview} title={t('Save the cover to Downloads')}
+                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-50">
+                  <Download size={11} />
+                  {t('Download cover')}
                 </button>
               </div>
               <div className="min-w-0 flex-1 space-y-2">
@@ -429,7 +477,10 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             </label>
 
             <div>
-              <label className={label}>{t('Music video')}</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className={label}>{t('Music video')}</label>
+                <ClipAvailability link={formData.clip_url} />
+              </div>
               <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">
                 <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder={t('A link to the video, or a video file')} spellCheck={false} />
                 <input inputMode="numeric" value={formData.clip_start} onChange={(e) => handleChange('clip_start', clipTimeInput(e.target.value))} className={field}
@@ -501,6 +552,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
           </button>
         </div>
       </div>
+      {coverDrop.dialog}
     </Modal>
   )
 }

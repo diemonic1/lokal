@@ -1,4 +1,4 @@
-const { mergeDuplicates, mergeAllDuplicates } = require('../../electron/ipc/mergeDuplicates')
+const { mergeDuplicates, mergeAllDuplicates, exactDuplicateGroups } = require('../../electron/ipc/mergeDuplicates')
 const router = require('express').Router()
 const { removeTrackFiles, forgetDownloads } = require('../../electron/ipc/trackFiles')
 const { getDB } = require('../../electron/ipc/db')
@@ -717,7 +717,7 @@ router.put('/:id', (req, res) => {
   if (explicit !== undefined) { updates.push('explicit = ?'); params.push(explicit ? 1 : 0) }
   if (clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(clip_url || '').trim() || null) }
   if (clip_start !== undefined) { updates.push('clip_start = ?'); params.push(clip_start !== null && clip_start !== '' && Number.isFinite(Number(clip_start)) ? Number(clip_start) : null) }
-  if (clip_zoom !== undefined) { const n = Number(clip_zoom); updates.push('clip_zoom = ?'); params.push(clip_zoom === null || clip_zoom === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(50, n)) }
+  if (clip_zoom !== undefined) { const n = Number(clip_zoom); updates.push('clip_zoom = ?'); params.push(clip_zoom === null || clip_zoom === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(100, n)) }
   if (clip_end !== undefined) { updates.push('clip_end = ?'); params.push(clip_end !== null && clip_end !== '' && Number.isFinite(Number(clip_end)) ? Number(clip_end) : null) }
   if (danceability !== undefined) { updates.push('danceability = ?'); params.push(danceability) }
   if (energy !== undefined) { updates.push('energy = ?'); params.push(energy) }
@@ -786,28 +786,17 @@ router.post('/batch-update', async (req, res) => {
   }
 })
 
-router.put('/:id/artwork', (req, res) => {
+router.put('/:id/artwork', async (req, res) => {
   const { imageData } = req.body
   if (!imageData) return res.json({ error: 'No image data provided' })
-  
   const db = getDB()
-  const path = require('path')
-  const fs = require('fs')
   const { getStorageDir } = require('../../electron/ipc/db')
-  
   try {
-    const buf = Buffer.from(imageData.split(',')[1], 'base64')
-    const artPath = path.join(getStorageDir(), 'artwork', `${req.params.id}.jpg`)
-    
-    const dir = path.dirname(artPath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    
-    fs.writeFileSync(artPath, buf)
-    db.prepare('UPDATE tracks SET artwork_path = ? WHERE id = ?').run(artPath, req.params.id)
     const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(req.params.id)
-    res.json(track || { success: true, path: artPath })
+    if (!track) return res.json({ error: 'Track not found' })
+    // Into the song's file too (see electron/trackCover).
+    const { artPath } = await require('../../electron/trackCover').setTrackCover(db, track, imageData, getStorageDir())
+    res.json(db.prepare('SELECT * FROM tracks WHERE id = ?').get(req.params.id) || { success: true, path: artPath })
   } catch (e) {
     res.json({ error: e.message })
   }
@@ -880,10 +869,7 @@ router.get('/:id/related', (req, res) => {
 })
 
 router.get('/duplicates', (req, res) => {
-  res.json(getDB().prepare(`
-    SELECT title, artist, COUNT(*) as count, GROUP_CONCAT(id) as ids, GROUP_CONCAT(file_path) as paths
-    FROM tracks GROUP BY LOWER(title), LOWER(artist) HAVING count > 1
-  `).all())
+  res.json(exactDuplicateGroups(getDB()))
 })
 
 router.get('/possible-duplicates', (req, res) => {

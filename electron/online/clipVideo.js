@@ -102,4 +102,47 @@ async function resolveClipVideo(link, { fallback = false, ytdlp = null, settings
   return result
 }
 
-module.exports = { resolveClipVideo, youtubeVideoId, localPath }
+// Edit Track's "available / not available" badge next to the video link:
+// whether the video is still there. A file: on this computer; YouTube: its
+// oEmbed answers 404/400 for a removed or wrong video (401 is a video that
+// exists but can't be embedded, still playable); any other link: what the
+// site answers (404, 410... is gone). { ok: true|false|null, status, reason }
+// -- null when the check itself couldn't be made (no internet, timeout).
+const CHECK_TIMEOUT_MS = 12000
+const CHECK_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+
+async function requestStatus(url, method, fetchImpl) {
+  const response = await fetchImpl(url, {
+    method, redirect: 'follow', signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    headers: { 'User-Agent': CHECK_UA, Accept: '*/*', ...(method === 'GET' ? { Range: 'bytes=0-0' } : {}) },
+  })
+  try { await response.body?.cancel?.() } catch {}
+  return response.status
+}
+
+async function checkClipLink(link, { fetchImpl = globalThis.fetch } = {}) {
+  const text = String(link || '').trim()
+  if (!text) return { ok: null, reason: 'No video' }
+  const file = localPath(text)
+  if (file) return fs.existsSync(file) ? { ok: true } : { ok: false, reason: 'File not found' }
+  let url
+  try { url = new URL(text) } catch { return { ok: false, reason: 'Not a link' } }
+  if (!/^https?:$/.test(url.protocol)) return { ok: false, reason: 'Not a web link' }
+  try {
+    const videoId = youtubeVideoId(url)
+    if (videoId) {
+      const watch = `https://www.youtube.com/watch?v=${videoId}`
+      const status = await requestStatus(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`, 'GET', fetchImpl)
+      if (status < 300 || status === 401 || status === 403) return { ok: true, status }
+      return { ok: false, status, reason: status === 404 || status === 400 ? 'Video not found' : `HTTP ${status}` }
+    }
+    let status = await requestStatus(url.href, 'HEAD', fetchImpl)
+    // Some sites refuse HEAD (405, 403...): ask for the first byte instead.
+    if (status >= 400 && status !== 404 && status !== 410) status = await requestStatus(url.href, 'GET', fetchImpl)
+    return status < 400 ? { ok: true, status } : { ok: false, status, reason: `HTTP ${status}` }
+  } catch (e) {
+    return { ok: null, reason: e?.name === 'TimeoutError' ? 'No answer' : (e?.cause?.code || e?.message || 'Network error') }
+  }
+}
+
+module.exports = { resolveClipVideo, checkClipLink, youtubeVideoId, localPath }

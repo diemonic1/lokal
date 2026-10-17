@@ -31,7 +31,7 @@ function registerLyricsHandlers(ipcMain) {
     try { return await fn(...args) } catch (e) { return { ok: false, error: e?.message || String(e) } }
   }
   ipcMain.handle('lyrics:readFile', safely((_, trackId) => service.readFileLyrics(db, trackId)))
-  ipcMain.handle('lyrics:writeFile', safely((_, trackId, text) => service.writeFileLyrics(db, trackId, text)))
+  ipcMain.handle('lyrics:writeFile', safely((_, trackId, text, syllable) => service.writeFileLyrics(db, trackId, text, syllable)))
   ipcMain.handle('lyrics:embedFrom', safely((_, providerId, trackId, title, artist, album, duration) =>
     service.embedFrom(db, { trackId, title, artist, album, duration }, providerId)))
 
@@ -72,6 +72,42 @@ function registerLyricsHandlers(ipcMain) {
     } finally { indexJob = null }
   })
   ipcMain.handle('lyrics:cancelIndex', () => { if (indexJob) indexJob.cancelled = true })
+
+  // Settings -> Library -> Maintenance: MP3s whose SYLT lyrics AIMP shows as
+  // CJK (UTF-16 lines ending in a Latin letter) get them rewritten. Only the
+  // tag is read for the check, so untouched files cost little.
+  let syltJob = null
+  ipcMain.handle('lyrics:repairSylt', async (event) => {
+    if (syltJob) return { running: true }
+    const job = { cancelled: false }
+    syltJob = job
+    const send = (payload) => { try { if (!event.sender.isDestroyed()) event.sender.send('lyrics:repairSyltProgress', payload) } catch {} }
+    try {
+      const { repairSylt } = require('../lyrics/fileLyrics')
+      const rows = db.prepare("SELECT file_path FROM tracks WHERE lower(file_path) LIKE '%.mp3'").all()
+      let done = 0
+      let fixed = 0
+      let failed = 0
+      for (const row of rows) {
+        if (job.cancelled) break
+        if (done % 25 === 0) {
+          send({ running: true, done, total: rows.length, fixed, failed })
+          await new Promise(resolve => setImmediate(resolve))
+        }
+        try {
+          if (repairSylt(row.file_path)) {
+            fixed++
+            require('../fileStamp').noteFileWritten(db, row.file_path)
+          }
+        } catch { failed++ }
+        done++
+      }
+      const result = { running: false, done, total: rows.length, fixed, failed, cancelled: job.cancelled }
+      send(result)
+      return result
+    } finally { syltJob = null }
+  })
+  ipcMain.handle('lyrics:cancelRepairSylt', () => { if (syltJob) syltJob.cancelled = true })
 
   // The Lyrics Analysis page: counts what every file in the music folder has
   // in its lyrics tags. The last report is kept; "Refresh" counts again.

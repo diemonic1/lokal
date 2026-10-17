@@ -273,6 +273,14 @@ export const api = {
   artistRename: (id, n) => isE() ? el().artistRename(id, n) : apiFetch(`/artists/${id}/rename`, { method:'PUT', body:{name:n} }),
   artistMerge: (s, t) => isE() ? el().artistMerge(s, t) : apiFetch('/artists/merge', { method:'POST', body:{sourceId:s,targetId:t} }),
   artistDelete: (id) => isE() ? el().artistDelete(id) : apiFetch(`/artists/${id}`, { method:'DELETE' }),
+  // The song's cover into Downloads ("Artist - Title - Album Art"): { path }; in a browser, its download.
+  trackSaveCover: (id, name) => isE() ? el().trackSaveCover(id) : Promise.resolve().then(() => {
+    const link = document.createElement('a')
+    link.href = api.artworkURL(id)
+    link.download = name || 'Album Art'
+    link.click()
+    return { path: null }
+  }),
   trackSetArtwork: (id, d) => isE() ? el().trackSetArtwork(id, d) : apiFetch(`/tracks/${id}/artwork`, { method:'PUT', body:{imageData:d} }),
   trackSetGenre: (id, genre) => isE() ? el().trackSetGenre(id, genre) : apiFetch(`/tracks/${id}/genre`, { method:'PUT', body:{genre} }),
   getPlaylists: (uid) => isE() ? el().getPlaylists(uid) : apiFetch(`/playlists?userId=${uid||'guest'}`),
@@ -323,7 +331,7 @@ export const api = {
   clearLyricsCache: (tid) => isE() ? el().clearLyricsCache(tid) : apiFetch(`/lyrics/${tid}`, { method:'DELETE' }),
   // The lyrics inside the track's own file (tags), read and written on request only.
   readFileLyrics: (tid) => isE() ? el().readFileLyrics(tid) : apiFetch(`/lyrics/${tid}/file`),
-  writeFileLyrics: (tid, text) => isE() ? el().writeFileLyrics(tid, text) : apiFetch(`/lyrics/${tid}/file`, { method:'PUT', body:{ text } }),
+  writeFileLyrics: (tid, text, syllable) => isE() ? el().writeFileLyrics(tid, text, syllable) : apiFetch(`/lyrics/${tid}/file`, { method:'PUT', body:{ text, syllable } }),
   embedLyricsFrom: (providerId, tid, ti, ar, al, dur) => isE() ? el().embedLyricsFrom(providerId, tid, ti, ar, al, dur) : apiFetch(`/lyrics/${tid}/embed/${encodeURIComponent(providerId)}`, { method:'POST', body:{ title:ti||'', artist:ar||'', album:al||'', duration:dur||'' } }),
   clearLyricsDb: () => isE() ? el().clearLyricsDb() : apiFetch('/lyrics/clear-all', { method:'POST' }),
   // Both keep the snapshot peekSettings() hands out, so a page can paint with
@@ -526,11 +534,18 @@ export const api = {
   clipVideoSource: (link, options) => isE() && el().clipVideoSource
     ? el().clipVideoSource(link, options).catch(e => ({ error: e?.message || 'Failed' }))
     : Promise.resolve({ error: 'Only in the desktop app' }),
+  // Is a song's own video still there: { ok: true|false|null, reason }; null off the desktop app.
+  clipVideoCheck: (link) => isE() && el().clipVideoCheck
+    ? el().clipVideoCheck(link).catch(e => ({ ok: null, reason: e?.message || 'Failed' }))
+    : Promise.resolve(null),
   musicVideoAnimatedPreview: (videoId, query, force = false) => isE() && el().musicVideoAnimatedPreview ? el().musicVideoAnimatedPreview(videoId, query, force) : Promise.resolve(null),
   cancelMusicVideoIndex: () => isE() && el().cancelMusicVideoIndex ? el().cancelMusicVideoIndex() : Promise.resolve(null),
   musicVideoIndexStatus: () => isE() && el().musicVideoIndexStatus ? el().musicVideoIndexStatus() : Promise.resolve(null),
   onMusicVideoIndexProgress: (fn) => isE() && el().onMusicVideoIndexProgress ? el().onMusicVideoIndexProgress((_, p) => fn(p)) : () => {},
   indexAllLyrics: () => isE() && el().indexAllLyrics ? el().indexAllLyrics() : Promise.resolve(null),
+  repairSylt: () => isE() && el().repairSylt ? el().repairSylt() : Promise.resolve(null),
+  cancelRepairSylt: () => isE() && el().cancelRepairSylt ? el().cancelRepairSylt() : Promise.resolve(null),
+  onRepairSyltProgress: (fn) => isE() && el().onRepairSyltProgress ? el().onRepairSyltProgress((_, p) => fn(p)) : () => {},
   cancelLyricsIndex: () => isE() && el().cancelLyricsIndex ? el().cancelLyricsIndex() : Promise.resolve(null),
   // Lyrics Analysis page (desktop only: it reads every file in the music folder).
   lyricsAnalysisGet: () => isE() && el().lyricsAnalysisGet ? el().lyricsAnalysisGet() : Promise.resolve({ report: null, progress: { running: false }, unsupported: true }),

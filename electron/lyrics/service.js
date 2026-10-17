@@ -16,6 +16,7 @@ const { createHash } = require('node:crypto')
 const { lookup, toResult, parseImported, DEFAULT_ORDER } = require('./repository')
 const { describe, BY_ID } = require('./providers')
 const fileLyrics = require('./fileLyrics')
+const embedded = require('./embedded')
 const { setFileLyrics } = require('../searchIndex')
 const { finish, isUntimed } = require('./postprocess')
 const translation = require('./translate')
@@ -373,10 +374,11 @@ function fileOf(db, trackId) {
 }
 
 /** After the file's lyrics change: forget what was cached, so the file is read again. */
-function afterFileWrite(db, trackId, filePath, done, text) {
+function afterFileWrite(db, trackId, filePath, done, text, privateTag) {
   ensureSchema(db)
   setFileLyrics(db, trackId, done?.empty ? '' : text)
-  try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done?.empty ? '' : fileLyrics.lyricsKind(text), trackId) } catch {}
+  done.lyricsKind = done?.empty ? '' : fileLyrics.lyricsKind(text, embedded.hasSyllables(privateTag))
+  try { db.prepare('UPDATE tracks SET lyrics_kind = ? WHERE id = ?').run(done.lyricsKind, trackId) } catch {}
   try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ? OR file_path = ?').run(trackId, filePath) } catch {}
   try { db.prepare('DELETE FROM lyrics_translations WHERE track_id = ?').run(trackId) } catch {}
   require('../fileStamp').noteFileWritten(db, filePath)
@@ -389,12 +391,23 @@ async function readFileLyrics(db, trackId) {
   return { ...read, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
-/** Saves text (LRC or plain; empty removes) into the track's file tags. */
-function writeFileLyrics(db, trackId, text) {
+/**
+ * Saves the tag editor's lyrics into the track's file.
+ * @param text      LRC or plain for the standard tags; null to derive it from
+ *                  the syllable text. Empty removes, unless syllable lyrics stay.
+ * @param syllable  the edited word timings (enhanced LRC; empty removes them),
+ *                  or null/undefined to keep the file's LOKAL_LYRICS as it is
+ */
+async function writeFileLyrics(db, trackId, text, syllable) {
   const filePath = fileOf(db, trackId)
-  const done = fileLyrics.writeFileLyrics(filePath, text, null)
-  afterFileWrite(db, trackId, filePath, done, text)
-  return { ...done, lyricsKind: done.empty ? '' : fileLyrics.lyricsKind(text), sidecar: fileLyrics.sidecarFor(filePath) }
+  const current = await fileLyrics.readPrivateTag(filePath)
+  let privateTag = null
+  if (typeof syllable === 'string') privateTag = embedded.enhancedToPrivate(syllable, current)
+  else if (embedded.hasSyllables(current)) privateTag = current
+  if (!String(text ?? '').trim()) text = privateTag ? (embedded.portableFromPrivate(privateTag) || '') : ''
+  const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
+  afterFileWrite(db, trackId, filePath, done, text, privateTag)
+  return { ...done, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 /** "Insert into track": one source's lyrics written into the file's tags. */
@@ -413,8 +426,8 @@ async function embedFrom(db, args, providerId) {
   const { text, privateTag } = fileLyrics.fromResult(result)
   if (!text) return { ok: false, error: 'no-lyrics' }
   const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
-  afterFileWrite(db, args.trackId, filePath, done, text)
-  return { ...done, lyricsKind: fileLyrics.lyricsKind(text), source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
+  afterFileWrite(db, args.trackId, filePath, done, text, privateTag)
+  return { ...done, source: providerId, sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 /**

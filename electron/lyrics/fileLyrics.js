@@ -15,8 +15,10 @@
 
 const fs = require('fs')
 const path = require('path')
-const { toPortableLyrics, toPrivateTag, PRIVATE_TAG } = require('./embedded')
+const { toPortableLyrics, toPrivateTag, PRIVATE_TAG, privateTagText, privateToEnhanced, hasSyllables } = require('./embedded')
+const { isEnhanced, isKaraoke } = require('./lrc')
 
+const { aimpSafeSylt } = require('../syltEncoding')
 let taglib = null
 function lib() {
   if (taglib === null) {
@@ -41,18 +43,34 @@ function isSyncedText(text) {
   return typeof text === 'string' && LRC_STAMP.test(text)
 }
 
+/** Word / syllable stamps in the text itself: enhanced LRC, QRC/YRC karaoke, TTML with timed spans. */
+function isSyllableText(text) {
+  if (!text) return false
+  if (isEnhanced(text) || isKaraoke(text)) return true
+  return /<tt[\s>]/i.test(text) && /<span\b[^>]*\bbegin=/i.test(text)
+}
+
 /**
  * The song list's Lyrics column: '' (none), 'instrumental' (the file says
  * "Instrumental track without lyrics"), 'unfound' (the file says
- * "Невозможно нагуглить слова этого трека"), 'sync' (LRC time stamps) or 'plain'.
+ * "Невозможно нагуглить слова этого трека"), 'syllable' (word timings, in the
+ * text or in Lokal's own tag), 'sync' (LRC time stamps) or 'plain'.
+ * @param ownSyllables the file's LOKAL_LYRICS tag holds word timings
  */
-function lyricsKind(text) {
+function lyricsKind(text, ownSyllables = false) {
+  if (ownSyllables) return 'syllable'
   const value = String(text || '').trim()
   if (!value) return ''
   const words = value.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim()
   if (/^instrumental track without lyrics\.?$/i.test(words)) return 'instrumental'
   if (/^невозможно нагуглить слова этого трека\.?$/i.test(words)) return 'unfound'
+  if (isSyllableText(value)) return 'syllable'
   return isSyncedText(value) ? 'sync' : 'plain'
+}
+
+/** lyricsKind straight from a music-metadata result. */
+function lyricsKindOfMeta(meta) {
+  return lyricsKind(lyricsFromMeta(meta), hasSyllables(privateTagText(meta)))
 }
 
 /** LRC -> [[ms, text], ...] sorted by time. Metadata lines ([ar:...]) are skipped. */
@@ -175,13 +193,24 @@ function lyricsFromMeta(meta) {
   return clean[0] || null
 }
 
-/** What the tag editor shows: { text, synced } straight from the file's tags. */
+/**
+ * What the tag editor shows, straight from the file's tags:
+ * { text, synced, syllable } -- syllable is the LOKAL_LYRICS word timings as
+ * enhanced LRC, '' when the file has none.
+ */
 async function readFileLyrics(filePath) {
   const lib = metadata()
-  if (!lib || !filePath || !fs.existsSync(filePath)) return { text: '', synced: false }
+  if (!lib || !filePath || !fs.existsSync(filePath)) return { text: '', synced: false, syllable: '' }
   const meta = await lib.parseFile(filePath, { duration: false, skipCovers: true })
   const text = lyricsFromMeta(meta) || ''
-  return { text, synced: isSyncedText(text) }
+  return { text, synced: isSyncedText(text), syllable: privateToEnhanced(privateTagText(meta)) }
+}
+
+/** The file's LOKAL_LYRICS JSON as stored, or null. */
+async function readPrivateTag(filePath) {
+  const lib = metadata()
+  if (!lib || !filePath || !fs.existsSync(filePath)) return null
+  return privateTagText(await lib.parseFile(filePath, { duration: false, skipCovers: true }))
 }
 
 function setPrivateField(T, file, value) {
@@ -259,6 +288,7 @@ function writeFileLyrics(filePath, text, privateTag = null) {
     setPrivateField(T, file, clean && privateTag ? privateTag : null)
     // taglib adds an ID3v1 tag to MP3s that never had one; don't.
     if (!hadId3v1 && /\.mp3$/i.test(filePath)) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
     file.save()
   } catch (e) {
     const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))
@@ -267,6 +297,23 @@ function writeFileLyrics(filePath, text, privateTag = null) {
     try { file?.dispose() } catch {}
   }
   return { ok: true, synced: isSyncedText(clean), empty: !clean }
+}
+
+/** Rewrites an MP3's SYLT frames so AIMP reads them (see syltEncoding.js). True when it saved. */
+function repairSylt(filePath) {
+  const T = lib()
+  if (!T || !/\.mp3$/i.test(filePath) || !require('../syltEncoding').hasAimpBrokenSylt(filePath)) return false
+  let file
+  try {
+    file = T.File.createFromPath(filePath)
+    const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
+    if (!hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
+    file.save()
+    return true
+  } finally {
+    try { file?.dispose() } catch {}
+  }
 }
 
 /** A lookup result (lines) -> what goes into the file: { text, privateTag }. */
@@ -285,4 +332,4 @@ function sidecarFor(filePath) {
   return null
 }
 
-module.exports = { lyricsKind, fixMojibake, readFileLyrics, writeFileLyrics, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }
+module.exports = { lyricsKind, lyricsKindOfMeta, isSyllableText, fixMojibake, readFileLyrics, readPrivateTag, writeFileLyrics, repairSylt, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }

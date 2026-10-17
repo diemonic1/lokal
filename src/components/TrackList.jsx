@@ -579,21 +579,25 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     if (liked) { setLikeAnim(track.id); setTimeout(() => setLikeAnim(null), 600) }
   }
 
+  // The picture (.jpg/.png) goes into the song's file too (electron/trackCover.js).
   const replaceArtwork = async (track, e) => {
     e.stopPropagation()
     if (!api.isElectron) return
     const fp = await api.openFile([{ name: t('Images'), extensions: ['jpg','jpeg','png','webp'] }])
     if (!fp) return
-    const img = new Image(); img.src = `file://${fp}`
-    img.onload = () => {
-      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
-      c.getContext('2d').drawImage(img, 0, 0)
-      api.trackSetArtwork(track.id, c.toDataURL('image/jpeg', 0.85)).then((updatedTrack) => {
-        if (updatedTrack?.id) {
-          syncTrack(updatedTrack)
-          setTrackOverrides(prev => ({ ...prev, [updatedTrack.id]: updatedTrack }))
-        }
-      })
+    try {
+      const dataUrl = await api.readFileAsDataURL(fp)
+      if (!dataUrl) throw new Error(t('Could not read the picture'))
+      const updatedTrack = await api.trackSetArtwork(track.id, dataUrl)
+      if (updatedTrack?.error) throw new Error(updatedTrack.error)
+      if (updatedTrack?.id) {
+        syncTrack(updatedTrack)
+        setTrackOverrides(prev => ({ ...prev, [updatedTrack.id]: updatedTrack }))
+        announceTrackChanged(updatedTrack.id)
+      }
+      showToast(t('Cover saved into the file'))
+    } catch (err) {
+      showToast(t("Couldn't set the cover: {error}", { error: String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '') }))
     }
   }
 
@@ -1111,7 +1115,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                     </button>
                   )
                 }
-                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['sync', 'plain', 'instrumental', 'unfound'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
+                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'syllable' ? 'text-accent' : track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['syllable', 'sync', 'plain', 'instrumental', 'unfound'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
                 case 'comment': return commentLink(track)
                   ? <button key={key} type="button" data-track-column="comment" onClick={e => { e.stopPropagation(); openLink(commentLink(track)) }} onDoubleClick={e => e.stopPropagation()}
                       title={commentLink(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{commentLink(track)}</button>

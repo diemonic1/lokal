@@ -9,7 +9,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { fromPrivateTag, PRIVATE_TAG } = require('../embedded')
+const { fromPrivateTag, privateTagText } = require('../embedded')
 const { lyricsFromMeta } = require('../fileLyrics')
 
 let mm = null
@@ -37,30 +37,9 @@ function readSidecar(filePath) {
   return null
 }
 
-const PRIVATE_IDS = new Set([`TXXX:${PRIVATE_TAG}`, PRIVATE_TAG, `----:com.apple.iTunes:${PRIVATE_TAG}`])
-
-function nativeTags(meta) {
-  return Object.values(meta?.native || {}).flat().filter(Boolean)
-}
-
-function tagText(value) {
-  if (typeof value === 'string') return value
-  if (value && typeof value.text === 'string') return value.text
-  return ''
-}
-
 /** Lokal's own tag, parsed; null when the file doesn't have one. */
 function privateLyrics(meta) {
-  const values = nativeTags(meta)
-    .filter(tag => PRIVATE_IDS.has(tag.id) || String(tag.id).toUpperCase() === PRIVATE_TAG)
-    .map(tag => tagText(tag.value))
-  for (const value of values) {
-    const parsed = fromPrivateTag(value)
-    if (parsed) return parsed
-  }
-  // ID3v2.3 readers split TXXX text on "/", so a lyric with a slash in it
-  // ("AC/DC", "24/7") comes back in pieces.
-  return values.length > 1 ? fromPrivateTag(values.join('/')) : null
+  return fromPrivateTag(privateTagText(meta))
 }
 
 // Synced text wins over plain: a USLT holding LRC, else SYLT (as LRC), else

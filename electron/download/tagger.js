@@ -8,6 +8,7 @@
 
 const { PRIVATE_TAG } = require('../lyrics/embedded')
 
+const { aimpSafeSylt } = require('../syltEncoding')
 let taglib = null
 function lib() {
   if (taglib === null) {
@@ -168,6 +169,7 @@ async function applyTags(filePath, changes = {}) {
     if (dirty) {
       // taglib adds an ID3v1 tag to MP3s that never had one; don't.
       if (!hadId3v1 && /\.mp3$/i.test(filePath)) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+      aimpSafeSylt(T, file)
       file.save()
     }
   } catch {

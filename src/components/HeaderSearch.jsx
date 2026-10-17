@@ -239,6 +239,14 @@ export default function HeaderSearch() {
   }
 
   const showDropdown = focused && dropdownOpen && suggestions.length > 0
+  // The dropdown hangs over the tab row, a window-drag area that comes later
+  // in the page and so wins over the dropdown's buttons ("Clear" and the rows
+  // took the press as a window drag). While it's open the bars don't drag.
+  useEffect(() => {
+    if (!showDropdown) return undefined
+    document.documentElement.setAttribute('data-search-dropdown', '')
+    return () => document.documentElement.removeAttribute('data-search-dropdown')
+  }, [showDropdown])
   const moodMenu = useContextMenu()
 
   return (
@@ -324,6 +332,7 @@ export default function HeaderSearch() {
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.12 }}
               onMouseDown={(e) => e.preventDefault()}
+              style={{ WebkitAppRegion: 'no-drag' }}
               className="absolute top-full left-0 right-0 mt-2 bg-elevated border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
             >
               <div className="flex items-center justify-between px-4 py-2 border-b border-border">
@@ -331,7 +340,7 @@ export default function HeaderSearch() {
                   <Clock size={11} /> {query.trim() ? t('Matching searches') : t('Recent searches')}
                 </span>
                 {!query.trim() && (
-                  <button onClick={() => { clearRecentSearches(); setDropdownOpen(false) }} className="text-xs text-muted hover:text-text transition-colors">
+                  <button type="button" onClick={() => { clearRecentSearches(); setHistory([]); setDropdownOpen(false) }} className="text-xs text-muted hover:text-text transition-colors">
                     {t('Clear')}
                   </button>
                 )}

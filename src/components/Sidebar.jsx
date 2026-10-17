@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { AppWindow, Folder, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../api'
 import FadeImg from './FadeImg'
+import { TRACK_CHANGED } from '../trackChanged'
 import { setLibraryFolder, useLibraryFolder } from '../libraryNav'
 import { LEFT_SIDEBAR_WIDTH, setLeftSidebarWidth, useLeftSidebarScale, useLeftSidebarWidth } from '../sidePanelPrefs'
 import { useTranslation } from '../i18n'
@@ -67,8 +68,13 @@ export default function Sidebar() {
       setFolders(result.folders.filter(folder => folder.trackCount > 0))
     }).catch(() => {})
     load()
+    // A song's details changed (a new cover put into its file...): the folder's
+    // cover may be that song's, read the folders again (once for a burst).
+    let timer = null
+    const soon = () => { clearTimeout(timer); timer = setTimeout(load, 400) }
     window.addEventListener('lokal:refresh', load)
-    return () => { alive = false; window.removeEventListener('lokal:refresh', load) }
+    window.addEventListener(TRACK_CHANGED, soon)
+    return () => { alive = false; clearTimeout(timer); window.removeEventListener('lokal:refresh', load); window.removeEventListener(TRACK_CHANGED, soon) }
   }, [])
 
   // Nothing picked yet, or the picked folder no longer exists: the first one.

@@ -2,13 +2,30 @@
 // has no open API): search with `scsearch`, stream the progressive MP3.
 // Tracks behind SoundCloud Go+ only give a 30-second preview; those are
 // flagged so the UI can say so.
+// Most tracks no longer have the progressive MP3 at all, only HLS (AAC in
+// fragmented MP4, ten-second pieces): the pieces are fetched together and
+// joined into one file in the playback cache, which then plays (and seeks)
+// like any file.
 
+const fs = require('fs')
+const fsp = require('fs/promises')
+const os = require('os')
+const path = require('path')
 const { spawn } = require('child_process')
 
 const TRACK_ID = /^\d{1,20}$/
 const SEARCH_TTL_MS = 10 * 60 * 1000
 const STREAM_TTL_MS = 20 * 60 * 1000
 const RUN_TIMEOUT_MS = 30000
+const HLS_PIECE_TIMEOUT_MS = 20000
+const HLS_PARALLEL = 6
+// The progressive MP3 when there is one (it streams at once), else HLS; the
+// 30-second Go+ preview only when nothing full is offered.
+const FORMAT = [
+  'http_mp3_1_0', 'bestaudio[protocol=http][format_id!*=preview]', 'bestaudio[protocol=https][format_id!*=preview]',
+  'hls_aac_160k', 'hls_aac_96k', 'hls_mp3_1_0', 'bestaudio[protocol=m3u8_native][format_id!*=preview][ext=m4a]',
+  'bestaudio[protocol=m3u8_native][format_id!*=preview][ext=mp3]', 'http_mp3_0_0_preview', 'bestaudio',
+].join('/')
 
 const searchCache = new Map() // query -> { at, results }
 const streamCache = new Map() // id -> { url, headers, mime, expiresAt, preview }
@@ -89,22 +106,99 @@ async function searchTracks(query, { ytdlp, limit = 10 } = {}) {
   return results.slice(0, limit)
 }
 
-/** The audio URL for a track: the progressive MP3 (seekable), cached for a while. */
-async function resolveStream(id, { ytdlp, force = false } = {}) {
+/** Where joined HLS tracks are kept (the playback cache, under its size limit). */
+function hlsDir() {
+  let dir = null
+  try { dir = require('../cache').cacheDir('playback') } catch {}
+  return dir || path.join(os.tmpdir(), 'lokal-playback-cache')
+}
+
+const MIME_OF_EXT = { m4a: 'audio/mp4', mp4: 'audio/mp4', mp3: 'audio/mpeg', aac: 'audio/aac', ogg: 'audio/ogg', opus: 'audio/ogg' }
+const safeName = text => String(text || '').replace(/[^\w.-]+/g, '_')
+
+/** A track already joined earlier: { file, mime, preview }, or null. */
+function joinedFile(id) {
+  const dir = hlsDir()
+  let name
+  try { name = fs.readdirSync(dir).find(n => n.startsWith(`sc-${id}-`) && !n.endsWith('.part')) } catch { return null }
+  if (!name) return null
+  const file = path.join(dir, name)
+  try { const now = new Date(); fs.utimesSync(file, now, now) } catch {}
+  return { file, mime: MIME_OF_EXT[path.extname(name).slice(1).toLowerCase()] || 'audio/*', preview: /preview/i.test(name) }
+}
+
+async function fetchChecked(url, headers, fetchImpl, as) {
+  const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(HLS_PIECE_TIMEOUT_MS) })
+  if (!res.ok) {
+    try { await res.body?.cancel?.() } catch {}
+    throw new Error(`SoundCloud refused a piece of the track (HTTP ${res.status}).`)
+  }
+  return as === 'text' ? res.text() : Buffer.from(await res.arrayBuffer())
+}
+
+/** The pieces of an HLS playlist: the init section (fragmented MP4) and the media, as full URLs. */
+function hlsPieces(playlist, base) {
+  const lines = String(playlist || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  if (!lines[0]?.startsWith('#EXTM3U')) throw new Error('SoundCloud sent no playlist for this track.')
+  if (lines.some(l => l.startsWith('#EXT-X-STREAM-INF'))) throw new Error('Unexpected SoundCloud playlist.')
+  const key = lines.find(l => l.startsWith('#EXT-X-KEY'))
+  if (key && !/METHOD=NONE/i.test(key)) throw new Error('This SoundCloud track is encrypted and can’t be played.')
+  const map = lines.find(l => l.startsWith('#EXT-X-MAP'))?.match(/URI="([^"]+)"/)?.[1]
+  const media = lines.filter(l => !l.startsWith('#'))
+  if (!media.length) throw new Error('SoundCloud sent an empty playlist for this track.')
+  const full = u => new URL(u, base).href
+  return { init: map ? full(map) : null, media: media.map(full) }
+}
+
+/** Fetches every piece (a few at a time) and joins them into `file`. */
+async function joinHls(playlistUrl, file, { headers = {}, fetchImpl = globalThis.fetch } = {}) {
+  const { init, media } = hlsPieces(await fetchChecked(playlistUrl, headers, fetchImpl, 'text'), playlistUrl)
+  const urls = init ? [init, ...media] : media
+  const parts = new Array(urls.length)
+  let next = 0
+  const worker = async () => {
+    while (next < urls.length) {
+      const i = next++
+      let lastError
+      for (let tries = 0; tries < 3 && parts[i] == null; tries++) {
+        try { parts[i] = await fetchChecked(urls[i], headers, fetchImpl) } catch (e) { lastError = e }
+      }
+      if (parts[i] == null) throw lastError
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(HLS_PARALLEL, urls.length) }, worker))
+  await fsp.mkdir(path.dirname(file), { recursive: true })
+  const part = `${file}.${process.pid}.part`
+  await fsp.writeFile(part, Buffer.concat(parts))
+  await fsp.rename(part, file).catch(async (e) => { await fsp.unlink(part).catch(() => {}); if (!fs.existsSync(file)) throw e })
+  return file
+}
+
+/**
+ * The audio of a track: the progressive MP3's URL (seekable, cached a while),
+ * or, for an HLS-only track, a file of its joined pieces ({ type: 'file' }).
+ */
+async function resolveStream(id, { ytdlp, force = false, fetchImpl = globalThis.fetch } = {}) {
   if (!TRACK_ID.test(String(id || ''))) throw new Error('Not a SoundCloud track id')
-  if (!ytdlp) throw new Error('yt-dlp is not installed. Install it from the Download page.')
   const cached = streamCache.get(id)
-  if (!force && cached && cached.expiresAt > Date.now()) return cached
-  if (!force && resolving.has(id)) return resolving.get(id)
-  const job = runJson(ytdlp, ['-j', '--no-warnings', '--no-playlist', '-f', 'http_mp3_1_0/http_mp3_0_0_preview/bestaudio[protocol=http]/bestaudio[protocol=https]', trackUrl(id)])
-    .then(info => {
+  if (!force && cached && cached.expiresAt > Date.now() && (!cached.file || fs.existsSync(cached.file))) return cached
+  if (resolving.has(id)) return resolving.get(id)
+  const joined = joinedFile(id)
+  if (joined) return { type: 'file', headers: {}, expiresAt: Date.now() + STREAM_TTL_MS, ...joined }
+  if (!ytdlp) throw new Error('yt-dlp is not installed. Install it from the Download page.')
+  const job = runJson(ytdlp, ['-j', '--no-warnings', '--no-playlist', '-f', FORMAT, trackUrl(id)])
+    .then(async info => {
       if (!info?.url) throw new Error('SoundCloud has no playable stream for this track.')
-      const stream = {
-        url: info.url,
-        headers: info.http_headers || {},
-        mime: info.ext === 'mp3' ? 'audio/mpeg' : 'audio/*',
-        expiresAt: Date.now() + STREAM_TTL_MS,
-        preview: /preview/i.test(String(info.format_id || '')),
+      const preview = /preview/i.test(String(info.format_id || ''))
+      const ext = String(info.ext || '').toLowerCase()
+      const mime = MIME_OF_EXT[ext] || 'audio/*'
+      let stream
+      if (/m3u8/i.test(String(info.protocol || ''))) {
+        const file = path.join(hlsDir(), `sc-${id}-${safeName(info.format_id || 'hls')}.${MIME_OF_EXT[ext] ? ext : 'm4a'}`)
+        await joinHls(info.url, file, { headers: info.http_headers || {}, fetchImpl })
+        stream = { type: 'file', file, headers: {}, mime, expiresAt: Date.now() + STREAM_TTL_MS, preview }
+      } else {
+        stream = { url: info.url, headers: info.http_headers || {}, mime, expiresAt: Date.now() + STREAM_TTL_MS, preview }
       }
       if (streamCache.size > 200) streamCache.delete(streamCache.keys().next().value)
       streamCache.set(id, stream)
@@ -115,4 +209,4 @@ async function resolveStream(id, { ytdlp, force = false } = {}) {
   return job
 }
 
-module.exports = { searchTracks, resolveStream, mapEntry, idFromUrl, trackUrl }
+module.exports = { searchTracks, resolveStream, mapEntry, idFromUrl, trackUrl, hlsPieces, joinHls }

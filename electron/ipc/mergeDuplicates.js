@@ -121,4 +121,18 @@ async function mergeAllDuplicates(db, scoreTrack) {
   }
 }
 
-module.exports = { mergeDuplicates, mergeAllDuplicates }
+/**
+ * Songs with the same title and artist (Settings > Find Duplicates > Exact):
+ * one group each, with every copy (in the order of `ids`, the first is the one
+ * "Merge" keeps) and what the window shows of it: cover, album, quality, file.
+ */
+function exactDuplicateGroups(db) {
+  const groups = db.prepare(`SELECT title, artist, COUNT(*) as count, GROUP_CONCAT(id) as ids, GROUP_CONCAT(file_path) as paths FROM tracks GROUP BY LOWER(title), LOWER(artist) HAVING count > 1`).all()
+  const copy = db.prepare('SELECT id, title, artist, album, file_path, artwork_path, duration, bitrate FROM tracks WHERE id = ?')
+  return groups.map(group => ({
+    ...group,
+    tracks: String(group.ids || '').split(',').map(id => copy.get(id)).filter(Boolean),
+  }))
+}
+
+module.exports = { mergeDuplicates, mergeAllDuplicates, exactDuplicateGroups }

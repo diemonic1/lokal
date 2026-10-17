@@ -14,6 +14,7 @@ const { folderFilter } = require('./libraryFolder')
 
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.wav', '.aac', '.opus', '.wma', '.alac', '.ape'])
 
+const { aimpSafeSylt } = require('./syltEncoding')
 let taglib = null
 function lib() {
   if (taglib === null) {
@@ -59,6 +60,7 @@ function writeTrackNumber(filePath, number) {
     file.tag.track = Math.max(0, Math.floor(Number(number) || 0))
     // taglib adds an ID3v1 tag to MP3s that never had one; don't.
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
     file.save()
   } catch (e) {
     const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))

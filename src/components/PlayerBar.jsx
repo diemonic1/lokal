@@ -25,6 +25,7 @@ import MixingMark from './MixingMark'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
 import { useCastStore } from '../cast/castStore'
+import { useCoverDrop } from './CoverDrop'
 
 function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
 
@@ -150,6 +151,8 @@ export default function PlayerBar() {
   }
 
   const artSrc = trackArtURL(currentTrack)
+  // A .jpg/.png dropped on the cover replaces it, inside the song's file.
+  const coverDrop = useCoverDrop(currentTrack)
 
   // An online song (YouTube, SoundCloud): label, and a button to save it.
   const streamed = isStreamed(currentTrack)
@@ -238,8 +241,8 @@ export default function PlayerBar() {
           </div>
         )}
         <div ref={infoRef} className="relative flex flex-1 items-center gap-3 min-w-0">
-        <button onClick={toggleFullscreen} disabled={!currentTrack}
-          className="relative w-[70px] h-[70px] my-[10px] rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default">
+        <button onClick={toggleFullscreen} disabled={!currentTrack} {...coverDrop.dropProps}
+          className={`relative w-[70px] h-[70px] my-[10px] rounded-md overflow-hidden flex-shrink-0 bg-elevated hover:ring-2 ring-accent/30 transition-all disabled:cursor-default ${coverDrop.over ? 'ring-2 ring-accent' : ''}`}>
           {/* Not "wait": with the window minimized no animation runs, and a
               wait for an exit that never finishes left the old song's cover
               (and title) up for good while songs changed. Layers crossfade. */}
@@ -252,6 +255,9 @@ export default function PlayerBar() {
               <div className="w-full h-full flex items-center justify-center text-subtle text-xl">♪</div>
             )}
           </AnimatePresence>
+          {coverDrop.over && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-medium text-white">{t('Drop cover')}</div>
+          )}
         </button>
 
         <div className="min-w-0 flex-1">
@@ -395,6 +401,7 @@ export default function PlayerBar() {
       </div>
 
       <ContextMenu menu={menu} />
+      {coverDrop.dialog}
     </>
   )
 }
