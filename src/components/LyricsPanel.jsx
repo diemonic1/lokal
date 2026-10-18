@@ -1083,7 +1083,7 @@ export default function LyricsPanel({
 
           {!loading && lines.length > 0 && (
             <motion.div initial={idleVisual ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
-              <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? `${anchorFraction * 100}%` : '1rem', minHeight: synced ? '5rem' : undefined }} />
+              <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? '20px' : '1rem', minHeight: synced || isAutoSynced ? '1rem' : undefined }} />
               {/* The side panel goes without these notes (full screen keeps them). */}
               {!synced && fullscreen && (
                 <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
