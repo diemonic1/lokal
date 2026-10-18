@@ -7,6 +7,22 @@ export default {
   'Couldn\'t save ({error})': 'Не удалось сохранить ({error})',
   'unknown error': 'неизвестная ошибка',
 
+  // Playback > Loudness Normalization
+  'Loudness Normalization': 'Нормализация громкости',
+  'Normalize Loudness': 'Нормализовать громкость',
+  "Plays every song at the same loudness, so you don't reach for the volume between a quiet old recording and a loud new one. Each song's loudness is measured once (LUFS, as streaming services do; needs ffmpeg) and kept; a song played for the first time settles to its level within a few seconds. A limiter keeps boosted songs from clipping. The visualizations move with the normalized sound.": 'Все треки играют с одинаковой громкостью — не нужно крутить звук между тихой старой записью и громкой новой. Громкость каждого трека измеряется один раз (в LUFS, как у стриминговых сервисов; нужен ffmpeg) и запоминается; трек, который играет впервые, выходит на свой уровень за несколько секунд. Лимитер не даёт усиленным трекам перегружаться. Визуализации получают уже нормализованный звук.',
+  'Target Level': 'Целевой уровень',
+  'How loud songs are brought to. Quiet: -19 LUFS, the most headroom, for quiet places. Normal: -14 LUFS, as Spotify and YouTube play. Loud: -11 LUFS, for noisy places (quiet songs are boosted more, the limiter works harder).': 'К какой громкости приводятся треки. Тихо: -19 LUFS, больше всего запаса, для тихой обстановки. Нормально: -14 LUFS, как в Spotify и YouTube. Громко: -11 LUFS, для шумной обстановки (тихие треки усиливаются сильнее, лимитер работает активнее).',
+  'Quiet': 'Тихо',
+  'Normal': 'Нормально',
+  'Loud': 'Громко',
+  "ReplayGain is a loudness correction written into the song's file by a tagger (foobar2000, MusicBrainz Picard, mp3gain...). Track gain levels each song on its own; album gain keeps the loudness differences between songs of one album as the artist made them (a quiet intro stays quiet), and uses track gain where there's no album gain. Songs with these tags use them instead of being measured; with normalization on they're brought to the same target level. Off: the tags are ignored.": 'ReplayGain — поправка громкости, которую записывает в файл трека программа для тегов (foobar2000, MusicBrainz Picard, mp3gain…). «Усиление трека» выравнивает каждый трек отдельно; «Усиление альбома» сохраняет разницу громкости между треками одного альбома, как задумал исполнитель (тихое интро остаётся тихим), а где его нет — берёт усиление трека. Для треков с такими тегами используются теги, а не измерение; при включённой нормализации они приводятся к тому же целевому уровню. «Выкл»: теги не учитываются.',
+
+  // Library > All Tracks
+  'All Tracks': 'Все треки',
+  'Show the All Tracks section': 'Показывать раздел со всеми треками',
+  'Adds “All tracks” at the bottom of the left sidebar, under the folders: every song in the library in one list. It can be sorted, filtered and searched like a folder, but not reordered.': 'Добавляет «Все треки» в самый низ левой панели, под папками: все треки библиотеки одним списком. Его можно сортировать, фильтровать и искать по нему, как в папке, но нельзя менять порядок.',
+
   // About
   'The version you\'re running.': 'Установленная версия.',
   'Check for Updates': 'Проверка обновлений',

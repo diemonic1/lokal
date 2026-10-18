@@ -20,7 +20,7 @@ function lib() {
 let sharpLib = null
 function sharp() {
   if (sharpLib === null) {
-    try { sharpLib = require('sharp') } catch { sharpLib = false }
+    try { sharpLib = require('sharp'); sharpLib.cache(false) } catch { sharpLib = false }
   }
   return sharpLib || null
 }
@@ -210,7 +210,8 @@ async function imageThumbnail(imagePath, size = 96) {
   const s = sharp()
   if (!s || !imagePath) return null
   try {
-    const jpeg = await s(imagePath).resize(size, size, { fit: 'cover' }).jpeg({ quality: 78 }).toBuffer()
+    // Bytes, not the path, so libvips doesn't keep the library's cover file locked.
+    const jpeg = await s(require('fs').readFileSync(imagePath)).resize(size, size, { fit: 'cover' }).jpeg({ quality: 78 }).toBuffer()
     return `data:image/jpeg;base64,${jpeg.toString('base64')}`
   } catch { return null }
 }

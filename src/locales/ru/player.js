@@ -2,6 +2,7 @@
 export default {
   'Copied: {text}': 'Скопировано: {text}',
   'Could not copy to the clipboard': 'Не удалось скопировать в буфер обмена',
+  'Click to copy the path: {path}': 'Нажмите, чтобы скопировать путь: {path}',
   'Start radio': 'Запустить радио',
   'Start artist radio': 'Радио исполнителя',
   'Copy “Artist - Title”': 'Копировать «Исполнитель - Название»',
@@ -62,6 +63,8 @@ export default {
   "{source} doesn't have this song": 'В {source} нет этого трека',
   'Show translation ({language})': 'Показать перевод ({language})',
   'Translate': 'Перевести',
+  'Size': 'Размер',
+  'Lyrics size': 'Размер текста',
   'Show pronunciation in Latin letters': 'Показать произношение латиницей',
   'Romanize': 'Латиница',
   'Already in your language': 'Уже на вашем языке',

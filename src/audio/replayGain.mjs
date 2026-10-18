@@ -8,6 +8,37 @@ function finiteNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
+/** Whether the tags hold a gain `mode` would use. */
+export function hasReplayGain(tags, mode) {
+  mode = normalizeReplayGainMode(mode)
+  if (mode === 'off' || !tags) return false
+  return finiteNumber(mode === 'album' ? tags.albumGainDb ?? tags.trackGainDb : tags.trackGainDb) !== null
+}
+
+// ReplayGain levels songs to -18 LUFS; loudness normalization's target can be
+// another, and songs with tags and without must come out equally loud.
+export const REPLAYGAIN_REFERENCE_LUFS = -18
+// Measured songs are boosted at most this much (a quiet recording's noise and
+// hiss come up with it); the limiter after the gain catches the peaks.
+export const MAX_BOOST_DB = 9
+export const MAX_CUT_DB = 24
+
+/**
+ * The gain bringing a song to `target` LUFS: from its ReplayGain tags (when
+ * `mode` uses them and they're there), else from its measured loudness
+ * ({ lufs, peakDb }), else 1. `target` null: ReplayGain only, as it was.
+ */
+export function normalizedMultiplier({ tags, mode, measured, target }) {
+  const offsetDb = target == null ? 0 : target - REPLAYGAIN_REFERENCE_LUFS
+  if (hasReplayGain(tags, mode)) return replayGainMultiplier(tags, mode) * Math.pow(10, offsetDb / 20)
+  if (target == null || !Number.isFinite(measured?.lufs)) return 1
+  let gainDb = Math.max(-MAX_CUT_DB, Math.min(MAX_BOOST_DB, target - measured.lufs))
+  // A boost doesn't push the peaks more than 6 dB past full scale (the limiter
+  // can take that much without being heard).
+  if (gainDb > 0 && Number.isFinite(measured.peakDb)) gainDb = Math.min(gainDb, Math.max(0, 6 - measured.peakDb))
+  return Math.pow(10, gainDb / 20)
+}
+
 export function replayGainMultiplier(tags, mode) {
   mode = normalizeReplayGainMode(mode)
   if (mode === 'off' || !tags) return 1

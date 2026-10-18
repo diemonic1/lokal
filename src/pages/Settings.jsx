@@ -33,7 +33,7 @@ import { repairMissingTracks } from '../ghostDownloads'
 import { plural } from '../plural'
 import { readCrossfadeSettings, CROSSFADE_MIN_S } from '../audio/crossfade'
 import SoulseekSignIn from '../components/SoulseekSignIn'
-import { useSideLyricsScale, setSideLyricsScale, SIDE_LYRICS_SCALE, useLeftSidebarScale, setLeftSidebarScale, LEFT_SIDEBAR_SCALE } from '../sidePanelPrefs'
+import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT, useLeftSidebarScale, setLeftSidebarScale, LEFT_SIDEBAR_SCALE } from '../sidePanelPrefs'
 
 const EQ_BANDS = ['31Hz', '62Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz']
 const EQ_PRESETS = {
@@ -290,6 +290,7 @@ export default function Settings() {
   const location = useLocation()
   const { t, language, setLanguage } = useTranslation()
   const replayGainMode = usePlayerStore(s => s.replayGainMode)
+  const loudnessSettings = usePlayerStore(s => s.loudness)
   // Seeded from the settings already read (and the version / tools found on
   // the last visit), so the first frame already has the real values: rows
   // used to appear, change text and push everything below them down.
@@ -683,6 +684,8 @@ export default function Settings() {
     queueSettings({ [k]: v })
     if (k.startsWith('crossfade_') || k === 'song_transitions' || k === 'automix_same_album') usePlayerStore.getState().setCrossfadeOptions(readCrossfadeSettings({ ...settings, [k]: v }))
     if (k === 'replaygain_mode') usePlayerStore.getState().setReplayGainMode(v)
+    if (k === 'loudness_normalization') usePlayerStore.getState().setLoudness(v, undefined)
+    if (k === 'loudness_target') usePlayerStore.getState().setLoudness(undefined, v)
   }
   const crossfade = readCrossfadeSettings(settings)
 
@@ -1331,6 +1334,18 @@ activeCategory === 'data' ? usersTried
         </Section>
       )}
 
+      {inCategory('library') && (
+      <Section title="All Tracks">
+        <Row label="Show the All Tracks section" desc="Adds “All tracks” at the bottom of the left sidebar, under the folders: every song in the library in one list. It can be sorted, filtered and searched like a folder, but not reordered.">
+          <button
+            onClick={() => setVisual('library_all_tracks', settings.library_all_tracks === '1' ? '0' : '1')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.library_all_tracks === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.library_all_tracks === '1' ? 'On' : 'Off')}
+          </button>
+        </Row>
+      </Section>
+      )}
+
       {inCategory('library') && api.isElectron && (
       <Section title="Open Folders In">
         <Row label="Programs" desc="Right-click a folder in the left sidebar to open it in one of these programs: the folder's full path is passed to the program. Give each a name for the menu and the program's full path." stacked>
@@ -1620,16 +1635,40 @@ activeCategory === 'data' ? usersTried
       )}
 
       {inCategory('playback') && (
-      <Section title="Playback">
-        <OutputPrecisionSettings />
-        <Row label="ReplayGain" desc="Use embedded ReplayGain tags to bring tracks closer in loudness. Peak tags limit boosts; tracks without tags are unchanged.">
-          <select aria-label={t('ReplayGain mode')} value={settings.replaygain_mode ?? replayGainMode ?? 'off'} onChange={e => set('replaygain_mode', e.target.value)}
+      <Section title="Loudness Normalization">
+        <Row label="Normalize Loudness" desc="Plays every song at the same loudness, so you don't reach for the volume between a quiet old recording and a loud new one. Each song's loudness is measured once (LUFS, as streaming services do; needs ffmpeg) and kept; a song played for the first time settles to its level within a few seconds. A limiter keeps boosted songs from clipping. The visualizations move with the normalized sound.">
+          <button
+            onClick={() => set('loudness_normalization', loudnessSettings.enabled ? '0' : '1')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${loudnessSettings.enabled ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(loudnessSettings.enabled ? 'On' : 'Off')}
+          </button>
+        </Row>
+        {loudnessSettings.enabled && (
+          <Row label="Target Level" desc="How loud songs are brought to. Quiet: -19 LUFS, the most headroom, for quiet places. Normal: -14 LUFS, as Spotify and YouTube play. Loud: -11 LUFS, for noisy places (quiet songs are boosted more, the limiter works harder).">
+            <div role="radiogroup" aria-label={t('Target Level')} className="flex rounded-lg bg-card border border-border p-0.5">
+              {[['quiet', 'Quiet'], ['normal', 'Normal'], ['loud', 'Loud']].map(([value, label]) => (
+                <button key={value} type="button" role="radio" aria-checked={loudnessSettings.level === value} onClick={() => set('loudness_target', value)}
+                  className={`px-3 py-1 rounded-md text-xs transition-colors ${loudnessSettings.level === value ? 'bg-accent text-base font-medium' : 'text-muted hover:text-white'}`}>
+                  {t(label)}
+                </button>
+              ))}
+            </div>
+          </Row>
+        )}
+        <Row label="ReplayGain" desc="ReplayGain is a loudness correction written into the song's file by a tagger (foobar2000, MusicBrainz Picard, mp3gain...). Track gain levels each song on its own; album gain keeps the loudness differences between songs of one album as the artist made them (a quiet intro stays quiet), and uses track gain where there's no album gain. Songs with these tags use them instead of being measured; with normalization on they're brought to the same target level. Off: the tags are ignored.">
+          <select aria-label={t('ReplayGain mode')} value={settings.replaygain_mode ?? replayGainMode ?? 'track'} onChange={e => set('replaygain_mode', e.target.value)}
             className="bg-card border border-border rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-accent/50">
             <option value="off">{t('Off')}</option>
             <option value="track">{t('Track gain')}</option>
             <option value="album">{t('Album gain')}</option>
           </select>
         </Row>
+      </Section>
+      )}
+
+      {inCategory('playback') && (
+      <Section title="Playback">
+        <OutputPrecisionSettings />
         <Row label="Song Transitions" desc={crossfade.mode === 'automix'
           ? 'AutoMix listens to both songs and blends them like a DJ: on the beat when their tempos are close (the next one sped up or slowed a touch, pitch kept), on the song\'s own fade-out otherwise, with silence at either end cut. Albums play as made.'
           : crossfade.mode === 'crossfade' ? 'The next song starts before the current one ends, by the amounts below.' : 'Each song plays to its end, then the next starts.'}>
@@ -2117,18 +2156,18 @@ activeCategory === 'data' ? usersTried
               <span className="text-xs text-muted">A</span>
               <input
                 type="range"
-                min={SIDE_LYRICS_SCALE.min}
-                max={SIDE_LYRICS_SCALE.max}
-                step={SIDE_LYRICS_SCALE.step}
-                value={sideLyricsScale}
-                onChange={(e) => setSideLyricsScale(e.target.value)}
-                onDoubleClick={() => setSideLyricsScale(SIDE_LYRICS_SCALE.initial)}
+                min={SIDE_LYRICS_PERCENT.min}
+                max={SIDE_LYRICS_PERCENT.max}
+                step={SIDE_LYRICS_PERCENT.step}
+                value={sideLyricsPercent(sideLyricsScale)}
+                onChange={(e) => setSideLyricsPercent(e.target.value)}
+                onDoubleClick={() => setSideLyricsPercent(SIDE_LYRICS_PERCENT.initial)}
                 title={t('Double-click to reset')}
                 className="flex-1 accent-accent"
               />
               <span className="text-lg text-muted">A</span>
               <span className="text-xs text-muted ml-2 w-12">
-                {Math.round(sideLyricsScale / SIDE_LYRICS_SCALE.initial * 100)}%
+                {sideLyricsPercent(sideLyricsScale)}%
               </span>
             </div>
           </div>

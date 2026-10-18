@@ -167,8 +167,22 @@ function readOutputDevice() {
 }
 
 const normalizeReplayGainMode = value => ['off', 'track', 'album'].includes(value) ? value : 'off'
+// On (track gain) until switched off, like loudness normalization.
 function readReplayGainModeSetting() {
-  try { return normalizeReplayGainMode(localStorage.getItem('lokal-replaygain-mode')) } catch { return 'off' }
+  try {
+    const saved = localStorage.getItem('lokal-replaygain-mode')
+    return saved == null ? 'track' : normalizeReplayGainMode(saved)
+  } catch { return 'track' }
+}
+
+// Settings > Playback > Loudness Normalization: { enabled, target (LUFS) }.
+export const LOUDNESS_TARGETS = { quiet: -19, normal: -14, loud: -11 }
+export function normalizeLoudnessSettings(enabled, target) {
+  const level = Object.prototype.hasOwnProperty.call(LOUDNESS_TARGETS, target) ? target : 'normal'
+  return { enabled: enabled !== '0' && enabled !== false, level, target: LOUDNESS_TARGETS[level] }
+}
+function readLoudnessSetting() {
+  try { return normalizeLoudnessSettings(localStorage.getItem('lokal-loudness-normalization'), localStorage.getItem('lokal-loudness-target')) } catch { return normalizeLoudnessSettings() }
 }
 
 // Starting playback yourself (a track, album, playlist, mix...) opens the
@@ -287,6 +301,7 @@ export const usePlayerStore = create((set, get) => ({
   outputDeviceId: readOutputDevice(),
   replayGainMode: readReplayGainModeSetting(),
   replayGainModeUserSet: false,
+  loudness: readLoudnessSetting(),
 
   originalQueue: [], 
   shuffleQueue: [], 
@@ -317,6 +332,16 @@ export const usePlayerStore = create((set, get) => ({
     const mode = normalizeReplayGainMode(value)
     try { localStorage.setItem('lokal-replaygain-mode', mode) } catch {}
     set({ replayGainMode: mode })
+  },
+  // Loudness normalization: the settings ('1'/'0', 'quiet'/'normal'/'loud'),
+  // from Settings or the saved settings at launch.
+  setLoudness: (enabled, level) => {
+    const next = normalizeLoudnessSettings(enabled ?? (get().loudness.enabled ? '1' : '0'), level ?? get().loudness.level)
+    try {
+      localStorage.setItem('lokal-loudness-normalization', next.enabled ? '1' : '0')
+      localStorage.setItem('lokal-loudness-target', next.level)
+    } catch {}
+    set({ loudness: next })
   },
   setFetchingRelated: (v) => set({ _fetchingRelated: v }),
   appendRelated: (tracks) => {

@@ -47,7 +47,11 @@ function exportAppData() {
     user_likes: db.prepare('SELECT * FROM user_likes ORDER BY user_id, liked_at DESC').all(),
     play_history: db.prepare('SELECT * FROM play_history ORDER BY played_at DESC').all(),
     listening_events: db.prepare('SELECT * FROM listening_events ORDER BY created_at DESC').all(),
-    artists: db.prepare('SELECT * FROM artists ORDER BY name').all(),
+    // Their pictures go into the file too (data/artwork isn't in the backup).
+    artists: db.prepare('SELECT * FROM artists ORDER BY name').all().map((artist) => ({
+      ...artist,
+      image_data: toDataUrl(artist.image_path),
+    })),
     artist_track_links: db.prepare('SELECT * FROM artist_track_links ORDER BY artist_id, track_id').all(),
     tracks: db.prepare('SELECT * FROM tracks ORDER BY added_at DESC').all(),
   }

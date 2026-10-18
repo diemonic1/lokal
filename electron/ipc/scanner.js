@@ -734,8 +734,24 @@ async function applyFileChanges(changes) {
 
 function addArtistFallback(db, artist) {
   if (artist.image_path) return artist
+  // Their picture is still in the artwork folder (they left the library and
+  // came back, under the same id): it's theirs again.
+  const kept = keptArtistImage(artist.id)
+  if (kept) {
+    try { db.prepare('UPDATE artists SET image_path = ?, image_fetched_at = ? WHERE id = ? AND image_path IS NULL').run(kept, Date.now(), artist.id) } catch {}
+    return { ...artist, image_path: kept }
+  }
   const firstTrack = db.prepare(`SELECT t.artwork_path FROM tracks t JOIN artist_track_links atl ON atl.track_id = t.id WHERE atl.artist_id = ? AND t.artwork_path IS NOT NULL ORDER BY t.play_count DESC LIMIT 1`).get(artist.id)
   return { ...artist, image_path: firstTrack?.artwork_path || null }
+}
+
+function keptArtistImage(artistId) {
+  if (!/^[\w.-]+$/.test(String(artistId || '')) || String(artistId).includes('..')) return null
+  for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+    const p = path.join(getStorageDir(), 'artwork', `artist-${artistId}${ext}`)
+    if (fs.existsSync(p)) return p
+  }
+  return null
 }
 
 function lineToSearchText(line) {
@@ -1429,7 +1445,11 @@ function exportAppData() {
     user_likes: db.prepare('SELECT * FROM user_likes ORDER BY user_id, liked_at DESC').all(),
     play_history: db.prepare('SELECT * FROM play_history ORDER BY played_at DESC').all(),
     listening_events: db.prepare('SELECT * FROM listening_events ORDER BY created_at DESC').all(),
-    artists: db.prepare('SELECT * FROM artists ORDER BY name').all(),
+    // Their pictures go into the file too (data/artwork isn't in the backup).
+    artists: db.prepare('SELECT * FROM artists ORDER BY name').all().map((artist) => ({
+      ...artist,
+      image_data: toDataUrl(artist.image_path),
+    })),
     artist_track_links: db.prepare('SELECT * FROM artist_track_links ORDER BY artist_id, track_id').all(),
     tracks: db.prepare('SELECT * FROM tracks ORDER BY added_at DESC').all(),
   }

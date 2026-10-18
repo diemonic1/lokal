@@ -26,6 +26,7 @@ import { albumCacheKey, isConnected, loadOnlineAlbumCached, mergeWithLibrary, on
 import { downloadOnline, playOnline } from '../onlineActions'
 import { losslessMenuItem, losslessManyMenuItem } from '../quality'
 import { translate, useTranslation } from '../i18n'
+import { trackFolderItems } from '../trackFolderItem'
 
 const shuffledList = list => {
   const out = [...list]
@@ -389,6 +390,7 @@ export default function Albums() {
     const ids = trackSelection.contextSelect(track.id)
     const list = albumTracks.filter(item => ids.includes(String(item.id)))
     menu.open(event, [
+      ...(list.length === 1 ? trackFolderItems(list[0], t) : []),
       { label: list.length > 1 ? t('Play {n} songs', { n: list.length }) : t('Play'), icon: Play, onSelect: () => (list.length === 1 ? playQueue(albumTracks, albumTracks.indexOf(list[0]), albumContext) : playQueue(list, 0, albumContext)) },
       { label: t('Play next'), icon: Clock, onSelect: () => playNextMany(list) },
       { label: t('Add to queue'), icon: ListEnd, onSelect: () => addToQueueMany(list) },

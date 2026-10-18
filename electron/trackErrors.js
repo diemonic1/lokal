@@ -31,8 +31,9 @@ function trackErrors(db) {
 // Sorts the library asks for; anything else falls back to the default
 // rather than reaching ORDER BY (the web route passes the query string).
 const SORT = /^(id|added_at|title|artist|album|album_artist|play_count|duration|year|last_modified|bitrate|track_num)(\s+(ASC|DESC))?$/i
-// "lyrics": songs without lyrics in the file first, then plain, then synced.
-const LYRICS_SORT = "CASE lyrics_kind WHEN 'syllable' THEN 4 WHEN 'sync' THEN 3 WHEN 'plain' THEN 2 WHEN 'instrumental' THEN 1 WHEN 'unfound' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
+// "lyrics": songs without lyrics in the file first, then unfound, instrumental,
+// plain, line synced, syllable synced (LYRICS_RANK in src/trackChanged.js).
+const LYRICS_SORT = "CASE lyrics_kind WHEN 'syllable' THEN 5 WHEN 'sync' THEN 4 WHEN 'plain' THEN 3 WHEN 'instrumental' THEN 2 WHEN 'unfound' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
 // "clip": songs with a music video set (Edit Track > Clip) first, then the rest.
 const CLIP_SORT = "CASE WHEN TRIM(COALESCE(clip_url, '')) <> '' THEN 0 ELSE 1 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
 const safeSort = value => {

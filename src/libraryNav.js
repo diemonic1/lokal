@@ -43,6 +43,10 @@ export function rememberTab(path) {
   try { localStorage.setItem(TAB_KEY, path) } catch {}
 }
 
+// The sidebar's "All tracks" entry (Settings > Library > All Tracks): every
+// song in the library, picked like a folder. No real folder can be named this.
+export const ALL_TRACKS = '\u0000all'
+
 const readFolder = () => { try { return localStorage.getItem(FOLDER_KEY) || '' } catch { return '' } }
 
 export function setLibraryFolder(path) {

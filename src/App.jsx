@@ -1,5 +1,6 @@
 import { NativeAudioBridge, readOutputPreferences, saveOutputPreferences } from './audio/nativeOutput'
-import { replayGainMultiplier } from './audio/replayGain.mjs'
+import { hasReplayGain, normalizedMultiplier } from './audio/replayGain.mjs'
+import { configureLimiter, measureLoudness } from './audio/loudness'
 import { readCrossfadeSettings, fadeCurve, crossfadeDurations, CROSSFADE_MIN_S } from './audio/crossfade'
 import { planTransition, AUTOMIX_PRELOAD_S } from './audio/automix'
 import { prefetchUpcoming } from './queuePrefetch'
@@ -510,6 +511,8 @@ export default function App() {
   const audioCtxRef = useRef(null)
   const nativeAudioRef = useRef(null)
   const analyserRef = useRef(null)
+  const limiterRef = useRef(null)
+  const loudnessAskedRef = useRef(new Set()) // songs measured ahead (see handleTimeUpdate)
   const isCrossfadingRef = useRef(false)
   const audioSourcesInitializedRef = useRef(false)
   const playSecsRef = useRef(0)
@@ -613,6 +616,7 @@ export default function App() {
   // Casting: the TV plays, and this computer's audio is parked (src/cast).
   const castActive = usePlayerStore(s => s.castActive)
   const replayGainMode = usePlayerStore(s => s.replayGainMode)
+  const loudnessSettings = usePlayerStore(s => s.loudness)
   const volumeRef = useRef(volume)
   const [audioOutputReady, setAudioOutputReady] = useState(0)
   const { user } = useAppStore()
@@ -630,7 +634,9 @@ export default function App() {
     const assignedId = element.dataset.lokalTrackPending || element.dataset.lokalTrackId
     if (assignedId && assignedId !== id) return null
 
-    const apply = multiplier => {
+    // `glide`: seconds to get there (a measurement that came in mid-song
+    // eases the level over instead of jumping).
+    const apply = (multiplier, glide = 0.04) => {
       if (request !== replayGainRequestRef.current[side]) return
       const node = side === 'primary' ? replayGainNodeRef.current : cfReplayGainNodeRef.current
       if (!node?.gain) return
@@ -638,15 +644,42 @@ export default function App() {
       const now = ctx?.currentTime || 0
       try {
         node.gain.cancelScheduledValues(now)
-        if (ctx) node.gain.setTargetAtTime(multiplier, now, 0.04)
+        if (ctx) node.gain.setTargetAtTime(multiplier, now, glide)
         else node.gain.value = multiplier
       } catch { node.gain.value = multiplier }
     }
 
     try {
       const mode = usePlayerStore.getState().replayGainMode
-      if (mode === 'off' || !id || typeof window.electron?.getReplayGain !== 'function') {
+      const loudness = usePlayerStore.getState().loudness
+      const target = loudness?.enabled ? loudness.target : null
+      if (!id || ((mode === 'off' || typeof window.electron?.getReplayGain !== 'function') && target == null)) {
         apply(1)
+        return null
+      }
+
+      // Without usable ReplayGain tags: the song's measured loudness. Measured
+      // before (kept), it's here at once and the song starts at its level; a
+      // new one takes a few seconds, so playback doesn't wait: the song starts
+      // at the neutral level and glides to its own once it's measured.
+      const normalize = async (tags) => {
+        if (target == null || hasReplayGain(tags, mode)) {
+          apply(normalizedMultiplier({ tags, mode, measured: null, target }))
+          return
+        }
+        const pending = measureLoudness(track)
+        const quick = await Promise.race([pending, new Promise(resolve => setTimeout(() => resolve(undefined), 150))])
+        if (quick !== undefined) { apply(normalizedMultiplier({ tags, mode, measured: quick, target })); return }
+        apply(1)
+        pending.then(measured => {
+          const latest = element.dataset.lokalTrackPending || element.dataset.lokalTrackId
+          if (latest && latest !== id) return
+          apply(normalizedMultiplier({ tags, mode, measured, target }), 0.6)
+        })
+      }
+
+      if (mode === 'off' || typeof window.electron?.getReplayGain !== 'function') {
+        await normalize(null)
         return null
       }
 
@@ -666,7 +699,7 @@ export default function App() {
 
       const latestAssignedId = element.dataset.lokalTrackPending || element.dataset.lokalTrackId
       if (latestAssignedId && latestAssignedId !== id) return null
-      apply(replayGainMultiplier(tags, usePlayerStore.getState().replayGainMode))
+      await normalize(tags || null)
       return tags || null
     } catch {
       apply(1)
@@ -1001,6 +1034,14 @@ export default function App() {
     const cfMix = mixFilter()
     mixFilterRef.current = { primary: primaryMix, cf: cfMix }
 
+    // Loudness normalization boosts quiet songs: a limiter after both decks
+    // keeps their peaks from clipping (normalization off: it lets all through).
+    // The visualizations' analyser comes after it, so they move with the
+    // normalized level, as it's heard.
+    const limiter = ctx.createDynamicsCompressor()
+    limiterRef.current = limiter
+    configureLimiter(limiter, usePlayerStore.getState().loudness?.enabled)
+
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 256
     analyser.smoothingTimeConstant = 0.8
@@ -1020,7 +1061,8 @@ export default function App() {
       primaryReplayGain.connect(primaryGain)
       primaryGain.connect(primaryFade)
       primaryFade.connect(primaryMix)
-      primaryMix.connect(analyser)
+      primaryMix.connect(limiter)
+      limiter.connect(analyser)
       analyser.connect(ctx.destination)
 
       let cfPrev = cfSource
@@ -1029,7 +1071,7 @@ export default function App() {
       cfReplayGain.connect(cfGain)
       cfGain.connect(cfFade)
       cfFade.connect(cfMix)
-      cfMix.connect(analyser)
+      cfMix.connect(limiter)
     }
 
     try {
@@ -1558,6 +1600,7 @@ export default function App() {
     api.getSettings().then(s => {
       if (s) usePlayerStore.getState().setCrossfadeOptions(readCrossfadeSettings(s))
       usePlayerStore.getState().hydrateReplayGainMode(s?.replaygain_mode)
+      if (s && (s.loudness_normalization != null || s.loudness_target != null)) usePlayerStore.getState().setLoudness(s.loudness_normalization ?? undefined, s.loudness_target ?? undefined)
       // Sync the backend-persisted Side Panels mode at boot -- previously
       // this only happened once the Settings page itself mounted, so a
       // user who never opened Settings stayed on whatever
@@ -2480,7 +2523,8 @@ export default function App() {
       const track = id ? tracks.find(item => String(item.id) === id) : null
       applyReplayGainToElement(element, track)
     }
-  }, [replayGainMode, audioOutputReady, applyReplayGainToElement])
+    configureLimiter(limiterRef.current, loudnessSettings?.enabled)
+  }, [replayGainMode, loudnessSettings, audioOutputReady, applyReplayGainToElement])
 
   const handleTimeUpdate = useCallback((e) => {
     if (!isEventFromActive(e)) return;
@@ -2505,6 +2549,17 @@ export default function App() {
     const state = usePlayerStore.getState()
     const cf = state.crossfade?.beforeEnd || 0
     const remaining = dur - cur
+
+    // Loudness normalization: the next song is measured ahead, so it starts at its level.
+    if (state.loudness?.enabled && remaining < 120) {
+      const upcoming = upcomingTrack(state)
+      const key = upcoming?.id == null ? '' : String(upcoming.id)
+      if (key && !loudnessAskedRef.current.has(key)) {
+        loudnessAskedRef.current.add(key)
+        if (loudnessAskedRef.current.size > 500) loudnessAskedRef.current.delete(loudnessAskedRef.current.values().next().value)
+        measureLoudness(upcoming)
+      }
+    }
 
     if (state.crossfade?.automix && state.repeat !== 'one') {
       // AutoMix: the transition its plan says, loaded ahead and started on time.

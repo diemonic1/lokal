@@ -13,13 +13,26 @@ import { openRadio } from '../radioActions'
 import { showToast } from '../components/Toaster'
 import { discoveryArtistKey, loadDiscoveryArtists, setArtistFollowed, useDiscoveryArtists } from '../discoveryArtists'
 import { useTranslation } from '../i18n'
+import { useArtistImageDialog, useImageDropTarget } from '../components/ArtistImageDrop'
 
 const PAGE_SIZE = 60
 const TOP_ARTISTS_LIMIT = 8
 
 function getArtistImage(artist) {
   if (!artist?.image_path) return null
-  return api.isElectron ? `file://${artist.image_path}` : `/api/artist-image/${encodeURIComponent(artist.id)}`
+  // ?v= : a new picture keeps the same file name, so the old one isn't shown from the cache.
+  const version = artist.image_fetched_at ? `?v=${artist.image_fetched_at}` : ''
+  return api.isElectron ? `file://${artist.image_path}${version}` : `/api/artist-image/${encodeURIComponent(artist.id)}${version}`
+}
+
+/** Shown over an artist's picture while a picture is dragged over them. */
+function DropHint() {
+  const { t } = useTranslation()
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-full bg-accent/35 text-center text-[11px] font-medium leading-tight text-white">
+      <span className="px-2">{t('Drop to set the picture')}</span>
+    </div>
+  )
 }
 
 // Deterministic hash so the same artist always gets the same generated color,
@@ -50,9 +63,11 @@ function FallbackAvatar({ name }) {
 // in, and dozens of card animations running with it dropped frames.
 const FIRST_SCREEN_CARDS = 24
 
-function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = true }) {
+function ArtistCard({ artist, onClick, onPlay, onContextMenu, onImageFile, rank, animateIn = true }) {
   const { t } = useTranslation()
   const imgSrc = getArtistImage(artist)
+  // A picture from the computer dropped on the card: theirs, after a yes.
+  const drop = useImageDropTarget(file => onImageFile?.(artist, imgSrc, file), !!onImageFile)
 
   return (
     // A div acting as the button: it holds the Play button, and a button
@@ -66,7 +81,8 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
       onClick={onClick}
       onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick?.() } }}
       onContextMenu={event => onContextMenu?.(event, artist)}
-      className="group relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]"
+      {...drop.dropProps}
+      className={`group relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border ${drop.over ? 'border-accent bg-accent/10' : 'border-white/5 bg-white/[0.03]'} p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]`}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '190px' }}
     >
       {rank != null && (
@@ -80,6 +96,7 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
         ) : (
           <FallbackAvatar name={artist.name} />
         )}
+        {drop.over && <DropHint />}
         {/* Same play glyph as the album covers; the rest of the card opens the artist. */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 group-has-[:focus-visible]:opacity-100">
           <button
@@ -102,9 +119,10 @@ function ArtistCard({ artist, onClick, onPlay, onContextMenu, rank, animateIn = 
 }
 
 /** One artist as a list row: small avatar, full name (wraps instead of being cut), track count. */
-function ArtistRow({ artist, onClick, onPlay, onContextMenu }) {
+function ArtistRow({ artist, onClick, onPlay, onContextMenu, onImageFile }) {
   const { t } = useTranslation()
   const imgSrc = getArtistImage(artist)
+  const drop = useImageDropTarget(file => onImageFile?.(artist, imgSrc, file), !!onImageFile)
   return (
     <div
       role="button"
@@ -112,11 +130,13 @@ function ArtistRow({ artist, onClick, onPlay, onContextMenu }) {
       onClick={onClick}
       onContextMenu={(event) => onContextMenu?.(event, artist)}
       onKeyDown={(event) => { if (event.key === 'Enter') onClick?.() }}
-      className="group grid cursor-pointer grid-cols-[2.5rem_1fr_auto] items-center gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-elevated"
+      {...drop.dropProps}
+      className={`group grid cursor-pointer grid-cols-[2.5rem_1fr_auto] items-center gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-elevated ${drop.over ? 'bg-accent/10 ring-1 ring-accent' : ''}`}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '52px' }}
     >
       <div className="relative h-10 w-10 overflow-hidden rounded-full bg-card">
         {imgSrc ? <FadeImg src={imgSrc} className="h-full w-full object-cover" /> : <FallbackAvatar name={artist.name} />}
+        {drop.over && <div className="pointer-events-none absolute inset-0 rounded-full bg-accent/40" />}
       </div>
       <div className="min-w-0">
         <p className="break-words text-sm font-medium leading-snug text-text" title={artist.name}>{artist.name}</p>
@@ -176,6 +196,23 @@ export default function Artists() {
   const playQueue = usePlayerStore(s => s.playQueue)
   const { user } = useAppStore()
   const menu = useContextMenu()
+
+  // A picture dropped on an artist: after a yes it's theirs, and their card
+  // (here, in Top Artists and in the pages kept for the way back) shows it at once.
+  const imageDialog = useArtistImageDialog((artist, imagePath) => {
+    const patch = list => Array.isArray(list) ? list.map(item => item.id === artist.id ? { ...item, image_path: imagePath || item.image_path, image_fetched_at: Date.now() } : item) : list
+    setArtists(patch)
+    setTopArtists(patch)
+    const top = peekCache('artists:top')
+    if (top) writeCache('artists:top', patch(top))
+    for (const mode of ['name', 'tracks']) {
+      for (const suffix of ['', ':followed']) {
+        const key = `artists:${mode}${suffix}`
+        const seen = peekCache(key)
+        if (seen?.items) writeCache(key, { ...seen, items: patch(seen.items) })
+      }
+    }
+  })
 
   const loadArtists = (search, offset, append, sortMode) => {
     const requestId = artistRequestRef.current.id + 1
@@ -422,6 +459,7 @@ export default function Artists() {
                   onClick={() => navigate(`/artist/${artist.id}`)}
                   onPlay={() => playArtist(artist)}
                   onContextMenu={openArtistMenu}
+                  onImageFile={imageDialog.ask}
                   animateIn={false}
                 />
               ))}
@@ -455,6 +493,7 @@ export default function Artists() {
                         onClick={() => navigate(`/artist/${row.artist.id}`)}
                         onPlay={() => playArtist(row.artist)}
                         onContextMenu={openArtistMenu}
+                        onImageFile={imageDialog.ask}
                       />
                     </div>
                   ))}
@@ -468,6 +507,7 @@ export default function Artists() {
                       onClick={() => navigate(`/artist/${artist.id}`)}
                       onPlay={() => playArtist(artist)}
                       onContextMenu={openArtistMenu}
+                      onImageFile={imageDialog.ask}
                       animateIn={index >= FIRST_SCREEN_CARDS}
                     />
                   ))}
@@ -484,6 +524,7 @@ export default function Artists() {
       </div>
       <ArtistRefreshAllModal open={refreshOpen} onClose={() => setRefreshOpen(false)} onStatus={setRefreshStatus} />
       <ContextMenu menu={menu} />
+      {imageDialog.dialog}
     </div>
   )
 }

@@ -4,10 +4,12 @@
 // (the gradient continues from where the artwork ends), a touch more
 // saturated, and never pure black. The renderer smooths and blurs it.
 
+const fs = require('fs')
+
 let sharpLib = null
 function sharp() {
   if (sharpLib === null) {
-    try { sharpLib = require('sharp') } catch { sharpLib = false }
+    try { sharpLib = require('sharp'); sharpLib.cache(false) } catch { sharpLib = false }
   }
   return sharpLib || null
 }
@@ -60,7 +62,10 @@ async function meshFromImage(source, cacheKey = null) {
   if (cacheKey && cache.has(cacheKey)) return cache.get(cacheKey)
   try {
     const size = GRID * 16
-    const { data, info } = await s(source).resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+    // Bytes, not the path: libvips keeps a file it opened mapped (its cache),
+    // and Windows then refuses to overwrite it (a new cover for the song).
+    const input = typeof source === 'string' ? fs.readFileSync(source) : source
+    const { data, info } = await s(input).resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
     const cell = size / GRID
     const grid = []
     for (let gy = 0; gy < GRID; gy++) {

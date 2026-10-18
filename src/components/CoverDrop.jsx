@@ -16,12 +16,12 @@ import { announceTrackChanged } from '../trackChanged'
 // (MP3 players rarely show a WebP cover; see coverImage in electron/trackCover.js).
 const COVER_TYPES = /^image\/(jpeg|png|webp)$/i
 const COVER_NAMES = /\.(jpe?g|png|webp)$/i
-const isWebp = file => /^image\/webp$/i.test(file?.type || '') || /\.webp$/i.test(file?.name || '')
+export const isWebp = file => /^image\/webp$/i.test(file?.type || '') || /\.webp$/i.test(file?.name || '')
 
-const draggingFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files')
+export const draggingFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files')
 
 /** The dropped picture, when it's a JPEG, PNG or WebP. */
-function droppedCover(event) {
+export function droppedCover(event) {
   const files = Array.from(event.dataTransfer?.files || [])
   return files.find(file => COVER_TYPES.test(file.type) || COVER_NAMES.test(file.name)) || null
 }
@@ -31,7 +31,7 @@ export function coverError(error) {
   return String(error?.message || error || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-function readAsDataURL(file) {
+export function readAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result || ''))

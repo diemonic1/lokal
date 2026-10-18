@@ -42,6 +42,7 @@ import ArtistNames from './ArtistNames'
 import GenrePopover from './GenrePopover'
 import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
 import { TRACK_SEARCH_SITES, clipLink, clipText, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
+import { trackFolderItems } from '../trackFolderItem'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -714,6 +715,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
     const deletable = resolveTracks ? [] : libraryTracks(list)
     const oneGhost = one && (isGhostTrack(one) || one.missing)
     menu.open(event, [
+      ...(one ? trackFolderItems(one, t) : []),
       { label: one ? t('Play') : t('Play {n} songs', { n }), icon: Play, onSelect: () => (one ? handlePlay(one, { stopPropagation() {} }) : playMany(list)) },
       { label: t('Play next'), icon: Clock, onSelect: () => runResolved(list, playNextMany) },
       { label: t('Add to queue'), icon: ListEnd, onSelect: () => runResolved(list, addToQueueMany) },
@@ -1115,7 +1117,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                     </button>
                   )
                 }
-                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'syllable' ? 'text-accent' : track.lyrics_kind === 'sync' ? 'text-accent/80' : 'text-muted'}`}>{['syllable', 'sync', 'plain', 'instrumental', 'unfound'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
+                case 'lyrics': return <span key={key} data-track-column="lyrics" className={`truncate text-xs font-display ${track.lyrics_kind === 'syllable' ? 'text-accent' : track.lyrics_kind === 'sync' ? 'text-accent/80' : track.lyrics_kind === 'unfound' ? 'text-[#ff4848]' : 'text-muted'}`}>{['syllable', 'sync', 'plain', 'instrumental', 'unfound'].includes(track.lyrics_kind) ? track.lyrics_kind : ''}</span>
                 case 'comment': return commentLink(track)
                   ? <button key={key} type="button" data-track-column="comment" onClick={e => { e.stopPropagation(); openLink(commentLink(track)) }} onDoubleClick={e => e.stopPropagation()}
                       title={commentLink(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{commentLink(track)}</button>

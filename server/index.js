@@ -13,7 +13,11 @@ console.log(`DB: ${getStorageDir()}`)
 
 const app = express()
 app.use(cors())
-app.use(express.json({ limit: '10mb' }))
+// A backup being restored carries its pictures (playlist covers, avatars,
+// artist pictures): far bigger than any other request.
+const jsonBody = express.json({ limit: '10mb' })
+const backupBody = express.json({ limit: '1gb' })
+app.use((req, res, next) => (req.path === '/api/settings/import-all' ? backupBody : jsonBody)(req, res, next))
 
 const distPath = path.join(__dirname, '../dist')
 if (fs.existsSync(distPath)) app.use(express.static(distPath))

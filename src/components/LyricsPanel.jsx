@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban } from 'lucide-react'
+import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall } from 'lucide-react'
+import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT } from '../sidePanelPrefs'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import Modal from './Modal'
 import LyricsSearchDrawer from './LyricsSearchDrawer'
@@ -490,6 +491,52 @@ function Pill({ active, onClick, children, title, disabled }) {
   )
 }
 
+// The side panel's "Size" button: a small slider right above it for the lyrics
+// size (the same setting as Settings > Appearance > Side Panel Lyrics Size).
+function SizePill({ onOpenChange, openUp = true }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const scale = useSideLyricsScale()
+  const percent = sideLyricsPercent(scale)
+  const ref = useRef(null)
+  const toggle = (next) => { setOpen(next); onOpenChange?.(next) }
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (!ref.current?.contains(e.target)) toggle(false) }
+    const onKey = (e) => { if (e.key === 'Escape') toggle(false) }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey) }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div ref={ref} className="relative">
+      <Pill active={open} onClick={() => toggle(!open)} title={t('Lyrics size')}>
+        <ALargeSmall size={12} />
+        {t('Size')}
+      </Pill>
+      {open && (
+        <div className={`absolute left-0 ${openUp ? 'bottom-full mb-2' : 'top-full mt-2'} z-40 w-64 rounded-xl border border-white/10 bg-black/85 px-3 py-2.5 backdrop-blur-md shadow-xl`}>
+          <div className="mb-1.5 flex items-center justify-between text-[11px] text-white/60">
+            <span>{t('Lyrics size')}</span>
+            <span className="tabular-nums text-white">{percent}%</span>
+          </div>
+          <input
+            type="range"
+            min={SIDE_LYRICS_PERCENT.min}
+            max={SIDE_LYRICS_PERCENT.max}
+            step={SIDE_LYRICS_PERCENT.step}
+            value={percent}
+            onChange={(e) => setSideLyricsPercent(e.target.value)}
+            onDoubleClick={() => setSideLyricsPercent(SIDE_LYRICS_PERCENT.initial)}
+            title={t('Double-click to reset')}
+            className="block w-full h-5 cursor-pointer accent-accent"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- panel
 
 // Lyrics already fetched, per song, shared by every panel (sidebar, full-screen
@@ -527,6 +574,8 @@ export default function LyricsPanel({
   // The side panel's Visualization + Lyrics tab: the buttons sit along the
   // bottom instead, unseen until the mouse is over them.
   toolbarAtBottom = false,
+  // The side panel: a "Size" button for its lyrics size, before Translate.
+  sizeControl = false,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -959,7 +1008,9 @@ export default function LyricsPanel({
   // The source menu also shows while searching, so its bars can be watched.
   const showToolbar = lines.length > 0 || (searching && sources.length > 0)
   const [toolbarHover, setToolbarHover] = useState(false)
-  const toolbarFaded = toolbarAtBottom ? !toolbarHover : toolbarHidden
+  // The size slider stays up while it's open, even once the mouse leaves the row.
+  const [sizeOpen, setSizeOpen] = useState(false)
+  const toolbarFaded = toolbarAtBottom ? !(toolbarHover || sizeOpen) : toolbarHidden
 
   // Hidden over the visualization (no lines to show): the mouse goes through
   // to it (the splashes follow it), only the small notes and buttons take it.
@@ -983,6 +1034,7 @@ export default function LyricsPanel({
           style={fullscreen || toolbarAtBottom ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
         >
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
               {translationBusy ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
               {t('Translate')}

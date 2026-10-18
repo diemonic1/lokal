@@ -209,7 +209,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
       <div className={`absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)] ${idle ? 'pointer-events-none' : ''}`} style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
         <div className="relative h-full min-h-0 overflow-hidden">
           <LyricsPanel track={track} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={textScale} isAutoSynced={isAutoSynced}
-            idleVisual onIdleChange={setIdle} toolbarAtBottom />
+            idleVisual onIdleChange={setIdle} toolbarAtBottom sizeControl />
         </div>
       </div>
     </div>

@@ -30,6 +30,20 @@ function registerAutomixHandlers(ipcMain) {
       source: async () => (fs.existsSync(file) ? { file } : null),
     })
   })
+
+  // Loudness normalization: a library song's measured loudness (electron/loudness.js).
+  // Online songs aren't measured (it would mean downloading them twice).
+  ipcMain.handle('loudness:measure', async (_, track) => {
+    if (!track?.id) return null
+    const file = String(track.file_path || '')
+    if (!file || /^(ghost|https?):/i.test(file) || !fs.existsSync(file)) return null
+    let stamp = ''
+    try { const st = fs.statSync(file); stamp = `${st.size}:${Math.round(st.mtimeMs)}` } catch {}
+    return require('../loudness').loudnessFor({
+      db: getDB(), key: `${track.id}|${stamp}`, file, log,
+      ffmpeg: () => require('./tools').findFfmpeg(),
+    })
+  })
 }
 
 module.exports = { registerAutomixHandlers }

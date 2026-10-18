@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { AppWindow, Folder, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { AppWindow, Folder, ListMusic, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../api'
 import FadeImg from './FadeImg'
 import { TRACK_CHANGED } from '../trackChanged'
-import { setLibraryFolder, useLibraryFolder } from '../libraryNav'
+import { ALL_TRACKS, setLibraryFolder, useLibraryFolder } from '../libraryNav'
 import { LEFT_SIDEBAR_WIDTH, setLeftSidebarWidth, useLeftSidebarScale, useLeftSidebarWidth } from '../sidePanelPrefs'
 import { useTranslation } from '../i18n'
 import { useAppearanceText } from '../appearanceFlags'
@@ -40,6 +40,11 @@ export default function Sidebar() {
   // Right-click: open the folder in a program from Settings > Library > Open Folders In.
   const menu = useContextMenu()
   const folderApps = parseFolderApps(useAppearanceText('folder_apps', '[]')).filter(app => app.path.trim())
+  // Settings > Library > All Tracks: every song, last in the list.
+  // (Until the settings are read the value is '': "All tracks" picked last
+  // time stays picked; only switching it off, '0', sends the list elsewhere.)
+  const allTracksSetting = useAppearanceText('library_all_tracks', '')
+  const showAllTracks = allTracksSetting === '1'
   const openFolderMenu = (event, folder) => {
     if (!api.isElectron || !folderApps.length) return
     menu.open(event, folderApps.map(app => ({
@@ -81,10 +86,11 @@ export default function Sidebar() {
   // A folder that's still there keeps its place even while it reads as empty
   // (e.g. mid-scan), so the choice survives restarts.
   useEffect(() => {
+    if (selected === ALL_TRACKS && allTracksSetting !== '0') return
     if (!folders.length) return
     if (selected && allFolders.some(folder => folder.path === selected)) return
     setLibraryFolder(folders[0].path)
-  }, [folders, allFolders, selected])
+  }, [folders, allFolders, selected, allTracksSetting])
 
   const onLibrary = loc.pathname === '/library'
   const open = path => {
@@ -163,6 +169,26 @@ export default function Sidebar() {
             </button>
           )
         })}
+        {showAllTracks && (() => {
+          const active = onLibrary && selected === ALL_TRACKS
+          return (<>
+            <div role="separator" className="!my-1.5 mx-1 h-px bg-white/15" />
+            <button
+              type="button"
+              onClick={() => open(ALL_TRACKS)}
+              title={collapsed ? t('All tracks') : undefined}
+              aria-label={collapsed ? t('All tracks') : undefined}
+              aria-current={active ? 'page' : undefined}
+              style={{ fontSize: `${0.75 * scale}rem`, gap: `${0.625 * scale}rem` }}
+              className={`w-full flex items-center py-1.5 rounded-lg transition-all ${collapsed ? 'justify-center px-0' : 'px-2'} ${active ? 'bg-accent/15 text-accent' : 'text-muted hover:text-white hover:bg-elevated'}`}
+            >
+              <div className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded bg-elevated" style={{ width: cover, height: cover }}>
+                <ListMusic size={Math.round(14 * scale)} className={active ? 'text-accent' : 'text-muted'} />
+              </div>
+              {!collapsed && <span className="min-w-0 flex-1 truncate text-left font-medium">{t('All tracks')}</span>}
+            </button>
+          </>)
+        })()}
       </nav>
       <ContextMenu menu={menu} />
 

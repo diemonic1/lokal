@@ -37,6 +37,7 @@ import Splashes from '../visualizers/Splashes'
 import { readSplashSettings } from '../visualizers/splashSettings'
 import { pickColor } from '../visualizers/audio'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
+import { trackFolderItems } from '../trackFolderItem'
 
 // "Music" is a placeholder some files carry, not a genre.
 const isPlaceholderGenre = genre => !String(genre || '').trim() || String(genre).trim().toLowerCase() === 'music'
@@ -336,6 +337,7 @@ export default function RightSidebar() {
   const openTrackMenu = (event) => {
     if (!currentTrack) return
     menu.open(event, [
+      ...trackFolderItems(currentTrack, t),
       { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(nav, currentTrack, user?.id) },
       currentTrack.artist && { label: t('Start artist radio'), icon: Radio, onSelect: () => openRadio(nav, { artist: currentTrack.artist, type: 'artist' }, user?.id) },
       losslessMenuItem(currentTrack, Gem),
@@ -590,7 +592,7 @@ export default function RightSidebar() {
                   {/* Hidden over the visualization, the lyrics let the mouse through to it. */}
                   <div className={`relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)] ${lyricsIdle && currentTrack ? 'pointer-events-none' : ''}`}>
                     {currentTrack ? (
-                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarEndGap
+                      <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarAtBottom sizeControl
                         idleVisual onIdleChange={setLyricsIdle} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>

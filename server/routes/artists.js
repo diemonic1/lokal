@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const fs = require('fs-extra')
 const path = require('path')
-const { getDB } = require('../../electron/ipc/db')
+const { getDB, getStorageDir } = require('../../electron/ipc/db')
 const { cacheArtistMetadata, refreshArtistMetadata, startRefreshAll, refreshAllStatus, cancelRefreshAll, searchArtistMetadataCandidates, applyArtistMetadataSelection, clearArtistImageOverride } = require('../../electron/ipc/artistMetadata')
 
 function classifyAlbumRow(row) {
@@ -21,6 +21,16 @@ function enrichAlbumRows(rows = []) {
 
 function addArtistFallback(db, artist) {
   if (artist.image_path) return artist
+  // Their picture is still in the artwork folder (they left the library and
+  // came back, under the same id): it's theirs again.
+  if (/^[\w.-]+$/.test(String(artist.id || '')) && !String(artist.id).includes('..')) {
+    for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+      const kept = path.join(getStorageDir(), 'artwork', `artist-${artist.id}${ext}`)
+      if (!fs.existsSync(kept)) continue
+      try { db.prepare('UPDATE artists SET image_path = ?, image_fetched_at = ? WHERE id = ? AND image_path IS NULL').run(kept, Date.now(), artist.id) } catch {}
+      return { ...artist, image_path: kept }
+    }
+  }
   const firstTrack = db.prepare(`
     SELECT t.artwork_path FROM tracks t 
     JOIN artist_track_links atl ON atl.track_id = t.id 

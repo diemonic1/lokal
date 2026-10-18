@@ -54,13 +54,15 @@
 //   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
 //   radio_config_page_url  Settings > Online Radio > a page to edit the catalogue (the station list's "Open config")
 //   folder_apps     Settings > Library > Open Folders In: JSON [{ name, path }] (the sidebar folders' right-click menu)
+//   library_all_tracks  Settings > Library > All Tracks: '1' adds "All tracks" (every song) under the
+//                   sidebar's folders (see ALL_TRACKS in libraryNav.js). Unset: off
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { SPLASH_SETTING_KEYS } from './visualizers/splashSettings'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
-const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps',
+const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps', 'library_all_tracks',
   'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color', 'player_spectrum_radius',
   'player_center_spectrum_bars', 'player_center_spectrum_bar_width', 'player_center_spectrum_height', 'player_center_spectrum_strength', 'player_center_spectrum_opacity', 'player_center_spectrum_color', 'player_center_spectrum_radius',
   'side_lyrics_backdrop_strength', 'side_lyrics_offset', 'side_visual_gradient_off',

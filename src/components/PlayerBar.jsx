@@ -30,6 +30,7 @@ import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
 import { useCastStore } from '../cast/castStore'
 import { useCoverDrop } from './CoverDrop'
+import { trackFolderItems } from '../trackFolderItem'
 
 function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
 
@@ -261,6 +262,7 @@ export default function PlayerBar() {
     const track = currentTrack
     const ghost = !track.file_path || track.missing
     menu.open(event, [
+      ...trackFolderItems(track, t),
       { label: isPlaying ? t('Pause') : t('Play'), icon: isPlaying ? Pause : Play, onSelect: togglePlay },
       { label: t('Play next'), icon: Clock, onSelect: () => playNextMany([track]) },
       { label: t('Add to queue'), icon: ListEnd, onSelect: () => addToQueueMany([track]) },

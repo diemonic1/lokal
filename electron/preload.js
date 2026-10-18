@@ -242,6 +242,7 @@ contextBridge.exposeInMainWorld('electron', {
   spotifyLikesPush: (track) => invoke('spotifyLikes:push', track),
   // AutoMix: a song's analysis (electron/automix)
   automixAnalyze: (track) => invoke('automix:analyze', track),
+  measureLoudness: (track) => invoke('loudness:measure', track),
   // Flow's songs (electron/ipc/flow.js)
   flowPool: (userId) => invoke('flow:pool', userId),
   // Casting (electron/ipc/cast.js)

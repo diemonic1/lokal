@@ -21,6 +21,7 @@ import { isConnected, releaseTitleKey, setConnected } from '../onlineBrowse'
 import ReleaseTypeFilter from '../components/ReleaseTypeFilter'
 import { groupReleases, releaseTypeCounts, useReleaseTypes } from '../releaseTypes'
 import FollowArtistButton from '../components/FollowArtistButton'
+import { useArtistImageDrop } from '../components/ArtistImageDrop'
 
 export default function Artist() {
   const { t } = useTranslation()
@@ -195,15 +196,21 @@ export default function Artist() {
     : artist?.topTracks || []
   const canShowAll = ownedTracks.length > (artist?.topTracks?.length || 0)
 
-  if (online) return <OnlineArtist key={id} id={id} name={onlineNames.current[id]?.name} anchor={onlineNames.current[id]?.anchor} />
-  if (!artist) return <div className="p-6 text-muted text-sm">{t('Loading...')}</div>
-
   // Web mode previously hardcoded this to null, so the artist detail page
   // never showed an image outside Electron even when one existed — see
   // getArtistImage in Artists.jsx for the same pattern already used there.
-  const imgSrc = artist.image_path
-    ? (api.isElectron ? `file://${artist.image_path}` : `/api/artist-image/${encodeURIComponent(artist.id)}`)
+  // ?v= : a new picture keeps the same file name, so the old one isn't shown
+  // from the cache.
+  const imageVersion = artist?.image_fetched_at ? `?v=${artist.image_fetched_at}` : ''
+  const imgSrc = artist?.image_path
+    ? (api.isElectron ? `file://${artist.image_path}${imageVersion}` : `/api/artist-image/${encodeURIComponent(artist.id)}${imageVersion}`)
     : null
+  // A picture dragged in from the computer onto the header replaces theirs.
+  const imageDrop = useArtistImageDrop(artist, imgSrc, load)
+
+  if (online) return <OnlineArtist key={id} id={id} name={onlineNames.current[id]?.name} anchor={onlineNames.current[id]?.anchor} />
+  if (!artist) return <div className="p-6 text-muted text-sm">{t('Loading...')}</div>
+
   const artSrc = (track) => track.artwork_path ? (api.isElectron ? `file://${track.artwork_path}` : api.artworkURL(track.id)) : null
   // The share card: the artist's photo (else a cover), their songs and your
   // plays of them, counted as recaps count them (30 seconds or more, streamed
@@ -234,7 +241,7 @@ export default function Artist() {
 
   return (
     <div className="pb-8">
-      <div className="relative h-56 overflow-hidden">
+      <div className="relative h-56 overflow-hidden" {...imageDrop.dropProps}>
         <button
           onClick={() => nav(-1)}
           className="absolute left-6 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:text-white @md:left-8 @md:top-5"
@@ -244,11 +251,16 @@ export default function Artist() {
         </button>
         {imgSrc ? <img src={imgSrc} className="h-full w-full object-cover opacity-40" /> : <div className="h-full w-full bg-gradient-to-b from-accent/8 to-transparent" />}
         <div className="absolute inset-0 bg-gradient-to-t from-base via-base/20" />
+        {imageDrop.over && (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center border-2 border-dashed border-accent/70 bg-accent/10 text-sm font-medium text-white">
+            {imgSrc ? t('Drop to replace the artist’s picture') : t('Drop to add a picture for the artist')}
+          </div>
+        )}
         <div className="absolute bottom-5 left-8 flex items-end gap-5">
           {/* Click: the picture, big (no picture: choose one). The camera
               in the corner changes it. */}
           <div className="relative group flex-shrink-0">
-            <button onClick={imgSrc ? () => setZoom(true) : pickArtistImage} title={imgSrc ? t('View the picture') : api.isElectron ? t('Choose a picture') : undefined} className={`flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-elevated ${imgSrc ? 'cursor-zoom-in' : ''}`}>
+            <button onClick={imgSrc ? () => setZoom(true) : pickArtistImage} title={imgSrc ? t('View the picture') : api.isElectron ? t('Choose a picture') : undefined} className={`flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 bg-elevated ${imageDrop.over ? 'border-accent' : 'border-border'} ${imgSrc ? 'cursor-zoom-in' : ''}`}>
               {imgSrc ? <img src={imgSrc} alt={artist.name} className="h-full w-full object-cover" /> : <Music size={36} className="text-muted" />}
             </button>
             {api.isElectron && imgSrc && (
@@ -384,6 +396,7 @@ export default function Artist() {
         {connected && <OnlineArtistSections data={onlineData} path={`/artist/${id}`} libraryTracks={artist.tracks || []} libraryAlbums={artist.albums || []} shownTypes={shownTypes} />}
       </div>
       {releases.elements}
+      {imageDrop.dialog}
 
       <ArtistManageModal
         artist={artist}

@@ -8,6 +8,7 @@
 //
 // items: [{ label, icon: LucideIcon, onSelect, danger, disabled, hint, checked }, { separator: true }, ...]
 // checked: the current choice of a set (a tick, in the accent colour).
+// caption: a small grey line, its label shown untranslated (title: its tooltip).
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -105,6 +106,21 @@ export default function ContextMenu({ menu, id }) {
     >
       {items.map((item, index) => item.separator ? (
         <div key={`separator-${index}`} role="separator" className="my-1 h-px bg-white/10" />
+      ) : item.caption ? (
+        // A small grey line (e.g. the song's folder), shown as it is: not
+        // translated, cut at its start so the end of a long path shows.
+        <button
+          key={`caption-${index}`}
+          type="button"
+          role="menuitem"
+          title={item.title}
+          onClick={() => pick(item)}
+          onMouseEnter={() => setActive(index)}
+          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left text-[11px] transition-colors ${active === index ? 'bg-white/10 text-white/80' : 'text-muted'}`}
+        >
+          {item.icon && <item.icon size={12} className="flex-shrink-0 opacity-70" />}
+          <span dir="rtl" className="min-w-0 flex-1 truncate text-left"><bdi dir="ltr">{item.label}</bdi></span>
+        </button>
       ) : (
         <button
           key={item.label}

@@ -21,9 +21,14 @@ function lib() {
 let sharpLib = null
 function sharp() {
   if (sharpLib === null) {
-    try { sharpLib = require('sharp') } catch { sharpLib = false }
+    try { sharpLib = require('sharp'); sharpLib.cache(false) } catch { sharpLib = false }
   }
   return sharpLib || null
+}
+
+function coverLog(level, message) {
+  const line = `[cover] ${message}`
+  try { require('electron-log')[level](line) } catch { console[level === 'warn' ? 'warn' : 'log'](line) }
 }
 
 function imageMime(bytes) {
@@ -89,6 +94,7 @@ function writeFileCover(filePath, bytes, mime) {
  * the file got it.
  */
 async function setTrackCover(db, track, imageData, storageDir) {
+  coverLog('info', `setting the cover of ${track.id} (file: ${track.file_path || '-'}, current: ${track.artwork_path || '-'})`)
   const { bytes, mime } = await coverImage(imageData)
   let embedded = false
   if (isLocalFile(track.file_path)) {
@@ -99,7 +105,24 @@ async function setTrackCover(db, track, imageData, storageDir) {
   const dir = path.join(storageDir, 'artwork')
   fs.mkdirSync(dir, { recursive: true })
   // <id>.jpg is what a rescan reads the cover back into (it keeps one that's there).
-  fs.writeFileSync(path.join(dir, `${track.id}.jpg`), bytes)
+  // Windows refuses to overwrite a file something still has mapped (code
+  // UNKNOWN / "user-mapped section open"): then it's moved aside, and if even
+  // that fails the song still gets its new versioned cover below.
+  const stable = path.join(dir, `${track.id}.jpg`)
+  try {
+    fs.writeFileSync(stable, bytes)
+  } catch (e) {
+    coverLog('warn', `can't overwrite ${stable}: ${e?.code} ${e?.errno} ${e?.syscall} ${e?.message}`)
+    try {
+      const aside = path.join(dir, `${track.id}-old${Date.now()}.jpg`)
+      fs.renameSync(stable, aside)
+      fs.writeFileSync(stable, bytes)
+      try { fs.unlinkSync(aside) } catch {}
+      coverLog('info', `replaced ${stable} by moving the old one aside`)
+    } catch (e2) {
+      coverLog('warn', `can't replace ${stable} either: ${e2?.code} ${e2?.errno} ${e2?.syscall} ${e2?.message}`)
+    }
+  }
   const artPath = path.join(dir, `${track.id}-v${Date.now()}.jpg`)
   fs.writeFileSync(artPath, bytes)
   // Older versions go, but not the one just replaced: a page still showing

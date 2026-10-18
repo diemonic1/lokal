@@ -468,6 +468,7 @@ function importAppData(payload = {}) {
   const listeningEvents = Array.isArray(payload.listening_events) ? payload.listening_events : []
 
   fs.ensureDirSync(path.join(_dataDir, 'avatars'))
+  fs.ensureDirSync(path.join(_dataDir, 'artwork'))
 
   const restore = db.transaction(() => {
     clearDatabaseTables()
@@ -506,11 +507,20 @@ function importAppData(payload = {}) {
 
     const insertArtist = db.prepare('INSERT INTO artists (id, name, bio, image_path, bio_source, bio_fetched_at, image_source, image_fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     for (const artist of artists) {
+      let imagePath = artist.image_path || null
+      // The picture from the backup, as artist-<id>.<ext> (an id that could
+      // leave the artwork folder gets none).
+      if (artist.image_data && /^[\w.-]+$/.test(String(artist.id)) && !String(artist.id).includes('..')) {
+        const data = String(artist.image_data)
+        const ext = data.startsWith('data:image/png') ? 'png' : data.startsWith('data:image/webp') ? 'webp' : 'jpg'
+        imagePath = path.join(_dataDir, 'artwork', `artist-${artist.id}.${ext}`)
+        fs.writeFileSync(imagePath, Buffer.from(data.split(',')[1] || '', 'base64'))
+      }
       insertArtist.run(
         artist.id,
         artist.name,
         artist.bio || null,
-        artist.image_path || null,
+        imagePath,
         artist.bio_source || null,
         artist.bio_fetched_at || null,
         artist.image_source || null,

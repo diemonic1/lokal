@@ -11,7 +11,7 @@ import TrackList from '../components/TrackList'
 import ScanBanner from '../components/ScanBanner'
 import { api, peekSettings } from '../api'
 import { useCachedState, usePageReady } from '../pageCache'
-import { useLibraryFolder } from '../libraryNav'
+import { ALL_TRACKS, useLibraryFolder } from '../libraryNav'
 import { useTranslation } from '../i18n'
 import { TRACK_CHANGED, readTrack, placeTrack } from '../trackChanged'
 
@@ -92,7 +92,12 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const { t } = useTranslation()
   const sidebarFolder = useLibraryFolder()
   const inGenre = fixedGenre != null
-  const folder = inGenre ? '' : sidebarFolder
+  // The sidebar's "All tracks": the whole library, sorted and filtered like a
+  // folder but never reordered (no folder to number the songs in).
+  const allTracks = !inGenre && sidebarFolder === ALL_TRACKS
+  const folder = inGenre || allTracks ? '' : sidebarFolder
+  // Which list is on screen (folder is '' for both the genre and All tracks).
+  const listKey = allTracks ? ALL_TRACKS : folder
   const cacheKey = inGenre ? `genre:${fixedGenre}:` : 'library:'
   const prefsKey = inGenre ? 'lokal-genre-' : 'lokal-library-'
   // Kept across visits (with the sort and folder they were shown in), so coming
@@ -120,11 +125,11 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const loadingRef = useRef(false)
   const loadMoreRef = useRef(null)
   const requestIdRef = useRef(0)
-  const folderName = inGenre ? (title || fixedGenre) : folder ? folder.split('/').pop() : t('Library')
+  const folderName = inGenre ? (title || fixedGenre) : allTracks ? t('All tracks') : folder ? folder.split('/').pop() : t('Library')
   // Another folder picked: the old list fades out and the new one in once
   // its songs are here, instead of the rows swapping at once.
-  const [listFolder, setListFolder] = useState(folder)
-  const switchingFolder = listFolder !== folder
+  const [listFolder, setListFolder] = useState(listKey)
+  const switchingFolder = listFolder !== listKey
   // Settings > Appearance > Layout > Folder switch animation.
   const transition = useAppearanceText('folder_transition', 'slide')
 
@@ -287,11 +292,11 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
       const result = await api.getTracks({ sort, limit: LIBRARY_PAGE_SIZE, offset: nextOffset, ...filters })
       if (requestId !== requestIdRef.current) return
       // A failed request keeps the list already shown (and cached).
-      if (!Array.isArray(result)) { if (!append) setListFolder(folder); return }
+      if (!Array.isArray(result)) { if (!append) setListFolder(listKey); return }
       const items = problemsOnly ? result : result.filter(track => !String(track?.file_path || '').startsWith('ghost://'))
       offsetRef.current = nextOffset + items.length
       setTracks(prev => append ? [...prev, ...items] : items)
-      if (!append) setListFolder(folder)
+      if (!append) setListFolder(listKey)
       setHasMore(items.length === LIBRARY_PAGE_SIZE)
       // Only a real answer ends the first load ("No tracks yet" must be true).
       setLoaded(true)
@@ -311,13 +316,13 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     offsetRef.current = 0
     setHasMore(false)
     load(false)
-  }, [folder, sort, source, genre, quality, problemsOnly])
+  }, [listKey, sort, source, genre, quality, problemsOnly])
 
   useEffect(() => {
     const handleRefresh = () => { load(false); loadGenres() }
     window.addEventListener('lokal:refresh', handleRefresh)
     return () => window.removeEventListener('lokal:refresh', handleRefresh)
-  }, [folder, sort, source, genre, quality, problemsOnly])
+  }, [listKey, sort, source, genre, quality, problemsOnly])
 
   // One song edited (tags, lyrics in its file): read just it again and put it
   // where the current sort and filters put it -- or out, if it no longer matches.
@@ -338,7 +343,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     }
     window.addEventListener(TRACK_CHANGED, onChanged)
     return () => window.removeEventListener(TRACK_CHANGED, onChanged)
-  }, [folder, sort, source, genre, quality, problemsOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [listKey, sort, source, genre, quality, problemsOnly]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The genres to pick from: every one in the library, on opening and after a refresh.
   const loadGenres = () => Promise.resolve(api.getAllGenres())
@@ -380,7 +385,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     else revealedAtLaunch = true
   }, [currentId, currentPath, loaded, loading, switchingFolder, tracks, hasMore, folder, inGenre, reorder]) // eslint-disable-line react-hooks/exhaustive-deps
   // Another folder or sort: it's not opened on that song again.
-  useEffect(() => { setRevealId(null) }, [folder, sort, source, genre, quality, problemsOnly])
+  useEffect(() => { setRevealId(null) }, [listKey, sort, source, genre, quality, problemsOnly])
 
   const activeFilters = (source !== 'all' ? 1 : 0) + (genre && !inGenre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
   const clearFilters = () => { setSource('all'); if (!inGenre) setGenre(''); setQuality(''); setProblemsOnly(false) }
@@ -392,7 +397,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const [searchHits, setSearchHits] = useState(null)
   const [searchTick, setSearchTick] = useState(0)
   const searching = !!folderQuery.trim()
-  useEffect(() => { setFolderQuery('') }, [folder, fixedGenre])
+  useEffect(() => { setFolderQuery('') }, [listKey, fixedGenre])
   useEffect(() => {
     const q = folderQuery.trim()
     if (!q) { setSearchHits(null); return undefined }
@@ -536,7 +541,7 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const reorderNumbers = reorder ? new Map(reorder.tracks.map((track, index) => [track.id, reorder.numbers[index]])) : null
 
   return (
-    <div className="relative px-6 pt-0 space-y-3 pb-10 min-h-full" {...dropHandlers}>
+    <div className="relative px-6 pt-0 space-y-3 min-h-full" {...dropHandlers}>
 
       {!musicFolderSet && <ScanBanner />}
 

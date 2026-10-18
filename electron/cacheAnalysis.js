@@ -119,7 +119,8 @@ function ghostTracks(db) {
   return out
 }
 
-// Covers in data/artwork: by kind, plus the ones nothing in the library uses any more.
+// Covers in data/artwork: by kind, plus the ones nothing in the library uses
+// any more (never an artist's picture).
 async function artwork(dir, db) {
   const m = await measure(dir, { keepFiles: true })
   // A cover is in use when a row points at it, or when it's named after a
@@ -135,7 +136,10 @@ async function artwork(dir, db) {
       try { for (const r of db.prepare(sql).all()) ids.add(`${prefix}${r.id}`.toLowerCase()) } catch {}
     }
   }
-  const isUsed = file => used.has(path.resolve(file).toLowerCase()) || ids.has(path.basename(file).replace(/\.[^.]+$/, '').toLowerCase())
+  // Artist pictures are always kept: one may have been chosen by hand, and an
+  // artist whose songs are gone for now (a rescan, a missing drive) gets the
+  // same id, and the picture, back when they return (see addArtistFallback).
+  const isUsed = file => path.basename(file).startsWith('artist-') || used.has(path.resolve(file).toLowerCase()) || ids.has(path.basename(file).replace(/\.[^.]+$/, '').toLowerCase())
   const kinds = { trackCovers: empty(), artistImages: empty(), playlistCovers: empty(), otherArtwork: empty() }
   const unused = empty()
   const unusedFiles = []

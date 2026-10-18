@@ -584,7 +584,8 @@ app.whenReady().then(() => {
   ipcMain.handle('dialog:readFileAsDataURL', async (_, fp) => {
   try {
     const sharp = require('sharp');
-    const buffer = await sharp(fp)
+    // Bytes, not the path, so libvips doesn't keep the picked file locked.
+    const buffer = await sharp(require('fs').readFileSync(fp))
       .resize(512, 512, {
         fit: 'cover',  
         position: 'centre' 

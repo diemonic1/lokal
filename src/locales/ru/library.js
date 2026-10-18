@@ -1,5 +1,6 @@
 // Russian phrases for the library area, keyed by the English phrase (see ../../i18n.jsx).
 export default {
+  'All tracks': 'Все треки',
   'Playing next: {title}': 'Следующим: {title}',
   'Unknown track': 'Неизвестный трек',
   '{tracks} will play next': '{tracks} — следующими',
