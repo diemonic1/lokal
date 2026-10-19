@@ -243,6 +243,7 @@ export const api = {
   deleteTracks: (ids) => isE() ? el().deleteTracks(ids) : apiFetch('/tracks/batch-delete', { method:'POST', body:{ids} }),
   deleteTrackByPath: (filePath) => isE() ? el().deleteTrackByPath(filePath) : apiFetch('/tracks/delete-by-path', { method:'POST', body:{filePath} }),
   getArtists: () => isE() ? el().getArtists() : apiFetch('/artists'),
+  getNewArrivals: () => isE() ? el().getNewArrivals() : apiFetch('/artists/new-arrivals'),
   getArtistsPage: (opts = {}) => isE()
     ? el().getArtistsPage(opts)
     : apiFetch(`/artists?${new URLSearchParams({

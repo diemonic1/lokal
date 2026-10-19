@@ -11,6 +11,7 @@ import { api } from '../api'
 import { usePlayerStore } from '../store/player'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { clipPreview, clipRange, clipSongTime, onClipPreview, trackClipLoop } from '../clipVideo'
+import { playbackSpeed, usePlaybackSpeed } from '../playbackSpeed'
 
 // The song's time is reported a few times a second: this far off (seconds)
 // is a seek, or the video drifting.
@@ -132,11 +133,19 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
     return usePlayerStore.subscribe((state, prev) => {
       if (state.progress === prev.progress) return
       const now = performance.now()
-      const expected = last.progress + (prev.isPlaying ? (now - last.at) / 1000 : 0)
+      const expected = last.progress + (prev.isPlaying ? (now - last.at) / 1000 * playbackSpeed() : 0)
       last = { progress: state.progress, at: now }
       follow(Math.abs(state.progress - expected) > SEEK_JUMP)
     })
   }, [src, start, end, trackId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // At the song's playback speed (set above the equalizer).
+  const speed = usePlaybackSpeed(state => state.speed)
+  useEffect(() => {
+    const v = ref.current
+    if (!v || !src) return
+    try { v.defaultPlaybackRate = speed; v.playbackRate = speed } catch {}
+  }, [src, speed])
 
   // Plays while the song does and someone can see it.
   useEffect(() => {

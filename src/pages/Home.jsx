@@ -28,7 +28,6 @@ import ReleasesPanel from '../components/ReleasesPanel'
 import { onlineAlbumPath } from '../onlineBrowse'
 import UnfollowedArtists from '../components/UnfollowedArtists'
 import MadeForYou from '../components/MadeForYou'
-import FlowPanel from '../components/FlowPanel'
 import { madeForYou } from '../madeForYou'
 
 const today = () => new Date().toLocaleDateString(getLanguage(), { day: 'numeric', month: 'long', year: 'numeric' })
@@ -37,9 +36,9 @@ const mixTitle = (mix) => (mix.type === 'artist' ? translate('{name} Mix', { nam
 function homeRoute(pathname) {
   const parts = String(pathname || '').split('/').filter(Boolean)
   if (parts[0] !== 'home') return { tab: 'home', section: null }
-  // Mix became Flow: an old /home/mixlab (a remembered Home tab) opens Flow.
-  const tab = parts[1] === 'mixlab' ? 'flow' : parts[1]
-  return { tab: ['discovery', 'flow', 'releases', 'history'].includes(tab) ? tab : 'home', section: parts[2] || null }
+  // Flow has its own tab now (/flow; App.jsx sends /home/flow there).
+  const tab = parts[1]
+  return { tab: ['discovery', 'releases', 'history'].includes(tab) ? tab : 'home', section: parts[2] || null }
 }
 
 function secureImage(value) {
@@ -359,7 +358,8 @@ function HomeContent({ user }) {
     const uid = user?.id
     const soft = promise => Promise.resolve(promise).catch(() => null)
     Promise.all([
-      soft(api.getTracks({ sort: 'added_at DESC', limit: 10 })),
+      // Only to tell an empty library (Recently Added moved to the New tab).
+      soft(api.getTracks({ sort: 'added_at DESC', limit: 1 })),
       soft(api.getSuggestions(uid)),
       soft(api.getHistory(uid, 100)),
       soft(api.getMixes(uid)),
@@ -545,19 +545,17 @@ function HomeContent({ user }) {
       onContextMenu={openPickMenu} />}
     {mixes.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Radio size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Your Mixes")}</h2></div><div className="grid grid-cols-2 @md:grid-cols-3 gap-3">{mixes.slice(0, 6).map(mix => <MixCard key={mix.id} mix={mix} onClick={() => playQueue(mix.tracks, 0)} onSave={() => saveMix(mix)} saving={saving === `mix:${mix.id}`} onContextMenu={event => openMixMenu(event, mix)} />)}</div></section>}
     {suggestions.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Sparkles size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Suggested for You")}</h2><button onClick={() => saveList('suggestions', `${t('Suggested for You')} - ${today()}`, suggestions, t('Suggested for you on Home'))} disabled={!!saving} className="ml-auto inline-flex items-center gap-1 text-xs text-accent disabled:opacity-50"><ListPlus size={13} />{t("Save as playlist")}</button></div><TrackList tracks={suggestions.slice(0, 8)} reduceMotion /></section>}
-    {recentTracks.length > 0 && <section><div className="flex items-center justify-between mb-4"><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Recently Added")}</h2><button onClick={() => playQueue(recentTracks, 0)} className="text-xs text-accent hover:text-accent/70">{t("Play All")}</button></div><TrackList tracks={recentTracks} reduceMotion /></section>}
     {loaded && !recentTracks.length && !suggestions.length && !mixes.length && <p className="py-10 text-center text-sm text-muted">{t("No local tracks yet. Pick your music folder in Library.")}</p>}
   </>
 
   return <div className="p-6 space-y-7 w-full max-w-6xl mx-auto pb-10">
     <div><h1 className="text-2xl font-display text-white">{new Date().getHours() < 12 ? t('Good morning') : new Date().getHours() < 18 ? t('Good afternoon') : t('Good evening')}</h1><p className="text-sm text-muted mt-1">{t("Your music, listening history, and recommendations")}</p></div>
-    <div className="flex gap-1 p-0.5 bg-elevated rounded-lg border border-border w-fit">{[['home', 'Local'], ['discovery', 'Discovery'], ['flow', 'Flow'], ['releases', 'Releases'], ['history', 'History']].map(([id, label]) => <button key={id} onClick={() => goHome(id)} className={`px-4 py-1.5 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>{t(label)}</button>)}</div>
+    <div className="flex gap-1 p-0.5 bg-elevated rounded-lg border border-border w-fit">{[['home', 'Local'], ['discovery', 'Discovery'], ['releases', 'Releases'], ['history', 'History']].map(([id, label]) => <button key={id} onClick={() => goHome(id)} className={`px-4 py-1.5 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>{t(label)}</button>)}</div>
     <SectionSwap id={tab} className="space-y-10">
       {tab === 'history' ? <section>
         <SectionHeader icon={History} eyebrow={t("History")} title={t("Listen History")} count={localHistory.length} />
         {localHistory.length ? <TrackList tracks={localHistory} reduceMotion context={{ type: 'history', name: 'Listen History' }} /> : <p className="py-10 text-center text-sm text-muted">{t("No listen history yet.")}</p>}
       </section>
-        : tab === 'flow' ? <FlowPanel userId={uidKey} />
         : tab === 'releases' ? <ReleasesPanel artists={[...followedArtists.values()].map(name => ({ name }))} libraryArtists={localArtists}
             onPlay={album => playCatalogue('album', album)}
             onOpen={album => navigate(onlineAlbumPath({ artist: album.artist, album: album.title, albumId: album.albumId }), { state: { artwork: album.artwork_url || '' } })}

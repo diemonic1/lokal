@@ -58,6 +58,12 @@ async function saveArtistImageFromData(artistId, imageData) {
   return imgPath
 }
 
+// The New tab: songs by when they joined the library, and new artists.
+router.get('/new-arrivals', (req, res) => {
+  const db = getDB()
+  try { res.json(require('../../electron/newArrivals').newArrivals(db, { mapArtist: artist => addArtistFallback(db, artist) })) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 router.get('/', (req, res) => {
   const db = getDB()
   const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''

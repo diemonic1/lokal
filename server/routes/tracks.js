@@ -752,6 +752,14 @@ router.put('/:id', (req, res) => {
 
   // The edited tags go into the file too, so a rescan reads them back.
   const tagEdits = require('../../electron/fileComment').fileTagEdits(req.body || {})
+  // The explicit mark and the music video go into Lokal's LOKAL_TRACK tag.
+  delete tagEdits.lokal_track
+  const trackExtras = require('../../electron/trackExtras')
+  if (trackExtras.touches(req.body || {})) {
+    const next = { ...currentTrack }
+    updates.forEach((assignment, i) => { const field = assignment.split(' = ')[0]; if (trackExtras.FIELDS.includes(field)) next[field] = params[i] })
+    tagEdits.lokal_track = trackExtras.toTag(next)
+  }
   if (Object.keys(tagEdits).length && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
     try {
       require('../../electron/fileComment').writeFileTags(currentTrack.file_path, tagEdits)

@@ -127,6 +127,8 @@ export default {
   // Equalizer
   'Equalizer': 'Эквалайзер',
   '10-Band EQ': '10-полосный эквалайзер',
+  'Playback speed': 'Скорость воспроизведения',
+  'The song and its music video play at this speed.': 'С этой скоростью играют трек и его клип.',
   'Preset: {name}': 'Пресет: {name}',
   'Custom': 'Свой',
   'Reset': 'Сбросить',

@@ -1,5 +1,14 @@
 // Russian phrases for the pages area, keyed by the English phrase (see ../../i18n.jsx).
 export default {
+  'New Arrivals': 'Новинки',
+  'What joined your library lately': 'Что недавно появилось в вашей библиотеке',
+  'Added this week': 'Добавлено за неделю',
+  'Added this month': 'Добавлено за месяц',
+  'Added this year': 'Добавлено за год',
+  'New by genre': 'Новинки по жанрам',
+  'New artists': 'Новые исполнители',
+  'Show all': 'Показать всё',
+  'Hide': 'Скрыть',
   'About the artist': 'Об исполнителе',
   'up to date': 'актуальная версия',
   '{n} day behind|{n} days behind': ['отстаёт на {n} день', 'отстаёт на {n} дня', 'отстаёт на {n} дней'],

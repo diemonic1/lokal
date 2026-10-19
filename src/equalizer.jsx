@@ -6,6 +6,7 @@
 import React from 'react'
 import { create } from 'zustand'
 import { useTranslation } from './i18n'
+import { SPEED_MAX, SPEED_MIN, SPEED_STEP, usePlaybackSpeed } from './playbackSpeed'
 
 export const EQ_BANDS = ['31Hz', '62Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz']
 export const EQ_PRESETS = {
@@ -65,7 +66,39 @@ export const useEqualizer = create((set, get) => ({
   },
 }))
 
-/** The equalizer itself: presets, a reset and the ten band sliders. */
+/** The playback speed slider (0.1x-2.5x), shown above the equalizer. */
+export function PlaybackSpeedControl() {
+  const { t } = useTranslation()
+  const speed = usePlaybackSpeed(s => s.speed)
+  const setSpeed = usePlaybackSpeed(s => s.setSpeed)
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-white font-medium">{t('Playback speed')}</p>
+          <p className="text-xs text-muted mt-1">{t('The song and its music video play at this speed.')}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-display tabular-nums text-white">{speed.toFixed(2)}x</span>
+          <button onClick={() => setSpeed(1)} disabled={speed === 1}
+            className="text-xs text-muted hover:text-white transition-colors disabled:opacity-40 disabled:hover:text-muted">{t('Reset')}</button>
+        </div>
+      </div>
+      <input type="range" min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP} value={speed}
+        onChange={e => setSpeed(parseFloat(e.target.value))}
+        onDoubleClick={() => setSpeed(1)}
+        aria-label={t('Playback speed')}
+        className="w-full accent-accent cursor-pointer" />
+      <div className="relative flex justify-between text-muted" style={{ fontSize: 9 }}>
+        <span>{SPEED_MIN}x</span>
+        <span className="absolute -translate-x-1/2" style={{ left: `${((1 - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * 100}%` }}>1x</span>
+        <span>{SPEED_MAX}x</span>
+      </div>
+    </div>
+  )
+}
+
+/** The equalizer itself, under the playback speed: presets, a reset and the ten band sliders. */
 export function EqualizerControls({ compact = false }) {
   const { t } = useTranslation()
   const gains = useEqualizer(s => s.gains)
@@ -73,6 +106,8 @@ export function EqualizerControls({ compact = false }) {
   const { apply, setBand } = useEqualizer.getState()
   return (
     <div className="space-y-4">
+      <PlaybackSpeedControl />
+      <div className="border-t border-border" />
       <div className={`flex items-center justify-between ${compact ? '' : 'mb-4'}`}>
         <div>
           <p className="text-sm text-white font-medium">{t('10-Band EQ')}</p>
@@ -95,7 +130,7 @@ export function EqualizerControls({ compact = false }) {
       <div className={`flex items-end justify-center ${compact ? 'gap-1.5' : 'gap-3'} h-40 overflow-x-auto pb-2`}>
         {EQ_BANDS.map((band, i) => (
           <div key={band} className="flex flex-col items-center gap-2">
-            <span className="text-xs font-display" style={{ color: '#e8ff57', fontSize: 10 }}>
+            <span className="text-xs font-display text-white" style={{ fontSize: 10 }}>
               {gains[i] > 0 ? '+' : ''}{(gains[i] || 0).toFixed(1)}
             </span>
             <input type="range" min={-12} max={12} step={0.5} value={gains[i] || 0}

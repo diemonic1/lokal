@@ -111,10 +111,25 @@ const TAG_FIELDS = {
   },
 }
 
+/**
+ * ID3v2.3 -> 2.4. taglib folds the year / date / time frames (TYER, TDAT,
+ * TIME) into one TDRC and throws on a date frame with no text ("Cannot read
+ * properties of undefined (reading 'substring')"): one with nothing usable in
+ * it is dropped first, it says nothing anyway.
+ */
+function upgradeToId3v24(id3) {
+  const usable = { TYER: /^\d{4}$/, TDAT: /^\d{4}$/, TIME: /^\d{4}$/ }
+  for (const frame of [...(id3.frames || [])]) {
+    const pattern = usable[String(frame?.frameId?.toString?.() || '')]
+    if (pattern && !pattern.test(String(frame.text?.[0] ?? '').trim())) id3.removeFrame(frame)
+  }
+  id3.version = 4
+}
+
 /** The fields of a tag editor save that live in the file (comment included). */
 function fileTagEdits(data = {}) {
   const edits = {}
-  for (const field of [...Object.keys(TAG_FIELDS), 'comment']) {
+  for (const field of [...Object.keys(TAG_FIELDS), 'comment', 'lokal_track']) {
     if (data[field] !== undefined) edits[field] = data[field]
   }
   return edits
@@ -139,9 +154,12 @@ function writeFileTags(filePath, edits = {}) {
     const id3 = mp3 ? file.getTag(T.TagTypes.Id3v2, true) : null
     // Several genres need ID3v2.4: v2.3 has no list, and "A;B" reads back as one genre.
     const genreCount = String(edits.genres ?? '').split(',').filter(part => part.trim()).length
-    if (id3 && fields.includes('genres') && genreCount > 1 && id3.version < 4) id3.version = 4
+    if (id3 && fields.includes('genres') && genreCount > 1 && id3.version < 4) upgradeToId3v24(id3)
     for (const field of fields) {
-      if (field === 'comment') {
+      if (field === 'lokal_track') {
+        // Lokal's own tag: the explicit mark and the music video (see ./trackExtras).
+        require('./lyrics/fileLyrics').setPrivateField(T, file, edits.lokal_track || null, 'LOKAL_TRACK')
+      } else if (field === 'comment') {
         const clean = String(edits.comment || '').replace(/\r\n?/g, '\n').trim()
         if (mp3) writeId3(T, file, clean)
         else file.tag.comment = clean || undefined

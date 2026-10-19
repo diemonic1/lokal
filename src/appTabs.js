@@ -7,7 +7,10 @@ import { TABS } from './libraryNav'
 import { useAppearanceText } from './appearanceFlags'
 
 export const HIDDEN_MARK = '|'
-export const DEFAULT_TAB_ORDER = ['/', '/library', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis', '/cache-analysis']
+export const DEFAULT_TAB_ORDER = ['/', '/library', '/new', '/flow', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/quality', '/lyrics-analysis', '/cache-analysis']
+
+// A newer tab that belongs right after a given one, not before its default follower.
+const ANCHORED_AFTER = { '/new': '/library', '/flow': '/new' }
 
 /** The saved order, minus unknown tabs, with any newer tab in its default place. */
 export function tabOrder(saved) {
@@ -21,6 +24,9 @@ export function tabOrder(saved) {
   // Radio before Videos), or else just after the one before it.
   DEFAULT_TAB_ORDER.forEach((path, index) => {
     if (order.includes(path)) return
+    // New Arrivals comes right after Library (and Flow after it), wherever Library is.
+    const anchor = ANCHORED_AFTER[path]
+    if (anchor && order.includes(anchor)) { order.splice(order.indexOf(anchor) + 1, 0, path); return }
     const next = DEFAULT_TAB_ORDER.slice(index + 1).find(p => p !== HIDDEN_MARK && order.includes(p))
     if (next) { order.splice(order.indexOf(next), 0, path); return }
     const before = DEFAULT_TAB_ORDER.slice(0, index).reverse().find(p => order.includes(p))

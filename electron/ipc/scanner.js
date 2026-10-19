@@ -8,6 +8,7 @@ const mm = require('../musicMetadata')
 const { lyricsFromMeta, isSyncedText } = require('../lyrics/fileLyrics')
 const { setFileLyrics } = require('../searchIndex')
 const quality = require('../quality')
+const trackExtras = require('../trackExtras')
 const { findFolderArtwork, getLibraryFolders } = require('../libraryFolder')
 const { getDB, getStorageDir, importAppData, resetAppData } = require('./db')
 const { ipcMain } = require('electron')
@@ -536,7 +537,7 @@ async function readTrackFile(filePath, stat, ctx, existingId = null) {
   if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
   const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
   const replaygain = c.replaygain_track_gain || null
-  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta) } }
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta) } }
 }
 
 // Libraries from before the column existed get it on their first write.
@@ -590,6 +591,8 @@ async function storeTracks(db, items) {
         }
       }
       db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(item.comment ?? '', item.lyrics_kind ?? null, trackId)
+      // The explicit mark and the music video, from the file's LOKAL_TRACK tag.
+      trackExtras.applyToRow(db, trackId, item.extras)
       saveFileGenres(db, trackId, item.file_genres)
       // The file changed: a "Can't play" noted for its old version no longer holds.
       try { db.prepare('DELETE FROM track_errors WHERE track_id = ?').run(trackId) } catch {}
@@ -675,6 +678,10 @@ async function runScan(folderPath, { full = false } = {}) {
     const read = await backfillComments(db)
     if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
   } catch (e) { console.warn('[scanFolder] Comment backfill skipped:', e.message) }
+  try {
+    const written = trackExtras.backfillTrackExtras(db)
+    if (written) console.log(`[scanFolder] Wrote the explicit mark / music video into ${written} file(s)`)
+  } catch (e) { console.warn('[scanFolder] Explicit / video tags skipped:', e.message) }
   if (rereadTags) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('tag_reader_version', ?)").run(String(TAG_READER_VERSION))
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
   if (watchAfterScan) require('../libraryWatcher').watchLibrary(folderPath)
@@ -1391,6 +1398,7 @@ async function applyBatchTrackUpdates(db, trackIds = [], operations = {}) {
     for (const [field, value] of Object.entries(fileTagEdits(track))) {
       if (field !== 'comment' && String(value ?? '') !== String(old[field] ?? '')) changed[field] = value
     }
+    if (Number(track.explicit || 0) !== Number(old.explicit || 0)) changed.lokal_track = trackExtras.toTag(track)
     if (!Object.keys(changed).length || String(track.file_path || '').startsWith('ghost://') || !fs.existsSync(track.file_path)) continue
     try {
       writeFileTags(track.file_path, changed)
@@ -1510,6 +1518,11 @@ function registerScannerHandlers(ipcMain) {
     const db = getDB()
     const artists = db.prepare(`SELECT a.*, COUNT(DISTINCT atl.track_id) as track_count FROM artists a LEFT JOIN artist_track_links atl ON atl.artist_id = a.id LEFT JOIN tracks t ON t.id = atl.track_id AND t.file_path NOT LIKE 'ghost://%' GROUP BY a.id HAVING COUNT(DISTINCT t.id) > 0 ORDER BY a.name`).all()
     return artists.map(artist => addArtistFallback(db, artist))
+  })
+  // The New tab: songs by when they joined the library, and new artists.
+  ipcMain.handle('scanner:getNewArrivals', () => {
+    const db = getDB()
+    return require('../newArrivals').newArrivals(db, { mapArtist: artist => addArtistFallback(db, artist) })
   })
   ipcMain.handle('scanner:getArtistsPage', (_, opts = {}) => {
     const db = getDB()
@@ -1808,6 +1821,13 @@ function registerScannerHandlers(ipcMain) {
     // Title, artist, album, album artist, number, year, label, genres and
     // comment go into the file's tags too, so a rescan reads them back.
     const tagEdits = require('../fileComment').fileTagEdits(data)
+    delete tagEdits.lokal_track
+    // The explicit mark and the music video go into Lokal's LOKAL_TRACK tag.
+    if (trackExtras.touches(data)) {
+      const next = { ...currentTrack }
+      updates.forEach((assignment, i) => { const field = assignment.split(' = ')[0]; if (trackExtras.FIELDS.includes(field)) next[field] = params[i] })
+      tagEdits.lokal_track = trackExtras.toTag(next)
+    }
     if (Object.keys(tagEdits).length && !String(currentTrack.file_path || '').startsWith('ghost://') && fs.existsSync(currentTrack.file_path)) {
       try { require('../fileComment').writeFileTags(currentTrack.file_path, tagEdits); wroteFile = true } catch (e) { return { error: `Couldn't save the tags into the file: ${e.message}` } }
     }
@@ -2281,6 +2301,7 @@ async function indexSingleFile(filePath, opts = {}) {
       }
     }
     db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(commentText(c), lyricsKindOf(meta), trackId)
+    trackExtras.applyToRow(db, trackId, trackExtras.fromMeta(meta))
     setFileLyrics(db, trackId, lyricsFromMeta(meta) || '')
     applyPendingImportedMetadataToTrack(db, trackId)
     if (!opts.deferGhostResolution) resolveGhostsByIsrc(db, trackId)

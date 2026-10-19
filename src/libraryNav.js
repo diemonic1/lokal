@@ -2,11 +2,13 @@
 // both remembered across launches.
 
 import { useEffect, useState } from 'react'
-import { Home, Library, BarChart2, Disc3, Users, AudioWaveform, Clapperboard, ScrollText, Tags, Radio, HardDrive } from 'lucide-react'
+import { Home, Library, Sparkles, Infinity as InfinityIcon, BarChart2, Disc3, Users, AudioWaveform, Clapperboard, ScrollText, Tags, Radio, HardDrive } from 'lucide-react'
 
 export const TABS = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Library, label: 'Library', path: '/library', tour: 'library' },
+  { icon: Sparkles, label: 'New Arrivals', path: '/new' },
+  { icon: InfinityIcon, label: 'Flow', path: '/flow' },
   { icon: BarChart2, label: 'Recap', path: '/recap' },
   { icon: Disc3, label: 'Albums', path: '/albums', tour: 'albums' },
   { icon: Users, label: 'Artists', path: '/artists', tour: 'artists' },

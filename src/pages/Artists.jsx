@@ -63,7 +63,7 @@ function FallbackAvatar({ name }) {
 // in, and dozens of card animations running with it dropped frames.
 const FIRST_SCREEN_CARDS = 24
 
-function ArtistCard({ artist, onClick, onPlay, onContextMenu, onImageFile, rank, animateIn = true }) {
+export function ArtistCard({ artist, onClick, onPlay, onContextMenu, onImageFile, rank, animateIn = true }) {
   const { t } = useTranslation()
   const imgSrc = getArtistImage(artist)
   // A picture from the computer dropped on the card: theirs, after a yes.

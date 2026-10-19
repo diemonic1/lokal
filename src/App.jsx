@@ -29,6 +29,8 @@ import RecapStories from './components/RecapStories'
 import Onboarding, { useOnboarding } from './components/Onboarding'
 import PostOnboardingTour from './components/PostOnboardingTour'
 import Home from './pages/Home'
+import Flow from './pages/Flow'
+import NewArrivals from './pages/NewArrivals'
 import Albums from './pages/Albums'
 import OnlineAlbum from './pages/OnlineAlbum'
 import Artists from './pages/Artists'
@@ -77,6 +79,7 @@ import { THEMES, applyTheme } from './theme'
 import { useAppearanceFlag } from './appearanceFlags'
 import { startSpotifyLikesSync } from './spotifyLikes'
 import { continueFlow, flowNeedsMore } from './flow/session'
+import { playbackSpeed, usePlaybackSpeed } from './playbackSpeed'
 import { useCastPlayback, takeResumePosition, setResumePosition } from './cast/useCastPlayback'
 
 async function addonStreamTrackHash(id) {
@@ -326,6 +329,11 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait" onExitComplete={handleExitComplete}>
       <Routes location={location} key={routeKey}>
         <Route path="/" element={<PageTransition gated><Home /></PageTransition>} />
+        {/* Flow left Home for its own tab. */}
+        <Route path="/home/flow/*" element={<Navigate to="/flow" replace />} />
+        <Route path="/home/mixlab/*" element={<Navigate to="/flow" replace />} />
+        <Route path="/new" element={<PageTransition gated><NewArrivals /></PageTransition>} />
+        <Route path="/flow" element={<PageTransition gated><Flow /></PageTransition>} />
         <Route path="/home/:tab/*" element={<PageTransition gated><Home /></PageTransition>} />
         <Route path="/albums" element={<PageTransition gated><Albums /></PageTransition>} />
         <Route path="/artists" element={<PageTransition gated><Artists /></PageTransition>} />
@@ -508,6 +516,22 @@ export default function App() {
   // AutoMix: songs' analyses (id -> analysis, or null when it couldn't be), and the ones asked for.
   const automixRef = useRef({ analyses: new Map(), asked: new Set() })
   const rateGlideRef = useRef(null)
+  // The playback speed (above the equalizer): both song elements play at it.
+  // defaultPlaybackRate keeps it across a new song's load(); an AutoMix
+  // transition in progress keeps its own beat-matched rate until it ends.
+  useEffect(() => {
+    const apply = (speed) => {
+      for (const el of [audioRef.current, cfAudioRef.current]) {
+        if (!el) continue
+        try {
+          el.defaultPlaybackRate = speed
+          if (!isCrossfadingRef.current) { clearInterval(rateGlideRef.current); el.playbackRate = speed }
+        } catch {}
+      }
+    }
+    apply(playbackSpeed())
+    return usePlaybackSpeed.subscribe((state, prev) => { if (state.speed !== prev.speed) apply(state.speed) })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const audioCtxRef = useRef(null)
   const nativeAudioRef = useRef(null)
   const analyserRef = useRef(null)
@@ -1995,7 +2019,7 @@ export default function App() {
     // An AutoMix transition called off: filters open, both songs at their own speed.
     openMixFilters()
     clearInterval(rateGlideRef.current)
-    for (const el of [audioRef.current, cfAudioRef.current]) { try { if (el && el.playbackRate !== 1) el.playbackRate = 1 } catch {} }
+    for (const el of [audioRef.current, cfAudioRef.current]) { try { if (el && el.playbackRate !== playbackSpeed()) el.playbackRate = playbackSpeed() } catch {} }
     if (usePlayerStore.getState().mixing) usePlayerStore.setState({ mixing: null })
   }, [openMixFilters])
 
@@ -2106,7 +2130,7 @@ export default function App() {
         // AutoMix: the next song waits, ready, at its entry point, until the
         // playing one reaches the transition (it was loaded ahead of it).
         try { fadeInEl.currentTime = plan.inOffset || 0 } catch {}
-        try { fadeInEl.playbackRate = plan.rate || 1 } catch {}
+        try { fadeInEl.playbackRate = (plan.rate || 1) * playbackSpeed() } catch {}
         const waitForStart = () => {
           if (!isCrossfadingRef.current || token !== crossfadeTokenRef.current) return
           const left = plan.start - fadeOutEl.currentTime
@@ -2210,14 +2234,15 @@ export default function App() {
         crossfadeTimeoutRef.current = null
         openMixFilters()
         usePlayerStore.setState({ mixing: null })
-        // A beat-matched song back to its own tempo, gently (8 s).
-        if (plan && fadeInEl.playbackRate !== 1) {
+        // A beat-matched song back to its own tempo (at the set speed), gently (8 s).
+        if (plan && fadeInEl.playbackRate !== playbackSpeed()) {
           clearInterval(rateGlideRef.current)
           const from = fadeInEl.playbackRate
           const began = Date.now()
           rateGlideRef.current = setInterval(() => {
             const part = Math.min(1, (Date.now() - began) / 8000)
-            try { fadeInEl.playbackRate = from + (1 - from) * part } catch {}
+            const to = playbackSpeed()
+            try { fadeInEl.playbackRate = from + (to - from) * part } catch {}
             if (part >= 1) clearInterval(rateGlideRef.current)
           }, 100)
         }

@@ -106,7 +106,7 @@ export function navigateToContext(nav, context, highlightTrackId = null) {
     return true
   }
   if (context.type === 'flow') {
-    nav('/home/flow')
+    nav('/flow')
     return true
   }
   return false
