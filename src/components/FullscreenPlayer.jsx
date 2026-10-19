@@ -8,6 +8,7 @@ import LyricsPanel from './LyricsPanel'
 import { cacheLyrics, hasLyricLines, peekLyrics } from '../lyrics/lyricsCache'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover, { loadMotionCover } from './MotionCover'
+import ClipLoop, { useTrackClip } from './ClipLoop'
 import LikeBurst from './LikeBurst'
 import { useMotionCoverOff } from '../motionCoverPrefs'
 import MixCovers from './MixCovers'
@@ -267,7 +268,10 @@ export default function FullscreenPlayer() {
     loadMotionCover(id).then(clip => { if (current) setCoverClip({ id, clip: clip?.src ? clip : null }) })
     return () => { current = false }
   }, [currentTrack?.id, showFullscreen, showLyricsFullscreen])
-  const clipNow = coverClip.id === currentTrack?.id ? coverClip.clip : null
+  // The song's own video (Edit Track) plays in the card ahead of its Canvas /
+  // moving cover, following the song's seeks (see ClipLoop).
+  const { loop: songClip, loopKey: songClipKey, fail: failSongClip } = useTrackClip(currentTrack)
+  const clipNow = !songClip && coverClip.id === currentTrack?.id ? coverClip.clip : null
   const { video: musicVideo } = useMusicVideo(currentTrack, showFullscreen || showLyricsFullscreen)
   const showMusicVideo = useMusicVideoView(s => s.show)
   const clipName = clipNow && (clipNow.tall || clipNow.source === 'spotify') ? 'Canvas' : 'Moving Cover'
@@ -735,8 +739,14 @@ export default function FullscreenPlayer() {
                   ? <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
                         <img src={trackArtURL(track)} className="absolute inset-0 w-full h-full object-cover" alt="" />
-                        <MotionCover trackId={track?.id} only="square" off={coverOff} />
-                        <MotionCover trackId={track?.id} only="tall" onActive={top ? setFsCanvas : undefined} off={coverOff} />
+                        {songClip && String(track?.id) === String(currentTrack?.id) ? (
+                          <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} />
+                        ) : (
+                          <>
+                            <MotionCover trackId={track?.id} only="square" off={coverOff} />
+                            <MotionCover trackId={track?.id} only="tall" onActive={top ? setFsCanvas : undefined} off={coverOff} />
+                          </>
+                        )}
                       </>
                     )} />
                   : <span className="text-white/10 text-7xl">♪</span>

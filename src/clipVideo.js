@@ -3,14 +3,18 @@
 // web) or a video file on this computer, looped (muted) in the side panel's
 // Visualization + Lyrics tab. Where it plays from is worked out by the main
 // process (electron/online/clipVideo.js).
-// The part that loops, in seconds (typed as 75, 1:15 or 1:02:03):
+// The part that loops, in seconds (typed as 75, 1:15, 1:02:03 or 0:11.5):
 //   both times      that part;
 //   only the start  10 seconds from it (or to the video's end);
 //   only the end    the 10 seconds before it;
 //   neither         the whole video, start to end.
+// A part at least SEEK_MIN long follows the song: the video is at the part's
+// start plus the song's time, going round the part again when the song is
+// longer than it (see clipSongTime), so seeking the song seeks the video.
 
 const LOCAL_PATH = /^(?:[a-z]:[\\/]|\\\\|file:\/\/)/i
 const SHORT_LOOP = 10
+export const SEEK_MIN = 20
 
 /** The link or path when it can be a video, else null. */
 export function clipVideoLink(text) {
@@ -31,27 +35,29 @@ export function clipOpenUrl(text) {
   return path.startsWith('//') ? `file:${path}` : `file:///${path}`
 }
 
-/** A time field as typed: anything but a digit becomes ":" (one at a time). */
+/** A time field as typed: a "." stays (a fraction of a second, one at a time), anything else but a digit becomes ":" (one at a time). */
 export function clipTimeInput(text) {
-  return String(text || '').replace(/[^0-9]+/g, ':')
+  return String(text || '').replace(/[^0-9.]+/g, ':').replace(/\.+/g, '.')
 }
 
-/** "75", "1:15", "1:02:03" -> seconds; '' -> null; NaN when it can't be read. */
+/** "75", "1:15", "1:02:03", "0:11.5" -> seconds; '' -> null; NaN when it can't be read (a fraction only in the seconds). */
 export function parseClipTime(text) {
   const value = clipTimeInput(text).replace(/^:+|:+$/g, '')
   if (!value) return null
-  const parts = value.split(':').map(Number)
-  if (parts.length > 3 || parts.some(n => !Number.isFinite(n))) return NaN
-  return parts.reduce((total, n) => total * 60 + n, 0)
+  const parts = value.split(':')
+  if (parts.length > 3 || parts.some((part, i) => !(i === parts.length - 1 ? /^(?:\d+\.?\d*|\.\d+)$/ : /^\d+$/).test(part))) return NaN
+  return parts.map(Number).reduce((total, n) => total * 60 + n, 0)
 }
 
-/** Seconds as the field shows them: "1:15", "1:02:03"; null -> ''. */
+/** Seconds as the field shows them: "1:15", "1:02:03", "0:11.5" (to the millisecond); null -> ''. */
 export function formatClipTime(seconds) {
   if (seconds == null || seconds === '' || !Number.isFinite(Number(seconds))) return ''
-  const total = Math.max(0, Math.round(Number(seconds)))
+  const ms = Math.max(0, Math.round(Number(seconds) * 1000))
+  const total = Math.floor(ms / 1000)
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
-  const s = String(total % 60).padStart(2, '0')
+  const fraction = ms % 1000 ? `.${String(ms % 1000).padStart(3, '0').replace(/0+$/, '')}` : ''
+  const s = String(total % 60).padStart(2, '0') + fraction
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
@@ -109,4 +115,11 @@ export function clipRange(start, end, duration) {
   if (start != null) return { start: cap(start), end: cap(start + SHORT_LOOP) }
   if (end != null) return { start: Math.max(0, cap(end) - SHORT_LOOP), end: cap(end) }
   return { start: 0, end: length ?? Infinity }
+}
+
+/** Where the video should be at `songTime` (seconds) for the part `range` ({ start, end }), or null when the part is too short to follow the song. */
+export function clipSongTime(range, songTime) {
+  const length = range.end - range.start
+  if (!Number.isFinite(length) || length < SEEK_MIN || !Number.isFinite(songTime)) return null
+  return range.start + (Math.max(0, songTime) % length)
 }

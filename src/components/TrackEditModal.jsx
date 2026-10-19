@@ -243,7 +243,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       const clipStart = parseClipTime(formData.clip_start)
       const clipEnd = parseClipTime(formData.clip_end)
       if (Number.isNaN(clipStart) || Number.isNaN(clipEnd)) {
-        setStatus({ type: 'error', message: t('Loop times are seconds or minutes:seconds, like 75 or 1:15') })
+        setStatus({ type: 'error', message: t('Loop times are seconds or minutes:seconds, like 75, 1:15 or 0:11.5') })
         setSaving(false)
         return
       }
@@ -498,9 +498,9 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">
                 <input value={formData.clip_url} onChange={(e) => handleChange('clip_url', e.target.value)} className={field} placeholder={t('A link to the video, or a video file')} spellCheck={false} />
-                <input inputMode="numeric" value={formData.clip_start} onChange={(e) => handleChange('clip_start', clipTimeInput(e.target.value))} className={field}
+                <input inputMode="decimal" value={formData.clip_start} onChange={(e) => handleChange('clip_start', clipTimeInput(e.target.value))} className={field}
                   placeholder={t('Start')} title={t('Where the loop starts: seconds or minutes:seconds')} aria-label={t('Where the loop starts: seconds or minutes:seconds')} />
-                <input inputMode="numeric" value={formData.clip_end} onChange={(e) => handleChange('clip_end', clipTimeInput(e.target.value))} className={field}
+                <input inputMode="decimal" value={formData.clip_end} onChange={(e) => handleChange('clip_end', clipTimeInput(e.target.value))} className={field}
                   placeholder={t('End')} title={t('Where the loop ends: seconds or minutes:seconds')} aria-label={t('Where the loop ends: seconds or minutes:seconds')} />
               </div>
               {/* How far it's zoomed in, in the side panel: a slider and the same number typed. */}

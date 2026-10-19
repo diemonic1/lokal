@@ -1,5 +1,6 @@
 // Russian phrases for the pages area, keyed by the English phrase (see ../../i18n.jsx).
 export default {
+  'About the artist': 'Об исполнителе',
   'up to date': 'актуальная версия',
   '{n} day behind|{n} days behind': ['отстаёт на {n} день', 'отстаёт на {n} дня', 'отстаёт на {n} дней'],
   '{n} month behind|{n} months behind': ['отстаёт на {n} месяц', 'отстаёт на {n} месяца', 'отстаёт на {n} месяцев'],

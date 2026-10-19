@@ -303,7 +303,7 @@ export default function Artist() {
 
         {artist.bio && (
           <div>
-            <h2 className="mb-2 text-xs font-display uppercase tracking-widest text-muted">{t('About')}</h2>
+            <h2 className="mb-2 text-xs font-display uppercase tracking-widest text-muted">{t('About the artist')}</h2>
             <p className="max-w-2xl text-sm leading-relaxed text-muted">{artist.bio}</p>
           </div>
         )}

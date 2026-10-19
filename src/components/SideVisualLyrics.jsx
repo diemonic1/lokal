@@ -12,15 +12,12 @@
 // Playing > Colour Background, as strong as its Visualization + Lyrics
 // slider says); the picture fades into them.
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { api } from '../api'
-import { usePlayerStore } from '../store/player'
-import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
-import { clipPreview, clipRange, onClipPreview, trackClipLoop } from '../clipVideo'
 import { useAppearanceText, useAppearanceValue } from '../appearanceFlags'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover from './MotionCover'
+import ClipLoop, { useTrackClip } from './ClipLoop'
 import LyricsPanel from './LyricsPanel'
 
 // How much of the panel the picture takes above the lyrics (which start
@@ -33,133 +30,15 @@ const PICTURE_SHARE = 46
 const FADE = 'linear-gradient(rgb(var(--surface-rgb) / 0) 0%, rgb(var(--surface-rgb) / 0.18) 75%, rgb(var(--surface-rgb) / 0.8) 90%, rgb(var(--surface-rgb)) 100%)'
 const PICTURE_MOTION = { duration: 0.55, ease: [0.4, 0, 0.2, 1] }
 
-/** The song's own video looping, muted: between its two times, or the part clipRange picks. */
-function ClipLoop({ link, start, end, zoom = 0, onActive, onFail }) {
-  const ref = useRef(null)
-  const [src, setSrc] = useState(null)
-  const [ready, setReady] = useState(false)
-  // A YouTube video the stream can't play (age-restricted...) is tried once
-  // more through yt-dlp's own link.
-  const triedFallback = useRef(false)
-  const isPlaying = usePlayerStore(s => s.isPlaying)
-  const playingRef = useRef(isPlaying)
-  playingRef.current = isPlaying
-
-  const resolve = (fallback) => {
-    let current = true
-    Promise.resolve(api.clipVideoSource?.(link, { fallback })).then(found => {
-      if (!current) return
-      if (found?.src) setSrc(found.src)
-      else {
-        if (found?.error) console.warn(`[clip] ${link}: ${found.error}`)
-        onFail?.()
-      }
-    }).catch(() => { if (current) onFail?.() })
-    return () => { current = false }
-  }
-  useEffect(() => {
-    setSrc(null)
-    setReady(false)
-    triedFallback.current = false
-    return resolve(false)
-  }, [link]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onActiveRef = useRef(onActive)
-  onActiveRef.current = onActive
-  useEffect(() => () => onActiveRef.current?.(false), [])
-
-  // Back to the start once past the end (checked every frame while it plays:
-  // timeupdate comes only a few times a second).
-  useEffect(() => {
-    const v = ref.current
-    if (!v || !src) return undefined
-    let frame = 0
-    const range = () => clipRange(start, end, v.duration)
-    const stopAt = (to) => (Number.isFinite(v.duration) && v.duration > 0 ? Math.min(to, v.duration - 0.05) : to)
-    const check = () => {
-      const part = range()
-      if (v.currentTime >= stopAt(part.end) || v.currentTime < part.start - 0.5) v.currentTime = part.start
-      frame = requestAnimationFrame(check)
-    }
-    const run = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(check) }
-    const halt = () => cancelAnimationFrame(frame)
-    const ended = () => { v.currentTime = range().start; if (playingRef.current && !isWindowHidden()) v.play().catch(() => {}) }
-    v.addEventListener('playing', run)
-    v.addEventListener('pause', halt)
-    v.addEventListener('ended', ended)
-    return () => {
-      halt()
-      v.removeEventListener('playing', run)
-      v.removeEventListener('pause', halt)
-      v.removeEventListener('ended', ended)
-    }
-  }, [src, start, end])
-
-  // Plays while the song does and someone can see it.
-  useEffect(() => {
-    const v = ref.current
-    if (!v || !src) return
-    if (isPlaying && !isWindowHidden()) v.play().catch(() => {})
-    else v.pause()
-  }, [src, isPlaying])
-  useEffect(() => onWindowVisibility((hidden) => {
-    const v = ref.current
-    if (!v) return
-    if (hidden || !playingRef.current) v.pause()
-    else v.play().catch(() => {})
-  }), [])
-
-  if (!src) return null
-  const show = () => { if (!ready) { setReady(true); onActive?.(true) } }
-  const failed = () => {
-    setReady(false)
-    onActive?.(false)
-    if (!triedFallback.current) {
-      triedFallback.current = true
-      setSrc(null)
-      resolve(true)
-    } else onFail?.()
-  }
-  return (
-    <video
-      ref={ref}
-      key={src}
-      src={src}
-      muted
-      playsInline
-      preload="auto"
-      disablePictureInPicture
-      disableRemotePlayback
-      controls={false}
-      tabIndex={-1}
-      aria-hidden="true"
-      onLoadedMetadata={e => { e.currentTarget.currentTime = clipRange(start, end, e.currentTarget.duration).start }}
-      onSeeked={show}
-      onPlaying={show}
-      onError={failed}
-      onContextMenu={e => e.preventDefault()}
-      className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-      // Zoomed in from its centre by the song's Edit Track setting (0-50 %).
-      style={{ opacity: ready ? 1 : 0, transition: 'opacity 320ms ease', transform: zoom > 0 ? `scale(${1 + zoom / 100})` : undefined }}
-    />
-  )
-}
-
 // visual / visualBg: the visualization with lyrics; fullVisual / fullVisualBg:
 // the fullscreen one, while the lyrics are hidden (the picture fills the panel).
 export default function SideVisualLyrics({ track, progress, visual, visualBg, fullVisual = visual, fullVisualBg = visualBg, coverOff = false, wordSync, textScale, isAutoSynced }) {
   // Edit Track open on this song: the video being tried (link, times, zoom)
-  // shows straight away, before it's saved.
-  const [, setPreviewTick] = useState(0)
-  useEffect(() => onClipPreview(() => setPreviewTick(n => n + 1)), [])
-  const preview = clipPreview(track?.id)
-  const loop = preview ? (preview.link ? preview : null) : trackClipLoop(track)
+  // shows straight away, before it's saved. It stays off for the song once it
+  // fails to play.
+  const { loop, loopKey, fail: failLoop } = useTrackClip(track)
   const zoom = loop?.zoom ?? 0
-  // Not the zoom: changing it only rescales the video playing.
-  const loopKey = loop ? `${track?.id}:${loop.link}:${loop.start}:${loop.end}` : null
-  // The video stays off for this song once it fails to play.
-  const [failedLoop, setFailedLoop] = useState(null)
-  const useLoop = !!loop && failedLoop !== loopKey
+  const useLoop = !!loop
   const [loopOn, setLoopOn] = useState(false)
   const [canvasOn, setCanvasOn] = useState(false)
   const [idle, setIdle] = useState(false)
@@ -189,8 +68,8 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
         {/* The built-in visualization only runs while no video shows. */}
         {!videoOn && (idle ? fullVisual : visual)}
         {useLoop ? (
-          <ClipLoop key={loopKey} link={loop.link} start={loop.start} end={loop.end} zoom={zoom}
-            onActive={setLoopOn} onFail={() => { setLoopOn(false); setFailedLoop(loopKey) }} />
+          <ClipLoop key={loopKey} trackId={track?.id} link={loop.link} start={loop.start} end={loop.end} zoom={zoom}
+            onActive={setLoopOn} onFail={() => { setLoopOn(false); failLoop() }} />
         ) : (
           <MotionCover trackId={track?.id} only="tall" onActive={setCanvasOn} off={coverOff} className="pointer-events-none" />
         )}
