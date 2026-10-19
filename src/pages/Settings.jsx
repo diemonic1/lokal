@@ -1,6 +1,8 @@
 import OutputPrecisionSettings from '../components/OutputPrecisionSettings'
 import { APP_LANGUAGES, useTranslation } from '../i18n'
-import { collectLocalPrefs, restoreLocalPrefs } from '../localPrefsBackup'
+import { restoreLocalPrefs } from '../localPrefsBackup'
+import { exportAllAppData, triggerDownload } from '../appBackup'
+import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
@@ -33,18 +35,9 @@ import { repairMissingTracks } from '../ghostDownloads'
 import { plural } from '../plural'
 import { readCrossfadeSettings, CROSSFADE_MIN_S } from '../audio/crossfade'
 import SoulseekSignIn from '../components/SoulseekSignIn'
+import { EqualizerControls } from '../equalizer'
 import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT, useLeftSidebarScale, setLeftSidebarScale, LEFT_SIDEBAR_SCALE } from '../sidePanelPrefs'
 
-const EQ_BANDS = ['31Hz', '62Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz']
-const EQ_PRESETS = {
-  flat: { label: 'Flat', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-  bassBoost: { label: 'Bass Boost', gains: [5, 4.5, 3, 1.5, 0.5, 0, -0.5, -1, -1.5, -2] },
-  vocalBoost: { label: 'Vocal Boost', gains: [-1.5, -1, -0.5, 0.5, 1.5, 3, 3.5, 2.5, 1, 0] },
-  bright: { label: 'Bright', gains: [-1, -0.5, 0, 0.5, 1, 1.5, 2.5, 3, 3.5, 3] },
-  electronic: { label: 'Electronic', gains: [4, 3, 1, 0, -1, 1, 2, 3, 4, 4.5] },
-  mellow: { label: 'Mellow', gains: [1.5, 1, 0.5, 0, -0.5, -1, -0.5, 0.5, 1, 1.5] },
-}
-const DEFAULT_EQ_PRESET = 'flat'
 const LASTFM_STATUS_KEY = 'lokal-lastfm-status-feed'
 const SETTINGS_CATEGORIES = [
   { key: 'integrations', label: 'Integrations', icon: Zap },
@@ -193,25 +186,6 @@ function ThreeDotsMenu({ items = [], align = 'right' }) {
   )
 }
 
-function normalizeEqGains(values) {
-  const safeValues = Array.isArray(values) ? values.map(v => Number(v) || 0) : []
-  if (safeValues.length === EQ_BANDS.length) {
-    return safeValues.slice(0, EQ_BANDS.length)
-  }
-  if (safeValues.length === 5) {
-    return [safeValues[0], safeValues[0], safeValues[1], safeValues[1], safeValues[2], safeValues[2], safeValues[3], safeValues[3], safeValues[4], safeValues[4]]
-  }
-  return EQ_BANDS.map((_, i) => safeValues[i] || 0)
-}
-
-function getEqPresetKey(gains) {
-  const normalized = normalizeEqGains(gains)
-  const match = Object.entries(EQ_PRESETS).find(([, preset]) =>
-    preset.gains.length === normalized.length && preset.gains.every((value, index) => value === normalized[index])
-  )
-  return match?.[0] || 'custom'
-}
-
 // The Side Panels toggle saves on every click rather than waiting for the
 // "Save Settings" button, so a quick double-click could otherwise fire two
 // overlapping requests and let the first one's response land after the
@@ -316,8 +290,6 @@ export default function Settings() {
   }, [])
   const [scanning, setScanning] = useState(false)
   const [showGenreModal, setShowGenreModal] = useState(false)
-  const [eqGains, setEqGains] = useState(EQ_PRESETS[DEFAULT_EQ_PRESET].gains)
-  const [eqPreset, setEqPreset] = useState(DEFAULT_EQ_PRESET)
   const [showClearModal, setShowClearModal] = useState(false)
   // Lists a category loads are kept for the next visit, so switching back to
   // it shows them at once (and refreshes them quietly).
@@ -588,12 +560,6 @@ export default function Settings() {
 
     })
 
-    try {
-      const nextEq = normalizeEqGains(JSON.parse(localStorage.getItem('lokal-eq') || '[]'))
-      setEqGains(nextEq)
-      setEqPreset(getEqPresetKey(nextEq))
-    } catch {}
-
     if (api.isElectron) {
 
       api.getToolsStatus().then(setToolsStatus)
@@ -676,6 +642,13 @@ export default function Settings() {
   }
   const setHardwareAcceleration = (on) => savePerfField('hardwareAcceleration', on)
   const perfRestartNeeded = !!perfSettings.running && perfSettings.running.hardwareAcceleration !== perfSettings.hardwareAcceleration
+
+  // A visualization switched in the header's quick settings shows here too.
+  useEffect(() => {
+    const onQuick = (e) => setSettings(s => ({ ...s, [e.detail.key]: e.detail.value }))
+    window.addEventListener(QUICK_SETTING_EVENT, onQuick)
+    return () => window.removeEventListener(QUICK_SETTING_EVENT, onQuick)
+  }, [])
 
   // Every change saves itself (see queueSettings above).
   const set = (k, v) => {
@@ -782,26 +755,6 @@ export default function Settings() {
       {options.map(([option, label]) => <option key={option} value={option}>{t(label)}</option>)}
     </select>
   )
-
-  const applyEqGains = (nextGains, presetKey = getEqPresetKey(nextGains)) => {
-    const normalized = normalizeEqGains(nextGains)
-    setEqGains(normalized)
-    setEqPreset(presetKey)
-    try {
-      localStorage.setItem('lokal-eq', JSON.stringify(normalized))
-      localStorage.setItem('lokal-eq-preset', presetKey)
-    } catch {}
-    window.__lokalInitAudio?.()
-    normalized.forEach((gain, index) => {
-      window.__lokaleq?.setGain(index, gain)
-    })
-  }
-
-  const setEQ = (i, v) => {
-    const next = [...eqGains]
-    next[i] = v
-    applyEqGains(next)
-  }
 
   const rescan = async () => {
     if (!settings.music_folder) return
@@ -910,18 +863,6 @@ export default function Settings() {
     try { window.dispatchEvent(new CustomEvent('lokal:comma-artists-updated', { detail: artists })) } catch {}
   }
 
-  const triggerDownload = (content, filename, type) => {
-    const blob = new Blob([content], { type })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
   const handleHistoryExport = async (format = 'json') => {
     console.log("Export started for format:", format);
     setExportingHistory(true);
@@ -962,15 +903,7 @@ export default function Settings() {
   const handleFullExport = async () => {
     setExportingAllData(true)
     try {
-      const exported = await api.exportAllData()
-      if (!exported || exported.error) throw new Error(exported?.error || t('Export failed'))
-      // Interface preferences live in this window, not the database: they go along.
-      const data = { ...exported, local_prefs: collectLocalPrefs() }
-      triggerDownload(
-        JSON.stringify(data, null, 2),
-        `lokal-app-data-${new Date().toISOString().split('T')[0]}.json`,
-        'application/json'
-      )
+      await exportAllAppData()
       setFullExported(true)
       setTimeout(() => setFullExported(false), 3000)
     } catch (e) {
@@ -1595,42 +1528,7 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('playback') && (
       <Section title="Equalizer">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-white font-medium">{t('10-Band EQ')}</p>
-              <p className="text-xs text-muted mt-1">{t('Preset: {name}', { name: t(eqPreset === 'custom' ? 'Custom' : EQ_PRESETS[eqPreset]?.label || EQ_PRESETS[DEFAULT_EQ_PRESET].label) })}</p>
-            </div>
-            <button onClick={() => applyEqGains(EQ_PRESETS[DEFAULT_EQ_PRESET].gains, DEFAULT_EQ_PRESET)}
-              className="text-xs text-muted hover:text-white transition-colors">{t('Reset')}</button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(EQ_PRESETS).map(([key, preset]) => (
-              <button
-                key={key}
-                onClick={() => applyEqGains(preset.gains, key)}
-                className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${eqPreset === key ? 'bg-accent/20 border-accent/50 text-accent' : 'bg-card border-border text-muted hover:text-white'}`}
-              >
-                {t(preset.label)}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-end justify-center gap-3 h-40 overflow-x-auto pb-2">
-            {EQ_BANDS.map((band, i) => (
-              <div key={band} className="flex flex-col items-center gap-2">
-                <span className="text-xs font-display" style={{ color: '#e8ff57', fontSize: 10 }}>
-                  {eqGains[i] > 0 ? '+' : ''}{(eqGains[i] || 0).toFixed(1)}
-                </span>
-                <input type="range" min={-12} max={12} step={0.5} value={eqGains[i] || 0}
-                  onChange={e => setEQ(i, parseFloat(e.target.value))}
-                  className="accent-accent"
-                  style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 24, height: 104, cursor: 'pointer' }} />
-                <span className="text-muted" style={{ fontSize: 9 }}>{band}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted mt-3 text-center opacity-50">{t('The equalizer starts after your first click in the app.')}</p>
-        </div>
+        <EqualizerControls />
       </Section>
       )}
 

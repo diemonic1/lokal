@@ -5,6 +5,7 @@ import { api } from '../api'
 import { useTranslation } from '../i18n'
 import HeaderSearch from './HeaderSearch'
 import { DownloadManagerPanel, DownloadsButton } from './DownloadManager'
+import { QuickSettingsButton, QuickSettingsPanel } from './QuickSettings'
 
 // What in a `.titlebar` is pressed rather than dragged.
 const NO_DRAG = 'button, input, select, textarea, a, [role="menu"], [role="listbox"], [data-no-drag]'
@@ -45,7 +46,7 @@ function useWindowDragFallback(enabled) {
 
 /**
  * The window header: on the left the app name (the draggable part in the
- * desktop app) with Settings and Downloads right after it, close to the
+ * desktop app) with Settings, Downloads and Quick settings right after it, close to the
  * sidebar and search (Settings nearer the edge: the downloads panel opens
  * inwards, to the right, so Settings stays in reach); the Home button and
  * search in the middle; the window controls on the right. In the browser it's
@@ -79,6 +80,8 @@ export default function TitleBar() {
         </button>
         <DownloadsButton />
         <DownloadManagerPanel />
+        <QuickSettingsButton />
+        <QuickSettingsPanel />
       </div>
 
       <HeaderSearch />

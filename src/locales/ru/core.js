@@ -355,4 +355,6 @@ export default {
   '{n} deleted, private or duplicate video|{n} deleted, private or duplicate videos': ['{n} удалённое, приватное или повторяющееся видео', '{n} удалённых, приватных или повторяющихся видео', '{n} удалённых, приватных или повторяющихся видео'],
   'Left Sidebar Size': 'Размер левой панели',
   'Size of the folders, their covers and names in the left sidebar.': 'Размер папок, их обложек и названий в левой панели.',
+  'Quick settings': 'Быстрые настройки',
+  'Player bar visualization': 'Визуализация на панели плеера',
 }

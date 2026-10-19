@@ -1,4 +1,5 @@
-// Spotify-style search in the window header: a Home button, then the search
+// Spotify-style search in the window header: a Home button and the Equalizer
+// button (EqualizerPopup.jsx), then the search
 // box with a Flow button (shuffle icon) where Spotify has Browse, then the
 // Cast button (CastButton.jsx). The Flow button starts Flow with the mood and
 // tuner last set on Home → Flow.
@@ -30,6 +31,7 @@ import {
 } from '../searchHistory'
 import { asLink } from '../downloadLinks'
 import CastButton from './CastButton'
+import { EqualizerButton, EqualizerPanel } from './EqualizerPopup'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
 
@@ -263,6 +265,8 @@ export default function HeaderSearch() {
         >
           <Home size={15} strokeWidth={onHome ? 2.4 : 2} />
         </button>
+        <EqualizerButton />
+        <EqualizerPanel />
       </div>
 
       <div className="relative min-w-0" style={{ flex: '0 1 474px' }} data-tour="search" data-no-drag>
