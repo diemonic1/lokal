@@ -110,11 +110,12 @@ app.get('/api/artwork/:trackId', (req, res) => {
   res.status(404).send('No artwork')
 })
 
-// A sidebar folder's own picture (folder_cover.jpg/png), by its path in the music folder.
+// A sidebar folder's own picture (folder_cover.lokal), by its path in the music folder.
 app.get('/api/folder-cover', (req, res) => {
   try {
     const file = require('../electron/libraryFolder').folderCoverForRelative(getDB(), typeof req.query.path === 'string' ? req.query.path : '')
-    if (file && fs.existsSync(file)) return res.sendFile(file)
+    const cover = file && fs.existsSync(file) ? require('../electron/folderCover').readFolderCover(file) : null
+    if (cover) return res.type(cover.mime).send(cover.bytes)
   } catch {}
   res.status(404).send('No folder cover')
 })

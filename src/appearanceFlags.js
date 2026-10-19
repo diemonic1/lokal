@@ -25,6 +25,9 @@
 //   player_waves_opacity        5-100, % how strongly they show
 //   player_lightning_strength   10-300, ... > Lightning: % how strongly the music moves it
 //   player_lightning_opacity    5-100, % how strongly it shows
+//   side_character_sensitivity  10-300, Settings > Visualizations > Side Panel > Round character: % how loud the music reads
+//   side_character_strength     0-200, % how much it grows, jumps and spins with the music
+//   side_character_size         50-200, % how big
 //   side_anomaly_sensitivity    1-10, Settings > Visualizations > Side Panel > Anomaly (5: as in the pen)
 //   side_anomaly_size           50-200, % how big
 //   volume_wheel_step              1-5, volume % per wheel notch over the player bar
@@ -34,21 +37,27 @@
 //                       (bars beside the volume), spectrum or waves (under the seek bar) or
 //                       lightning (across the bar). Unset: follows player_waveform.
 //   side_visual_text    ... > Side Panel > Visualization with lyrics: off, character (the round
-//                       one), anomaly or splashes (colour splashes). Unset: character
+//                       one), anomaly, splashes (colour splashes) or trails. Unset: character
 //   side_visual_full    ... > Fullscreen visualization (the Visualization tab), same values.
 //                       Unset: splashes Unset: follows side_panel_visualizer.
 //   player_spectrum_color  #rrggbb for the spectrum, or 'accent'; unset: white
 //   player_waves_color_back, player_waves_color_front   the two waves' colours (same form)
 //   player_lightning_color_1, _2, _3   the lightning's three lines (same form)
 //   side_anomaly_color  the anomaly's colour (same form)
-//   side_anomaly_bg, side_character_bg, side_splash_bg   the colour behind each side panel
+//   side_character_color  the round character's outline (same form; unset: white)
+//   side_character_dots, side_character_mouse  '0': no floating dots / it doesn't lean towards the mouse
+//   side_anomaly_bg, side_character_bg, side_splash_bg, side_trails_bg   the colour behind each side panel
 //                       visualization (same form; unset: #161616)
-//   side_character_cover, side_anomaly_cover, side_splash_cover   '1': the song's cover over
+//   side_character_cover, side_anomaly_cover, side_splash_cover, side_trails_cover   '1': the song's cover over
 //                       that colour, filling the visualization's box
 //   side_*_cover_opacity  0-100, how strongly that cover shows (50)
 //   side_visual_gradient_off  Settings > Visualizations > Side Panel: '0' keeps the fade under the
 //                       Visualization + Lyrics picture while the visualization shows (unset: off then)
-//   side_splash_*       the colour splashes' own settings (see SPLASH_KEYS in visualizers/Splashes.jsx)
+//   side_splash_*       the colour splashes' own settings (see SPLASH_KEYS in visualizers/splashSettings.js)
+//   side_trails_*       the trails' own settings (see TRAILS_KEYS in visualizers/trailsSettings.js):
+//                       _life (0-100, how long the trails stay), _layout (circle / fill), _scale
+//                       (30-300 %, the whole picture), _color_mode (classic / custom),
+//                       _color_1 / _color_2, _shimmer, _speed, _sensitivity, _size, _count
 //   app_tabs        Settings > Appearance > App Tabs: tab order and which go to the ⋯ menu (see appTabs.js)
 //   taskbar_title   ... > Taskbar Title: what the window title (taskbar) shows
 //   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
@@ -62,6 +71,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { SPLASH_SETTING_KEYS } from './visualizers/splashSettings'
+import { TRAILS_SETTING_KEYS } from './visualizers/trailsSettings'
 import { isEcoMode, subscribeEcoMode } from './ecoMode'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
@@ -73,7 +83,9 @@ const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed',
   'player_lightning_strength', 'player_lightning_opacity', 'player_lightning_color_1', 'player_lightning_color_2', 'player_lightning_color_3',
   'side_visual_text', 'side_visual_full', 'side_anomaly_sensitivity', 'side_anomaly_size', 'side_anomaly_color', 'side_anomaly_bg', 'side_character_bg',
   'side_splash_bg', ...SPLASH_SETTING_KEYS,
-  'side_character_cover', 'side_character_cover_opacity', 'side_anomaly_cover', 'side_anomaly_cover_opacity', 'side_splash_cover', 'side_splash_cover_opacity']
+  'side_character_cover', 'side_character_cover_opacity',
+  'side_character_sensitivity', 'side_character_strength', 'side_character_size', 'side_character_color', 'side_character_dots', 'side_character_mouse', 'side_anomaly_cover', 'side_anomaly_cover_opacity', 'side_splash_cover', 'side_splash_cover_opacity',
+  'side_trails_bg', 'side_trails_cover', 'side_trails_cover_opacity', ...TRAILS_SETTING_KEYS]
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -157,7 +169,7 @@ export function usePlayerVisualizer() {
   return eco ? 'off' : chosen
 }
 
-export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes']
+export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes', 'trails']
 
 /** The side panel visualization chosen in `key` (side_visual_text / _full; 'off': just the background). */
 export function useSideVisualChoice(key, fallback) {

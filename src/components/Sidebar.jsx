@@ -17,10 +17,10 @@ import { parseFolderApps } from './FolderAppsSettings'
 const COLLAPSED_KEY = 'lokal-sidebar-collapsed'
 const readCollapsed = () => { try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false } }
 
-// folder_cover.jpg/png in the folder first (its version busts the image cache
+// folder_cover.lokal in the folder first (its version busts the image cache
 // when the file changes), else the artwork of its top song by track number.
 const coverSrc = folder => folder.folderCoverPath
-  ? (api.isElectron ? `${api.fileURL(folder.folderCoverPath)}?v=${folder.folderCoverVersion || 0}` : api.folderCoverURL(folder.path, folder.folderCoverVersion))
+  ? (api.isElectron ? api.folderCoverFileURL(folder.folderCoverPath, folder.folderCoverVersion || 0) : api.folderCoverURL(folder.path, folder.folderCoverVersion))
   : folder.coverPath
     ? (api.isElectron ? api.fileURL(folder.coverPath) : api.artworkURL(folder.coverTrackId))
     : null

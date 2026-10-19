@@ -5,14 +5,15 @@ import { exportAllAppData, triggerDownload } from '../appBackup'
 import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useLocation } from 'react-router-dom'
-import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
 import { peekCache, writeCache, usePageReady } from '../pageCache'
 import { previewEcoMode } from '../ecoMode'
-import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex, startGenres, readGenresStatus } from '../libraryJobs'
+import CacheLimitSelect from '../components/CacheLimitSelect'
+import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex } from '../libraryJobs'
 import SectionSwap, { ReadyWhen } from '../components/SectionSwap'
 import AddonsSettings from '../components/AddonsSettings'
 import ProviderConnections from '../components/ProviderConnections'
@@ -73,6 +74,32 @@ function Section({ title, children }) {
     </div>
   )
 }
+/**
+ * Settings > Library > Downloads > Download Folder: one of the library's
+ * folders (as the sidebar lists them), or '' for the music folder itself,
+ * filed by artist and album (electron/download/postprocess.js refile).
+ */
+function DownloadFolderSelect({ value, onChange }) {
+  const { t } = useTranslation()
+  const [folders, setFolders] = useState(null)
+  useEffect(() => {
+    let alive = true
+    Promise.resolve(api.getLibraryFolders('')).then(result => {
+      if (alive) setFolders(Array.isArray(result?.folders) ? result.folders : [])
+    }).catch(() => alive && setFolders([]))
+    return () => { alive = false }
+  }, [])
+  const known = !value || (folders || []).some(folder => folder.path === value)
+  return (
+    <select value={value || ''} onChange={e => onChange(e.target.value)} aria-label={t('Download Folder')}
+      className="max-w-60 bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-accent/50">
+      <option value="">{t('Music folder, by artist and album')}</option>
+      {(folders || []).map(folder => <option key={folder.path} value={folder.path}>{folder.name || folder.path}</option>)}
+      {!known && <option value={value}>{value}</option>}
+    </select>
+  )
+}
+
 /** 1536 -> "1.5 KB" */
 function fmtBytes(bytes) {
   const n = Number(bytes) || 0
@@ -263,6 +290,7 @@ function withSettingDefaults(s) {
 
 export default function Settings() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { t, language, setLanguage } = useTranslation()
   const replayGainMode = usePlayerStore(s => s.replayGainMode)
   const loudnessSettings = usePlayerStore(s => s.loudness)
@@ -290,7 +318,6 @@ export default function Settings() {
     }
   }, [])
   const [scanning, setScanning] = useState(false)
-  const [showGenreModal, setShowGenreModal] = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   // Lists a category loads are kept for the next visit, so switching back to
   // it shows them at once (and refreshes them quietly).
@@ -336,18 +363,6 @@ export default function Settings() {
   const [lbStatus, setLbStatus] = useState(null)
   const [cacheInfo, setCacheInfo] = useState(null) // { motion, playback, musicVideo, web, limit, limits } | { busy }
   const refreshCache = () => { Promise.resolve(api.cacheUsage?.()).then(info => { if (info && !info.error) setCacheInfo(info) }).catch(() => {}) }
-  const setCacheLimit = async (mb) => {
-    await Promise.resolve(api.saveSettings({ cache_limit_mb: String(mb) })).catch(() => {})
-    setSettings(prev => ({ ...prev, cache_limit_mb: String(mb) }))
-    const info = await Promise.resolve(api.cacheTrim?.()).catch(() => null)
-    if (info && !info.error) setCacheInfo(info)
-  }
-  const clearCache = async () => {
-    setCacheInfo(info => ({ ...info, busy: true }))
-    const info = await Promise.resolve(api.cacheClear?.()).catch(() => null)
-    if (info && !info.error) setCacheInfo(info)
-    else setCacheInfo(prev => ({ ...prev, busy: false }))
-  }
   /** Reload the ListenBrainz connection status. */
   const refreshListenBrainz = () => { Promise.resolve(api.listenbrainzStatus?.()).then(s => { if (s && !s.error) setLbStatus(s) }).catch(() => {}) }
   const [spotifyCheck, setSpotifyCheck] = useState(null)
@@ -404,29 +419,14 @@ export default function Settings() {
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateCheckResult, setUpdateCheckResult] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
-  // Fill In Genres and Index Lyrics run in the background (src/libraryJobs.js,
-  // shared with the Downloads panel, which can start them too).
-  const genreJob = useLibraryJobs(s => s.genres)
+  // Index Lyrics runs in the background (src/libraryJobs.js).
   const [missingRepairJob, setMissingRepairJob] = useState(null)
   const lyricsIndexJob = useLibraryJobs(s => s.lyrics)
   const indexAllLyrics = () => (lyricsIndexJob?.running ? cancelLyricsIndex() : startLyricsIndex())
-  // Fix Lyrics for AIMP: rewrites SYLT frames AIMP shows as CJK.
-  const [syltJob, setSyltJob] = useState(null)
-  useEffect(() => api.onRepairSyltProgress(setSyltJob), [])
-  const repairSylt = () => (syltJob?.running ? api.cancelRepairSylt() : api.repairSylt())
-  const syltText = syltJob?.running
-    ? t('{done} of {total} MP3s checked · {fixed} fixed', { done: syltJob.done || 0, total: syltJob.total || '…', fixed: syltJob.fixed || 0 })
-    : syltJob ? t('Done: {fixed} of {done} MP3s fixed', { fixed: syltJob.fixed || 0, done: syltJob.done || 0 }) + (syltJob.failed ? ` · ${t('{failed} could not be saved', { failed: syltJob.failed })}` : '') : ''
   // Only used for lyrics (Index Lyrics below).
   const indexText = (job) => job?.running
     ? `${t('{done} of {total} songs · {found} lyrics found', { done: job.done || 0, total: job.total || '…', found: job.found || 0 })}${job.title ? ` · ${job.title}` : ''}`
     : job ? t(job.cancelled ? 'Done: {found} lyrics found for {done} songs (stopped)' : 'Done: {found} lyrics found for {done} songs', { found: job.found || 0, done: job.done || 0 }) : ''
-  useEffect(() => { readGenresStatus() }, [])
-  const fillGenres = startGenres
-  const genreText = genreJob?.error ? genreJob.error
-    : genreJob?.running ? t('Looking up… {done} of {total} albums and songs · {updated} songs filled in', { done: genreJob.done, total: genreJob.total, updated: genreJob.updated })
-      : genreJob?.total ? t("Done: {updated} of {songs} songs filled in. Songs iTunes doesn't know stay empty.", { updated: genreJob.updated, songs: genreJob.songs })
-        : genreJob?.started ? t('Every song already has a genre.') : ''
   const loadMissingTracks = async () => {
     const rows = await Promise.resolve(api.getMissingTracks?.()).catch(() => null)
     return Array.isArray(rows) ? rows : []
@@ -459,11 +459,7 @@ export default function Settings() {
     ? t('Queuing {done} of {total} missing downloads…', { done: missingRepairJob.done || 0, total: missingRepairJob.total || missingRepairJob.missing || 0 })
     : missingRepairJob?.message
       || (missingRepairJob?.missing ? t('{n} downloaded file missing.|{n} downloaded files missing.', { n: missingRepairJob.missing }) : t('No missing downloaded files detected.'))
-  const [manualGenreArtist, setManualGenreArtist] = useState('')
   const [bgImage, setBgImage] = useState(null)
-  const [manualGenreTrack, setManualGenreTrack] = useState('')
-  const [manualGenreAlbum, setManualGenreAlbum] = useState('')
-  const [manualGenreValue, setManualGenreValue] = useState('')
   const [activeCategory, setActiveCategory] = useState(() => {
     const requested = MOVED_CATEGORIES[location.state?.category] || location.state?.category
     return SETTINGS_CATEGORIES.some(category => category.key === requested) ? requested : SETTINGS_CATEGORIES[0].key
@@ -1248,23 +1244,6 @@ activeCategory === 'data' ? usersTried
               <FolderOpen size={14} /> {t('Show Logs')}
             </button>
           </Row>
-          <Row label="Hardware Acceleration" desc={perfSaveError?.key === 'hardwareAcceleration' ? t("Couldn't save ({error})", { error: perfSaveError.message }) : perfRestartNeeded ? 'Restart Lokal to apply this change' : 'Use the graphics card to draw the app. Turn off if the window flickers or shows glitches.'}>
-            <div className="flex items-center gap-3">
-              {perfRestartNeeded && (
-                <button
-                  onClick={() => api.relaunchApp()}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-card border border-border rounded-lg text-xs text-muted hover:text-white hover:border-accent/30 transition-colors"
-                >
-                  <RefreshCcw size={12} /> {t('Restart now')}
-                </button>
-              )}
-              <button
-                onClick={() => setHardwareAcceleration(!perfSettings.hardwareAcceleration)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${perfSettings.hardwareAcceleration ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-                {t(perfSettings.hardwareAcceleration ? 'On' : 'Off')}
-              </button>
-            </div>
-          </Row>
         </Section>
       )}
 
@@ -1305,6 +1284,19 @@ activeCategory === 'data' ? usersTried
             <RefreshCw size={13} className={scanning ? 'animate-spin' : ''} />{t(scanning ? 'Scanning…' : 'Rescan')}
           </button>
         </Row>
+        {api.isElectron && (
+        <Row label="Index Lyrics" desc={`${t('Fetches and keeps the lyrics of every song in your library now, so they open at once later.')} ${indexText(lyricsIndexJob)}`.trim()}>
+          <button onClick={indexAllLyrics}
+            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
+            {t(lyricsIndexJob?.running ? 'Stop' : 'Index All')}
+          </button>
+        </Row>
+        )}
+      </Section>
+      )}
+
+      {inCategory('library') && (
+      <Section title="Duplicates">
         <Row label="Find Duplicates" desc="Exact: the same title and artist. Similar: likely copies with close names and lengths, to check after the exact ones.">
           <div className="flex items-center gap-2">
             <button onClick={checkDuplicates}
@@ -1317,27 +1309,37 @@ activeCategory === 'data' ? usersTried
             </button>
           </div>
         </Row>
-        {api.isElectron && (
-        <Row label="Index Lyrics" desc={`${t('Fetches and keeps the lyrics of every song in your library now, so they open at once later.')} ${indexText(lyricsIndexJob)}`.trim()}>
-          <button onClick={indexAllLyrics}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
-            {t(lyricsIndexJob?.running ? 'Stop' : 'Index All')}
-          </button>
+        <Row stacked label="Remove Duplicate Songs" desc="Choose a playlist to remove repeated songs from it. The first occurrence stays in its original position; other playlist entries are removed. Library files are not touched.">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label={t('Playlist to remove duplicates from')}
+              value={deduplicatePlaylistId}
+              onChange={event => { setDeduplicatePlaylistId(event.target.value); setDeduplicateResult('') }}
+              disabled={!deduplicatePlaylists.length || deduplicatingPlaylist}
+              className="min-w-48 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-accent/50 disabled:opacity-50"
+            >
+              {!deduplicatePlaylists.length && <option value="">{t('No regular playlists')}</option>}
+              {deduplicatePlaylists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={removePlaylistDuplicates}
+              disabled={!deduplicatePlaylistId || deduplicatingPlaylist}
+              className="flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/15 px-4 py-2 text-sm text-accent transition-colors hover:bg-accent/25 disabled:cursor-wait disabled:opacity-40"
+            >
+              <Trash2 size={14} /> {t(deduplicatingPlaylist ? 'Removing…' : 'Remove duplicates')}
+            </button>
+          </div>
+          {deduplicateResult && <p role="status" className="text-xs text-muted">{deduplicateResult}</p>}
         </Row>
-        )}
-        {api.isElectron && (
-        <Row label="Fix Lyrics for AIMP" desc={`${t('AIMP shows the synced lyrics (SYLT) of some MP3s as hieroglyphs. Rewrites them in a form it reads; the words and timings stay the same.')} ${syltText}`.trim()}>
-          <button onClick={repairSylt}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
-            {t(syltJob?.running ? 'Stop' : 'Fix')}
-          </button>
-        </Row>
-        )}
       </Section>
       )}
 
       {inCategory('library') && (
       <Section title="Downloads">
+        <Row label="Download Folder" desc="Where downloaded songs go. A library folder: straight into it, numbered after its songs (the biggest track number plus one), like files dropped onto it. The music folder: filed by artist and album.">
+          <DownloadFolderSelect value={settings.download_folder || ''} onChange={value => set('download_folder', value)} />
+        </Row>
         <Row label="Download Format" desc={`${t('What downloaded songs are saved as.')} ${t((FORMATS.find(f => f.id === savedFormat(settings)) || FORMATS[0]).hint)}`}>
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             {FORMATS.map(option => (
@@ -1406,24 +1408,6 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
 
-      {inCategory('library') && (
-      <Section title="Genres">
-        <Row label="Set Genres" desc="Choose the genre for an artist, album or song yourself.">
-          <button 
-            onClick={() => setShowGenreModal(true)}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white hover:border-accent/30 transition-colors flex items-center gap-2"
-          >
-            <Tags size={14} /> {t('Configure Overrides')}
-          </button>
-        </Row>
-        <Row label="Fill In Genres" desc={genreText || 'Look up a genre online for every song that has none, one album at a time. A big library takes a while; it runs in the background.'}>
-          <button onClick={fillGenres} disabled={!!genreJob?.running}
-            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors disabled:opacity-50">
-            {t(genreJob?.running ? 'Running…' : 'Fill In')}
-          </button>
-        </Row>
-      </Section>
-      )}
 
       {inCategory('library') && (
       <Section title="Artists">
@@ -1458,29 +1442,6 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('library') && (
       <Section title="Library">
-        <Row stacked label="Remove Duplicate Songs" desc="Choose a playlist to remove repeated songs from it. The first occurrence stays in its original position; other playlist entries are removed. Library files are not touched.">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label={t('Playlist to remove duplicates from')}
-              value={deduplicatePlaylistId}
-              onChange={event => { setDeduplicatePlaylistId(event.target.value); setDeduplicateResult('') }}
-              disabled={!deduplicatePlaylists.length || deduplicatingPlaylist}
-              className="min-w-48 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-accent/50 disabled:opacity-50"
-            >
-              {!deduplicatePlaylists.length && <option value="">{t('No regular playlists')}</option>}
-              {deduplicatePlaylists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
-            </select>
-            <button
-              type="button"
-              onClick={removePlaylistDuplicates}
-              disabled={!deduplicatePlaylistId || deduplicatingPlaylist}
-              className="flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/15 px-4 py-2 text-sm text-accent transition-colors hover:bg-accent/25 disabled:cursor-wait disabled:opacity-40"
-            >
-              <Trash2 size={14} /> {t(deduplicatingPlaylist ? 'Removing…' : 'Remove duplicates')}
-            </button>
-          </div>
-          {deduplicateResult && <p role="status" className="text-xs text-muted">{deduplicateResult}</p>}
-        </Row>
         <Row label="Delete Files Too" desc={api.isElectron
           ? 'Deleting a song in Lokal also moves its file to the Recycle Bin. Only files in your music folder.'
           : 'Deleting a song in Lokal also deletes its file from the server, for good. Only files in the music folder.'}>
@@ -1700,9 +1661,9 @@ activeCategory === 'data' ? usersTried
         </Row>
         <Row label="Time Plain Lyrics" desc="Roughly time lyrics that have no timing, so they scroll with the song.">
           <button
-            onClick={() => set('unsynced_auto_sync', settings.unsynced_auto_sync === '1' ? '0' : '1')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.unsynced_auto_sync === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-            {t(settings.unsynced_auto_sync === '1' ? 'On' : 'Off')}
+            onClick={() => set('unsynced_auto_sync', settings.unsynced_auto_sync !== '0' ? '0' : '1')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.unsynced_auto_sync !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.unsynced_auto_sync !== '0' ? 'On' : 'Off')}
           </button>
         </Row>
         <LyricsSourcesSettings onPersist={(patch) => setSettings(s => ({ ...s, ...patch }))} />
@@ -2253,6 +2214,28 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
 
+      {api.isElectron && inCategory('visualizations') && (
+      <Section title="Graphics">
+        <Row label="Hardware Acceleration" desc={perfSaveError?.key === 'hardwareAcceleration' ? t("Couldn't save ({error})", { error: perfSaveError.message }) : perfRestartNeeded ? 'Restart Lokal to apply this change' : 'Use the graphics card to draw the app. Turn off if the window flickers or shows glitches.'}>
+          <div className="flex items-center gap-3">
+            {perfRestartNeeded && (
+              <button
+                onClick={() => api.relaunchApp()}
+                className="flex items-center gap-2 px-4 py-1.5 bg-card border border-border rounded-lg text-xs text-muted hover:text-white hover:border-accent/30 transition-colors"
+              >
+                <RefreshCcw size={12} /> {t('Restart now')}
+              </button>
+            )}
+            <button
+              onClick={() => setHardwareAcceleration(!perfSettings.hardwareAcceleration)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${perfSettings.hardwareAcceleration ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+              {t(perfSettings.hardwareAcceleration ? 'On' : 'Off')}
+            </button>
+          </div>
+        </Row>
+      </Section>
+      )}
+
       {inCategory('visualizations') && (
       <Section title="Now Playing">
         <Row label="Colour Background" desc="Colour the side panel and full screen player from the album cover. Off: a dark background.">
@@ -2401,7 +2384,7 @@ activeCategory === 'data' ? usersTried
       {inCategory('visualizations') && (
       <Section title="Side Panel">
         {(() => {
-          const KINDS = [['character', 'Round character'], ['anomaly', 'Anomaly'], ['splashes', 'Colour splashes']]
+          const KINDS = [['character', 'Round character'], ['anomaly', 'Anomaly'], ['splashes', 'Colour splashes'], ['trails', 'Trails']]
           const chosen = (key, fallback) => (KINDS.some(([k]) => k === settings[key]) || settings[key] === 'off' ? settings[key] : fallback)
           const kind = visualEditKind
           return (
@@ -2420,8 +2403,14 @@ activeCategory === 'data' ? usersTried
                   {KINDS.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                 </select>
               </Row>
-              {visualReset({ character: 'side_character_', anomaly: 'side_anomaly_', splashes: 'side_splash_' }[kind])}
+              {visualReset({ character: 'side_character_', anomaly: 'side_anomaly_', splashes: 'side_splash_', trails: 'side_trails_' }[kind])}
               {kind === 'character' && <>
+                {visualSlider('side_character_sensitivity', 'Sensitivity', 'How loud the music reads to the character: higher, and quiet songs move it as much as loud ones.', 10, 300, 100, '%')}
+                {visualSlider('side_character_strength', 'Reaction strength', 'How much it grows, jumps about and spins with the music. 0: it only breathes.', 0, 200, 100, '%')}
+                {visualSlider('side_character_size', 'Size', 'How big the character is in the panel.', 50, 200, 100, '%')}
+                {visualColor('side_character_color', 'Outline color', "The colour of the character's outline, made of the waveform.", '#ffffff')}
+                {visualToggle('side_character_dots', 'Floating dots', 'Dots drifting around the character, drawn towards it.')}
+                {visualToggle('side_character_mouse', 'Follow the mouse', 'The character leans towards the mouse over the visualization.')}
                 {visualColor('side_character_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
                 {visualCover('character')}
               </>}
@@ -2491,6 +2480,30 @@ activeCategory === 'data' ? usersTried
                   </>}
                   {visualColor('side_splash_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
                   {visualCover('splash')}
+                </>
+              })()}
+              {kind === 'trails' && (() => {
+                const custom = settings.side_trails_color_mode === 'custom'
+                return <>
+                  <Row key="side_trails_layout" label="Display mode" desc="Circle: the dots circle the middle of the panel, as in the original. Fill: they spread over the whole visualization, each circling its own place.">
+                    {visualSelect('side_trails_layout', settings.side_trails_layout === 'fill' ? 'fill' : 'circle', [['circle', 'Circle'], ['fill', 'Fill']])}
+                  </Row>
+                  {visualSlider('side_trails_scale', 'Visualization size', 'How big the whole picture is: how far the dots spread and wander. Dot size is set apart.', 30, 300, 220, '%')}
+                  {visualSlider('side_trails_life', 'Trails life', 'How long the trails stay behind the dots. 0: no trails, 100: they hardly fade.', 0, 100, 50, '%')}
+                  <Row key="side_trails_color_mode" label="Trail colors" desc="Classic: the original's, from red in the bass through yellow to green. Custom colors: two of your own, each in shades around it that shimmer.">
+                    {visualSelect('side_trails_color_mode', custom ? 'custom' : 'classic', [['classic', 'Classic'], ['custom', 'Custom colors']])}
+                  </Row>
+                  {custom && <>
+                    {visualColor('side_trails_color_1', 'First color', 'Mostly the lower notes.', '#ff3d6e')}
+                    {visualColor('side_trails_color_2', 'Second color', 'Mostly the higher notes.', '#3d8bff')}
+                    {visualSlider('side_trails_shimmer', 'Shimmer', 'How far the shades stray from the two colors and how much they drift. 0: just the two colors.', 0, 100, 50, '%')}
+                  </>}
+                  {visualSlider('side_trails_sensitivity', 'Sensitivity', 'How strongly the music grows the dots and spreads them out.', 10, 300, 110, '%')}
+                  {visualSlider('side_trails_speed', 'Speed', 'How fast the dots wander.', 10, 300, 100, '%')}
+                  {visualSlider('side_trails_size', 'Dot size', 'How big the dots are.', 30, 300, 100, '%')}
+                  {visualSlider('side_trails_count', 'Dot count', 'How many dots, each listening to its own frequency. Fewer is lighter.', 100, 1200, 600, '', 10)}
+                  {visualColor('side_trails_bg', 'Background color', 'The colour behind the visualization.', '#161616')}
+                  {visualCover('trails')}
                 </>
               })()}
             </>
@@ -2781,17 +2794,15 @@ activeCategory === 'data' ? usersTried
       {api.isElectron && inCategory('data') && (
       <Section title="Cache">
          <Row label="Cache Size Limit" desc="Moving covers, converted copies of songs (Apple Lossless, WMA…) and songs converted for casting are kept so they load faster. Past this size, the oldest are removed. Downloaded videos are kept in your Videos folder.">
-          <select aria-label={t('Cache size limit')} value={String(Math.round((cacheInfo?.limit || 4096 * 1048576) / 1048576))} onChange={e => setCacheLimit(Number(e.target.value))}
-            className="bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-accent/50">
-            {(cacheInfo?.limits || [512, 1024, 2048, 4096, 8192, 16384]).map(mb => <option key={mb} value={String(mb)}>{mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`}</option>)}
-          </select>
+          <CacheLimitSelect info={cacheInfo} onChange={(info, mb) => { setCacheInfo(info); setSettings(prev => ({ ...prev, cache_limit_mb: String(mb) })) }} />
         </Row>
          <Row label="In Use" desc={cacheInfo ? t('Older video downloads {video} · Moving covers {motion} · Playable copies {playback} · Web cache {web}', { video: fmtBytes(cacheInfo.musicVideo), motion: fmtBytes(cacheInfo.motion), playback: fmtBytes(cacheInfo.playback), web: fmtBytes(cacheInfo.web) }) : 'Measuring…'}>
           <div className="flex items-center gap-3">
             <span className="text-sm text-white font-display">{cacheInfo ? fmtBytes((cacheInfo.motion || 0) + (cacheInfo.playback || 0) + (cacheInfo.musicVideo || 0) + (cacheInfo.cast || 0) + (cacheInfo.web || 0)) : '—'}</span>
-            <button onClick={clearCache} disabled={!cacheInfo || cacheInfo.busy}
-              className="px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted hover:text-white disabled:opacity-50 transition-colors">
-              {t(cacheInfo?.busy ? 'Clearing…' : 'Clear Cache')}
+            {/* Clearing is on the Cache Analysis page, with what each clean-up removes. */}
+            <button onClick={() => navigate('/cache-analysis')}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted hover:text-white transition-colors">
+              <HardDrive size={12} /> {t('Cache Analysis')}
             </button>
           </div>
         </Row>
@@ -2830,103 +2841,6 @@ activeCategory === 'data' ? usersTried
             <button onClick={async () => { await api.clearTracks(); setShowClearModal(false) }}
               className="flex-1 py-2.5 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/30 transition-colors">
               {t('Clear Everything')}
-            </button>
-          </div>
-        </div>
-      </Modal>
-      <Modal 
-        open={showGenreModal} 
-        onClose={() => { setShowGenreModal(false); setStatusMessage(''); }} 
-        title={t('Manual Genre Assignment')} 
-        width="max-w-md"
-      >
-        <div className="space-y-4">
-          <p className="text-xs text-muted leading-relaxed">
-            {t("Overrides take priority over online fetching. Use this if iTunes or MusicBrainz can't find it.")}
-          </p>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-display text-muted uppercase tracking-widest block mb-1.5">{t('Artist (Required)')}</label>
-                <input 
-                  value={manualGenreArtist} 
-                  onChange={e => setManualGenreArtist(e.target.value)}
-                  placeholder={t('e.g. {example}', { example: 'KENTENSHI' })}
-                  className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" 
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-display text-muted uppercase tracking-widest block mb-1.5">{t('Genre (Required)')}</label>
-                <input 
-                  value={manualGenreValue} 
-                  onChange={e => setManualGenreValue(e.target.value)}
-                  placeholder={t('e.g. {example}', { example: 'Breakcore' })}
-                  className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50" 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
-              <div>
-                <label className="text-[10px] font-display text-muted/60 uppercase tracking-widest block mb-1.5">{t('Track (Optional)')}</label>
-                <input 
-                  value={manualGenreTrack} 
-                  onChange={e => setManualGenreTrack(e.target.value)}
-                  placeholder={t('Song name')}
-                  className="w-full bg-card/40 border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/30" 
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-display text-muted/60 uppercase tracking-widest block mb-1.5">{t('Album (Optional)')}</label>
-                <input 
-                  value={manualGenreAlbum} 
-                  onChange={e => setManualGenreAlbum(e.target.value)}
-                  placeholder={t('Album title')}
-                  className="w-full bg-card/40 border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/30" 
-                />
-              </div>
-            </div>
-          </div>
-
-          {statusMessage && (
-            <div className={`p-2.5 rounded-lg border text-center text-xs font-medium ${statusMessage.includes('Error') || statusMessage.includes('required') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-accent/10 border-accent/20 text-accent'}`}>
-              {t(statusMessage)}
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-2">
-            <button 
-              onClick={() => { setShowGenreModal(false); setStatusMessage(''); }} 
-              className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors"
-            >
-              {t('Cancel')}
-            </button>
-            <button 
-              onClick={async () => {
-                if (!manualGenreArtist || !manualGenreValue) {
-                  setStatusMessage('Artist and Genre are required');
-                  return;
-                }
-                const result = await api.setManualGenre({ 
-                  artist: manualGenreArtist, 
-                  track: manualGenreTrack || null,
-                  album: manualGenreAlbum || null,
-                  genre: manualGenreValue 
-                });
-                setStatusMessage(result?.error || t('✓ Updated {n} track(s)', { n: result?.updated || 0 }));
-                
-                if (!result?.error) {
-                  setManualGenreArtist('');
-                  setManualGenreTrack('');
-                  setManualGenreAlbum('');
-                  setManualGenreValue('');
-                  setTimeout(() => setShowGenreModal(false), 1500);
-                }
-              }} 
-              className="flex-1 py-2.5 bg-accent text-base rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              {t('Apply Mapping')}
             </button>
           </div>
         </div>

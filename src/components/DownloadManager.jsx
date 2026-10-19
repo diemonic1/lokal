@@ -10,7 +10,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, RotateCcw, AlertCircle, Info, Disc3, Library, ChevronDown, Mic2, Trash2, Square, Search, Download, Clapperboard, CalendarDays, UserRound, ScanSearch, Play, Tags } from 'lucide-react'
+import { Check, X, RotateCcw, AlertCircle, Info, Disc3, Library, ChevronDown, Mic2, Trash2, Square, Search, Download, Clapperboard, CalendarDays, UserRound, ScanSearch, Play, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDownloads, batchOf, isActive, startDownloadSync } from '../store/downloads'
 import { useSearchStore } from '../store/search'
@@ -21,7 +21,6 @@ import { plural } from '../plural'
 import { explainDownloadError } from '../downloadErrors'
 import { ago, useReleaseCheck } from './ReleasesPanel'
 import { cancelVideoIndex, startVideoIndex, useVideoIndex } from '../videoIndex'
-import { useLibraryJobs, startGenres, readGenresStatus } from '../libraryJobs'
 import { useDiscoveryArtists, loadDiscoveryArtists } from '../discoveryArtists'
 import { useTranslation } from '../i18n'
 
@@ -299,7 +298,8 @@ function DownloadedPlaylists() {
 }
 
 /** A job running outside the download queue: its progress, or how it last ended, and a button to run it. */
-function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onStop, onOpen, onRun, runLabel: runLabelProp, runDisabled = false, runTitle }) {
+// soon: the job can't be run yet -- a greyed "Available later" mark whose tooltip (soon) says what it will do.
+function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onStop, onOpen, onRun, runLabel: runLabelProp, runDisabled = false, runTitle, soon = null }) {
   const { t } = useTranslation()
   const runLabel = runLabelProp || t('Run')
   const [starting, setStarting] = useState(false)
@@ -331,7 +331,13 @@ function TaskRow({ icon: Icon, label, running, done = 0, total = 0, detail, onSt
           <Square size={12} />
         </button>
       )}
-      {!running && onRun && (
+      {!running && soon && (
+        <span title={soon} tabIndex={0} aria-label={`${t('Available later')}. ${soon}`}
+          className="inline-flex flex-shrink-0 cursor-help items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-medium text-muted/60">
+          <Clock size={10} /> {t('Available later')}
+        </span>
+      )}
+      {!running && !soon && onRun && (
         <button onClick={run} disabled={runDisabled || starting} title={runTitle || `${runLabel}: ${label}`} aria-label={t('{action} {task}', { action: runLabel, task: label.toLowerCase() })}
           className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-default disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:text-muted">
           {starting ? <span className="h-2.5 w-2.5 animate-spin rounded-full border border-accent/30 border-t-accent" /> : <Play size={10} fill="currentColor" />}
@@ -375,25 +381,21 @@ function useArtistRefreshStatus(enabled) {
 }
 
 /** The panel's Others tab: library jobs that aren't downloads, then the downloaded playlists. */
+// What "Music videos" will do once it can be run again (startVideoIndex).
+const VIDEO_INDEX_HINT = "Finds the official music video of every song in the library, one song at a time.\n\nWhere it looks: TheAudioDB, YouTube Music (videos), and YouTube search.\nA video is kept only if it is official, its title and artist match the song, its length fits and the picture actually moves.\n\nThen ffmpeg compares the video's sound with the song and lines them up, so the video plays in time with the song (intros and outros skipped).\n\nNothing is downloaded and no music file is changed: what's found is kept in a list in the app's data (music-videos.json). Found videos are remembered for 60 days, songs without one for 3 days. The videos show on the Videos page and in the video player."
+
 function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
   const releases = useReleaseCheck(s => s.checking)
   const releasesCheckedAt = useReleaseCheck(s => s.saved?.checkedAt)
   const stopReleases = useReleaseCheck(s => s.stop)
   const videos = useVideoIndex(s => s.progress)
-  const genres = useLibraryJobs(s => s.genres)
   const followed = useDiscoveryArtists(s => s.followed)
   const followedLoaded = useDiscoveryArtists(s => s.loaded)
   const { t } = useTranslation()
   useEffect(() => {
     if (!followedLoaded) loadDiscoveryArtists().catch(() => {})
-    readGenresStatus()
   }, [followedLoaded])
   const checkReleases = () => useReleaseCheck.getState().start([...followed.values()].map(name => ({ name })))
-
-  const genresDetail = genres?.error ? genres.error
-    : genres?.running ? t('{songs} filled in', { songs: plural(genres.updated || 0, 'song') })
-      : genres?.total ? `${t('Done')} · ${t('{updated} of {songs} filled in', { updated: genres.updated || 0, songs: plural(genres.songs || 0, 'song') })}`
-        : genres?.started ? t('Every song already has a genre') : t('Looks up a genre for songs with none')
 
   const artistsDetail = artists?.running
     ? `${plural(artists.bios || 0, 'bio')}, ${plural(artists.images || 0, 'picture')}${artists.failed ? ` · ${t('{n} failed', { n: artists.failed })}` : ''}`
@@ -417,11 +419,8 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
           {api.isElectron && (
             <TaskRow icon={ScanSearch} label={t('Music videos')} running={!!videos?.running} done={videos?.done} total={videos?.total}
               detail={videosDetail} onStop={cancelVideoIndex} onOpen={() => onNavigate('/videos')}
-              onRun={startVideoIndex} runLabel={t('Find')} runTitle={t('Find the music video of every library song')} />
+              soon={t(VIDEO_INDEX_HINT)} />
           )}
-          <TaskRow icon={Tags} label={t('Genres')} running={!!genres?.running} done={genres?.done} total={genres?.total}
-            detail={genresDetail} onOpen={() => onNavigate('/settings', { state: { category: 'library' } })}
-            onRun={startGenres} runLabel={t('Fill in')} runTitle={t('Look up a genre for every song that has none')} />
         </div>
       </section>
       <section>
@@ -448,7 +447,6 @@ export function DownloadManagerPanel() {
   const releaseCheck = useReleaseCheck(s => !!s.checking)
   const videoIndex = useVideoIndex(s => !!s.progress?.running)
   const [artistRefresh, cancelArtistRefresh, startArtistRefresh] = useArtistRefreshStatus(panelOpen)
-  const genresJob = useLibraryJobs(s => !!s.genres?.running)
   const panelRef = useRef(null)
 
   // Under the button, growing inwards: from a button on the left of the
@@ -485,7 +483,7 @@ export function DownloadManagerPanel() {
   }, [panelOpen, closePanel])
 
   const active = jobs.filter(isActive)
-  const othersRunning = (releaseCheck ? 1 : 0) + (videoIndex ? 1 : 0) + (artistRefresh?.running ? 1 : 0) + (genresJob ? 1 : 0)
+  const othersRunning = (releaseCheck ? 1 : 0) + (videoIndex ? 1 : 0) + (artistRefresh?.running ? 1 : 0)
   const finished = jobs.filter(j => !isActive(j))
 
   const findMore = () => {

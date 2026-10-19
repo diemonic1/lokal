@@ -366,11 +366,14 @@ function tracksByIds(db, ids) {
   return out
 }
 
-/** The tab's whole state: progress, and once the search is done, what it found. */
+/** True when the report can be opened: the search is done, or stopped with what it found so far. */
+const reportable = (state) => !!state && !job && (state.status === 'done' || state.status === 'stopped' || state.status === 'running')
+
+/** The tab's whole state: progress, and once the search is done (or stopped), what it found. */
 function get(db) {
   const state = readState()
   const base = { progress: progressOf(state, job ? progress?.current : null), counts: counts(db) }
-  if (!state || state.status !== 'done') return base
+  if (!reportable(state)) return base
   const rows = tracksByIds(db, state.found)
   const checked = new Set(state.checked || [])
   const items = []
@@ -565,11 +568,15 @@ async function useSource(db, trackId, providerId) {
   return { ok: true, toKind: written.toKind, source: providerId }
 }
 
-/** Save: the ticked songs get their lyrics written in and leave the list. */
+/**
+ * Save: the ticked songs get their lyrics written in and leave the list.
+ * A stopped search can be saved from too ("Go to report"): it carries on
+ * from where it stopped afterwards, without the songs saved.
+ */
 async function save(db) {
   if (job) return { ok: false, error: 'running' }
   const state = readState()
-  if (!state || state.status !== 'done') return { ok: false }
+  if (!reportable(state)) return { ok: false }
   const ids = (state.checked || []).filter(id => state.found.includes(id))
   const saved = []
   const failed = []
@@ -592,9 +599,31 @@ async function save(db) {
   for (const trackId of gone) { try { fs.rmSync(foundFile(trackId), { force: true }) } catch {} }
   state.found = state.found.filter(id => !gone.has(id))
   state.checked = (state.checked || []).filter(id => !gone.has(id))
-  if (!state.found.length) cancel()
+  // The last one saved: the search starts over -- unless it's only stopped, with songs still to look at.
+  const reset = !state.found.length && state.status === 'done'
+  if (reset) cancel()
   else saveState(state)
-  return { ok: true, saved, failed, reset: !state.found.length }
+  return { ok: true, saved, failed, reset }
 }
 
-module.exports = { get, start, resume, stop, cancel, setChecked, compare, edit, preview, save, fromSource, allSources, useSource, ignoreGet, ignoreSearch, ignoreAdd, ignoreRemove, IGNORE_KEY, DIR_NAME, isUpgrade }
+/**
+ * The report's "Add to the ignore list": the song goes on the ignore list and
+ * leaves the report, its found lyrics thrown away (the file is not touched).
+ */
+function ignoreFromReport(db, trackId) {
+  if (job) return { ok: false, error: 'running' }
+  const state = readState()
+  if (!reportable(state) || !state.found.includes(trackId)) return { ok: false, error: 'not-found' }
+  ignoreAdd(db, { tracks: [trackId] })
+  try { fs.rmSync(foundFile(trackId), { force: true }) } catch {}
+  tried.delete(trackId)
+  state.found = state.found.filter(id => id !== trackId)
+  state.checked = (state.checked || []).filter(id => id !== trackId)
+  // The last one gone from a finished search: it starts over, as after Save.
+  const reset = !state.found.length && state.status === 'done'
+  if (reset) cancel()
+  else saveState(state)
+  return { ok: true, reset }
+}
+
+module.exports = { get, start, resume, stop, cancel, setChecked, compare, edit, preview, save, fromSource, allSources, useSource, ignoreGet, ignoreSearch, ignoreAdd, ignoreRemove, ignoreFromReport, IGNORE_KEY, DIR_NAME, isUpgrade }

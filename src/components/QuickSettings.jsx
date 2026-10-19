@@ -18,7 +18,7 @@ export const QUICK_SETTING_EVENT = 'lokal:quick-setting'
 
 const useQuickSettingsPopup = createPopoverStore()
 
-const SIDE_KINDS = [['off', 'Off'], ['character', 'Round character'], ['anomaly', 'Anomaly'], ['splashes', 'Colour splashes']]
+const SIDE_KINDS = [['off', 'Off'], ['character', 'Round character'], ['anomaly', 'Anomaly'], ['splashes', 'Colour splashes'], ['trails', 'Trails']]
 const PLAYER_KINDS = [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['spectrumCenter', 'Spectrum from the center'], ['waves', 'Waves'], ['lightning', 'Lightning']]
 
 // Three horizontal sliders with filled knobs at different places.

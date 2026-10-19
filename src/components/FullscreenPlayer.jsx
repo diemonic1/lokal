@@ -595,7 +595,8 @@ export default function FullscreenPlayer() {
     window.addEventListener('pointerup', up)
   }
 
-  const isAutoSynced = settings.unsynced_auto_sync === '1'
+  // On unless switched off (Settings > Lyrics > Time Plain Lyrics).
+  const isAutoSynced = settings.unsynced_auto_sync !== '0'
   const isPanelVisible = currentTrack && fullscreenPanel !== 'none'
   // The two layout-affecting transitions below (main content re-centering,
   // panel width collapsing) only need to animate while this view is

@@ -8,10 +8,11 @@
 //   color         #rrggbb ('accent': the accent colour)
 //
 // The canvas fills its box, under the floating player bar too; the sphere is
-// centred in the part above it (--player-space), like the round character.
+// centred in the part above it (playerCovered: over the lyrics, where the box
+// ends above the bar, that's the whole box).
 
-import React, { useEffect, useRef } from 'react'
-import { getAnalyser, pickColor, useAnalyserVersion } from './audio'
+import React, { useEffect, useRef, useState } from 'react'
+import { getAnalyser, pickColor, playerCovered, useAnalyserVersion } from './audio'
 
 export const ANOMALY_COLOR = '#ff4e42'
 
@@ -181,6 +182,19 @@ export default function Anomaly({ sensitivity = 5, size = 1, color = ANOMALY_COL
   const analyserVersion = useAnalyserVersion()
   const settingsRef = useRef({ sensitivity, size, color })
   settingsRef.current = { sensitivity, size, color }
+  // The part under the floating player bar (none over the lyrics, where the
+  // box ends above it): the sphere is centred in the rest.
+  const [covered, setCovered] = useState(0)
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return undefined
+    const measure = () => setCovered(Math.round(playerCovered(wrap)))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(wrap)
+    window.addEventListener('resize', measure)
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure) }
+  }, [])
 
   useEffect(() => {
     const wrap = wrapRef.current
@@ -283,7 +297,7 @@ export default function Anomaly({ sensitivity = 5, size = 1, color = ANOMALY_COL
 
   return (
     <div ref={wrapRef} className={`relative overflow-hidden ${className}`}>
-      <div className="absolute inset-x-0 top-0" style={{ bottom: 'var(--player-space, 0px)' }}>
+      <div className="absolute inset-x-0 top-0" style={{ bottom: covered }}>
         <canvas ref={ringsRef} aria-hidden="true" className="absolute inset-0 block h-full w-full" />
         <canvas ref={sceneRef} aria-hidden="true" className="absolute inset-0 block h-full w-full" />
       </div>

@@ -7,13 +7,30 @@
 //
 // It only runs while mounted (the tab is showing, or no lyrics were found).
 // When the music is quiet or paused it doesn't freeze: it breathes, sways and
-// wobbles a little on its own (see calmFloor).
+// wobbles a little on its own (see calmFloor). Paused, the audio is suspended
+// and the analyser keeps its last frame: that's read as silence, so it calms
+// down at once and goes round again.
+//
+// Its settings (Settings > Visualizations > Side Panel > Round character):
+// sensitivity (how loud the music reads), strength (how much it moves with
+// it), size, the outline's colour, the floating dots, following the mouse.
 //
 // The canvas fills its box, under the floating player bar too; the face is
-// centred in the part above it (--player-space).
+// centred in the part above it (playerCovered: over the lyrics, where the
+// box ends above the bar, that's the whole box).
 
 import React, { useEffect, useRef } from 'react'
-import { createLoudness } from './audio'
+import { createLoudness, getAnalyser, pickColor, playerCovered } from './audio'
+import { usePlayerStore } from '../store/player'
+
+export const CHARACTER_DEFAULTS = {
+  sensitivity: 100,   // 10-300 %, how loud the music reads
+  strength: 100,      // 0-200 %, how much it grows, jumps and spins with it
+  size: 100,          // 50-200 %
+  color: '#ffffff',   // the outline's colour (#rrggbb or 'accent')
+  dots: true,         // the dots floating around it
+  mouse: true,        // it leans towards the mouse
+}
 
 const TAU = Math.PI * 2
 
@@ -42,7 +59,7 @@ function calmFloor(loud, feel, now) {
   feel.averageGain = Math.max(loud.averageGain, calm * 0.03)
   feel.firstOrder = Math.max(loud.firstOrder, calm * (0.05 + 0.03 * breathe))
   feel.linearized = Math.max(loud.linearized, calm * (0.03 + 0.02 * breathe))
-  const wobble = calm * 0.05
+  const wobble = calm * 0.03
   for (let i = 0; i < feel.smooth.length; i++) {
     feel.smooth[i] = Math.max(loud.smooth[i], wobble * (0.5 + 0.5 * Math.sin(i * 0.18 + now / 350)))
   }
@@ -56,7 +73,7 @@ function makeScene(width, height, inset = 0) {
   const scale = Math.max(0.4, Math.min(1.5, baseRadius / 80))
   const circle = {
     ...makeBody(width / 2, seen / 2),
-    baseRadius, scale, center: { x: width / 2, y: seen / 2 }, target: { x: width / 2, y: seen / 2 },
+    fitRadius: baseRadius, baseRadius, scale, center: { x: width / 2, y: seen / 2 }, target: { x: width / 2, y: seen / 2 },
     radius: baseRadius, lineWidth: 1, blur: 0, eyesClosed: false,
     rotation: 0, rotationVelocity: 0, targetRotation: 0, targetBaseRotation: 0,
     randomAngle: 0, lastRandomPosition: 0, lastRandomRotation: 0,
@@ -81,24 +98,27 @@ function resizeScene(scene, width, height, inset = 0) {
   const seen = Math.max(1, height - inset)
   scene.width = width
   scene.height = height
-  circle.baseRadius = Math.min(width, seen) / 7
-  circle.scale = Math.max(0.4, Math.min(1.5, circle.baseRadius / 80))
+  circle.fitRadius = Math.min(width, seen) / 7
   circle.center = { x: width / 2, y: seen / 2 }
 }
 
-function updateScene(scene, loud, dt, pointer, now) {
+function updateScene(scene, loud, dt, pointer, now, look = CHARACTER_DEFAULTS) {
   const { circle, nodes, width, height } = scene
+  circle.baseRadius = circle.fitRadius * look.size / 100
+  circle.scale = Math.max(0.4, Math.min(1.5, circle.baseRadius / 80))
   const k = circle.scale
+  // How much it moves with the music (the strength setting).
+  const str = look.strength / 100
 
   // The face: grows and thickens with the loudness, sharp when loud and
   // blurred when quiet, pulled towards a point that jumps about on the beat.
   circle.eyesClosed = Math.floor(10 * now / 1000) % 30 === 0
-  circle.lineWidth = 1 + 8 * loud.linearized * k
+  circle.lineWidth = 1 + 8 * loud.linearized * k * str
   circle.blur = Math.floor(0.2 + 4 * Math.exp(-24 * loud.linearized))
-  circle.radius = circle.baseRadius + 100 * loud.linearized * k
+  circle.radius = circle.baseRadius + 100 * loud.linearized * k * str
   if (now > circle.lastRandomPosition + 800) { circle.randomAngle = Math.random() * TAU; circle.lastRandomPosition = now }
   if (now > circle.lastRandomRotation + 1400) {
-    circle.targetRotation = 2 * loud.firstOrder * (Math.random() - 0.5)
+    circle.targetRotation = 2 * loud.firstOrder * str * (Math.random() - 0.5)
     if (Math.random() < 0.05 && loud.firstOrder >= 0.25) circle.targetBaseRotation -= TAU
     circle.lastRandomRotation = now
   }
@@ -106,10 +126,10 @@ function updateScene(scene, loud, dt, pointer, now) {
   rotationAcceleration += 2 * -circle.rotationVelocity
   circle.rotationVelocity += rotationAcceleration * dt
   circle.rotation += circle.rotationVelocity * dt
-  const reach = 256 * loud.firstOrder * k
+  const reach = 256 * loud.firstOrder * k * str
   let tx = circle.center.x + Math.cos(circle.randomAngle) * reach
   let ty = circle.center.y + Math.sin(circle.randomAngle) * reach
-  if (pointer) {
+  if (pointer && look.mouse) {
     // Leans towards the mouse, as far as the beat lets it.
     const toward = Math.min(reach, distance(pointer, circle.position))
     const angle = Math.atan2(pointer.y - circle.position.y, pointer.x - circle.position.x)
@@ -117,12 +137,18 @@ function updateScene(scene, loud, dt, pointer, now) {
     ty += Math.sin(angle) * toward
   }
   circle.target = { x: tx, y: ty }
+  // Quiet (or paused): it settles back to its place, smoothly and without
+  // swinging past it, rather than drifting about on what's left of a jump.
+  const settle = Math.max(0, 1 - loud.firstOrder / 0.15)
+  const pull = loud.firstOrder * 16 + 4 * settle
+  circle.friction = 1 + 3 * settle
   circle.forces.set('main', {
-    x: (circle.target.x - circle.position.x) * loud.firstOrder * 16,
-    y: (circle.target.y - circle.position.y) * loud.firstOrder * 16,
+    x: (circle.target.x - circle.position.x) * pull,
+    y: (circle.target.y - circle.position.y) * pull,
   })
   stepBody(circle, dt)
 
+  if (!look.dots) return
   // The dots: drawn towards the face, towards each other when close.
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i]
@@ -160,8 +186,11 @@ function drawPolygon(ctx, points) {
   ctx.closePath()
 }
 
-function drawScene(ctx, scene, loud, background = '#161616') {
-  const { circle, nodes, width, height } = scene
+function drawScene(ctx, scene, loud, background = '#161616', look = CHARACTER_DEFAULTS) {
+  const { circle, width, height } = scene
+  const nodes = look.dots ? scene.nodes : []
+  const str = look.strength / 100
+  const line = pickColor(look.color, '#ffffff')
 
   // Background: the chosen colour (black), always the same; null:
   // see-through (what's behind shows).
@@ -214,8 +243,8 @@ function drawScene(ctx, scene, loud, background = '#161616') {
   for (let s = 0, a = Math.PI / 2 - 0.5 * Math.PI / data.length; s < data.length; s++, a += Math.PI / data.length) {
     const fromMin = Math.max(0, data[s] - min)
     const fromMean = Math.max(0, data[s] - mean)
-    outer.push({ x: Math.cos(a) * (R + R * fromMin), y: Math.sin(a) * (R + R * fromMin) })
-    inner.push({ x: Math.cos(a) * (pad + R + R * fromMean), y: Math.sin(a) * (pad + R + R * fromMean) })
+    outer.push({ x: Math.cos(a) * (R + R * fromMin * str), y: Math.sin(a) * (R + R * fromMin * str) })
+    inner.push({ x: Math.cos(a) * (pad + R + R * fromMean * str), y: Math.sin(a) * (pad + R + R * fromMean * str) })
   }
   for (let s = data.length - 1; s >= 0; s--) {
     outer.push({ x: -outer[s].x, y: outer[s].y })
@@ -229,14 +258,15 @@ function drawScene(ctx, scene, loud, background = '#161616') {
   ctx.lineWidth = circle.lineWidth
   ctx.lineJoin = 'round'
   drawPolygon(ctx, outer)
-  ctx.fillStyle = 'rgba(255,255,255,0.02)'
+  ctx.globalAlpha = 0.02
+  ctx.fillStyle = line
   ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+  ctx.globalAlpha = 0.2
+  ctx.strokeStyle = line
   ctx.stroke()
   drawPolygon(ctx, inner)
-  ctx.fillStyle = 'rgba(255,255,255,0.2)'
   ctx.fill()
-  ctx.strokeStyle = '#ffffff'
+  ctx.globalAlpha = 1
   ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, R, 0, TAU)
@@ -252,9 +282,13 @@ function drawScene(ctx, scene, loud, background = '#161616') {
 }
 
 // transparent: no background of its own (the cover behind it shows).
-export default function PowerCircle({ className = '', background = '#161616', transparent = false }) {
+export default function PowerCircle({ className = '', background = '#161616', transparent = false, settings = CHARACTER_DEFAULTS }) {
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
+  const lookRef = useRef(settings)
+  lookRef.current = settings
+  const playingRef = useRef(false)
+  playingRef.current = usePlayerStore(s => s.isPlaying)
   // Read each frame, so a new colour applies without restarting the scene.
   const backgroundRef = useRef(background)
   backgroundRef.current = transparent ? null : /^#[0-9a-f]{6}$/i.test(background) ? background : '#161616'
@@ -274,7 +308,7 @@ export default function PowerCircle({ className = '', background = '#161616', tr
       const dpr = window.devicePixelRatio || 1
       const width = Math.max(1, wrap.clientWidth)
       const height = Math.max(1, wrap.clientHeight)
-      const inset = parseFloat(getComputedStyle(wrap).getPropertyValue('--player-space')) || 0
+      const inset = playerCovered(wrap)
       canvas.width = Math.floor(width * dpr)
       canvas.height = Math.floor(height * dpr)
       canvas.style.width = `${width}px`
@@ -282,19 +316,23 @@ export default function PowerCircle({ className = '', background = '#161616', tr
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       if (!scene) scene = makeScene(width, height, inset)
       else resizeScene(scene, width, height, inset)
-      if (!frame) drawScene(ctx, scene, feel, backgroundRef.current)
+      if (!frame) drawScene(ctx, scene, feel, backgroundRef.current, lookRef.current)
     }
 
     const tick = (now) => {
       // A long gap (the window was hidden) is skipped rather than caught up.
       const dt = last ? (now - last) / 1000 : 0
       last = now
+      const look = lookRef.current
       if (dt <= 1) {
-        loud.update(dt)
+        // Paused (or the audio suspended): its last frame is no music.
+        const state = getAnalyser()?.context?.state
+        const silent = !playingRef.current || (state && state !== 'running')
+        loud.update(dt, { gain: look.sensitivity / 100, silent })
         calmFloor(loud, feel, now)
-        updateScene(scene, feel, dt, pointer, now)
+        updateScene(scene, feel, dt, pointer, now, look)
       }
-      drawScene(ctx, scene, feel, backgroundRef.current)
+      drawScene(ctx, scene, feel, backgroundRef.current, look)
       frame = requestAnimationFrame(tick)
     }
 

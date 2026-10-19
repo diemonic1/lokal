@@ -132,6 +132,8 @@ export default {
   'Music videos': 'Клипы',
   'Find': 'Найти',
   'Find the music video of every library song': 'Найти клип для каждого трека библиотеки',
+  'Available later': 'Будет доступно позже',
+  "Finds the official music video of every song in the library, one song at a time.\n\nWhere it looks: TheAudioDB, YouTube Music (videos), and YouTube search.\nA video is kept only if it is official, its title and artist match the song, its length fits and the picture actually moves.\n\nThen ffmpeg compares the video's sound with the song and lines them up, so the video plays in time with the song (intros and outros skipped).\n\nNothing is downloaded and no music file is changed: what's found is kept in a list in the app's data (music-videos.json). Found videos are remembered for 60 days, songs without one for 3 days. The videos show on the Videos page and in the video player.": 'Ищет официальный клип для каждого трека библиотеки, по одному треку за раз.\n\nГде ищет: TheAudioDB, YouTube Music (раздел видео) и поиск YouTube.\nКлип берётся, только если он официальный, название и исполнитель совпадают с треком, длительность подходит и картинка действительно движется.\n\nПотом ffmpeg сравнивает звук клипа с треком и сопоставляет их по времени, чтобы клип шёл синхронно с песней (вступления и концовки пропускаются).\n\nНичего не скачивается, музыкальные файлы не меняются: найденное хранится в списке в данных приложения (music-videos.json). Найденные клипы запоминаются на 60 дней, треки без клипа — на 3 дня. Клипы видны на вкладке «Клипы» и в видеоплеере.',
   'Index': 'Собрать',
   'Fetch and keep the lyrics of every library song': 'Загрузить и сохранить тексты всех треков библиотеки',
   'Fill in': 'Заполнить',

@@ -782,6 +782,14 @@ function registerStreamProtocol(protocol, net) {
       diagnostic = streamDiagnostic(provider, id)
     } catch {}
     try {
+      // A sidebar folder's own picture: folder_cover.lokal decoded (folderCover.js).
+      if (provider === 'fc') {
+        const folderCover = require('../folderCover')
+        const cover = folderCover.isFolderCoverName(id) ? folderCover.readFolderCover(id) : null
+        return cover
+          ? new Response(cover.bytes, { status: 200, headers: { 'content-type': cover.mime, 'cache-control': 'max-age=31536000' } })
+          : new Response('No folder cover', { status: 404 })
+      }
       if (provider === 'yt' && accountSession) await accountSession.credentials()
       if (provider === 'ytv') {
         // The player asking why the video's stream failed.

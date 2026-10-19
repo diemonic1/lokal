@@ -31,10 +31,12 @@ import { showToast } from './Toaster'
 import { formatLabel, isSuspect, losslessMenuItem, tierOf, TIERS } from '../quality'
 import { trackGenreList } from '../genres'
 import { useAppearanceSettings, useAppearanceText, useAppearanceValue, useSideVisual } from '../appearanceFlags'
-import PowerCircle from '../visualizers/PowerCircle'
+import PowerCircle, { CHARACTER_DEFAULTS } from '../visualizers/PowerCircle'
 import Anomaly from '../visualizers/Anomaly'
 import Splashes from '../visualizers/Splashes'
 import { readSplashSettings } from '../visualizers/splashSettings'
+import Trails from '../visualizers/Trails'
+import { readTrailsSettings } from '../visualizers/trailsSettings'
 import { pickColor } from '../visualizers/audio'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 import { trackFolderItems } from '../trackFolderItem'
@@ -161,7 +163,8 @@ export default function RightSidebar() {
     window.addEventListener('lokal:settings-saved', loadSettings)
     return () => window.removeEventListener('lokal:settings-saved', loadSettings)
   }, [sidePanelView])
-  const isAutoSynced = settings.unsynced_auto_sync === '1'
+  // On unless switched off (Settings > Lyrics > Time Plain Lyrics).
+  const isAutoSynced = settings.unsynced_auto_sync !== '0'
 
   // Whichever of info/lyrics is showing beneath the Queue overlay. The
   // overlay fully covers this (opaque background, see below), and closing
@@ -183,13 +186,23 @@ export default function RightSidebar() {
     size: Math.max(50, Math.min(200, useAppearanceValue('side_anomaly_size', 100))) / 100,
     color: useAppearanceText('side_anomaly_color'),
   }
+  const characterSettings = {
+    sensitivity: Math.max(10, Math.min(300, useAppearanceValue('side_character_sensitivity', CHARACTER_DEFAULTS.sensitivity))),
+    strength: Math.max(0, Math.min(200, useAppearanceValue('side_character_strength', CHARACTER_DEFAULTS.strength))),
+    size: Math.max(50, Math.min(200, useAppearanceValue('side_character_size', CHARACTER_DEFAULTS.size))),
+    color: useAppearanceText('side_character_color', CHARACTER_DEFAULTS.color),
+    dots: useAppearanceText('side_character_dots') !== '0',
+    mouse: useAppearanceText('side_character_mouse') !== '0',
+  }
   const splashSettings = useAppearanceSettings(readSplashSettings)
+  const trailsSettings = useAppearanceSettings(readTrailsSettings)
   // Each one's own background colour (#161616 unless picked), and maybe the
   // song's cover over it (filling the box, as see-through as set).
   const looks = {
     character: { bg: useAppearanceText('side_character_bg'), cover: useAppearanceText('side_character_cover') === '1', coverOpacity: useAppearanceValue('side_character_cover_opacity', 50) },
     anomaly: { bg: useAppearanceText('side_anomaly_bg'), cover: useAppearanceText('side_anomaly_cover') === '1', coverOpacity: useAppearanceValue('side_anomaly_cover_opacity', 50) },
     splashes: { bg: useAppearanceText('side_splash_bg'), cover: useAppearanceText('side_splash_cover') === '1', coverOpacity: useAppearanceValue('side_splash_cover_opacity', 50) },
+    trails: { bg: useAppearanceText('side_trails_bg'), cover: useAppearanceText('side_trails_cover') === '1', coverOpacity: useAppearanceValue('side_trails_cover_opacity', 50) },
   }
   const backgroundOf = kind => (looks[kind] ? pickColor(looks[kind].bg, '#161616') : 'rgb(var(--surface-rgb))')
   const renderVisual = (kind) => {
@@ -205,7 +218,8 @@ export default function RightSidebar() {
         )}
         {kind === 'anomaly' ? <Anomaly className="relative flex-1 min-h-0" {...anomalySettings} />
           : kind === 'splashes' ? <Splashes className="relative flex-1 min-h-0" settings={splashSettings} />
-          : <PowerCircle className="relative flex-1 min-h-0" background={backgroundOf(kind)} transparent={!!cover} />}
+          : kind === 'trails' ? <Trails className="relative flex-1 min-h-0" settings={trailsSettings} />
+          : <PowerCircle className="relative flex-1 min-h-0" background={backgroundOf(kind)} transparent={!!cover} settings={characterSettings} />}
       </div>
     )
   }

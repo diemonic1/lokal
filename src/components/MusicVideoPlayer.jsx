@@ -131,7 +131,7 @@ export default function MusicVideoPlayer({ compact = false }) {
   }
   useEffect(() => { if (!currentTrack) hide() }, [currentTrack, hide])
   useEffect(() => {
-    if (open) api.getSettings?.().then(s => setAutoSynced(s?.unsynced_auto_sync === '1')).catch(() => {})
+    if (open) api.getSettings?.().then(s => setAutoSynced(s?.unsynced_auto_sync !== '0')).catch(() => {})
   }, [open])
 
   const wake = useCallback(() => {

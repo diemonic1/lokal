@@ -300,23 +300,6 @@ function writeFileLyrics(filePath, text, privateTag = null) {
   return { ok: true, synced: isSyncedText(clean), empty: !clean }
 }
 
-/** Rewrites an MP3's SYLT frames so AIMP reads them (see syltEncoding.js). True when it saved. */
-function repairSylt(filePath) {
-  const T = lib()
-  if (!T || !/\.mp3$/i.test(filePath) || !require('../syltEncoding').hasAimpBrokenSylt(filePath)) return false
-  let file
-  try {
-    file = T.File.createFromPath(filePath)
-    const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
-    if (!hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
-    aimpSafeSylt(T, file)
-    file.save()
-    return true
-  } finally {
-    try { file?.dispose() } catch {}
-  }
-}
-
 /** A lookup result (lines) -> what goes into the file: { text, privateTag }. */
 function fromResult(result) {
   return { text: toPortableLyrics(result) || '', privateTag: toPrivateTag(result) }
@@ -333,4 +316,4 @@ function sidecarFor(filePath) {
   return null
 }
 
-module.exports = { lyricsKind, lyricsKindOfMeta, isSyllableText, fixMojibake, readFileLyrics, readPrivateTag, writeFileLyrics, setPrivateField, repairSylt, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }
+module.exports = { lyricsKind, lyricsKindOfMeta, isSyllableText, fixMojibake, readFileLyrics, readPrivateTag, writeFileLyrics, setPrivateField, fromResult, lyricsFromMeta, isSyncedText, parseLrc, syltToLrc, sidecarFor }

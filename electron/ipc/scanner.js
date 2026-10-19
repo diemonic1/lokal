@@ -9,6 +9,7 @@ const { lyricsFromMeta, isSyncedText } = require('../lyrics/fileLyrics')
 const { setFileLyrics } = require('../searchIndex')
 const quality = require('../quality')
 const trackExtras = require('../trackExtras')
+const addedDate = require('../addedDate')
 const { findFolderArtwork, getLibraryFolders } = require('../libraryFolder')
 const { getDB, getStorageDir, importAppData, resetAppData } = require('./db')
 const { ipcMain } = require('electron')
@@ -537,7 +538,7 @@ async function readTrackFile(filePath, stat, ctx, existingId = null) {
   if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
   const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
   const replaygain = c.replaygain_track_gain || null
-  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta) } }
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta) } }
 }
 
 // Libraries from before the column existed get it on their first write.
@@ -593,6 +594,9 @@ async function storeTracks(db, items) {
       db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(item.comment ?? '', item.lyrics_kind ?? null, trackId)
       // The explicit mark and the music video, from the file's LOKAL_TRACK tag.
       trackExtras.applyToRow(db, trackId, item.extras)
+      // When it joined the library, from the file's LOKAL_ADDED tag (without
+      // one, the library's date stays and is written into the file after).
+      addedDate.applyToRow(db, trackId, item.added)
       saveFileGenres(db, trackId, item.file_genres)
       // The file changed: a "Can't play" noted for its old version no longer holds.
       try { db.prepare('DELETE FROM track_errors WHERE track_id = ?').run(trackId) } catch {}
@@ -646,7 +650,14 @@ async function runScan(folderPath, { full = false } = {}) {
 
   const BATCH = 20
   let batch = []
-  const flush = async () => { const items = batch; batch = []; await storeTracks(db, items) }
+  // New songs read without a LOKAL_ADDED tag: the library's date (now) is
+  // written into them (see ../addedDate.js).
+  const toStamp = []
+  const flush = async () => {
+    const items = batch; batch = []
+    await storeTracks(db, items)
+    for (const item of items) if (item.added == null && item.isNew) toStamp.push(item.file_path)
+  }
   const ctx = scanContext()
   const known = knownTrackByPath(db)
   let read = 0
@@ -674,6 +685,13 @@ async function runScan(folderPath, { full = false } = {}) {
     const pruned = require('../libraryPrune').pruneMissingTracks(db, folderPath, files)
     if (pruned.removed || pruned.moved) console.log(`[scanFolder] Removed ${pruned.removed} song(s) whose file is gone; ${pruned.moved} moved to their new path`)
   } catch (e) { console.warn('[scanFolder] Clearing missing files skipped:', e.message) }
+  // After the pruning: a moved file's entry has its old date by now.
+  if (toStamp.length) {
+    try {
+      const stamped = await addedDate.stampAddedDates(db, toStamp)
+      console.log(`[scanFolder] Wrote the date added into ${stamped.written} file(s)${stamped.failed ? `, ${stamped.failed} couldn't be written` : ''}`)
+    } catch (e) { console.warn('[scanFolder] Date added tags skipped:', e.message) }
+  }
   try {
     const read = await backfillComments(db)
     if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
@@ -731,6 +749,10 @@ async function applyFileChanges(changes) {
       const pruned = require('../libraryPrune').pruneGonePaths(db, gone)
       removed = pruned.ids
     } catch (e) { console.warn('[libraryWatcher] Clearing missing files skipped:', e.message) }
+  }
+  const unstamped = items.filter(item => item.isNew && item.added == null).map(item => item.file_path)
+  if (unstamped.length) {
+    try { await addedDate.stampAddedDates(db, unstamped) } catch (e) { console.warn('[libraryWatcher] Date added tags skipped:', e.message) }
   }
   return {
     added: items.filter(item => item.isNew).map(item => item.id),
@@ -2302,12 +2324,17 @@ async function indexSingleFile(filePath, opts = {}) {
     }
     db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(commentText(c), lyricsKindOf(meta), trackId)
     trackExtras.applyToRow(db, trackId, trackExtras.fromMeta(meta))
+    addedDate.applyToRow(db, trackId, addedDate.fromMeta(meta))
     setFileLyrics(db, trackId, lyricsFromMeta(meta) || '')
     applyPendingImportedMetadataToTrack(db, trackId)
     if (!opts.deferGhostResolution) resolveGhostsByIsrc(db, trackId)
   })
   
   insertTransaction()
+  // No LOKAL_ADDED tag (a download has one already): the library's date goes into the file.
+  if (addedDate.fromMeta(meta) == null) {
+    try { await addedDate.stampAddedDates(db, [filePath]) } catch (e) { console.warn('[indexSingleFile] Date added tag skipped:', e.message) }
+  }
   await emitPluginHook('onTrackIndexed', {
     id: trackId,
     title,

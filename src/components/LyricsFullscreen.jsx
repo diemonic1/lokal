@@ -117,7 +117,8 @@ export default function LyricsFullscreen({ idle = false, onChromeHover = null, s
     }))
   }
 
-  const isAutoSynced = settings.unsynced_auto_sync === '1'
+  // On unless switched off (Settings > Lyrics > Time Plain Lyrics).
+  const isAutoSynced = settings.unsynced_auto_sync !== '0'
   // Not while the lyrics search is open.
   const hidden = active && idle && !showSearch
 

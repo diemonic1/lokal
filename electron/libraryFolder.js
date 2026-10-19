@@ -1,5 +1,6 @@
 const path = require('path')
 const fs = require('fs-extra')
+const { encodeFolderCover } = require('./folderCover')
 
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.wav', '.aac', '.opus', '.wma', '.alac', '.ape'])
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'])
@@ -101,10 +102,11 @@ function folderFilter(db, relativePath) {
   return { sql: 'file_path >= ? AND file_path < ?', params: [prefix, upperBound] }
 }
 
-// A folder's own picture: folder_cover.jpg or folder_cover.png inside it.
-// Looked for once per folder and kept until the library is scanned again
+// A folder's own picture: folder_cover.lokal inside it. A folder_cover.jpg/png
+// found there is turned into it first (folderCover.js), so galleries on other
+// devices don't pick it up. Looked for again when the folder changes (its
+// mtime: a file added or removed) or the library is scanned again
 // (clearFolderCoverCache, called when a scan rereads the tags).
-const FOLDER_COVER_NAMES = ['folder_cover.jpg', 'folder_cover.png']
 const folderCoverCache = new Map()
 
 function clearFolderCoverCache() {
@@ -113,24 +115,25 @@ function clearFolderCoverCache() {
 
 function folderCoverFile(folderPath) {
   const key = process.platform === 'win32' ? folderPath.toLowerCase() : folderPath
-  if (folderCoverCache.has(key)) return folderCoverCache.get(key)
+  let folderVersion = 0
+  try { folderVersion = fs.statSync(folderPath).mtimeMs } catch {}
+  const cached = folderCoverCache.get(key)
+  if (cached && cached.folderVersion === folderVersion) return cached.found
   let found = null
   try {
     const names = new Map(fs.readdirSync(folderPath, { withFileTypes: true })
       .filter(entry => entry.isFile())
       .map(entry => [entry.name.toLowerCase(), entry.name]))
-    for (const name of FOLDER_COVER_NAMES) {
-      if (!names.has(name)) continue
-      const filePath = path.join(folderPath, names.get(name))
-      found = { path: filePath, version: Math.round(fs.statSync(filePath).mtimeMs) }
-      break
-    }
+    const filePath = encodeFolderCover(folderPath, names)
+    if (filePath) found = { path: filePath, version: Math.round(fs.statSync(filePath).mtimeMs) }
+    // Converting changed the folder: its new mtime is the one to compare to.
+    folderVersion = fs.statSync(folderPath).mtimeMs
   } catch {}
-  folderCoverCache.set(key, found)
+  folderCoverCache.set(key, { found, folderVersion })
   return found
 }
 
-// folder_cover.jpg/png of a folder given relative to the music folder (the web
+// folder_cover.lokal of a folder given relative to the music folder (the web
 // server's /api/folder-cover), or null.
 function folderCoverForRelative(db, relativePath) {
   if (typeof relativePath !== 'string' || !relativePath) return null
@@ -220,7 +223,7 @@ function getLibraryFolders(db, relativePath = '', search = '') {
       return {
         name: entry.name, path: childRelative, trackCount: folderTrackCounts.get(childKey) || 0,
         coverTrackId: cover?.trackId || null, coverPath: cover?.artworkPath || null,
-        // folder_cover.jpg/png, ahead of any song's artwork.
+        // folder_cover.lokal, ahead of any song's artwork.
         folderCoverPath: own?.path || null, folderCoverVersion: own?.version || 0,
       }
     })

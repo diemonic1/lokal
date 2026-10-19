@@ -26,6 +26,10 @@ export function useAnalyserVersion() {
  * Loudness over time, from the waveform (time domain): what PowerAudio's
  * visualizer moves with. Call update(seconds since the last call) once a
  * frame; it reads the analyser itself and is all zeros without one.
+ *   gain     how loud the music reads (1: as it is)
+ *   silent   paused: the analyser only holds its last frame (the audio is
+ *            suspended), so it reads as silence, and everything falls back
+ *            quickly instead of slowly
  *   samples / smooth   the waveform, and one that falls back slowly
  *   averageGain        mean loudness now
  *   linearized         follows it at a fixed speed (1 a second)
@@ -38,18 +42,22 @@ export function createLoudness(size = 256) {
     averageGain: 0,
     linearized: 0,
     firstOrder: 0,
-    update(dt) {
+    update(dt, { gain = 1, silent = false } = {}) {
       const analyser = getAnalyser()
-      if (analyser && analyser.fftSize === size) analyser.getFloatTimeDomainData(state.samples)
-      else state.samples.fill(0)
+      if (!silent && analyser && analyser.fftSize === size) {
+        analyser.getFloatTimeDomainData(state.samples)
+        if (gain !== 1) for (let i = 0; i < size; i++) state.samples[i] *= gain
+      } else state.samples.fill(0)
       let sum = 0
       for (let i = 0; i < size; i++) sum += Math.abs(state.samples[i])
       state.averageGain = sum / (size / 2)
-      state.linearized = Math.max(0, state.linearized + dt * (state.averageGain > state.linearized ? 1 : -1))
-      state.firstOrder += 0.5 * (state.averageGain - state.firstOrder) * dt
+      const fall = silent ? 3 : 1
+      state.linearized = Math.max(0, state.linearized + dt * (state.averageGain > state.linearized ? 1 : -fall))
+      state.firstOrder += Math.min(1, (silent ? 3 : 0.5) * dt) * (state.averageGain - state.firstOrder)
+      const release = Math.min(1, (silent ? 5 : 0.5) * dt)
       for (let i = 0; i < size; i++) {
         const v = state.samples[i]
-        state.smooth[i] = v > state.smooth[i] ? v : state.smooth[i] + 0.5 * (v - state.smooth[i]) * dt
+        state.smooth[i] = v > state.smooth[i] ? v : state.smooth[i] + release * (v - state.smooth[i])
       }
     },
   }
@@ -85,6 +93,19 @@ export function sliceLevel(data, [from, to]) {
   let peak = 0
   for (let b = Math.floor(from); b <= Math.min(data.length - 1, Math.ceil(to)); b++) if (data[b] > peak) peak = data[b]
   return peak
+}
+
+/**
+ * How much of `el` the floating player bar covers at the bottom (px): the
+ * --player-space the side panel leaves for it, less how far above the
+ * window's bottom `el` ends. A box that reaches the panel's bottom (the
+ * Visualization tab) gets it all; one that ends above the bar (the picture
+ * over the lyrics) gets none, so what's centred in the rest is centred in it.
+ */
+export function playerCovered(el) {
+  const space = parseFloat(getComputedStyle(el).getPropertyValue('--player-space')) || 0
+  const below = Math.max(0, window.innerHeight - el.getBoundingClientRect().bottom)
+  return Math.max(0, space - below)
 }
 
 /** The accent colour as #rrggbb (for canvases, which can't read CSS variables). */

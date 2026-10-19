@@ -1161,6 +1161,25 @@ class DownloadManager {
         const settings = job.stop ? { ...(job.settings || {}), download_embed_lyrics: '0' } : (job.settings || {})
         const done = await finishFile(filepath, { db: this.db(), settings, url: job.url, meta, kind: job.kind, outputDir, known: job.opts?.tags || null })
         finalPath = done.filePath
+        // Settings > Library > Downloads > Download Folder: into that library
+        // folder, numbered after its songs. (Not a lossless copy replacing a
+        // song's file: that one takes the old file's place.)
+        const downloadFolder = String(job.settings?.download_folder || '').trim()
+        if (downloadFolder && !job.opts?.outputDir && !job.opts?.upgradeTrackId) {
+          const placed = require('../folderTracks').placeDownload(this.db(), finalPath, downloadFolder)
+          if (placed !== finalPath) {
+            job.vacatedDirs = [...new Set([...(job.vacatedDirs || []), path.dirname(finalPath)])]
+            const fileIndex = job.filepaths.indexOf(finalPath)
+            if (fileIndex >= 0) job.filepaths[fileIndex] = placed
+            job.outputLines.push(`[Lokal] Moved to ${placed}`)
+            finalPath = placed
+            done.filePath = placed
+          }
+        }
+        // When it joined the library goes into the file (LOKAL_ADDED, see
+        // ../addedDate.js): now, whatever the file came with. A lossless copy
+        // replacing a song keeps the song's date (quality/upgrade.js).
+        if (!job.opts?.upgradeTrackId) require('../addedDate').stampNewFile(this.db(), finalPath)
         const name = path.basename(finalPath)
         if (!job.downloadedTracks.includes(name)) job.downloadedTracks.push(name)
         if (done.lyrics) job.lyricsCount = (job.lyricsCount || 0) + 1
@@ -1403,11 +1422,26 @@ class DownloadManager {
     return quality.tierOf({ ...quality.qualityFields(meta), bitrate: meta?.format?.bitrate ? Math.round(meta.format.bitrate / 1000) : null })
   }
 
+  /** The folders downloads were moved out of (Download Folder): removed once empty, up to the music folder. */
+  removeVacatedDirs(job) {
+    const root = job.settings?.music_folder ? path.resolve(job.settings.music_folder).toLowerCase() : ''
+    if (!root) return
+    for (const start of job.vacatedDirs || []) {
+      let dir = path.resolve(start)
+      while (dir.toLowerCase().startsWith(root + path.sep) && dir.toLowerCase() !== root) {
+        try { if (fs.readdirSync(dir).length) break; fs.rmdirSync(dir) } catch { break }
+        dir = path.dirname(dir)
+      }
+    }
+    job.vacatedDirs = []
+  }
+
   async onExit(job, code, err) {
     await job.post.catch(() => {})
     for (const fp of job.pendingIndex || []) await this.indexOne(job, fp)
     job.pendingIndex = []
     await this.cleanup(job).catch(() => {})
+    this.removeVacatedDirs(job)
 
     if (this.jobs.get(job.id) !== job) return
 

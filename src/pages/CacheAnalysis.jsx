@@ -9,6 +9,7 @@ import { api } from '../api'
 import Modal from '../components/Modal'
 import { useTranslation } from '../i18n'
 import { usePageReady } from '../pageCache'
+import CacheLimitSelect from '../components/CacheLimitSelect'
 
 const percent = (n, total) => (total ? `${((n / total) * 100).toFixed(2)}%` : '—')
 
@@ -232,6 +233,13 @@ export default function CacheAnalysis() {
               {running ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} {t('Refresh')}
             </button>
           </div>
+        </div>
+
+        {/* The same limit as in Settings > Data > Cache. */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted">
+          <span>{t('Cache Size Limit')}</span>
+          <CacheLimitSelect onChange={() => run()} />
+          <span className="text-[11px]">{t('Moving covers, converted copies and cast copies past it are removed, oldest first.')}</span>
         </div>
 
         {running && !report && (

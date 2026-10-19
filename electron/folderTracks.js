@@ -4,6 +4,8 @@
 //   setTrackNumbers   Library > "Reorder": the new numbers go into the tags
 //   moveTrackToFolder a song dragged onto another folder in the sidebar
 //   addFilesToFolder  files dropped from the computer onto an open folder
+//   placeDownload     a downloaded song, into Settings > Library > Downloads >
+//                     Download Folder (download_folder)
 //
 // A song moved or added gets the folder's biggest number plus one (a folder's
 // numbers needn't start at 1), so it lands at the top of the folder.
@@ -229,6 +231,8 @@ async function addFilesToFolder(db, filePaths, relativeFolder) {
       const target = freeName(dir, path.basename(source))
       await fs.copy(source, target)
       try { writeTrackNumber(target, next) } catch (e) { await fs.remove(target).catch(() => {}); throw e }
+      // It joins the library now (LOKAL_ADDED, see addedDate.js).
+      require('./addedDate').stampNewFile(db, target)
       added.push({ filePath: target, trackNum: next })
       next++
     } catch (e) { failed.push({ filePath: source, error: e.message }) }
@@ -260,4 +264,38 @@ async function previewFilesForFolder(db, filePaths, relativeFolder) {
   return out
 }
 
-module.exports = { maxTrackNumber, writeTrackNumber, setTrackNumbers, moveTrackToFolder, previewMove, addFilesToFolder, previewFilesForFolder, folderPath }
+// The last number given to a download per folder: songs of a playlist are
+// added to the library only at its end, so the database doesn't know them yet.
+const downloadNumbers = new Map()
+
+/**
+ * A finished download, moved into the library folder chosen for downloads
+ * (`relativeFolder`, inside the music folder) and numbered on from its
+ * biggest number, like a file dropped onto it. -> the file's new path (the
+ * old one when it can't be moved). The tag is left as it was if it can't be
+ * written.
+ */
+function placeDownload(db, filePath, relativeFolder) {
+  const dir = folderPath(db, relativeFolder)
+  if (!dir || !filePath || !fs.existsSync(filePath)) return filePath
+  let target = filePath
+  if (path.resolve(path.dirname(filePath)).toLowerCase() !== path.resolve(dir).toLowerCase()) {
+    try {
+      fs.ensureDirSync(dir)
+      target = freeName(dir, path.basename(filePath))
+      fs.moveSync(filePath, target)
+    } catch { return filePath }
+    // Its lyrics file, if one was saved next to it.
+    const oldBase = filePath.slice(0, -path.extname(filePath).length)
+    const newBase = target.slice(0, -path.extname(target).length)
+    for (const ext of SIDECARS) {
+      try { if (fs.existsSync(oldBase + ext) && !fs.existsSync(newBase + ext)) fs.moveSync(oldBase + ext, newBase + ext) } catch {}
+    }
+  }
+  const key = path.resolve(dir).toLowerCase()
+  const next = Math.max(maxTrackNumber(db, relativeFolder), downloadNumbers.get(key) || 0) + 1
+  try { writeTrackNumber(target, next); downloadNumbers.set(key, next) } catch {}
+  return target
+}
+
+module.exports = { placeDownload, maxTrackNumber, writeTrackNumber, setTrackNumbers, moveTrackToFolder, previewMove, addFilesToFolder, previewFilesForFolder, folderPath }

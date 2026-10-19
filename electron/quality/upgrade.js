@@ -95,6 +95,9 @@ async function upgradeTrackFile(db, trackId, newPath, { storageDir, allowDuratio
     if (movedTo) { try { moveFile(movedTo, track.file_path) } catch {} }
     return { error: `Could not update the library (${e.message}).` }
   }
+  // Not a new song: the new file gets the song's own date added, unchanged
+  // (LOKAL_ADDED, see ../addedDate.js), not the download's.
+  await require('../addedDate').stampAddedDates(db, [newPath]).catch(() => {})
   return { id: track.id, oldPath: track.file_path, movedTo }
 }
 

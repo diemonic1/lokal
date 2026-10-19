@@ -3,10 +3,11 @@
 // until Save. Each song found can be checked (played with the found lyrics in
 // the side panel) or compared with its own and edited; only the ticked ones
 // are written into their files. Stopping keeps what was found so far, even
-// across a restart; Cancel throws it all away. See electron/lyrics/bulkSearch.js.
+// across a restart, and "Go to report" opens it to save from without waiting
+// for the rest; Cancel throws it all away. See electron/lyrics/bulkSearch.js.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Check, Clock, FileSearch, GitCompareArrows, Loader2, Music, Play, Square, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Clock, EyeOff, FileSearch, GitCompareArrows, Info, ListChecks, Loader2, Music, Play, Square, X } from 'lucide-react'
 import { api } from '../api'
 import Modal from '../components/Modal'
 import { getLanguage, useTranslation } from '../i18n'
@@ -205,6 +206,11 @@ export default function LyricsSearch() {
   const [comparing, setComparing] = useState(null)
   const [confirm, setConfirm] = useState(null) // 'save' | 'cancel' | null
   const [busy, setBusy] = useState(false)
+  // The report row whose "Add to the ignore list" waits to be confirmed.
+  const [ignoring, setIgnoring] = useState(null)
+  // The report of a stopped search, opened with "Go to report".
+  const [report, setReport] = useState(false)
+  const [sources, setSources] = useState([])
   const previewId = useLyricsPreview(s => s.trackId)
   const statusRef = useRef('idle')
   usePageReady(loaded)
@@ -229,11 +235,16 @@ export default function LyricsSearch() {
     })
   }, [refresh])
 
+  // The sources' names, for the report's "i".
+  useEffect(() => {
+    api.getLyricsSources?.().then(s => setSources(s?.providers || [])).catch(() => {})
+  }, [])
+
   // "Insert into report" in the side panel's source menu: that row's new lyrics.
   useEffect(() => {
     const onEntry = (e) => {
-      const { trackId, toKind } = e.detail || {}
-      setData(prev => prev?.items && ({ ...prev, items: prev.items.map(item => (item.trackId === trackId ? { ...item, toKind, edited: false } : item)) }))
+      const { trackId, toKind, source } = e.detail || {}
+      setData(prev => prev?.items && ({ ...prev, items: prev.items.map(item => (item.trackId === trackId ? { ...item, toKind, source: source || item.source, edited: false } : item)) }))
     }
     window.addEventListener('lokal:lyrics-search-entry', onEntry)
     return () => window.removeEventListener('lokal:lyrics-search-entry', onEntry)
@@ -241,6 +252,10 @@ export default function LyricsSearch() {
 
   const status = progress.status || 'idle'
   const items = useMemo(() => data?.items || [], [data])
+  // Only a stopped search keeps its report open; Continue, Cancel or the end close it.
+  const reportOpen = report && status === 'stopped'
+  useEffect(() => { if (status !== 'stopped') setReport(false) }, [status])
+  const sourceName = (id) => sources.find(s => s.id === id)?.label || id
   const checkedCount = items.filter(item => item.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
 
@@ -330,6 +345,24 @@ export default function LyricsSearch() {
     } finally { setBusy(false) }
   }
 
+  // The song goes on the ignore list and leaves the report at once.
+  const ignoreItem = async () => {
+    const item = ignoring
+    if (!item) return
+    setBusy(true)
+    try {
+      const r = await call(() => api.lyricsSearchIgnoreFromReport(item.trackId))
+      if (!r?.ok) return
+      setIgnoring(null)
+      setData(prev => prev?.items && ({ ...prev, items: prev.items.filter(it => it.trackId !== item.trackId) }))
+      if (comparing?.trackId === item.trackId) setComparing(null)
+      clearLyricsPreview([item.trackId])
+      showToast(t('“{title}” added to the ignore list', { title: item.track.title }))
+      // The counts too (and a finished search left empty starts over).
+      await refresh()
+    } finally { setBusy(false) }
+  }
+
   const counts = data?.counts || {}
   // Tracks added in the last day that the boxes ticked above would look at.
   const recent = counts.recent || {}
@@ -348,7 +381,7 @@ export default function LyricsSearch() {
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
         {/* Before the search starts (or while it's stopped): what it never looks up. */}
-        {(status === 'idle' || status === 'stopped') && loaded && !data?.unsupported && (
+        {(status === 'idle' || (status === 'stopped' && !reportOpen)) && loaded && !data?.unsupported && (
           <div className="mt-6"><LyricsIgnoreList /></div>
         )}
 
@@ -385,7 +418,7 @@ export default function LyricsSearch() {
           </div>
         )}
 
-        {(status === 'running' || status === 'stopped') && (
+        {(status === 'running' || (status === 'stopped' && !reportOpen)) && (
           <div className="mt-6 space-y-4">
             <Progress progress={progress} />
             <div className="flex flex-wrap gap-2">
@@ -395,10 +428,25 @@ export default function LyricsSearch() {
                 <>
                   <button onClick={resume} className={accentBtn}><Play size={12} fill="currentColor" /> {t('Continue')}</button>
                   <button onClick={() => setConfirm('cancel')} className={btn}><X size={12} /> {t('Cancel')}</button>
+                  {/* What was found so far, to save without waiting for the rest. */}
+                  <button onClick={() => { setReport(true); refresh() }} disabled={!progress.found} className={btn}
+                    title={progress.found ? t('Open the report with the lyrics found so far') : t('No lyrics found yet')}>
+                    <ListChecks size={12} /> {t('Go to report')}
+                  </button>
                 </>
               )}
             </div>
             {status === 'stopped' && <p className="text-xs text-muted">{t('Stopped. What was found so far is kept, even if the app is closed: Continue picks up from the same file.')}</p>}
+          </div>
+        )}
+
+        {reportOpen && (
+          <div className="mt-6 space-y-3">
+            <button onClick={() => setReport(false)} className={btn}><ArrowLeft size={12} /> {t('Back to the search')}</button>
+            <p className="text-xs text-muted">
+              {t('The search is stopped at {done} of {total} files. These are the lyrics found so far; Continue looks through the rest.', { done: (progress.done || 0).toLocaleString(), total: (progress.total || 0).toLocaleString() })}
+            </p>
+            {items.length === 0 && <p className="text-sm text-muted">{t('No lyrics left in the report.')}</p>}
           </div>
         )}
 
@@ -411,7 +459,7 @@ export default function LyricsSearch() {
         )}
       </section>
 
-      {status === 'done' && items.length > 0 && (
+      {(status === 'done' || reportOpen) && items.length > 0 && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <button onClick={() => setChecked(items.map(item => item.trackId), !allChecked)} className={btn}>
@@ -419,7 +467,7 @@ export default function LyricsSearch() {
             </button>
             <span className="text-xs tabular-nums text-muted">{t('Found: {n} · ticked: {checked}', { n: items.length.toLocaleString(), checked: checkedCount.toLocaleString() })}</span>
           </div>
-          <Timing progress={progress} />
+          {status === 'done' && <Timing progress={progress} />}
 
           <div className="overflow-hidden rounded-xl border border-border">
             {items.map(item => {
@@ -441,9 +489,18 @@ export default function LyricsSearch() {
                   <button onClick={() => setComparing(item)} className={btn} title={t('Compare with the lyrics in the file, and edit')}>
                     <GitCompareArrows size={12} /> {t('Compare lyrics')}
                   </button>
+                  <button onClick={() => setIgnoring(item)} className={btn} title={t('Never look up lyrics for this track again, and take it out of the report')}>
+                    <EyeOff size={12} /> {t('Add to the ignore list')}
+                  </button>
                   <span className="flex w-40 flex-shrink-0 items-center justify-end gap-1.5 whitespace-nowrap" title={item.edited ? t('Edited') : undefined}>
                     <KindLabel kind={item.fromKind} /> <span className="text-xs text-muted">→</span> <KindLabel kind={item.toKind} />
                     {item.edited && <span className="text-[10px] text-muted">*</span>}
+                  </span>
+                  {/* Where the lyrics came from, on hover. */}
+                  <span className="flex flex-shrink-0 cursor-help items-center text-muted hover:text-white"
+                    title={item.source ? t('Lyrics found on {source}', { source: sourceName(item.source) }) : t('The source of these lyrics is unknown')}
+                    aria-label={item.source ? t('Lyrics found on {source}', { source: sourceName(item.source) }) : t('The source of these lyrics is unknown')}>
+                    <Info size={13} />
                   </span>
                 </div>
               )
@@ -464,6 +521,9 @@ export default function LyricsSearch() {
       <Confirm open={confirm === 'cancel'} busy={busy} danger onClose={() => setConfirm(null)} onConfirm={cancelAll}
         title={t('Cancel lyrics search')} confirmLabel={t('Delete found lyrics')}
         text={t('All the lyrics found ({n}) will be deleted, including edited ones. The tracks themselves are not changed.', { n: (status === 'done' ? items.length : progress.found || 0).toLocaleString() })} />
+      <Confirm open={!!ignoring} busy={busy} onClose={() => setIgnoring(null)} onConfirm={ignoreItem}
+        title={t('Add to the ignore list')} confirmLabel={t('Add to the ignore list')}
+        text={t('Add “{title}” to the ignore list? Lyrics will no longer be looked up for it, and the lyrics found now are taken out of the report. The track itself is not changed.', { title: ignoring?.track?.title || '' })} />
     </div>
   )
 }

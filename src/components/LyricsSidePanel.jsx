@@ -42,7 +42,8 @@ export function LyricsContent({ onClose }) {
     window.addEventListener('lokal:settings-saved', loadSettings)
     return () => window.removeEventListener('lokal:settings-saved', loadSettings)
   }, [])
-  const isAutoSynced = settings.unsynced_auto_sync === '1'
+  // On unless switched off (Settings > Lyrics > Time Plain Lyrics).
+  const isAutoSynced = settings.unsynced_auto_sync !== '0'
 
   return (
     <>

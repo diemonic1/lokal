@@ -144,6 +144,71 @@ test('a stopped search carries on from the same file, and Cancel leaves the trac
   assert.equal((await fileLyrics.readFileLyrics(file)).text, '')
 })
 
+test("the report's \"Add to the ignore list\" ignores the song and takes it out of the report", async (t) => {
+  const { db, dir, file } = fixture(t)
+  const second = path.join(dir, 'song2.mp3')
+  fs.writeFileSync(second, silentMp3())
+  db.prepare("INSERT INTO tracks (id, file_hash, title, artist, album, duration, file_path, lyrics_kind) VALUES ('t2', 'h2', 'Other', 'Artist', 'Album', 30, ?, '')").run(second)
+  t.mock.method(repository, 'lookup', async () => ({ result: repository.toResult('test', { raw: SYLLABLE }) }))
+
+  bulk.start(db, {})
+  assert.equal(await finished(), 'done')
+  bulk.setChecked(['t1', 't2'], true)
+  assert.equal(bulk.get(db).items.length, 2)
+
+  const r = bulk.ignoreFromReport(db, 't1')
+  assert.deepEqual(r, { ok: true, reset: false })
+  assert.deepEqual(bulk.get(db).items.map(item => item.trackId), ['t2'])
+  assert.deepEqual(bulk.ignoreGet(db).tracks.map(item => item.id), ['t1'])
+  assert.equal(bulk.preview('t1'), null, 'its found lyrics are gone')
+  assert.equal((await fileLyrics.readFileLyrics(file)).text, '', 'the file is left alone')
+  assert.equal(bulk.ignoreFromReport(db, 't1').ok, false, 'not in the report any more')
+
+  // The last one gone: the search starts over, and the next one skips the ignored song.
+  assert.equal(bulk.ignoreFromReport(db, 't2').reset, true)
+  assert.equal(bulk.get(db).progress.status, 'idle')
+  bulk.ignoreRemove(db, { type: 'track', id: 't2' })
+  bulk.start(db, {})
+  assert.equal(await finished(), 'done')
+  assert.deepEqual(bulk.get(db).items.map(item => item.trackId), ['t2'])
+})
+
+test('a stopped search opens its report: what was found so far, with its source, can be saved', async (t) => {
+  const { db, dir, file } = fixture(t)
+  const second = path.join(dir, 'song2.mp3')
+  fs.writeFileSync(second, silentMp3())
+  db.prepare("INSERT INTO tracks (id, file_hash, title, artist, album, duration, file_path, lyrics_kind) VALUES ('t2', 'h2', 'Song 2', 'Artist', 'Album', 30, ?, '')").run(second)
+  let release
+  const hold = new Promise(resolve => { release = resolve })
+  t.mock.method(repository, 'lookup', async (query, options) => {
+    // The first song is found at once; the second waits until stopped.
+    if (query.title === 'Song 2' && !options.signal?.aborted) await Promise.race([hold, new Promise(resolve => options.signal?.addEventListener('abort', resolve))])
+    return { result: options.signal?.aborted ? null : repository.toResult('lrclib', { raw: SYLLABLE }) }
+  })
+
+  bulk.start(db, {})
+  for (let i = 0; i < 200 && bulk.get(db).progress.done < 1; i++) await new Promise(resolve => setTimeout(resolve, 10))
+  assert.equal(bulk.get(db).items, undefined, 'no report while searching')
+  bulk.stop()
+  assert.equal(await finished(), 'stopped')
+  const { items } = bulk.get(db)
+  assert.deepEqual(items.map(item => item.trackId), ['t1'])
+  assert.equal(items[0].source, 'lrclib')
+
+  bulk.setChecked(['t1'], true)
+  const saved = await bulk.save(db)
+  assert.deepEqual(saved.saved.map(s => s.trackId), ['t1'])
+  assert.equal(saved.reset, false, 'the search is kept to carry on')
+  assert.match((await fileLyrics.readFileLyrics(file)).syllable, /Hel/)
+  assert.equal(bulk.get(db).progress.status, 'stopped')
+  assert.deepEqual(bulk.get(db).items, [])
+
+  release()
+  bulk.resume(db)
+  assert.equal(await finished(), 'done')
+  assert.deepEqual(bulk.get(db).items.map(item => item.trackId), ['t2'])
+})
+
 test('lyrics no better than the file\'s are not offered', async (t) => {
   const { db, file } = fixture(t)
   fileLyrics.writeFileLyrics(file, '[00:01.00]Already synced lyrics in this file\n[00:03.00]With a second line of words')

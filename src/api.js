@@ -170,6 +170,8 @@ export const api = {
   fileURL: (path) => electronFileURL(path),
   artworkURL: (id) => `${BASE}/artwork/${encodeURIComponent(id)}`,
   folderCoverURL: (relativePath, version = 0) => `${BASE}/folder-cover?path=${encodeURIComponent(relativePath)}&v=${version}`,
+  // folder_cover.lokal isn't a picture a file:// URL can show: decoded by the app.
+  folderCoverFileURL: (filePath, version = 0) => `lokal-stream://fc/${encodeURIComponent(filePath)}?v=${version}`,
   // An album's cover (from getAllAlbums: the path, and the track it's from).
   // Artwork is served by track id, not by path (or album title).
   albumArtURL: (album) => {
@@ -560,9 +562,6 @@ export const api = {
   musicVideoIndexStatus: () => isE() && el().musicVideoIndexStatus ? el().musicVideoIndexStatus() : Promise.resolve(null),
   onMusicVideoIndexProgress: (fn) => isE() && el().onMusicVideoIndexProgress ? el().onMusicVideoIndexProgress((_, p) => fn(p)) : () => {},
   indexAllLyrics: () => isE() && el().indexAllLyrics ? el().indexAllLyrics() : Promise.resolve(null),
-  repairSylt: () => isE() && el().repairSylt ? el().repairSylt() : Promise.resolve(null),
-  cancelRepairSylt: () => isE() && el().cancelRepairSylt ? el().cancelRepairSylt() : Promise.resolve(null),
-  onRepairSyltProgress: (fn) => isE() && el().onRepairSyltProgress ? el().onRepairSyltProgress((_, p) => fn(p)) : () => {},
   cancelLyricsIndex: () => isE() && el().cancelLyricsIndex ? el().cancelLyricsIndex() : Promise.resolve(null),
   // Lyrics Analysis page (desktop only: it reads every file in the music folder).
   lyricsAnalysisGet: () => isE() && el().lyricsAnalysisGet ? el().lyricsAnalysisGet() : Promise.resolve({ report: null, progress: { running: false }, unsupported: true }),
@@ -589,6 +588,8 @@ export const api = {
   lyricsSearchIgnoreSearch: (query) => isE() && el().lyricsSearchIgnoreSearch ? el().lyricsSearchIgnoreSearch(query) : Promise.resolve({ tracks: [], artists: [] }),
   lyricsSearchIgnoreAdd: (items) => isE() && el().lyricsSearchIgnoreAdd ? el().lyricsSearchIgnoreAdd(items) : Promise.resolve({ tracks: [], artists: [] }),
   lyricsSearchIgnoreRemove: (item) => isE() && el().lyricsSearchIgnoreRemove ? el().lyricsSearchIgnoreRemove(item) : Promise.resolve({ tracks: [], artists: [] }),
+  // The report's "Add to the ignore list": the song is ignored and leaves the report.
+  lyricsSearchIgnoreFromReport: (trackId) => isE() && el().lyricsSearchIgnoreFromReport ? el().lyricsSearchIgnoreFromReport(trackId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
   onLyricsIndexProgress: (fn) => isE() && el().onLyricsIndexProgress ? el().onLyricsIndexProgress((_, p) => fn(p)) : () => {},
   playableFile: (fp) => isE() ? el().playableFile(fp) : Promise.resolve(null),
   soulseekStatus: () => isE() ? el().soulseekStatus() : apiFetch('/download/soulseek/status'),
