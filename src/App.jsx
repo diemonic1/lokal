@@ -6,7 +6,8 @@ import { planTransition, AUTOMIX_PRELOAD_S } from './audio/automix'
 import { prefetchUpcoming } from './queuePrefetch'
 import React, { Activity, useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { MemoryRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion'
+import { useEcoMode } from './ecoMode'
 import Sidebar from './components/Sidebar'
 import PlayerBar from './components/PlayerBar'
 import TitleBar from './components/TitleBar'
@@ -45,6 +46,7 @@ import Profile from './pages/Profile'
 import Recap from './pages/Recap'
 import Quality from './pages/Quality'
 import LyricsAnalysis from './pages/LyricsAnalysis'
+import LyricsSearch from './pages/LyricsSearch'
 import CacheAnalysis from './pages/CacheAnalysis'
 import Radio from './pages/Radio'
 import LosslessModal from './components/LosslessModal'
@@ -351,6 +353,7 @@ function AnimatedRoutes() {
         <Route path="/profile" element={<PageTransition><Profile /></PageTransition>} />
         <Route path="/quality" element={<PageTransition gated><Quality /></PageTransition>} />
         <Route path="/lyrics-analysis" element={<PageTransition gated><LyricsAnalysis /></PageTransition>} />
+        <Route path="/lyrics-search" element={<PageTransition gated><LyricsSearch /></PageTransition>} />
         <Route path="/cache-analysis" element={<PageTransition gated><CacheAnalysis /></PageTransition>} />
         <Route path="/radio" element={<PageTransition gated><Radio /></PageTransition>} />
         <Route path="/recap" element={<PageTransition gated><Recap /></PageTransition>} />
@@ -365,6 +368,7 @@ export default function App() {
   const { t } = useTranslation()
   // The floating player bar sits over the pages, which keep room for it.
   const floatingPlayerBar = useAppearanceFlag('player_bar_floating')
+  const eco = useEcoMode()
   // Pages lay out by the space they get between the sidebars (pageWidth.js).
   const pageWidthRef = usePageWidth()
   // The taskbar button shows the playing track (Settings > Appearance > Taskbar).
@@ -2966,6 +2970,8 @@ export default function App() {
   }
 
   return (
+    // Eco mode: framer-motion's animations as for reduced motion (ecoMode.js).
+    <MotionConfig reducedMotion={eco ? 'always' : 'user'}>
     <Router initialEntries={[initialTabPath()]}>
       <NativeHistoryNavigation />
       <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !floatingPlayerBar ? undefined : { '--player-space': '114px' }}>
@@ -2978,7 +2984,9 @@ export default function App() {
             brings the page back as it was instead of rebuilding the app. */}
         <Activity mode={showMiniPlayer ? 'hidden' : 'visible'}>
           <>
-            <div 
+            {/* The theme's background picture; not in eco mode (a blurred
+                picture under the whole window). */}
+            {!eco && <div 
               className="fixed inset-0 bg-no-repeat -z-10"
               style={{ 
                 backgroundImage: 'var(--bg-image)', 
@@ -2987,7 +2995,7 @@ export default function App() {
                 backgroundSize: 'var(--bg-size)',
                 backgroundPosition: 'var(--bg-position)'
               }}
-            />
+            />}
             <div 
               className="fixed inset-0 bg-bg -z-10" 
               style={{ opacity: 'var(--bg-overlay)' }} 
@@ -3102,5 +3110,6 @@ export default function App() {
         <audio ref={smtcKeepAliveRef} src="silence.wav" loop preload="auto" />
       </div>
     </Router>
+    </MotionConfig>
   )
 }

@@ -42,6 +42,17 @@ test('a file gone from the music folder leaves the library; a moved one keeps it
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM artists').get().n, 0)
 })
 
+test('a moved file keeps the date it was first added', () => {
+  const db = library()
+  db.exec('ALTER TABLE tracks ADD COLUMN added_at INTEGER')
+  const add = db.prepare('INSERT INTO tracks (id, file_path, title, artist, duration, added_at) VALUES (?, ?, ?, ?, ?, ?)')
+  add.run('old', at('Old', 'a.mp3'), 'Song', 'Band', 200, 1000)
+  add.run('new', at('New', 'a.mp3'), 'Song', 'Band', 200, 5000)
+  const onDisk = new Set([root, at('New', 'a.mp3')])
+  pruneMissingTracks(db, root, [at('New', 'a.mp3')], { exists: file => onDisk.has(path.resolve(file)) })
+  assert.equal(db.prepare("SELECT added_at FROM tracks WHERE id = 'new'").get().added_at, 1000)
+})
+
 test('nothing is removed when the scan found no files (the folder or its drive is unavailable)', () => {
   const db = library()
   db.prepare('INSERT INTO tracks (id, file_path, title, artist) VALUES (?, ?, ?, ?)').run('x', at('a.mp3'), 'Song', 'Band')

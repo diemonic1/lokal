@@ -15,8 +15,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { isStationTrack } from '../radio/stations'
+import { ECO_FREE_MEMORY_EVENT, useEcoMode } from '../ecoMode'
 
 const meshCache = new Map() // trackId -> grid | null
+if (typeof window !== 'undefined') window.addEventListener(ECO_FREE_MEMORY_EVENT, () => meshCache.clear())
 
 // Settings > Appearance > Now Playing > "Colour Background". Read once and
 // shared; re-read whenever settings are saved, so switching it applies
@@ -33,8 +35,9 @@ function refreshBackdropSetting() {
 }
 if (typeof window !== 'undefined') window.addEventListener('lokal:settings-saved', refreshBackdropSetting)
 
-/** true unless the colour background has been switched off in Settings. */
+/** true unless the colour background has been switched off in Settings (or eco mode is on). */
 export function useArtworkBackdropEnabled() {
+  const eco = useEcoMode()
   const [on, setOn] = useState(backdropOn)
   useEffect(() => {
     backdropListeners.add(setOn)
@@ -42,7 +45,7 @@ export function useArtworkBackdropEnabled() {
     else backdropLoad.then(() => setOn(backdropOn))
     return () => { backdropListeners.delete(setOn) }
   }, [])
-  return on
+  return on && !eco
 }
 
 // Bumped every time a track is edited. A lookup remembers the generation it

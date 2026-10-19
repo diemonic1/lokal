@@ -22,6 +22,8 @@ const { finish, isUntimed } = require('./postprocess')
 const translation = require('./translate')
 
 const META_VERSION = 2
+// How far each kind of lyrics goes: plain text, line-synced, syllable-synced.
+const SYNC_RANK = { none: 1, line: 2, syllable: 3 }
 const NEGATIVE_TTL_MS = 3 * 24 * 60 * 60 * 1000
 // Credential fingerprints and negative-cache keys live only in this process.
 // After a restart, retry persisted misses once with the current credentials.
@@ -253,6 +255,18 @@ async function getLyrics(db, args) {
     rememberResults(trackId, results)
     const all = { ...attempts, ...(localAttempts || { local: filePath ? 'miss' : undefined }) }
     if (!all.local) delete all.local
+    // The file's own lyrics give way only to a level above them (synced over
+    // plain, syllable over synced): found synced lyrics don't replace synced ones.
+    if (local && result && !result.instrumental && SYNC_RANK[result.sync] <= SYNC_RANK[local.sync]) {
+      // Another source may still have had a level above (the first answer
+      // goes by the sources' order, not by level).
+      const better = Object.values(results || {})
+        .filter(r => r && !r.instrumental && SYNC_RANK[r.sync] > SYNC_RANK[local.sync])
+        .sort((a, b) => SYNC_RANK[b.sync] - SYNC_RANK[a.sync])[0]
+      const shown = better || local
+      if (trackId) writeRow(db, trackId, filePath, shown, { attempts: all })
+      return { ...shown, attempts: all }
+    }
     if (result && !result.instrumental) {
       if (trackId) writeRow(db, trackId, filePath, result, { attempts: all })
       return { ...result, attempts: all }
@@ -431,6 +445,20 @@ async function embedFrom(db, args, providerId) {
 }
 
 /**
+ * The Lyrics Search tab's Save: lyrics found earlier (and maybe edited there)
+ * written into the file the same way "Insert into track" writes them.
+ * @param text        LRC or plain text for the standard tags
+ * @param privateTag  LOKAL_LYRICS JSON with the word timings, or null
+ */
+async function writeFoundLyrics(db, trackId, text, privateTag = null) {
+  const filePath = fileOf(db, trackId)
+  if (!String(text || '').trim()) return { ok: false, error: 'no-lyrics' }
+  const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
+  afterFileWrite(db, trackId, filePath, done, text, privateTag)
+  return { ...done }
+}
+
+/**
  * "Remove wrong lyrics": this source's lyrics are wrong for the song. It's
  * never asked for this song again; when it was the one shown, the lyrics are
  * looked up again from the other sources. -> { result, rejected }
@@ -477,4 +505,4 @@ async function romanize(db, trackId, lines) {
   return translation.romanize(db, trackId, lines)
 }
 
-module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, importLyrics, readFileLyrics, writeFileLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }
+module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, importLyrics, readFileLyrics, writeFileLyrics, writeFoundLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }

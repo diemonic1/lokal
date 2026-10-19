@@ -12,6 +12,7 @@ import { usePlayerStore } from '../store/player'
 import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { clipPreview, clipRange, clipSongTime, onClipPreview, trackClipLoop } from '../clipVideo'
 import { playbackSpeed, usePlaybackSpeed } from '../playbackSpeed'
+import { useEcoMode } from '../ecoMode'
 
 // The song's time is reported a few times a second: this far off (seconds)
 // is a seek, or the video drifting.
@@ -34,7 +35,9 @@ export function useTrackClip(track) {
   // Not the zoom: changing it only rescales the video playing.
   const loopKey = loop ? `${track?.id}:${loop.link}:${loop.start}:${loop.end}` : null
   const [failedLoop, setFailedLoop] = useState(null)
-  return { loop: loop && failedLoop !== loopKey ? loop : null, loopKey, fail: () => setFailedLoop(loopKey) }
+  // Eco mode: no clips at all.
+  const eco = useEcoMode()
+  return { loop: loop && !eco && failedLoop !== loopKey ? loop : null, loopKey, fail: () => setFailedLoop(loopKey) }
 }
 
 /** The song's own video looping, muted: between its two times, or the part clipRange picks. */

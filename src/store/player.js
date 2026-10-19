@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { packQueue, unpackQueue, QUEUE_KEYS } from '../queueStorage.js'
 import { isPlayable } from '../onlineTracks.js'
+import { prefetchFullCover } from '../fullCover.js'
 import { isStationTrack } from '../radio/stations.js'
 import { songKey } from '../recommendations.js'
 import { CROSSFADE_DEFAULTS } from '../audio/crossfade.js'
@@ -955,6 +956,9 @@ export const usePlayerStore = create((set, get) => ({
   toggleRightSidebar: () => set(s => ({ showRightSidebar: !s.showRightSidebar })),
   toggleFullscreen: () => set(s => {
     const next = !s.showFullscreen
+    // The full-size cover is read out of the file right away (the library
+    // only keeps a thumbnail); the player shows the thumbnail until it's in.
+    if (next) prefetchFullCover(s.currentTrack)
     if (!next && typeof window !== 'undefined' && window.electron?.refreshHitRegions) {
       // Closing fullscreen with a side panel (Queue/Lyrics) still open
       // unmounts a wide chunk of DOM at the same moment the whole overlay

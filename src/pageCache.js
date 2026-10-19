@@ -15,6 +15,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const cache = new Map()
+// Eco mode turned on: what the pages kept is let go of (they fetch it again).
+if (typeof window !== 'undefined') window.addEventListener('lokal:eco-free-memory', () => cache.clear())
 
 /** The value a page last stored under `key`, or undefined. */
 export function peekCache(key) {

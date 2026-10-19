@@ -25,6 +25,7 @@ const { registerArtworkFxHandlers } = require('./ipc/artworkFx')
 const { registerRadioHandlers } = require('./ipc/radio')
 const { registerFollowedArtistsHandlers } = require('./ipc/followedArtists')
 const { registerCacheHandlers } = require('./ipc/cache')
+const { registerEcoHandlers } = require('./ipc/eco')
 const { registerUserHandlers } = require('./ipc/users')
 const { registerDiscordHandlers, disconnectForQuit } = require('./ipc/discord')
 const { registerLastFmHandlers } = require('./ipc/lastfm')
@@ -489,6 +490,7 @@ app.whenReady().then(() => {
   try { registerRadioHandlers(ipcMain) } catch (e) { console.error('registerRadioHandlers:', e.message) }
   try { registerFollowedArtistsHandlers(ipcMain) } catch (e) { console.error('registerFollowedArtistsHandlers:', e.message) }
   try { registerCacheHandlers(ipcMain) } catch (e) { console.error('registerCacheHandlers:', e.message) }
+  try { registerEcoHandlers(ipcMain) } catch (e) { console.error('registerEcoHandlers:', e.message) }
   try { registerOnlineHandlers(ipcMain) } catch (e) { console.error('registerOnlineHandlers:', e.message) }
   try { registerSpotifyLikesHandlers(ipcMain) } catch (e) { console.error('registerSpotifyLikesHandlers:', e.message) }
   try { registerAutomixHandlers(ipcMain) } catch (e) { console.error('registerAutomixHandlers:', e.message) }
@@ -505,6 +507,19 @@ app.whenReady().then(() => {
       if (packages.list().length || packages.repos().length > 1) packages.refreshDue(0).catch(e => console.error('SpotiFLAC repository refresh:', e.message))
     } catch (e) { console.error('SpotiFLAC repository refresh:', e.message) }
   }, 8000).unref?.()
+  // Full-size song covers from before thumbnails become thumbnails (artwork/thumb.js)
+  // (the full picture is read out of the file when shown big). Quietly in
+  // the background; the lists then show the new paths.
+  setTimeout(() => {
+    const { getStorageDir } = require('./ipc/db')
+    require('./artwork/shrinkCovers').shrinkCovers(getDB(), path.join(getStorageDir(), 'artwork')).then((result) => {
+      if (!result.converted) return
+      console.log(`[covers] ${result.converted} full-size covers turned into thumbnails, ${Math.round(result.freed / 1048576)} MB freed`)
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('library:changed', { added: [], removed: [], updated: result.trackIds })
+      }
+    }).catch(e => console.error('Cover thumbnails:', e.message))
+  }, 15000).unref?.()
 
 
   ipcMain.on('relaunch-app', () => {

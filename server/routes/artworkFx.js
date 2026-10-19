@@ -3,11 +3,18 @@
 const router = require('express').Router()
 const path = require('path')
 const fs = require('fs')
-const { meshForTrack, meshFromRemoteURL, motionForTrack, motionCacheDir, spotifyCheck } = require('../../electron/ipc/artworkFx')
+const { meshForTrack, meshFromRemoteURL, motionForTrack, motionCacheDir, spotifyCheck, fullCoverForTrack } = require('../../electron/ipc/artworkFx')
 const { httpsImageURL } = require('../../electron/playlists/remoteCover')
 
 router.get('/mesh/:trackId', async (req, res) => {
   res.json((await meshForTrack(req.params.trackId).catch(() => null)) || null)
+})
+
+// The full-size cover, out of the song's file (the covers cache keeps a thumbnail).
+router.get('/full/:trackId', async (req, res) => {
+  const cover = await fullCoverForTrack(req.params.trackId).catch(() => null)
+  if (!cover) return res.status(404).end()
+  res.set('Cache-Control', 'private, max-age=300').type(cover.mime).send(cover.bytes)
 })
 
 router.get('/mesh-url', async (req, res) => {

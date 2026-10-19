@@ -1,7 +1,7 @@
 // After a scan: songs whose file is gone from the music folder leave the
 // library. A file that was only moved or renamed (a folder renamed, say) was
 // indexed again under its new path by the scan; the old entry hands its
-// likes, plays and playlist places to that one before it goes. Without a new
+// likes, plays, playlist places and date added to that one before it goes. Without a new
 // copy the entry is removed like a song deleted in Lokal.
 //
 // Nothing is removed when the scan found no files at all: the music folder
@@ -46,6 +46,11 @@ function dropTracks(db, stale, copyOf) {
       }
       if (copy) {
         db.prepare('UPDATE tracks SET play_count = COALESCE(play_count, 0) + ? WHERE id = ?').run(Number(old.play_count) || 0, copy.id)
+        // The song was added when the old entry was, not when it moved
+        // (New Arrivals, "added in the last day", sorting by date added).
+        if (old.added_at != null) {
+          try { db.prepare('UPDATE tracks SET added_at = ? WHERE id = ? AND (added_at IS NULL OR added_at > ?)').run(old.added_at, copy.id, old.added_at) } catch {}
+        }
         moved++
       }
       db.prepare('DELETE FROM tracks WHERE id = ?').run(old.id)

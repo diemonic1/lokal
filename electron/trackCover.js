@@ -104,6 +104,19 @@ async function setTrackCover(db, track, imageData, storageDir) {
   }
   const dir = path.join(storageDir, 'artwork')
   fs.mkdirSync(dir, { recursive: true })
+  // In the file: the cache keeps only a thumbnail (the full picture is read
+  // out of the file when shown big, see artwork/fullCover).
+  const thumb = embedded ? await require('./artwork/thumb').makeThumb(bytes) : null
+  if (thumb) {
+    const thumbPath = path.join(dir, `${track.id}-v${Date.now()}.webp`)
+    fs.writeFileSync(thumbPath, thumb)
+    dropOldVersions(dir, track, thumbPath)
+    // A full copy from before (<id>.jpg) isn't needed any more.
+    const stableOld = path.join(dir, `${track.id}.jpg`)
+    if (path.resolve(String(track.artwork_path || '')).toLowerCase() !== stableOld.toLowerCase()) { try { fs.unlinkSync(stableOld) } catch {} }
+    db.prepare('UPDATE tracks SET artwork_path = ? WHERE id = ?').run(thumbPath, track.id)
+    return { artPath: thumbPath, embedded }
+  }
   // <id>.jpg is what a rescan reads the cover back into (it keeps one that's there).
   // Windows refuses to overwrite a file something still has mapped (code
   // UNKNOWN / "user-mapped section open"): then it's moved aside, and if even
@@ -125,19 +138,23 @@ async function setTrackCover(db, track, imageData, storageDir) {
   }
   const artPath = path.join(dir, `${track.id}-v${Date.now()}.jpg`)
   fs.writeFileSync(artPath, bytes)
-  // Older versions go, but not the one just replaced: a page still showing
-  // the song (a list, an open Edit Track) keeps its picture until it reads
-  // the song again.
+  dropOldVersions(dir, track, artPath)
+  db.prepare('UPDATE tracks SET artwork_path = ? WHERE id = ?').run(artPath, track.id)
+  return { artPath, embedded }
+}
+
+// Older versions go, but not the one just replaced: a page still showing
+// the song (a list, an open Edit Track) keeps its picture until it reads
+// the song again.
+function dropOldVersions(dir, track, current) {
   const previous = track.artwork_path ? path.basename(String(track.artwork_path)).toLowerCase() : null
-  const version = new RegExp(`^${String(track.id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-v\\d+\\.jpg$`, 'i')
+  const version = new RegExp(`^${String(track.id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-v\\d+\\.(jpg|webp)$`, 'i')
   try {
     for (const name of fs.readdirSync(dir)) {
-      if (!version.test(name) || name === path.basename(artPath) || name.toLowerCase() === previous) continue
+      if (!version.test(name) || name === path.basename(current) || name.toLowerCase() === previous) continue
       try { fs.unlinkSync(path.join(dir, name)) } catch {}
     }
   } catch {}
-  db.prepare('UPDATE tracks SET artwork_path = ? WHERE id = ?').run(artPath, track.id)
-  return { artPath, embedded }
 }
 
 /** The cover inside the song's file (its front one, else the first), or null. */

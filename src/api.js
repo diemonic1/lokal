@@ -490,6 +490,9 @@ export const api = {
   clearFinishedDownloads: () => isE() ? el().clearFinishedDownloads() : apiFetch('/download/clear-finished', { method:'POST', body:{} }),
   markDownloadsSeen: () => isE() ? el().markDownloadsSeen() : apiFetch('/download/seen', { method:'POST', body:{} }),
   cacheUsage: () => isE() ? el().cacheUsage() : Promise.resolve(null),
+  // Eco mode (ecoMode.js): reduced motion for the window, and what's loaded let go of.
+  setEcoMode: (on) => isE() && el().setEcoMode ? el().setEcoMode(on) : Promise.resolve(null),
+  freeMemory: () => isE() && el().freeMemory ? el().freeMemory() : Promise.resolve(null),
   cacheTrim: () => isE() ? el().cacheTrim() : Promise.resolve(null),
   cacheClear: () => isE() ? el().cacheClear() : Promise.resolve(null),
   // Cache Analysis page (desktop only: it reads the app's folder).
@@ -497,6 +500,18 @@ export const api = {
   cacheAnalysisClean: (mode) => isE() && el().cacheAnalysisClean ? el().cacheAnalysisClean(mode) : Promise.resolve({ ok: false, unsupported: true }),
   onCacheAnalysisProgress: (fn) => isE() && el().onCacheAnalysisProgress ? el().onCacheAnalysisProgress((_, p) => fn(p)) : () => {},
   artworkMesh: (trackId) => isE() ? el().artworkMesh(trackId) : apiFetch(`/artwork-fx/mesh/${encodeURIComponent(trackId)}`).then(r => (Array.isArray(r) ? r : null)),
+  // The full-size cover of a library song, out of its file (the library keeps
+  // a small thumbnail) -> a Blob, or null when there's nothing bigger.
+  fullArtwork: async (trackId) => {
+    try {
+      if (isE()) {
+        const cover = el().fullArtwork ? await el().fullArtwork(trackId) : null
+        return cover?.bytes?.length ? new Blob([cover.bytes], { type: cover.mime || 'image/jpeg' }) : null
+      }
+      const res = await fetch(`${BASE}/artwork-fx/full/${encodeURIComponent(trackId)}`)
+      return res.ok ? await res.blob() : null
+    } catch { return null }
+  },
   // Online radio: a cover given as a URL (a station has no library row).
   artworkMeshFromUrl: (url) => isE() ? el().artworkMeshFromUrl(url) : apiFetch(`/artwork-fx/mesh-url?${new URLSearchParams({ url })}`).then(r => (Array.isArray(r) ? r : null)),
   radioGetCatalog: () => isE() ? el().radioGetCatalog() : apiFetch('/radio/catalog'),
@@ -553,6 +568,27 @@ export const api = {
   lyricsAnalysisGet: () => isE() && el().lyricsAnalysisGet ? el().lyricsAnalysisGet() : Promise.resolve({ report: null, progress: { running: false }, unsupported: true }),
   lyricsAnalysisRun: () => isE() && el().lyricsAnalysisRun ? el().lyricsAnalysisRun() : Promise.resolve({ ok: false, error: 'Lyrics analysis works in the desktop app.' }),
   onLyricsAnalysisProgress: (fn) => isE() && el().onLyricsAnalysisProgress ? el().onLyricsAnalysisProgress((_, p) => fn(p)) : () => {},
+  // The Lyrics Search tab (desktop only).
+  lyricsSearchGet: () => isE() && el().lyricsSearchGet ? el().lyricsSearchGet() : Promise.resolve({ progress: { status: 'idle' }, unsupported: true }),
+  lyricsSearchStart: (kinds, options) => isE() && el().lyricsSearchStart ? el().lyricsSearchStart(kinds, options) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchResume: () => isE() && el().lyricsSearchResume ? el().lyricsSearchResume() : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchStop: () => isE() && el().lyricsSearchStop ? el().lyricsSearchStop() : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchCancel: () => isE() && el().lyricsSearchCancel ? el().lyricsSearchCancel() : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchSetChecked: (ids, checked) => isE() && el().lyricsSearchSetChecked ? el().lyricsSearchSetChecked(ids, checked) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchCompare: (trackId) => isE() && el().lyricsSearchCompare ? el().lyricsSearchCompare(trackId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchEdit: (trackId, text) => isE() && el().lyricsSearchEdit ? el().lyricsSearchEdit(trackId, text) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchPreview: (trackId) => isE() && el().lyricsSearchPreview ? el().lyricsSearchPreview(trackId) : Promise.resolve(null),
+  lyricsSearchSave: () => isE() && el().lyricsSearchSave ? el().lyricsSearchSave() : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  onLyricsSearchProgress: (fn) => isE() && el().onLyricsSearchProgress ? el().onLyricsSearchProgress((_, p) => fn(p)) : () => {},
+  // Check's source menu: other sources asked, nothing cached; one put into the report.
+  lyricsSearchFromSource: (trackId, providerId) => isE() && el().lyricsSearchFromSource ? el().lyricsSearchFromSource(trackId, providerId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchAllSources: (trackId) => isE() && el().lyricsSearchAllSources ? el().lyricsSearchAllSources(trackId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  lyricsSearchUseSource: (trackId, providerId) => isE() && el().lyricsSearchUseSource ? el().lyricsSearchUseSource(trackId, providerId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
+  // Its ignore list: songs and artists never looked up.
+  lyricsSearchIgnoreGet: () => isE() && el().lyricsSearchIgnoreGet ? el().lyricsSearchIgnoreGet() : Promise.resolve({ tracks: [], artists: [] }),
+  lyricsSearchIgnoreSearch: (query) => isE() && el().lyricsSearchIgnoreSearch ? el().lyricsSearchIgnoreSearch(query) : Promise.resolve({ tracks: [], artists: [] }),
+  lyricsSearchIgnoreAdd: (items) => isE() && el().lyricsSearchIgnoreAdd ? el().lyricsSearchIgnoreAdd(items) : Promise.resolve({ tracks: [], artists: [] }),
+  lyricsSearchIgnoreRemove: (item) => isE() && el().lyricsSearchIgnoreRemove ? el().lyricsSearchIgnoreRemove(item) : Promise.resolve({ tracks: [], artists: [] }),
   onLyricsIndexProgress: (fn) => isE() && el().onLyricsIndexProgress ? el().onLyricsIndexProgress((_, p) => fn(p)) : () => {},
   playableFile: (fp) => isE() ? el().playableFile(fp) : Promise.resolve(null),
   soulseekStatus: () => isE() ? el().soulseekStatus() : apiFetch('/download/soulseek/status'),

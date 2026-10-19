@@ -90,12 +90,18 @@ function spotifyCheck() {
   return checkSpotify(settingsMap().spotify_sp_dc)
 }
 
+/** The full-size cover of a library song, out of its file (see artwork/fullCover), or null. */
+function fullCoverForTrack(trackId) {
+  return require('../artwork/fullCover').fullCoverFor(trackRow(trackId), getStorageDir())
+}
+
 function registerArtworkFxHandlers(ipcMain) {
   const { findFfmpeg } = require('./tools')
   ipcMain.handle('artwork:mesh', (_, trackId) => meshForTrack(trackId).catch(() => null))
   ipcMain.handle('artwork:meshFromUrl', (_, url) => meshFromRemoteURL(httpsImageURL(url)).catch(() => null))
   ipcMain.handle('artwork:motion', (_, trackId) => motionForTrack(trackId, findFfmpeg()).catch(() => null))
   ipcMain.handle('artwork:spotifyCheck', () => spotifyCheck())
+  ipcMain.handle('artwork:full', (_, trackId) => fullCoverForTrack(trackId).catch(() => null))
 }
 
-module.exports = { registerArtworkFxHandlers, meshForTrack, meshFromRemoteURL, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck }
+module.exports = { registerArtworkFxHandlers, fullCoverForTrack, meshForTrack, meshFromRemoteURL, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck }

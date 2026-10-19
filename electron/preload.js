@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, webUtils } = require('electron')
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron')
 const invoke = (ch, ...a) => ipcRenderer.invoke(ch, ...a)
 const on = (ch, fn) => { ipcRenderer.on(ch, fn); return () => ipcRenderer.removeListener(ch, fn) }
 
@@ -218,10 +218,14 @@ contextBridge.exposeInMainWorld('electron', {
   playableFile: (filePath) => invoke('media:playableFile', filePath),
   artworkMesh: (trackId) => invoke('artwork:mesh', trackId),
   artworkMeshFromUrl: (url) => invoke('artwork:meshFromUrl', url),
+  fullArtwork: (trackId) => invoke('artwork:full', trackId),
   radioGetCatalog: () => invoke('radio:getCatalog'),
   radioLoadCatalog: (url) => invoke('radio:loadCatalog', url),
   radioNowPlaying: (stationApi) => invoke('radio:nowPlaying', stationApi),
   cacheUsage: () => invoke('cache:usage'),
+  setEcoMode: (on) => invoke('eco:set', !!on),
+  // The page's own image and resource caches first, then the main process's clean-up.
+  freeMemory: () => { try { webFrame.clearCache() } catch {} return invoke('eco:freeMemory') },
   cacheTrim: () => invoke('cache:trim'),
   cacheClear: () => invoke('cache:clear'),
   cacheAnalysisRun: () => invoke('cacheAnalysis:run'),
@@ -282,6 +286,24 @@ contextBridge.exposeInMainWorld('electron', {
   lyricsAnalysisGet: () => invoke('lyricsAnalysis:get'),
   lyricsAnalysisRun: () => invoke('lyricsAnalysis:run'),
   onLyricsAnalysisProgress: (fn) => on('lyricsAnalysis:progress', fn),
+  lyricsSearchGet: () => invoke('lyricsSearch:get'),
+  lyricsSearchStart: (kinds, options) => invoke('lyricsSearch:start', kinds, options),
+  lyricsSearchResume: () => invoke('lyricsSearch:resume'),
+  lyricsSearchStop: () => invoke('lyricsSearch:stop'),
+  lyricsSearchCancel: () => invoke('lyricsSearch:cancel'),
+  lyricsSearchSetChecked: (ids, checked) => invoke('lyricsSearch:setChecked', ids, checked),
+  lyricsSearchCompare: (trackId) => invoke('lyricsSearch:compare', trackId),
+  lyricsSearchEdit: (trackId, text) => invoke('lyricsSearch:edit', trackId, text),
+  lyricsSearchPreview: (trackId) => invoke('lyricsSearch:preview', trackId),
+  lyricsSearchSave: () => invoke('lyricsSearch:save'),
+  onLyricsSearchProgress: (fn) => on('lyricsSearch:progress', fn),
+  lyricsSearchFromSource: (trackId, providerId) => invoke('lyricsSearch:fromSource', trackId, providerId),
+  lyricsSearchAllSources: (trackId) => invoke('lyricsSearch:allSources', trackId),
+  lyricsSearchUseSource: (trackId, providerId) => invoke('lyricsSearch:useSource', trackId, providerId),
+  lyricsSearchIgnoreGet: () => invoke('lyricsSearch:ignoreGet'),
+  lyricsSearchIgnoreSearch: (query) => invoke('lyricsSearch:ignoreSearch', query),
+  lyricsSearchIgnoreAdd: (items) => invoke('lyricsSearch:ignoreAdd', items),
+  lyricsSearchIgnoreRemove: (item) => invoke('lyricsSearch:ignoreRemove', item),
   spotifyCanvasCheck: () => invoke('artwork:spotifyCheck'),
   linkedFollowedArtists: (service) => invoke('artists:linkedFollows', service),
   soulseekStatus: () => invoke('soulseek:status'),

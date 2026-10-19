@@ -21,8 +21,10 @@ import { api, wordSyncEnabled } from '../api'
 import { useTranslation } from '../i18n'
 import { contextLabel, isContextNavigable, navigateToContext } from '../playbackContext'
 import { trackArtURL } from '../onlineTracks'
+import FullCoverImage from './FullCoverImage'
 import { isStationTrack } from '../radio/stations'
 import ArtistNames from './ArtistNames'
+import { useEcoMode } from '../ecoMode'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
 const COVER_SIZE = 'min(34rem, 54vh)'
@@ -255,6 +257,7 @@ export default function FullscreenPlayer() {
   useEffect(() => () => window.clearTimeout(burstTimer.current), [])
   const [bgLoaded, setBgLoaded] = useState(false)
   const backdropFx = useArtworkBackdropEnabled()
+  const eco = useEcoMode()
   const [fsCanvas, setFsCanvas] = useState(false)
   // Turned off for this song from the side panel.
   const [coverOff, setCoverOff] = useMotionCoverOff(currentTrack)
@@ -263,11 +266,11 @@ export default function FullscreenPlayer() {
   const [coverClip, setCoverClip] = useState({ id: null, clip: null })
   useEffect(() => {
     const id = currentTrack?.id
-    if (!id || !(showFullscreen || showLyricsFullscreen)) return undefined
+    if (!id || !(showFullscreen || showLyricsFullscreen) || eco) return undefined
     let current = true
     loadMotionCover(id).then(clip => { if (current) setCoverClip({ id, clip: clip?.src ? clip : null }) })
     return () => { current = false }
-  }, [currentTrack?.id, showFullscreen, showLyricsFullscreen])
+  }, [currentTrack?.id, showFullscreen, showLyricsFullscreen, eco])
   // The song's own video (Edit Track) plays in the card ahead of its Canvas /
   // moving cover, following the song's seeks (see ClipLoop).
   const { loop: songClip, loopKey: songClipKey, fail: failSongClip } = useTrackClip(currentTrack)
@@ -624,7 +627,8 @@ export default function FullscreenPlayer() {
           <div className="absolute inset-0 bg-black">
             {/* Colours taken from the cover (see ArtworkBackdrop), or -- with
                 that switched off in Settings -- the plain blurred cover. */}
-            {backdropFx ? (
+            {/* Eco mode: just the dark background, no blurred cover either. */}
+            {eco ? null : backdropFx ? (
               <ArtworkBackdrop trackId={meshKeyFor(currentTrack)} blur={64} />
             ) : (
               <AnimatePresence mode="wait">
@@ -738,7 +742,7 @@ export default function FullscreenPlayer() {
                 {artSrc
                   ? <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
-                        <img src={trackArtURL(track)} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                        <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />
                         {songClip && String(track?.id) === String(currentTrack?.id) ? (
                           <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} />
                         ) : (

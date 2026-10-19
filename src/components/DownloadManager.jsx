@@ -21,7 +21,7 @@ import { plural } from '../plural'
 import { explainDownloadError } from '../downloadErrors'
 import { ago, useReleaseCheck } from './ReleasesPanel'
 import { cancelVideoIndex, startVideoIndex, useVideoIndex } from '../videoIndex'
-import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex, startGenres, readGenresStatus } from '../libraryJobs'
+import { useLibraryJobs, startGenres, readGenresStatus } from '../libraryJobs'
 import { useDiscoveryArtists, loadDiscoveryArtists } from '../discoveryArtists'
 import { useTranslation } from '../i18n'
 
@@ -380,7 +380,6 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
   const releasesCheckedAt = useReleaseCheck(s => s.saved?.checkedAt)
   const stopReleases = useReleaseCheck(s => s.stop)
   const videos = useVideoIndex(s => s.progress)
-  const lyrics = useLibraryJobs(s => s.lyrics)
   const genres = useLibraryJobs(s => s.genres)
   const followed = useDiscoveryArtists(s => s.followed)
   const followedLoaded = useDiscoveryArtists(s => s.loaded)
@@ -391,9 +390,6 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
   }, [followedLoaded])
   const checkReleases = () => useReleaseCheck.getState().start([...followed.values()].map(name => ({ name })))
 
-  const lyricsDetail = lyrics?.running
-    ? `${t('{items} found', { items: plural(lyrics.found || 0, 'lyric') })}${lyrics.title ? ` · ${lyrics.title}` : ''}`
-    : lyrics ? `${lyrics.cancelled ? t('Stopped') : t('Done')} · ${t('lyrics for {found} of {songs}', { found: lyrics.found || 0, songs: plural(lyrics.done || 0, 'song') })}` : t('Keeps every song\'s lyrics, so they open at once')
   const genresDetail = genres?.error ? genres.error
     : genres?.running ? t('{songs} filled in', { songs: plural(genres.updated || 0, 'song') })
       : genres?.total ? `${t('Done')} · ${t('{updated} of {songs} filled in', { updated: genres.updated || 0, songs: plural(genres.songs || 0, 'song') })}`
@@ -422,11 +418,6 @@ function OthersTab({ artists, cancelArtists, startArtists, onNavigate }) {
             <TaskRow icon={ScanSearch} label={t('Music videos')} running={!!videos?.running} done={videos?.done} total={videos?.total}
               detail={videosDetail} onStop={cancelVideoIndex} onOpen={() => onNavigate('/videos')}
               onRun={startVideoIndex} runLabel={t('Find')} runTitle={t('Find the music video of every library song')} />
-          )}
-          {api.isElectron && (
-            <TaskRow icon={Mic2} label={t('Lyrics')} running={!!lyrics?.running} done={lyrics?.done} total={lyrics?.total}
-              detail={lyricsDetail} onStop={cancelLyricsIndex} onOpen={() => onNavigate('/settings', { state: { category: 'library' } })}
-              onRun={startLyricsIndex} runLabel={t('Index')} runTitle={t('Fetch and keep the lyrics of every library song')} />
           )}
           <TaskRow icon={Tags} label={t('Genres')} running={!!genres?.running} done={genres?.done} total={genres?.total}
             detail={genresDetail} onOpen={() => onNavigate('/settings', { state: { category: 'library' } })}
@@ -457,7 +448,6 @@ export function DownloadManagerPanel() {
   const releaseCheck = useReleaseCheck(s => !!s.checking)
   const videoIndex = useVideoIndex(s => !!s.progress?.running)
   const [artistRefresh, cancelArtistRefresh, startArtistRefresh] = useArtistRefreshStatus(panelOpen)
-  const lyricsIndex = useLibraryJobs(s => !!s.lyrics?.running)
   const genresJob = useLibraryJobs(s => !!s.genres?.running)
   const panelRef = useRef(null)
 
@@ -495,7 +485,7 @@ export function DownloadManagerPanel() {
   }, [panelOpen, closePanel])
 
   const active = jobs.filter(isActive)
-  const othersRunning = (releaseCheck ? 1 : 0) + (videoIndex ? 1 : 0) + (artistRefresh?.running ? 1 : 0) + (lyricsIndex ? 1 : 0) + (genresJob ? 1 : 0)
+  const othersRunning = (releaseCheck ? 1 : 0) + (videoIndex ? 1 : 0) + (artistRefresh?.running ? 1 : 0) + (genresJob ? 1 : 0)
   const finished = jobs.filter(j => !isActive(j))
 
   const findMore = () => {

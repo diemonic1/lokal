@@ -209,15 +209,15 @@ function relinkArtistsIfNeeded(db = getDB()) {
   return changed
 }
 
+// The cache keeps a small WebP of the file's cover (see artwork/thumb); the
+// full picture is read out of the file when it's shown big (artwork/fullCover).
 async function extractArtwork(metadata, trackId, fallbackArtwork = null) {
-  const pic = metadata.common.picture?.[0]
-  if (pic) {
-    const artPath = path.join(getStorageDir(), 'artwork', `${trackId}.jpg`)
-    if (!fs.existsSync(artPath)) {
-      await fs.ensureDir(path.dirname(artPath))
-      await fs.writeFile(artPath, pic.data)
-    }
-    return artPath
+  const pictures = metadata.common.picture || []
+  const pic = pictures.find(p => /front/i.test(String(p.type || ''))) || pictures[0]
+  if (pic?.data?.length) {
+    try {
+      return await require('../artwork/thumb').writeCover(path.join(getStorageDir(), 'artwork'), trackId, Buffer.from(pic.data))
+    } catch {}
   }
   return fallbackArtwork || null
 }

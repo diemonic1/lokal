@@ -54,12 +54,15 @@
 //   folder_transition  ... > Layout > Folder switch animation (see Library.jsx)
 //   radio_config_page_url  Settings > Online Radio > a page to edit the catalogue (the station list's "Open config")
 //   folder_apps     Settings > Library > Open Folders In: JSON [{ name, path }] (the sidebar folders' right-click menu)
+//   eco_mode        Settings > Appearance > Eco Mode (see ecoMode.js): glass, the cover gradient
+//                   and every visualization read as off while it's on
 //   library_all_tracks  Settings > Library > All Tracks: '1' adds "All tracks" (every song) under the
 //                   sidebar's folders (see ALL_TRACKS in libraryNav.js). Unset: off
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { SPLASH_SETTING_KEYS } from './visualizers/splashSettings'
+import { isEcoMode, subscribeEcoMode } from './ecoMode'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
 const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps', 'library_all_tracks',
@@ -83,6 +86,10 @@ function apply(s) {
 }
 
 function notify() { listeners.forEach(fn => fn()) }
+subscribeEcoMode(notify)
+
+// Off while eco mode is on (ecoMode.js), whatever they're set to.
+const ECO_OFF = new Set(['glass_player_bar', 'player_bar_gradient'])
 
 function refresh() {
   load = Promise.resolve(api.getSettings?.())
@@ -107,7 +114,7 @@ function useSubscribed(read) {
 
 /** true unless the appearance setting `key` has been switched off. */
 export function useAppearanceFlag(key) {
-  return useSubscribed(() => values[key])
+  return useSubscribed(() => values[key] && !(ECO_OFF.has(key) && isEcoMode()))
 }
 
 /** A numeric appearance setting, or `fallback` when unset. */
@@ -136,17 +143,31 @@ export function previewAppearanceValue(key, value) {
 
 export const PLAYER_VISUALIZERS = ['off', 'waveform', 'spectrum', 'spectrumCenter', 'waves', 'lightning']
 
-/** Which visualization the player bar shows (one of PLAYER_VISUALIZERS). */
-export function usePlayerVisualizer() {
+/** The player bar visualization chosen in Settings (one of PLAYER_VISUALIZERS). */
+export function usePlayerVisualizerChoice() {
   const waveform = useAppearanceFlag('player_waveform')
   const chosen = useAppearanceText('player_visualizer')
   return PLAYER_VISUALIZERS.includes(chosen) ? chosen : waveform ? 'waveform' : 'off'
 }
 
+/** Which visualization the player bar shows: the one chosen, 'off' in eco mode. */
+export function usePlayerVisualizer() {
+  const chosen = usePlayerVisualizerChoice()
+  const eco = useSubscribed(isEcoMode)
+  return eco ? 'off' : chosen
+}
+
 export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes']
 
 /** The side panel visualization chosen in `key` (side_visual_text / _full; 'off': just the background). */
-export function useSideVisual(key, fallback) {
+export function useSideVisualChoice(key, fallback) {
   const chosen = useAppearanceText(key)
   return SIDE_PANEL_VISUALIZERS.includes(chosen) ? chosen : fallback
+}
+
+/** The side panel visualization shown: the one chosen, 'off' in eco mode. */
+export function useSideVisual(key, fallback) {
+  const chosen = useSideVisualChoice(key, fallback)
+  const eco = useSubscribed(isEcoMode)
+  return eco ? 'off' : chosen
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AudioWaveform, Info, ListMusic, Music, Maximize2, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay } from 'lucide-react'
+import { AudioWaveform, Info, ListMusic, Music, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -589,7 +589,9 @@ export default function RightSidebar() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  {/* Hidden over the visualization, the lyrics let the mouse through to it. */}
+                  {/* Hidden over the visualization, the lyrics let the mouse through to it.
+                      They run down to the player bar: nothing sits under them
+                      (full screen is in the Details tab's button bar). */}
                   <div className={`relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)] ${lyricsIdle && currentTrack ? 'pointer-events-none' : ''}`}>
                     {currentTrack ? (
                       <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarAtBottom sizeControl
@@ -598,19 +600,6 @@ export default function RightSidebar() {
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
                     )}
                   </div>
-                  {/* Nothing to expand while there are no lyrics. */}
-                  <AnimatePresence initial={false}>
-                    {!(lyricsIdle && currentTrack) && (
-                      <motion.div key="expand" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: 'easeInOut' }} className="relative flex-shrink-0 overflow-hidden">
-                        <div className="p-3 border-t border-border">
-                          <button onClick={toggleLyricsFullscreen} className="w-full py-2 bg-card border border-border rounded-xl text-xs text-muted hover:text-white hover:border-accent/30 transition-all font-display uppercase tracking-wider flex items-center justify-center gap-1.5">
-                            <Maximize2 size={11} /> {t('Expand Lyrics')}
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -27,9 +27,10 @@ const SECTIONS = {
 
 const ITEMS = {
   dbMain: 'Database file', dbWal: 'Write-ahead log (WAL)', dbShm: 'Shared memory index (SHM)', dbJournal: 'Rollback journal',
-  trackCovers: 'Track covers', artistImages: 'Artist images', playlistCovers: 'Playlist covers', otherArtwork: 'Other images',
+  coverThumbs: 'Track cover thumbnails ({thumb})', trackCovers: 'Full-size track covers', artistImages: 'Artist images', playlistCovers: 'Playlist covers', otherArtwork: 'Other images',
   motionCovers: 'Motion covers (video)', playbackCache: 'Playback copies (converted files)', musicVideoCache: 'Music video cache',
   castCache: 'Cast copies', addonCache: 'Addon audio cache', musicVideoIndex: 'Music video index',
+  lyricsSearchCache: 'Lyrics found by Lyrics Search (not saved)',
   lyricsFiles: 'Lyrics files', avatars: 'Avatars', plugins: 'Plugins', youtubeCookies: 'YouTube cookies',
   ghostTracks: 'Online tracks (ghost)', ytMusicSession: 'YouTube Music sign-in', youtubeAttest: 'YouTube verification', webSession: 'Web session',
 }
@@ -65,8 +66,10 @@ const CLEAN = {
     intro: 'Removes only what nothing uses any more or what comes back by itself:',
     list: [
       'Covers no track, artist or playlist uses any more',
+      'Full-size track covers whose picture is in the song file: a {thumb} thumbnail is kept, the full cover is read from the file when shown big',
       'Covers and pages loaded from the internet, compiled scripts and GPU shaders (loaded again when needed)',
       'Motion covers and converted copies (made again when needed)',
+      'Lyrics found by Lyrics Search and not saved yet',
       'Sign-in profiles left over from unfinished sign-ins',
       'Logs of earlier launches',
       'Online tracks nobody uses (not in playlists, likes or history)',
@@ -157,10 +160,12 @@ export default function CacheAnalysis() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = report?.total
+  // The thumbnails' size, as the main process makes them (artwork/thumb.js).
+  const thumbVars = { thumb: report?.thumbSize ? `${report.thumbSize}×${report.thumbSize}` : '?' }
   const itemLabel = (it) => {
     if (it.id === 'ghostTracks') return `${t(ITEMS.ghostTracks)} · ${it.rows}`
-    if (ITEMS[it.id] && it.name) return `${t(ITEMS[it.id])} · ${it.name}`
-    if (ITEMS[it.id]) return t(ITEMS[it.id])
+    if (ITEMS[it.id] && it.name) return `${t(ITEMS[it.id], thumbVars)} · ${it.name}`
+    if (ITEMS[it.id]) return t(ITEMS[it.id], thumbVars)
     return it.name || it.id
   }
   const itemNote = (it) => {
@@ -193,7 +198,7 @@ export default function CacheAnalysis() {
             )}
             <p className="text-white/80">{t(dialog.intro)}</p>
             <ul className="list-disc space-y-1 pl-5 text-muted">
-              {dialog.list.map(line => <li key={line}>{t(line)}</li>)}
+              {dialog.list.map(line => <li key={line}>{t(line, thumbVars)}</li>)}
             </ul>
             <p className="text-xs text-muted">{t(dialog.keep)}</p>
             <div className="flex justify-end gap-2 pt-1">
@@ -290,6 +295,11 @@ export default function CacheAnalysis() {
                   <Stat small label={t('Not used by the library')} size={report.artwork.unused.size} total={total.size}
                     files={report.artwork.unused.files} tone={report.artwork.unused.files ? 'text-red-400' : 'text-muted'}
                     note={t('Covers of tracks, artists and playlists that are no longer in the library')} />
+                )}
+                {isOpen && s.id === 'artwork' && report.artwork?.shrinkable?.files > 0 && (
+                  <Stat small label={t('Full-size covers that can become thumbnails')} size={report.artwork.shrinkable.size} total={total.size}
+                    files={report.artwork.shrinkable.files} tone="text-amber-300"
+                    note={t('The picture is in the song file: the safe cleanup keeps a {thumb} thumbnail and reads the full cover from the file when needed', thumbVars)} />
                 )}
               </React.Fragment>
             )

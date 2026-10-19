@@ -62,7 +62,7 @@ function AlbumHero({ album, trackCount, duration, online, onBack, onArtist, chil
         <ArrowLeft size={14} /> {t('Back')}
       </button>
       <div className="flex flex-col gap-5 @md:flex-row @md:items-end">
-        <ImageZoom src={artSrc} alt={album.title} open={zoom} onClose={() => setZoom(false)} />
+        <ImageZoom src={artSrc} alt={album.title} open={zoom} onClose={() => setZoom(false)} track={album.artwork_track_id ? { id: album.artwork_track_id, artwork_path: album.artwork_path } : null} />
         <div onClick={artSrc ? () => setZoom(true) : undefined} title={artSrc ? t('View the cover') : undefined}
           className={`h-44 w-44 flex-shrink-0 overflow-hidden rounded-2xl border border-border bg-elevated shadow-xl ${artSrc ? 'cursor-zoom-in' : ''}`}>
           {artSrc

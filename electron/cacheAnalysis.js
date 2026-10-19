@@ -20,6 +20,7 @@ const APP_STATE = new Set(['Local Storage', 'Session Storage', 'WebStorage', 'In
 const DATA_DIRS = {
   'motion-covers': 'motionCovers', 'playback-cache': 'playbackCache', 'music-video-cache': 'musicVideoCache',
   'cast-cache': 'castCache', spotiflac: 'addonCache', lyrics: 'lyricsFiles', avatars: 'avatars', plugins: 'plugins',
+  'lyrics-search': 'lyricsSearchCache',
 }
 
 const onDisk = size => Math.ceil(size / CLUSTER) * CLUSTER
@@ -140,16 +141,29 @@ async function artwork(dir, db) {
   // artist whose songs are gone for now (a rescan, a missing drive) gets the
   // same id, and the picture, back when they return (see addArtistFallback).
   const isUsed = file => path.basename(file).startsWith('artist-') || used.has(path.resolve(file).toLowerCase()) || ids.has(path.basename(file).replace(/\.[^.]+$/, '').toLowerCase())
-  const kinds = { trackCovers: empty(), artistImages: empty(), playlistCovers: empty(), otherArtwork: empty() }
+  // Song covers come in two kinds: the small WebP thumbnails (artwork/thumb.js) the library
+  // shows now, and full-size pictures from before them (or ones that can only
+  // be kept whole: found online, set on an online song).
+  const kinds = { coverThumbs: empty(), trackCovers: empty(), artistImages: empty(), playlistCovers: empty(), otherArtwork: empty() }
   const unused = empty()
   const unusedFiles = []
   for (const f of m.list) {
     const name = path.basename(f.path)
     const kind = name.startsWith('artist-') ? 'artistImages' : name.startsWith('playlist-') ? 'playlistCovers'
-      : /^t-|^[0-9a-f]{8,}/i.test(name) ? 'trackCovers' : 'otherArtwork'
+      : /^t-|^[0-9a-f]{8,}/i.test(name) ? (/\.webp$/i.test(name) ? 'coverThumbs' : 'trackCovers') : 'otherArtwork'
     const one = { size: f.size, disk: onDisk(f.size), files: 1, dirs: 0 }
     add(kinds[kind], one)
     if (db && !isUsed(f.path)) { add(unused, one); unusedFiles.push(f.path) }
+  }
+  // Full-size covers whose picture is in the song file: the safe clean-up
+  // turns them into thumbnails (see artwork/shrinkCovers).
+  const shrinkable = empty()
+  const shrinkableFiles = []
+  if (db) {
+    for (const cover of require('./artwork/shrinkCovers').shrinkableCovers(db, dir)) {
+      add(shrinkable, { size: cover.size, disk: onDisk(cover.size), files: 1, dirs: 0 })
+      shrinkableFiles.push(cover.path)
+    }
   }
   const largest = m.list.sort((a, b) => b.size - a.size)[0]
   return {
@@ -157,6 +171,8 @@ async function artwork(dir, db) {
     items: Object.entries(kinds).filter(([, k]) => k.files).map(([id, k]) => item(id, k, { average: Math.round(k.size / k.files) })),
     unused: db ? item('unusedArtwork', unused) : null,
     unusedFiles,
+    shrinkable: db ? item('shrinkableArtwork', shrinkable) : null,
+    shrinkableFiles,
     largest: largest ? { name: path.basename(largest.path), size: largest.size } : null,
   }
 }
@@ -165,10 +181,13 @@ async function artwork(dir, db) {
 // from the files just counted. Mirrors what clean() removes.
 const ENGINE_CACHE = new Set(['Cache', 'Code Cache', 'GPUCache', 'GrShaderCache', 'ShaderCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'GPUPersistentCache'])
 const SITE_DATA = new Set(['Network', 'IndexedDB', 'Service Worker', 'blob_storage', 'Shared Dictionary'])
-const SAFE_DATA = new Set(['motion-covers', 'playback-cache', 'cast-cache'])
-function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], activePartition, currentLog, freeBytes = 0, ghosts }) {
+const SAFE_DATA = new Set(['motion-covers', 'playback-cache', 'cast-cache', 'lyrics-search'])
+// A full-size cover turned into a thumbnail frees all but the thumbnail (a few KB).
+const THUMB_ESTIMATE = 4 * 1024
+function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], shrinkableFiles = [], activePartition, currentLog, freeBytes = 0, ghosts }) {
   const lower = p => path.resolve(p).toLowerCase()
   const unused = new Set(unusedFiles.map(lower))
+  const shrinkable = new Set(shrinkableFiles.map(lower))
   const active = String(activePartition || '').replace(/^persist:/, '').toLowerCase()
   const keepLog = currentLog ? lower(currentLog) : null
   const kind = (file) => {
@@ -194,6 +213,7 @@ function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], activePar
   let safe = freeBytes + (ghosts?.unused.bytes || 0)
   let full = ghosts?.history.bytes || 0
   for (const f of files) {
+    if (shrinkable.has(lower(f.path))) { safe += Math.max(0, f.size - THUMB_ESTIMATE); continue }
     const k = kind(f.path)
     if (k === 'safe') safe += f.size
     else if (k === 'full') full += f.size
@@ -289,7 +309,7 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
   }).filter(s => s.items.length).sort((a, b) => b.size - a.size)
 
   const total = sections.reduce((a, s) => add(a, { size: s.size, disk: s.disk, files: s.files, dirs: 0 }), empty())
-  const cleanup = cleanupEstimate({ files: allFiles, userData, dataDir, unusedFiles: artworkInfo?.unusedFiles, activePartition, currentLog, freeBytes: database?.freeBytes, ghosts })
+  const cleanup = cleanupEstimate({ files: allFiles, userData, dataDir, unusedFiles: artworkInfo?.unusedFiles, shrinkableFiles: artworkInfo?.shrinkableFiles, activePartition, currentLog, freeBytes: database?.freeBytes, ghosts })
   const largestFiles = allFiles.sort((a, b) => b.size - a.size).slice(0, 15)
     .map(f => ({ path: path.relative(userData, f.path) || f.path, size: f.size }))
 
@@ -300,10 +320,12 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
     total,
     sections,
     database,
-    artwork: artworkInfo && { files: artworkInfo.total.files, size: artworkInfo.total.size, unused: artworkInfo.unused, largest: artworkInfo.largest },
+    artwork: artworkInfo && { files: artworkInfo.total.files, size: artworkInfo.total.size, unused: artworkInfo.unused, shrinkable: artworkInfo.shrinkable, largest: artworkInfo.largest },
     largestFiles,
     cleanup,
     ghosts: { total: ghosts.total, unused: ghosts.unused.count, history: ghosts.history.count, kept: ghosts.kept.count },
+    // The thumbnails' side in px (artwork/thumb.js), for the page's labels.
+    thumbSize: require('./artwork/thumb').THUMB_SIZE,
   }
 }
 

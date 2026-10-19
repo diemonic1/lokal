@@ -169,6 +169,12 @@ app.get('*', (req, res) => {
     : res.send('Run npm run build first, or use npm run dev:web')
 })
 
+// Full-size song covers from before thumbnails become thumbnails (see electron/artwork/shrinkCovers).
+setTimeout(() => {
+  require('../electron/artwork/shrinkCovers').shrinkCovers(getDB(), path.join(getStorageDir(), 'artwork'))
+    .catch(e => console.error('Cover thumbnails:', e.message))
+}, 15000).unref?.()
+
 const PORT = process.env.PORT || 3421
 const server = app.listen(PORT, () => {
   console.log(`Lokal Music → http://localhost:${PORT}`);

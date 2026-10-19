@@ -1,6 +1,7 @@
 // Cache Analysis page's two clean-up buttons.
 //   safe: what nothing needs any more or what comes back by itself -- covers no
-//         track, artist or playlist uses, Chromium's web / code / shader caches,
+//         track, artist or playlist uses, full-size song covers whose picture
+//         is in the song file (they become thumbnails, see artwork/thumb.js), Chromium's web / code / shader caches,
 //         Lokal's own caches (motion covers, converted copies...), sign-in
 //         profiles left over from cancelled sign-ins, old logs, and the
 //         database's unused pages (checkpoint + VACUUM).
@@ -43,6 +44,21 @@ async function clean({ mode, userData, dataDir, db, electron, activePartition, c
       for (const f of info.unusedFiles || []) if (await rm(f)) removed++
       return { removed }
     })
+    // Full-size song covers the file has the picture of: a thumbnail instead.
+    if (db) {
+      await step('shrinkArtwork', async () => {
+        const result = await require('./artwork/shrinkCovers').shrinkCovers(db, path.join(dataDir, 'artwork'))
+        // The lists show the new paths (the old files are gone).
+        if (result.converted) {
+          try {
+            for (const win of require('electron').BrowserWindow.getAllWindows()) {
+              if (!win.isDestroyed()) win.webContents.send('library:changed', { added: [], removed: [], updated: result.trackIds })
+            }
+          } catch {}
+        }
+        return { removed: result.converted }
+      })
+    }
   }
 
   // Lokal's own caches: all of it can be made again.
@@ -54,6 +70,13 @@ async function clean({ mode, userData, dataDir, db, electron, activePartition, c
       try { for (const f of fs.readdirSync(dir)) { try { fs.unlinkSync(path.join(dir, f)); videos++ } catch {} } } catch {}
     }
     return { removed: removed + videos }
+  })
+
+  // Lyrics the Lyrics Search tab found and nobody saved (its search stops first).
+  await step('lyricsSearch', () => {
+    const removed = fs.existsSync(path.join(dataDir || '', require('./lyrics/bulkSearch').DIR_NAME))
+    require('./lyrics/bulkSearch').cancel()
+    return { removed: removed ? 1 : 0 }
   })
 
   // Chromium's caches in the app's own session and in every saved web profile.

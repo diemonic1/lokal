@@ -109,6 +109,27 @@ function registerLyricsHandlers(ipcMain) {
   })
   ipcMain.handle('lyrics:cancelRepairSylt', () => { if (syltJob) syltJob.cancelled = true })
 
+  // The Lyrics Search tab: lyrics found for many songs at once, kept apart
+  // (electron/lyrics/bulkSearch.js) until the user saves the ones ticked.
+  const bulk = require('../lyrics/bulkSearch')
+  ipcMain.handle('lyricsSearch:get', safely(() => bulk.get(db)))
+  ipcMain.handle('lyricsSearch:start', safely((_, kinds, options) => bulk.start(db, kinds, options || {})))
+  ipcMain.handle('lyricsSearch:resume', safely(() => bulk.resume(db)))
+  ipcMain.handle('lyricsSearch:stop', safely(() => bulk.stop()))
+  ipcMain.handle('lyricsSearch:cancel', safely(() => bulk.cancel()))
+  ipcMain.handle('lyricsSearch:setChecked', safely((_, ids, checked) => bulk.setChecked(ids, !!checked)))
+  ipcMain.handle('lyricsSearch:compare', safely((_, trackId) => bulk.compare(db, trackId)))
+  ipcMain.handle('lyricsSearch:edit', safely((_, trackId, text) => bulk.edit(trackId, text)))
+  ipcMain.handle('lyricsSearch:preview', safely((_, trackId) => bulk.preview(trackId)))
+  ipcMain.handle('lyricsSearch:save', safely(() => bulk.save(db)))
+  ipcMain.handle('lyricsSearch:fromSource', safely((_, trackId, providerId) => bulk.fromSource(db, trackId, providerId)))
+  ipcMain.handle('lyricsSearch:allSources', safely((_, trackId) => bulk.allSources(db, trackId)))
+  ipcMain.handle('lyricsSearch:useSource', safely((_, trackId, providerId) => bulk.useSource(db, trackId, providerId)))
+  ipcMain.handle('lyricsSearch:ignoreGet', safely(() => bulk.ignoreGet(db)))
+  ipcMain.handle('lyricsSearch:ignoreSearch', safely((_, query) => bulk.ignoreSearch(db, query)))
+  ipcMain.handle('lyricsSearch:ignoreAdd', safely((_, items) => bulk.ignoreAdd(db, items)))
+  ipcMain.handle('lyricsSearch:ignoreRemove', safely((_, item) => bulk.ignoreRemove(db, item)))
+
   // The Lyrics Analysis page: counts what every file in the music folder has
   // in its lyrics tags. The last report is kept; "Refresh" counts again.
   const analysis = require('../lyrics/analysis')

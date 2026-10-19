@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useTranslation } from '../i18n'
+import { useFullCoverStatus } from '../fullCover'
 
 /** The same picture in a larger size, when the URL says its size. */
 export function largerImage(url) {
@@ -24,9 +25,13 @@ export function largerImage(url) {
  * @param src     the picture shown (opened as is if no larger one loads)
  * @param alt     what it is
  * @param open / onClose
+ * @param track   a library song whose cover this is: the cache only keeps a
+ *                thumbnail, so the full picture is read out of its file
+ *                (see ../fullCover) and shown once it's in
  */
-export default function ImageZoom({ src, alt = '', open, onClose }) {
+export default function ImageZoom({ src, alt = '', open, onClose, track = null }) {
   const { t } = useTranslation()
+  const { url: full, loading: fullLoading } = useFullCoverStatus(track, open)
   const big = largerImage(src)
   const [shown, setShown] = useState(big)
   useEffect(() => { setShown(big) }, [big])
@@ -52,14 +57,15 @@ export default function ImageZoom({ src, alt = '', open, onClose }) {
           className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-8"
         >
           <motion.img
-            src={shown}
+            src={full || shown}
             alt={alt}
             onError={() => { if (shown !== src) setShown(src) }}
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-            className="max-h-[min(80vh,900px)] max-w-[min(80vw,900px)] rounded-2xl object-contain shadow-2xl"
+            // While the full cover is read, the thumbnail is drawn as big as it will be.
+            className={`max-h-[min(80vh,900px)] max-w-[min(80vw,900px)] rounded-2xl shadow-2xl ${fullLoading ? 'h-[min(80vh,80vw,900px)] w-[min(80vh,80vw,900px)] object-cover' : 'object-contain'}`}
           />
           <button type="button" onClick={onClose} aria-label={t('Close')} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white">
             <X size={18} />

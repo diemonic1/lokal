@@ -1,13 +1,15 @@
 // The header's quick settings (next to Downloads): a popup to switch the
 // visualizations (side panel with lyrics, side panel fullscreen, player bar)
-// without going to Settings, and the Full App Export from Settings > Backup.
+// and eco mode without going to Settings, and the Full App Export from
+// Settings > Backup.
 // A switch shows at once (previewAppearanceValue) and saves; an open Settings
 // page hears of it (QUICK_SETTING_EVENT) and shows it too.
 
 import React, { useState } from 'react'
-import { Check, Download } from 'lucide-react'
+import { Check, Download, Leaf } from 'lucide-react'
 import { api } from '../api'
-import { previewAppearanceValue, usePlayerVisualizer, useSideVisual } from '../appearanceFlags'
+import { previewAppearanceValue, usePlayerVisualizerChoice, useSideVisualChoice } from '../appearanceFlags'
+import { setEcoMode, useEcoMode } from '../ecoMode'
 import { exportAllAppData } from '../appBackup'
 import { useTranslation } from '../i18n'
 import HeaderPopover, { createPopoverStore } from './HeaderPopover'
@@ -61,13 +63,14 @@ export function QuickSettingsButton() {
   )
 }
 
-function VisualRow({ label, settingKey, value, options }) {
+function VisualRow({ label, settingKey, value, options, disabled }) {
   const { t } = useTranslation()
   return (
-    <label className="flex items-center justify-between gap-3">
+    <label className={`flex items-center justify-between gap-3 ${disabled ? 'opacity-50' : ''}`}>
       <span className="min-w-0 text-[13px] text-white">{t(label)}</span>
       <select
         value={value}
+        disabled={disabled}
         onChange={e => saveSetting(settingKey, e.target.value)}
         className="w-48 flex-shrink-0 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50"
       >
@@ -81,9 +84,14 @@ export function QuickSettingsPanel() {
   const open = useQuickSettingsPopup(s => s.open)
   const close = useQuickSettingsPopup(s => s.close)
   const { t } = useTranslation()
-  const textKind = useSideVisual('side_visual_text', 'character')
-  const fullKind = useSideVisual('side_visual_full', 'splashes')
-  const playerKind = usePlayerVisualizer()
+  const textKind = useSideVisualChoice('side_visual_text', 'character')
+  const fullKind = useSideVisualChoice('side_visual_full', 'splashes')
+  const playerKind = usePlayerVisualizerChoice()
+  const eco = useEcoMode()
+  const toggleEco = () => {
+    setEcoMode(!eco)
+    window.dispatchEvent(new CustomEvent(QUICK_SETTING_EVENT, { detail: { key: 'eco_mode', value: eco ? '0' : '1' } }))
+  }
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
 
@@ -103,11 +111,26 @@ export function QuickSettingsPanel() {
   return (
     <HeaderPopover open={open} onClose={close} opener={OPENER} width={420} label={t('Quick settings')}>
       <div className="space-y-4">
+        <section className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[13px] text-white"><Leaf size={13} className={eco ? 'text-accent' : 'text-muted'} /> {t('Eco Mode')}</p>
+            <p className="mt-0.5 text-[11px] text-muted">{t('Just the player: visualizations, videos, moving covers, glass and animations are off, and the memory they used is freed.')}</p>
+          </div>
+          <button
+            onClick={toggleEco}
+            aria-pressed={eco}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${eco ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}
+          >
+            {t(eco ? 'On' : 'Off')}
+          </button>
+        </section>
+        <div className="border-t border-border" />
         <section className="space-y-3">
           <p className="text-[10px] font-display uppercase tracking-[0.2em] text-subtle">{t('Visualizations')}</p>
-          <VisualRow label="Visualization with lyrics" settingKey="side_visual_text" value={textKind} options={SIDE_KINDS} />
-          <VisualRow label="Fullscreen visualization" settingKey="side_visual_full" value={fullKind} options={SIDE_KINDS} />
-          <VisualRow label="Player bar visualization" settingKey="player_visualizer" value={playerKind} options={PLAYER_KINDS} />
+          <VisualRow label="Visualization with lyrics" settingKey="side_visual_text" value={textKind} options={SIDE_KINDS} disabled={eco} />
+          <VisualRow label="Fullscreen visualization" settingKey="side_visual_full" value={fullKind} options={SIDE_KINDS} disabled={eco} />
+          <VisualRow label="Player bar visualization" settingKey="player_visualizer" value={playerKind} options={PLAYER_KINDS} disabled={eco} />
+          {eco && <p className="text-[11px] text-muted">{t('Off while eco mode is on.')}</p>}
         </section>
         <div className="border-t border-border" />
         <section className="flex items-center justify-between gap-3">

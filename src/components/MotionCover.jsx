@@ -10,6 +10,7 @@ import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { seamlessLoop } from '../seamlessLoop'
 import { useTranslation } from '../i18n'
 import { usePlayerStore } from '../store/player'
+import { ECO_FREE_MEMORY_EVENT, useEcoMode } from '../ecoMode'
 
 const COVER_FADE = 0.8 // s: the end of a moving cover fading into its start
 
@@ -31,6 +32,7 @@ export function forgetMotionCovers() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('lokal:settings-saved', forgetMotionCovers)
+  window.addEventListener(ECO_FREE_MEMORY_EVENT, forgetMotionCovers)
   // A track was edited (title, artist, album...): its old answer may be wrong.
   window.addEventListener('lokal:track-updated', (e) => { for (const id of e.detail?.ids || []) lookups.delete(id) })
 }
@@ -47,6 +49,7 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
   const [clip, setClip] = useState(null)
   const [ready, setReady] = useState(false)
   const [revision, setRevision] = useState(0)
+  const eco = useEcoMode()
 
   // The track on screen was edited: look it up again.
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
     setReady(false)
     onActive?.(false)
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
-    if (!trackId || reduced || off) return undefined
+    if (!trackId || reduced || off || eco) return undefined
     loadMotionCover(trackId).then(found => {
       if (cancelled || !found?.src) return
       if (only === 'square' && found.tall) return

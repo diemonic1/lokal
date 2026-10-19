@@ -6,9 +6,13 @@ import { api } from './api'
 import { translate } from './i18n'
 import { usePlayerStore } from './store/player'
 import { useDownloads } from './store/downloads'
+import { ECO_FREE_MEMORY_EVENT, isEcoMode, subscribeEcoMode, useEcoMode } from './ecoMode'
+import { showToast } from './components/Toaster'
 
 const lookups = new Map()
 const RETRY_MISSING_MS = 10 * 60 * 1000
+// Eco mode: nothing looked up or kept (asked again once it's off).
+if (typeof window !== 'undefined') window.addEventListener(ECO_FREE_MEMORY_EVENT, () => lookups.clear())
 
 // How each track's lookup is going ({ stage: 'searching' | 'checking' |
 // 'fallback' | 'done', index, total }), from the main process.
@@ -38,7 +42,8 @@ export function loadMusicVideo(trackId) {
 }
 
 export function useMusicVideo(track, enabled = true, prepare = false) {
-  const id = enabled ? track?.id : null
+  const eco = useEcoMode()
+  const id = enabled && !eco ? track?.id : null
   const [state, setState] = useState({ id: null, video: null, pending: false })
   const [revision, setRevision] = useState(0)
   const request = useRef(0)
@@ -118,7 +123,11 @@ export const useMusicVideoView = create(set => ({
   open: false,
   mini: false,
   fromVideo: false,
-  show: () => set({ open: true }),
+  // Not in eco mode (ecoMode.js): no videos then.
+  show: () => {
+    if (isEcoMode()) { showToast(translate('Music videos are off in eco mode')); return }
+    set({ open: true })
+  },
   hide: () => set({ open: false }),
   toggleMini: () => set(s => ({ mini: !s.mini })),
   // From the full video to the mini player, still showing the video.
@@ -127,6 +136,8 @@ export const useMusicVideoView = create(set => ({
   // back with its video already loaded.
   enterMini: () => set({ mini: true, fromVideo: true }),
 }))
+// Eco mode turned on: the video players close.
+subscribeEcoMode(() => { if (isEcoMode()) useMusicVideoView.setState({ open: false, mini: false, fromVideo: false }) })
 
 // A person's own sync correction per video, in seconds (positive: the video
 // runs ahead, skipping more of an intro). Kept per video, on this device.

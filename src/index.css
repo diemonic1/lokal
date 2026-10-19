@@ -357,3 +357,25 @@ body.lokal-folder-dragging [data-folder-drop]:hover { outline: 2px solid rgb(var
 .folder-in-zoom { animation: folder-in-zoom 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards; transform-origin: 50% 0; }
 .folder-in-blur { animation: folder-in-blur 320ms ease-out backwards; }
 @media (prefers-reduced-motion: reduce) { [class*="folder-in-"] { animation: none; } }
+
+/* Eco mode (src/ecoMode.js): nothing moves, nothing is blurred. Animations and
+   transitions end at once (their last frame), glass becomes its plain colour.
+   The loaders' spin stays, so a wait still shows. */
+html[data-eco] *, html[data-eco] *::before, html[data-eco] *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  scroll-behavior: auto !important;
+}
+html[data-eco] .animate-spin {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
+}
+html[data-eco] .flow-orb-glow { display: none; }
+/* The ones whose last frame isn't their resting look: as for reduced motion. */
+html[data-eco] .hover-scroll-title-text, html[data-eco] .mixing-ring { animation: none !important; }
+html[data-eco] .queue-loading-seekbar { animation: none !important; width: 100%; opacity: 0.5; }

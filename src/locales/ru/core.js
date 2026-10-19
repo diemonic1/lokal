@@ -356,5 +356,10 @@ export default {
   'Left Sidebar Size': 'Размер левой панели',
   'Size of the folders, their covers and names in the left sidebar.': 'Размер папок, их обложек и названий в левой панели.',
   'Quick settings': 'Быстрые настройки',
+  'Eco Mode': 'Экономичный режим',
+  'Performance': 'Производительность',
+  'Turns Lokal into just a player, to use as little memory and processor as possible: visualizations, music videos and song clips, moving covers, colour backgrounds, glass and animations are switched off, and the memory they used is freed. The music plays as usual. Off: everything comes back as it was.': 'Превращает Lokal в простой плеер, чтобы расходовать как можно меньше памяти и процессора: визуализации, клипы, анимированные обложки, цветной фон, стекло и анимации отключаются, а занятая ими память освобождается. Музыка играет как обычно. Выключите — и всё вернётся как было.',
+  'Just the player: visualizations, videos, moving covers, glass and animations are off, and the memory they used is freed.': 'Только плеер: визуализации, клипы, анимированные обложки, стекло и анимации отключены, занятая ими память освобождается.',
+  'Off while eco mode is on.': 'Отключены, пока включён экономичный режим.',
   'Player bar visualization': 'Визуализация на панели плеера',
 }

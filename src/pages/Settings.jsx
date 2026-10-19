@@ -6,11 +6,12 @@ import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
-import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform } from 'lucide-react'
+import { Info, Tags, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
 import { peekCache, writeCache, usePageReady } from '../pageCache'
+import { previewEcoMode } from '../ecoMode'
 import { useLibraryJobs, startLyricsIndex, cancelLyricsIndex, startGenres, readGenresStatus } from '../libraryJobs'
 import SectionSwap, { ReadyWhen } from '../components/SectionSwap'
 import AddonsSettings from '../components/AddonsSettings'
@@ -122,12 +123,12 @@ function SliderNumber({ value, min, max, unit = '', onChange, label }) {
 
 // `stacked`: the control goes under the text, full width (a wide control
 // beside it would squeeze the description into a narrow column).
-function Row({ label, desc, children, stacked = false }) {
+function Row({ label, desc, children, stacked = false, icon = null }) {
   const { t } = useTranslation()
   return (
     <div className={stacked ? 'space-y-3' : 'flex items-center justify-between gap-6'}>
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-white font-medium">{t(label)}</p>
+        <p className={`text-sm text-white font-medium ${icon ? 'flex items-center gap-1.5' : ''}`}>{icon}{t(label)}</p>
         {desc && <p className="text-xs text-muted mt-0.5 leading-relaxed whitespace-pre-line">{t(desc)}</p>}
       </div>
       <div className={stacked ? '' : 'flex-shrink-0'}>{children}</div>
@@ -1896,6 +1897,18 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
 
+      {inCategory('appearance') && (
+      <Section title="Performance">
+        <Row label="Eco Mode" icon={<Leaf size={14} className={settings.eco_mode === '1' ? 'text-accent' : 'text-muted'} />}
+          desc="Turns Lokal into just a player, to use as little memory and processor as possible: visualizations, music videos and song clips, moving covers, colour backgrounds, glass and animations are switched off, and the memory they used is freed. The music plays as usual. Off: everything comes back as it was.">
+          <button
+            onClick={() => { const v = settings.eco_mode === '1' ? '0' : '1'; previewEcoMode(v === '1'); set('eco_mode', v) }}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.eco_mode === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.eco_mode === '1' ? 'On' : 'Off')}
+          </button>
+        </Row>
+      </Section>
+      )}
       {inCategory('appearance') && (
       <Section title="Language">
         <Row label="App Language" desc="Choose the language used for Lokal’s interface. Track and album titles from your music files are not translated.">

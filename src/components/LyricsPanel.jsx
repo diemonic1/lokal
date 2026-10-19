@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall } from 'lucide-react'
+import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall, ScanSearch } from 'lucide-react'
 import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT } from '../sidePanelPrefs'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import Modal from './Modal'
@@ -16,6 +16,7 @@ import { isStationTrack, lyricsTrackFor, stationClockUnknown, stationSongTime } 
 import { useTranslation } from '../i18n'
 import { markAutoScroll } from '../menuScroll'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
+import { showLyricsPreview, useLyricsPreviewFor } from '../lyricsPreview'
 import {
   canGrow, growLetters, unitProgress, unitLift, activeRows, focusRow, stillSinging, lineEndOf, groupUnits, withOutroBreak,
 } from '../lyrics/timing'
@@ -311,8 +312,12 @@ function SearchBar() {
 
 const FOUND = new Set(['syllable', 'line', 'none'])
 
-function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false, openUp = false }) {
+function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false, openUp = false,
+  // Lyrics Search's Check: the found lyrics are an entry of their own (never
+  // inserted or rejected), and inserting puts a source's lyrics into the report.
+  fixedIds = [], embedLabel = null, embedText = null }) {
   const { t } = useTranslation()
+  const insertLabel = embedLabel || t('Insert into track')
   const [open, setOpen] = useState(false)
   // Sources marked wrong for this song aren't offered any more.
   const sources = allSources.filter(s => !rejected.includes(s.id))
@@ -321,12 +326,14 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
   const actions = useContextMenu()
   const [ask, setAsk] = useState(null) // { kind: 'reject' | 'embed', id }
   const openActions = (event, id) => {
-    if (!id || id === 'local') { event.preventDefault(); return }
+    if (!id || id === 'local' || fixedIds.includes(id)) { event.preventDefault(); return }
     const found = FOUND.has(attempts?.[id]) || id === current
-    actions.open(event, [
-      { label: t('Remove wrong lyrics'), icon: Ban, danger: true, onSelect: () => setAsk({ kind: 'reject', id }) },
-      canEmbed && found && { label: t('Insert into track'), icon: FileDown, disabled: !!embeddingId, onSelect: () => setAsk({ kind: 'embed', id }) },
-    ])
+    const items = [
+      onReject && { label: t('Remove wrong lyrics'), icon: Ban, danger: true, onSelect: () => setAsk({ kind: 'reject', id }) },
+      canEmbed && found && { label: insertLabel, icon: FileDown, disabled: !!embeddingId, onSelect: () => setAsk({ kind: 'embed', id }) },
+    ].filter(Boolean)
+    if (!items.length) { event.preventDefault(); return }
+    actions.open(event, items)
   }
   const askLabel = allSources.find(s => s.id === ask?.id)?.label || ask?.id
   // "Insert into track" asks once more before writing to the file.
@@ -399,8 +406,8 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
               const note = status === 'syllable' ? t('Syllable') : status === 'line' ? t('Line') : status === 'none' ? t('Plain') : status === 'miss' ? t('Not found') : ''
               // Still being asked: a full search running (the file itself is
               // read first, so it's never pending), or this one picked.
-              const pending = pickingId === s.id || (searching && s.id !== 'local' && (!enabled || enabled.includes(s.id)))
-              const embeddable = canEmbed && s.id !== 'local' && FOUND.has(status) && !pending
+              const pending = pickingId === s.id || (searching && s.id !== 'local' && !fixedIds.includes(s.id) && (!enabled || enabled.includes(s.id)))
+              const embeddable = canEmbed && s.id !== 'local' && !fixedIds.includes(s.id) && FOUND.has(status) && !pending
               const embedding = embeddingId === s.id
               const confirming = confirmId === s.id
               return (
@@ -427,11 +434,11 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
                         setConfirmId(null)
                         onEmbed?.(s.id)
                       }}
-                      title={t('Insert into track')}
+                      title={insertLabel}
                       className={`mr-1 flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] transition-colors ${confirming ? 'bg-accent text-black' : 'text-white/45 hover:text-white hover:bg-white/[0.1]'}`}
                     >
                       {embedding ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
-                      {confirming ? t('Insert into track') : null}
+                      {confirming ? insertLabel : null}
                     </button>
                   )}
                 </div>
@@ -451,12 +458,12 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
         )}
       </AnimatePresence>, document.body)}
       <ContextMenu menu={actions} />
-      <Modal open={!!ask} onClose={() => setAsk(null)} title={ask?.kind === 'reject' ? t('Remove wrong lyrics?') : t('Insert into track?')} width="max-w-sm">
+      <Modal open={!!ask} onClose={() => setAsk(null)} title={ask?.kind === 'reject' ? t('Remove wrong lyrics?') : `${insertLabel}?`} width="max-w-sm">
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-muted">
             {ask?.kind === 'reject'
               ? t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: askLabel })
-              : t("The lyrics from {source} will be written into the song's file, replacing the lyrics it has.", { source: askLabel })}
+              : embedText ? embedText(askLabel) : t("The lyrics from {source} will be written into the song's file, replacing the lyrics it has.", { source: askLabel })}
           </p>
           <div className="flex gap-2">
             <button onClick={() => setAsk(null)} className="flex-1 py-2.5 bg-card border border-border rounded-xl text-sm text-muted hover:text-white transition-colors">{t('Cancel')}</button>
@@ -469,7 +476,7 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
               else onEmbed?.(id)
             }}
               className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${ask?.kind === 'reject' ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30' : 'bg-accent/20 border border-accent/30 text-accent hover:bg-accent/30'}`}>
-              {ask?.kind === 'reject' ? t('Remove') : t('Insert into track')}
+              {ask?.kind === 'reject' ? t('Remove') : insertLabel}
             </button>
           </div>
         </div>
@@ -583,14 +590,27 @@ export default function LyricsPanel({
   const setProgressWithAudioUpdate = usePlayerStore(s => s.setProgressWithAudioUpdate)
   const syncTrack = usePlayerStore(s => s.syncTrack)
   const now = useLyricClock(progress)
-  const [result, setResult] = useState(() => (track?.id && hasCachedLyrics(track.id) ? peekLyrics(track.id) : null))
+  const [loadedResult, setResult] = useState(() => (track?.id && hasCachedLyrics(track.id) ? peekLyrics(track.id) : null))
+  // Lyrics Search's Check: the lyrics found for this song, shown in place of
+  // its own while it's being checked (nothing is saved).
+  const foundPreview = useLyricsPreviewFor(track?.id)
+  // Another source picked from the menu while checking: { trackId, id, result }.
+  const [checkPick, setCheckPick] = useState(null)
+  const [checkAttempts, setCheckAttempts] = useState({ trackId: null, attempts: {} })
+  const [checkPickingId, setCheckPickingId] = useState(null)
+  const [checkSearching, setCheckSearching] = useState(false)
+  const [checkInserting, setCheckInserting] = useState(null)
+  const picked = foundPreview && checkPick?.trackId === track?.id ? checkPick : null
+  const previewResult = foundPreview ? (picked?.result || foundPreview) : null
+  const result = previewResult || loadedResult
   // The song `result` is for: right after the song changes, until the new
   // song's lyrics are in, it's still the previous one's.
   const [resultFor, setResultFor] = useState(() => (track?.id && hasCachedLyrics(track.id) ? track.id : null))
   const setBoundResult = useCallback((trackId, next) => { setResultFor(trackId ?? null); setResult(next) }, [])
   // Loading from the first render when there's nothing to show yet, so a new
   // panel never flashes "no lyrics" before its request has even started.
-  const [loading, setLoading] = useState(() => !!track?.id && !hasCachedLyrics(track.id))
+  const [loadingState, setLoading] = useState(() => !!track?.id && !hasCachedLyrics(track.id))
+  const loading = !previewResult && loadingState
   const [sourceBusy, setSourceBusy] = useState(false)
   // The source being asked from the menu, a full re-search running, and the
   // source whose lyrics are being written into the file.
@@ -642,7 +662,7 @@ export default function LyricsPanel({
   // and the source picker).
   const requestSeq = useRef(0)
   const resultRef = useRef(null)
-  resultRef.current = result
+  resultRef.current = loadedResult
 
   // quiet: lines already on screen (from the cache) stay up while this
   // refreshes them; the answer only replaces them if it's different.
@@ -710,8 +730,20 @@ export default function LyricsPanel({
     // Cached: its lines show right away (even if the previous song was still
     // loading); otherwise the loading state until this song's answer.
     setBoundResult(cached ? trackKey : null, cached ? peekLyrics(trackKey) : null); setLoading(!cached && trackKey != null); setFocusIdx(-1); lastScrollIdx.current = -1
-    load({}, cached)
+    // Being checked (Lyrics Search): its own lyrics are read once the check is over.
+    if (!previewRef.current) load({}, cached)
   }, [trackKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A check ended (another song, Save or Cancel in Lyrics Search) with this
+  // song still here: its own lyrics again.
+  const previewRef = useRef(previewResult)
+  const wasPreview = previewRef.current
+  previewRef.current = previewResult
+  useEffect(() => { setCheckPick(null); setCheckPickingId(null); setCheckSearching(false) }, [foundPreview])
+  useEffect(() => {
+    if (wasPreview && !previewResult) { lastScrollIdx.current = -1; load({}, false) }
+    else if (previewResult) lastScrollIdx.current = -1
+  }, [previewResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The file's own lyrics changed (here or in the tag editor): read them again.
   useEffect(() => {
@@ -761,7 +793,7 @@ export default function LyricsPanel({
   const {
     subline, toggle: toggleSub, subLines, wantTranslation, translateTarget, translationState, romanizationState,
     translationFrom, translationBusy, romanizationBusy, canRomanize,
-  } = useLyricSubline(resultFor != null && resultFor === track?.id
+  } = useLyricSubline(previewResult || (resultFor != null && resultFor === track?.id)
     ? { trackId: track?.id, result, lines }
     // Lyrics still the previous song's: no translating them under this song's name.
     : { trackId: track?.id, result: null, lines: NO_LINES })
@@ -932,6 +964,58 @@ export default function LyricsPanel({
       .finally(() => { if (seq === requestSeq.current) { setSourceBusy(false); setPickingId(null) } })
   }
 
+  // ---- Lyrics Search's Check: other sources asked without caching anything;
+  // "Insert into report" makes one the song's entry there (saved later).
+  const CHECK_ID = 'lyrics-search'
+  const checkSay = (text) => { setNotice(text); setTimeout(() => setNotice(''), 4000) }
+  const checkLabel = (id) => (id === CHECK_ID ? t('Found') : sources.find(s => s.id === id)?.label || id)
+  const checkPickSource = (id) => {
+    const trackId = track?.id
+    if (!trackId) return
+    if (id === CHECK_ID) { setCheckPick(null); lastScrollIdx.current = -1; return }
+    setCheckPickingId(id)
+    api.lyricsSearchFromSource(trackId, id)
+      .then(r => {
+        if (currentTrackId.current !== trackId) return
+        setCheckAttempts(prev => ({ trackId, attempts: { ...(prev.trackId === trackId ? prev.attempts : {}), ...(r?.attempts || {}) } }))
+        if (r?.result && (r.result.lines?.length || r.result.instrumental)) {
+          setCheckPick({ trackId, id, result: { ...r.result, source: id } })
+          lastScrollIdx.current = -1
+          if (!r.usable) checkSay(t('These lyrics are not a level above the ones in the file, so they can’t go into the report.'))
+        } else checkSay(t("{source} doesn't have this song", { source: checkLabel(id) }))
+      })
+      .catch(() => {})
+      .finally(() => setCheckPickingId(null))
+  }
+  const checkSearchAll = () => {
+    const trackId = track?.id
+    if (!trackId || checkSearching) return
+    setCheckSearching(true)
+    api.lyricsSearchAllSources(trackId)
+      .then(r => { if (currentTrackId.current === trackId) setCheckAttempts({ trackId, attempts: r?.attempts || {} }) })
+      .catch(() => {})
+      .finally(() => setCheckSearching(false))
+  }
+  const checkInsert = (id) => {
+    const trackId = track?.id
+    if (!trackId || checkInserting) return
+    setCheckInserting(id)
+    api.lyricsSearchUseSource(trackId, id)
+      .then(async r => {
+        if (r?.ok) {
+          const next = await api.lyricsSearchPreview(trackId).catch(() => null)
+          if (next) showLyricsPreview(trackId, next)
+          window.dispatchEvent(new CustomEvent('lokal:lyrics-search-entry', { detail: { trackId, toKind: r.toKind, source: r.source } }))
+          checkSay(t('Lyrics from {source} put into the report', { source: checkLabel(id) }))
+        } else {
+          checkSay(r?.error === 'not-higher' ? t('These lyrics are not a level above the ones in the file, so they can’t go into the report.')
+            : r?.error === 'no-lyrics' ? t("{source} doesn't have this song", { source: checkLabel(id) }) : t("Couldn't save the lyrics: {error}", { error: r?.error || '?' }))
+        }
+      })
+      .catch(e => checkSay(t("Couldn't save the lyrics: {error}", { error: e?.message || '?' })))
+      .finally(() => setCheckInserting(null))
+  }
+
   // "Insert into track": that source's lyrics go into the file's tags (LRC +
   // SYLT when synced, plain text otherwise). Then the file is read again.
   const hasFile = !!track?.file_path && !/^(ghost|https?):/i.test(String(track.file_path))
@@ -1048,7 +1132,37 @@ export default function LyricsPanel({
           </div>
           <div className="flex-1" />
           <div className={`flex min-w-0 items-center justify-end gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'}`} inert={toolbarHidden}>
-            {sources.length > 0 && (result?.source || searching) && (
+            {previewResult && (
+              // Lyrics Search's Check: says what this is, beside the source menu.
+              <span
+                className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE}`}
+                title={t('Lyrics found by Lyrics Search, not saved anywhere yet')}
+              >
+                <ScanSearch size={11} className="flex-shrink-0" />
+                <span className="whitespace-nowrap">{t('Checking lyrics')}</span>
+              </span>
+            )}
+            {previewResult ? (
+              <SourceMenu
+                sources={[{ id: CHECK_ID, label: t('Found') }, ...sources.filter(s => s.id !== 'local')]}
+                enabled={enabledSources}
+                current={picked?.id || CHECK_ID}
+                attempts={{ ...(checkAttempts.trackId === track?.id ? checkAttempts.attempts : {}), [CHECK_ID]: foundPreview?.instrumental ? 'instrumental' : foundPreview?.sync }}
+                busy={!!checkPickingId || !!checkInserting}
+                searching={checkSearching}
+                pickingId={checkPickingId}
+                canEmbed
+                embeddingId={checkInserting}
+                onEmbed={checkInsert}
+                onPick={checkPickSource}
+                onRefresh={checkSearchAll}
+                fixedIds={[CHECK_ID]}
+                embedLabel={t('Insert into report')}
+                embedText={source => t('The lyrics from {source} will replace the found ones in the report. Nothing is written into the file until the report is saved.', { source })}
+                hidden={toolbarHidden}
+                openUp={toolbarAtBottom}
+              />
+            ) : sources.length > 0 && (result?.source || searching) && (
               <SourceMenu
                 sources={sources}
                 enabled={enabledSources}

@@ -14,6 +14,7 @@ import { cancelVideoIndex, startVideoIndex, useVideoIndex, videoIndexRunning } f
 import { useSelection } from '../selection'
 import SelectionBar from '../components/SelectionBar'
 import { startVideoPreview } from '../videoPreview'
+import { useEcoMode } from '../ecoMode'
 import { deleteVideoDownloads, downloadVideos, updateVideoLibrary } from '../videoActions'
 import { losslessMenuItem, losslessManyMenuItem } from '../quality'
 import { useTranslation } from '../i18n'
@@ -45,7 +46,10 @@ function useAnimatedPreview(item, hover, enabled) {
 
 function VideoCard({ item, selected, playing, onSelect, onMenu, onSave, saving, preview }) {
   const { t } = useTranslation()
-  const [hover, setHover] = React.useState(false)
+  const [hovered, setHover] = React.useState(false)
+  // Eco mode: no moving previews on hover.
+  const eco = useEcoMode()
+  const hover = hovered && !eco
   const [failed, setFailed] = React.useState(false)
   const [animated, animatedBroken] = useAnimatedPreview(item, hover, !preview)
   const [animatedShown, setAnimatedShown] = React.useState(false)

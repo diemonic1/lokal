@@ -203,6 +203,7 @@ export default {
   'Casting to the TV ended. Paused here.': 'Трансляция на телевизор завершена. Воспроизведение здесь приостановлено.',
   'Something went wrong': 'Что-то пошло не так',
   'Music video download cancelled': 'Загрузка клипа отменена',
+  'Music videos are off in eco mode': 'В экономичном режиме клипы отключены',
   'Could not update video library.': 'Не удалось обновить библиотеку клипов.',
   'Could not download video.': 'Не удалось скачать клип.',
   'Could not delete video download.': 'Не удалось удалить скачанный клип.',
