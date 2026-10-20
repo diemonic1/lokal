@@ -35,3 +35,15 @@ export function measureLoudness(track) {
   if (cache.size > 500) cache.delete(cache.keys().next().value)
   return pending
 }
+
+/**
+ * A quick estimate (its first few seconds) for a song not measured yet, or
+ * its kept measurement; null when it can't be had. A promise; never rejects.
+ */
+export function estimateLoudness(track) {
+  if (track?.id == null) return Promise.resolve(null)
+  return Promise.resolve()
+    .then(() => api.estimateLoudness?.({ id: track.id, file_path: track.file_path }))
+    .then(result => (Number.isFinite(result?.lufs) ? result : null))
+    .catch(() => null)
+}

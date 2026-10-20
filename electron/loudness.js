@@ -29,9 +29,9 @@ function parseSummary(text) {
   }
 }
 
-function measure(ffmpeg, file) {
+function measure(ffmpeg, file, { from = 0, seconds = MAX_SECONDS } = {}) {
   return new Promise((resolve, reject) => {
-    const args = ['-hide_banner', '-nostdin', '-i', file, '-vn', '-t', String(MAX_SECONDS), '-af', 'ebur128=peak=sample', '-f', 'null', '-']
+    const args = ['-hide_banner', '-nostdin', ...(from > 0 ? ['-ss', String(from)] : []), '-i', file, '-vn', '-t', String(seconds), '-af', 'ebur128=peak=sample', '-f', 'null', '-']
     const child = spawn(ffmpeg, args, { windowsHide: true })
     // The per-frame lines can run long: only the end (the summary) is kept.
     let tail = ''
@@ -78,4 +78,41 @@ function loudnessFor({ db, key, file, ffmpeg, log = () => {} }) {
   return job
 }
 
-module.exports = { loudnessFor, parseSummary }
+// A quick estimate while a new song's full measurement runs: its first five
+// seconds read in a fraction of a second, so the song starts near its level
+// instead of at full volume; the full measurement (done a few seconds later)
+// then takes over. Not kept, and not in the queue: it's for the song
+// starting right now.
+const QUICK_SECONDS = 5
+const QUICK_TIMEOUT_MS = 3000
+const quickRunning = new Map() // key -> Promise<{ lufs, peakDb, estimate } | null>
+
+function quickLoudnessFor({ db, key, file, ffmpeg, log = () => {} }) {
+  if (!key || !file) return Promise.resolve(null)
+  ensureTable(db)
+  const row = db.prepare('SELECT version, lufs, peak_db FROM track_loudness WHERE key = ?').get(key)
+  if (row && row.version === VERSION) return Promise.resolve(row.lufs == null ? null : { lufs: row.lufs, peakDb: row.peak_db })
+  if (quickRunning.has(key)) return quickRunning.get(key)
+  const job = (async () => {
+    try {
+      const binary = ffmpeg()
+      if (!binary) return null
+      const started = Date.now()
+      const result = await Promise.race([
+        measure(binary, file, { seconds: QUICK_SECONDS }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('estimate took too long')), QUICK_TIMEOUT_MS)),
+      ])
+      log(`loudness: ${key} estimated at ${result.lufs} LUFS (${Date.now() - started} ms)`)
+      return result.lufs == null ? null : { ...result, estimate: true }
+    } catch (error) {
+      log(`loudness: couldn't estimate ${key}: ${error.message}`)
+      return null
+    } finally {
+      quickRunning.delete(key)
+    }
+  })()
+  quickRunning.set(key, job)
+  return job
+}
+
+module.exports = { loudnessFor, quickLoudnessFor, parseSummary }

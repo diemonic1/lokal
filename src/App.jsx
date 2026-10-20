@@ -1,10 +1,11 @@
 import { NativeAudioBridge, readOutputPreferences, saveOutputPreferences } from './audio/nativeOutput'
 import { hasReplayGain, normalizedMultiplier } from './audio/replayGain.mjs'
-import { configureLimiter, measureLoudness } from './audio/loudness'
+import { configureLimiter, estimateLoudness, measureLoudness } from './audio/loudness'
 import { readCrossfadeSettings, fadeCurve, crossfadeDurations, CROSSFADE_MIN_S } from './audio/crossfade'
 import { planTransition, AUTOMIX_PRELOAD_S } from './audio/automix'
 import { prefetchUpcoming } from './queuePrefetch'
 import React, { Activity, useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
+import CommandLinePlayTrack from './components/CommandLinePlayTrack'
 import { MemoryRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion'
 import { useEcoMode } from './ecoMode'
@@ -688,8 +689,10 @@ export default function App() {
 
       // Without usable ReplayGain tags: the song's measured loudness. Measured
       // before (kept), it's here at once and the song starts at its level; a
-      // new one takes a few seconds, so playback doesn't wait: the song starts
-      // at the neutral level and glides to its own once it's measured.
+      // new one takes a few seconds, so it starts at a quick estimate from its
+      // first seconds (a moment's wait) and glides to its own level once the
+      // whole song is measured. The estimate only turns a song down: a quiet
+      // intro mustn't boost the loud part that follows it.
       const normalize = async (tags) => {
         if (target == null || hasReplayGain(tags, mode)) {
           apply(normalizedMultiplier({ tags, mode, measured: null, target }))
@@ -698,7 +701,13 @@ export default function App() {
         const pending = measureLoudness(track)
         const quick = await Promise.race([pending, new Promise(resolve => setTimeout(() => resolve(undefined), 150))])
         if (quick !== undefined) { apply(normalizedMultiplier({ tags, mode, measured: quick, target })); return }
-        apply(1)
+        const early = await Promise.race([
+          estimateLoudness(track),
+          pending,
+          new Promise(resolve => setTimeout(() => resolve(null), 1500)),
+        ])
+        if (early?.estimate) apply(Math.min(1, normalizedMultiplier({ tags, mode, measured: early, target })), 0.01)
+        else apply(early ? normalizedMultiplier({ tags, mode, measured: early, target }) : 1, 0.01)
         pending.then(measured => {
           const latest = element.dataset.lokalTrackPending || element.dataset.lokalTrackId
           if (latest && latest !== id) return
@@ -2974,6 +2983,7 @@ export default function App() {
     <MotionConfig reducedMotion={eco ? 'always' : 'user'}>
     <Router initialEntries={[initialTabPath()]}>
       <NativeHistoryNavigation />
+      <CommandLinePlayTrack />
       <div className="relative flex flex-col h-screen bg-transparent overflow-hidden" onClick={initAudioCtx} style={showMiniPlayer || !floatingPlayerBar ? undefined : { '--player-space': '114px' }}>
         {/* Covers the window (overlays included) while it switches to or from
             the mini player: the window is resized behind it, so neither view

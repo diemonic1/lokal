@@ -251,6 +251,7 @@ contextBridge.exposeInMainWorld('electron', {
   // AutoMix: a song's analysis (electron/automix)
   automixAnalyze: (track) => invoke('automix:analyze', track),
   measureLoudness: (track) => invoke('loudness:measure', track),
+  estimateLoudness: (track) => invoke('loudness:estimate', track),
   // Flow's songs (electron/ipc/flow.js)
   flowPool: (userId) => invoke('flow:pool', userId),
   // Casting (electron/ipc/cast.js)
@@ -367,6 +368,9 @@ contextBridge.exposeInMainWorld('electron', {
   saveTheme: (theme, overrides) => invoke('settings:saveTheme', { theme, overrides }),
   reportRemoteState: (state) => ipcRenderer.send('remote:stateUpdate', state),
   onRemoteCommand: (fn) => on('remote:command', (_, payload) => fn(payload)),
+  // The player listens for commands now: the ones waiting (the app was started with one) come in.
+  remoteReady: () => ipcRenderer.send('remote:ready'),
+  findTrackForCommand: (name) => invoke('tracks:findForCommand', name),
   onSmtcShuffleRequest: (fn) => on('smtc:shuffleRequested', (_, value) => fn(value)),
   onSmtcRepeatRequest: (fn) => on('smtc:repeatRequested', (_, mode) => fn(mode)),
 

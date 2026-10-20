@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download } from 'lucide-react'
+import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import GenreChips from './GenreChips'
@@ -32,6 +32,36 @@ function parseNumberField(value) {
   if (!trimmed) return null
   const parsed = parseFloat(trimmed)
   return Number.isNaN(parsed) ? null : parsed
+}
+
+/**
+ * The song's file name at the foot of the tags: not editable, a click copies it
+ * (it's what "Lokal.exe play_track <name>" can be given).
+ */
+function FileNameRow({ filePath }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(0)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  const name = String(filePath).split(/[\\/]/).pop()
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(name) } catch { return }
+    setCopied(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div>
+      <label className="text-[10px] font-display text-muted uppercase tracking-widest block mb-1">{t('File name')}</label>
+      <button type="button" onClick={copy} title={t('Click to copy')}
+        className="group flex w-full items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-left transition-colors hover:border-accent/30">
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-white/80 select-text" title={name}>{name}</span>
+        <span className={`flex flex-shrink-0 items-center gap-1 text-[11px] ${copied ? 'text-accent' : 'text-muted group-hover:text-white'}`}>
+          {copied ? <><Check size={12} /> {t('Copied')}</> : <Copy size={12} />}
+        </span>
+      </button>
+    </div>
+  )
 }
 
 export default function TrackEditModal({ track, open, onClose, onSave }) {
@@ -532,6 +562,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                 ))}
               </div>
             </details>
+
+            {hasLocalFile(track) && <FileNameRow filePath={track.file_path} />}
           </div>
         </div>
 

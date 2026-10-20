@@ -16,7 +16,7 @@ export const TABS = [
   { icon: Radio, label: 'Online Radio', path: '/stations' },
   { icon: Clapperboard, label: 'Videos', path: '/videos' },
   { icon: AudioWaveform, label: 'Audio Quality', path: '/quality' },
-  { icon: ScrollText, label: 'Lyrics Analysis', path: '/lyrics-analysis' },
+  { icon: ScrollText, label: 'Lyrics Count', path: '/lyrics-analysis' },
   { icon: FileSearch, label: 'Lyrics Search', path: '/lyrics-search' },
   { icon: HardDrive, label: 'Cache Analysis', path: '/cache-analysis' },
 ]

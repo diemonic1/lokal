@@ -45,7 +45,7 @@ export default function LyricsAnalysis() {
     const off = api.onLyricsAnalysisProgress(p => setProgress(p || { running: false }))
     api.lyricsAnalysisGet().then(state => {
       setLoaded(true)
-      if (state?.unsupported) { setError(t('Lyrics analysis works in the desktop app.')); return }
+      if (state?.unsupported) { setError(t('Lyrics count works in the desktop app.')); return }
       if (state?.progress?.running) { setProgress(state.progress); return }
       if (state?.report) { setReport(state.report); return }
       // Nothing counted yet: count now.
@@ -69,7 +69,7 @@ export default function LyricsAnalysis() {
       <section>
         <div className="flex flex-wrap items-center gap-3">
           <ScrollText size={18} className="text-accent" />
-          <h1 className="font-display text-lg uppercase tracking-[0.28em] text-white">{t('Lyrics Analysis')}</h1>
+          <h1 className="font-display text-lg uppercase tracking-[0.28em] text-white">{t('Lyrics Count')}</h1>
           {report?.finishedAt && !running && (
             <span className="text-xs text-muted">{t('Counted {date}', { date: new Date(report.finishedAt).toLocaleString() })}</span>
           )}

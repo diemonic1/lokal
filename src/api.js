@@ -230,6 +230,7 @@ export const api = {
   // AutoMix: a song's analysis (desktop; electron/automix), null when it can't be.
   automixAnalyze: (track) => isE() && el()?.automixAnalyze ? el().automixAnalyze(track) : Promise.resolve(null),
   measureLoudness: (track) => isE() && el()?.measureLoudness ? el().measureLoudness(track) : Promise.resolve(null),
+  estimateLoudness: (track) => isE() && el()?.estimateLoudness ? el().estimateLoudness(track) : Promise.resolve(null),
   // Flow's songs: the library with this user's likes and plays (electron/ipc/flow.js; the server's /tracks/flow-pool on the web).
   flowPool: (uid) => isE() && el()?.flowPool ? el().flowPool(uid || 'guest') : apiFetch(`/tracks/flow-pool?userId=${encodeURIComponent(uid || 'guest')}`),
   spotifyLikesPush: (track) => isE() && el()?.spotifyLikesPush ? el().spotifyLikesPush(track) : Promise.resolve({ ok: false }),
@@ -573,7 +574,7 @@ export const api = {
   cancelLyricsIndex: () => isE() && el().cancelLyricsIndex ? el().cancelLyricsIndex() : Promise.resolve(null),
   // Lyrics Analysis page (desktop only: it reads every file in the music folder).
   lyricsAnalysisGet: () => isE() && el().lyricsAnalysisGet ? el().lyricsAnalysisGet() : Promise.resolve({ report: null, progress: { running: false }, unsupported: true }),
-  lyricsAnalysisRun: () => isE() && el().lyricsAnalysisRun ? el().lyricsAnalysisRun() : Promise.resolve({ ok: false, error: 'Lyrics analysis works in the desktop app.' }),
+  lyricsAnalysisRun: () => isE() && el().lyricsAnalysisRun ? el().lyricsAnalysisRun() : Promise.resolve({ ok: false, error: 'Lyrics count works in the desktop app.' }),
   onLyricsAnalysisProgress: (fn) => isE() && el().onLyricsAnalysisProgress ? el().onLyricsAnalysisProgress((_, p) => fn(p)) : () => {},
   // The Lyrics Search tab (desktop only).
   lyricsSearchGet: () => isE() && el().lyricsSearchGet ? el().lyricsSearchGet() : Promise.resolve({ progress: { status: 'idle' }, unsupported: true }),

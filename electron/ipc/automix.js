@@ -33,16 +33,22 @@ function registerAutomixHandlers(ipcMain) {
 
   // Loudness normalization: a library song's measured loudness (electron/loudness.js).
   // Online songs aren't measured (it would mean downloading them twice).
-  ipcMain.handle('loudness:measure', async (_, track) => {
+  const loudnessJob = (track) => {
     if (!track?.id) return null
     const file = String(track.file_path || '')
     if (!file || /^(ghost|https?):/i.test(file) || !fs.existsSync(file)) return null
     let stamp = ''
     try { const st = fs.statSync(file); stamp = `${st.size}:${Math.round(st.mtimeMs)}` } catch {}
-    return require('../loudness').loudnessFor({
-      db: getDB(), key: `${track.id}|${stamp}`, file, log,
-      ffmpeg: () => require('./tools').findFfmpeg(),
-    })
+    return { db: getDB(), key: `${track.id}|${stamp}`, file, log, ffmpeg: () => require('./tools').findFfmpeg() }
+  }
+  ipcMain.handle('loudness:measure', async (_, track) => {
+    const job = loudnessJob(track)
+    return job ? require('../loudness').loudnessFor(job) : null
+  })
+  // A quick estimate for a song starting before it's been measured.
+  ipcMain.handle('loudness:estimate', async (_, track) => {
+    const job = loudnessJob(track)
+    return job ? require('../loudness').quickLoudnessFor(job) : null
   })
 }
 

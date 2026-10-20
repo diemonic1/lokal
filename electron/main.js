@@ -1,3 +1,31 @@
+// Lokal always runs as a process of its own. Started by another program (a
+// script, a console, a hidden WScript.Shell.Run "...", 0), it would otherwise
+// be that program's child: its window hidden along with it, and the caller
+// left waiting on it. So the first copy only starts a detached one (a normal
+// window, no parent) and exits at once with 0, which the caller gets as done.
+// Already running: the single-instance lock hands the command line to it as
+// usual (second-instance) -- asked for once here, and that answer reused below.
+let earlyInstanceLock = null
+{
+  const { app: launchingApp } = require('electron')
+  if (process.platform === 'win32' && launchingApp.isPackaged && !process.env.LOKAL_DETACHED) {
+    earlyInstanceLock = launchingApp.requestSingleInstanceLock()
+    if (earlyInstanceLock) {
+      launchingApp.releaseSingleInstanceLock()
+      const { spawn } = require('child_process')
+      spawn(process.execPath, process.argv.slice(1), {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false,
+        env: { ...process.env, LOKAL_DETACHED: '1' },
+      }).unref()
+      process.exit(0)
+    }
+  }
+  // Not passed on to what this copy starts (a restart after an update...).
+  delete process.env.LOKAL_DETACHED
+}
+
 const { registerNativeOutput, closeNativeOutput } = require('./audio/output')
 const { app, BrowserWindow, ipcMain, shell, globalShortcut, screen, protocol, net, powerSaveBlocker } = require('electron')
 const path = require('path')
@@ -128,12 +156,19 @@ function emitOpenFilePath(filePath) {
   return true
 }
 
-const gotTheLock = app.requestSingleInstanceLock()
+const gotTheLock = earlyInstanceLock ?? app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
   app.quit()
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // "Lokal.exe play / pause / toggle / next / prev / play_track <name>": a
+    // command for the running app, which carries it out without coming to the front.
+    const command = findPlayerCommandArg(commandLine)
+    if (command) {
+      emitPlayerCommand(command.action, command.value)
+      return
+    }
     const protocolUrl = commandLine.find(arg => typeof arg === 'string' && arg.startsWith(`${APP_PROTOCOL}://`))
     const token = extractLastfmAuthToken(protocolUrl || '')
     if (token) {
@@ -315,10 +350,40 @@ function saveWindowState() {
   } catch {}
 }
 
-function emitPlayerCommand(action) {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send('remote:command', { action })
+// Commands accepted on the command line (see second-instance and the boot
+// arguments below), as the renderer's remote:command actions. play_track takes
+// the rest of the line as the song's name (quoted or not).
+const CLI_PLAYER_COMMANDS = { play: 'play', pause: 'pause', toggle: 'togglePlay', next: 'next', prev: 'prev', previous: 'prev', play_track: 'playTrack' }
+function findPlayerCommandArg(commandLine) {
+  const args = (commandLine || []).slice(1).map(arg => String(arg ?? ''))
+  for (let i = 0; i < args.length; i++) {
+    const action = CLI_PLAYER_COMMANDS[args[i].trim().toLowerCase()]
+    if (!action) continue
+    if (action !== 'playTrack') return { action }
+    // Chromium may add its own switches to the line: they're not part of the name.
+    const value = args.slice(i + 1).filter(arg => !arg.startsWith('--')).join(' ').trim()
+    return value ? { action, value } : null
+  }
+  return null
 }
+
+// Commands wait until the window's player is listening (the app just
+// started, or the window is still loading), then go in the order given.
+let remoteReady = false
+const pendingRemoteCommands = []
+function emitPlayerCommand(action, value) {
+  const command = value === undefined ? { action } : { action, value }
+  if (!remoteReady || !mainWindow || mainWindow.isDestroyed()) {
+    pendingRemoteCommands.push(command)
+    if (pendingRemoteCommands.length > 20) pendingRemoteCommands.shift()
+    return
+  }
+  mainWindow.webContents.send('remote:command', command)
+}
+ipcMain.on('remote:ready', (event) => {
+  remoteReady = true
+  while (pendingRemoteCommands.length) event.sender.send('remote:command', pendingRemoteCommands.shift())
+})
 
 function unregisterMediaShortcuts() {
   for (const accelerator of MEDIA_SHORTCUTS) {
@@ -377,6 +442,9 @@ function createWindow() {
   })
   mainWindow.webContents.on('render-process-gone', closeNativeOutput)
   mainWindow.webContents.on('did-start-loading', closeNativeOutput)
+  // A (re)loading page isn't listening yet: commands wait for it (remote:ready).
+  mainWindow.webContents.on('did-start-loading', () => { remoteReady = false })
+  mainWindow.webContents.on('render-process-gone', () => { remoteReady = false })
   mainWindow.on('closed', () => {
     closeNativeOutput()
     // The app ends with its window (macOS aside). Hidden helper windows (the
@@ -788,6 +856,9 @@ const bootToken = extractLastfmAuthToken(bootProtocolUrl || '')
 if (bootToken) {
   emitLastfmAuthToken(bootToken)
 }
+// Started with a command ("Lokal.exe play_track <name>"): carried out once the player is up.
+const bootCommand = findPlayerCommandArg(process.argv)
+if (bootCommand) emitPlayerCommand(bootCommand.action, bootCommand.value)
 const bootFilePath = findAudioFileArg(process.argv)
 if (bootFilePath) {
   emitOpenFilePath(bootFilePath)

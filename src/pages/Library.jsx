@@ -18,6 +18,8 @@ import { TRACK_CHANGED, readTrack, placeTrack } from '../trackChanged'
 const LIBRARY_PAGE_SIZE = 50
 // Once per launch, the folder opens on the song that was playing (see Library).
 let revealedAtLaunch = false
+/** The folder opens on the song starting now (a song played from the command line), as at launch. */
+export function revealPlayingInLibrary() { revealedAtLaunch = false }
 const REVEAL_MAX_PAGES = 20
 // How the list goes from one folder's songs to the next's. While the next
 // folder loads, the old list waits (faded or dimmed); once its songs are in,

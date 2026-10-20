@@ -419,7 +419,7 @@ export default {
   'Top tracks': 'Лучшие треки',
   'Made with Lokal': 'Сделано в Lokal',
   // Lyrics Analysis page
-  'Lyrics Analysis': 'Анализ текстов',
+  'Lyrics Count': 'Подсчёт текстов',
   'Counted {date}': 'Подсчитано {date}',
   'Looking for files...': 'Поиск файлов…',
   'All files': 'Всего файлов',
@@ -429,7 +429,7 @@ export default {
   'No lyrics': 'Без текста',
   "Can't be found": 'Невозможно найти',
   'fish covers: {fish}, others: {others}': 'рыбные каверы: {fish}, остальные: {others}',
-  'Lyrics analysis works in the desktop app.': 'Анализ текстов работает только в приложении для компьютера.',
+  'Lyrics count works in the desktop app.': 'Подсчёт текстов работает только в приложении для компьютера.',
   'Show all tracks ({n})': 'Показать все треки ({n})',
   // Cache Analysis page
   'Cache Analysis': 'Анализ кеша',

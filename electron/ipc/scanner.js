@@ -1534,6 +1534,8 @@ function registerScannerHandlers(ipcMain) {
     if (folder) { where.push(folder.sql); params.push(...folder.params) }
     return require('../trackErrors').listTracks(db, opts, { where, params, exists: fs.existsSync })
   })
+  // "Lokal.exe play_track <name>" (see electron/main.js).
+  ipcMain.handle('tracks:findForCommand', (_, name) => { try { return require('../commandLineTrack').findTrackForCommand(getDB(), name) } catch { return null } })
   ipcMain.handle('tracks:reportError', (_, trackId, message) => { try { return require('../trackErrors').recordTrackError(getDB(), trackId, message) } catch { return false } })
   ipcMain.handle('tracks:clearError', (_, trackId) => { try { return require('../trackErrors').clearTrackError(getDB(), trackId) } catch { return false } })
   ipcMain.handle('scanner:getArtists', () => {
