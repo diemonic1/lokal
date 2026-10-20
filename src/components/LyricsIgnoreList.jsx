@@ -1,11 +1,11 @@
-// Lyrics Search's ignore list: songs and artists the search skips without
+// Lyrics Search's ignore list: songs, artists and library folders the search skips without
 // asking anything online. A fold-out list (covers for songs, pictures for
 // artists) with a remove button on each, confirmed first, and a + opening a
 // window to find library songs and artists, tick them and save them to it.
 // Kept in the settings (electron/lyrics/bulkSearch.js), so the app export has it.
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, EyeOff, Loader2, Music, Play, Plus, Search, Trash2, UserRound } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, EyeOff, Folder, Loader2, Music, Play, Plus, Search, Trash2, UserRound } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import { useTranslation } from '../i18n'
@@ -15,9 +15,15 @@ import { usePlayerStore } from '../store/player'
 const artistImage = (artist) => (!artist?.image_path ? null
   : api.isElectron ? `file://${artist.image_path}` : artist.id ? `/api/artist-image/${encodeURIComponent(artist.id)}` : null)
 
-const keyOf = (type, item) => (type === 'artist' ? `a:${String(item.name).toLowerCase()}` : `t:${item.id}`)
+const keyOf = (type, item) => (type === 'artist' ? `a:${String(item.name).toLowerCase()}`
+  : type === 'folder' ? `f:${String(item.path).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()}` : `t:${item.id}`)
+
+const EMPTY = { tracks: [], artists: [], folders: [] }
 
 function Picture({ type, item, size = 'h-9 w-9' }) {
+  if (type === 'folder') {
+    return <div className={`${size} flex flex-shrink-0 items-center justify-center rounded-md bg-card text-muted`}><Folder size={15} /></div>
+  }
   const src = type === 'artist' ? artistImage(item) : trackArtURL(item)
   const shape = type === 'artist' ? 'rounded-full' : 'rounded-md'
   return (
@@ -43,8 +49,10 @@ function Row({ type, item, onRemove }) {
         </button>
       ) : <Picture type={type} item={item} />}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-white">{type === 'artist' ? item.name : item.title}</p>
-        <p className="truncate text-[11px] text-muted">{type === 'artist' ? t('Artist: all of their tracks') : item.artist}</p>
+        <p className="truncate text-sm text-white" title={type === 'folder' ? item.path : undefined}>{type === 'artist' ? item.name : type === 'folder' ? item.name : item.title}</p>
+        <p className="truncate text-[11px] text-muted" title={type === 'folder' ? item.path : undefined}>
+          {type === 'artist' ? t('Artist: all of their tracks') : type === 'folder' ? t('Folder: all the tracks in it ({n}) · {path}', { n: (item.count || 0).toLocaleString(), path: item.path }) : item.artist}
+        </p>
       </div>
       <button onClick={() => onRemove(type, item)} title={t('Remove from the ignore list')} aria-label={t('Remove from the ignore list')}
         className="rounded-lg p-1.5 text-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100">
@@ -58,7 +66,7 @@ function Row({ type, item, onRemove }) {
 function AddModal({ open, list, onClose, onSaved }) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [found, setFound] = useState({ tracks: [], artists: [] })
+  const [found, setFound] = useState(EMPTY)
   const [searching, setSearching] = useState(false)
   const [picked, setPicked] = useState(() => new Map())
   const [saving, setSaving] = useState(false)
@@ -66,25 +74,29 @@ function AddModal({ open, list, onClose, onSaved }) {
 
   useEffect(() => {
     if (!open) return
-    setQuery(''); setFound({ tracks: [], artists: [] }); setPicked(new Map())
+    setQuery(''); setFound(EMPTY); setPicked(new Map())
   }, [open])
 
   useEffect(() => {
     if (!open) return undefined
     const q = query.trim()
     const mine = ++seq.current
-    if (!q) { setFound({ tracks: [], artists: [] }); setSearching(false); return undefined }
+    if (!q) { setFound(EMPTY); setSearching(false); return undefined }
     setSearching(true)
     const timer = setTimeout(() => {
       api.lyricsSearchIgnoreSearch(q)
-        .then(r => { if (mine === seq.current) setFound({ tracks: r?.tracks || [], artists: r?.artists || [] }) })
+        .then(r => { if (mine === seq.current) setFound({ tracks: r?.tracks || [], artists: r?.artists || [], folders: r?.folders || [] }) })
         .catch(() => {})
         .finally(() => { if (mine === seq.current) setSearching(false) })
     }, 220)
     return () => clearTimeout(timer)
   }, [query, open])
 
-  const already = new Set([...(list?.tracks || []).map(item => keyOf('track', item)), ...(list?.artists || []).map(item => keyOf('artist', item))])
+  const already = new Set([
+    ...(list?.tracks || []).map(item => keyOf('track', item)),
+    ...(list?.artists || []).map(item => keyOf('artist', item)),
+    ...(list?.folders || []).map(item => keyOf('folder', item)),
+  ])
   const toggle = (type, item) => setPicked(prev => {
     const next = new Map(prev)
     const key = keyOf(type, item)
@@ -101,6 +113,7 @@ function AddModal({ open, list, onClose, onSaved }) {
       const r = await api.lyricsSearchIgnoreAdd({
         tracks: values.filter(v => v.type === 'track').map(v => v.item.id),
         artists: values.filter(v => v.type === 'artist').map(v => v.item.name),
+        folders: values.filter(v => v.type === 'folder').map(v => v.item.path),
       })
       onSaved(r)
       onClose()
@@ -119,8 +132,10 @@ function AddModal({ open, list, onClose, onSaved }) {
             className="group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-white/[0.04] disabled:cursor-default disabled:opacity-60">
             <Picture type={type} item={item} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-white">{type === 'artist' ? item.name : item.title}</p>
-              <p className="truncate text-[11px] text-muted">{type === 'artist' ? t('Artist') : item.artist}{isIn ? ` · ${t('already ignored')}` : ''}</p>
+              <p className="truncate text-sm text-white" title={type === 'folder' ? item.path : undefined}>{type === 'artist' || type === 'folder' ? item.name : item.title}</p>
+              <p className="truncate text-[11px] text-muted" title={type === 'folder' ? item.path : undefined}>
+                {type === 'artist' ? t('Artist') : type === 'folder' ? t('Folder ({n}) · {path}', { n: (item.count || 0).toLocaleString(), path: item.path }) : item.artist}{isIn ? ` · ${t('already ignored')}` : ''}
+              </p>
             </div>
             <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border transition-opacity ${on ? 'border-accent bg-accent text-black opacity-100' : 'border-white/30 opacity-0 group-hover:opacity-100'}`}>
               {on && <Check size={11} strokeWidth={3} />}
@@ -136,14 +151,15 @@ function AddModal({ open, list, onClose, onSaved }) {
       <div className="flex h-[min(34rem,calc(100vh-10rem))] flex-col gap-3">
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 focus-within:border-accent/50">
           {searching ? <Loader2 size={14} className="animate-spin text-muted" /> : <Search size={14} className="text-muted" />}
-          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Search tracks or artists')}
+          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Search tracks, artists or folders')}
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-muted" />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {section('artist', found.artists, t('Artists'))}
           {section('track', found.tracks, t('Tracks'))}
-          {query.trim() && !searching && !found.artists.length && !found.tracks.length && <p className="px-2 py-6 text-center text-xs text-muted">{t('Nothing found')}</p>}
-          {!query.trim() && <p className="px-2 py-6 text-center text-xs text-muted">{t('Type a track or artist name, then tick what to ignore.')}</p>}
+          {section('folder', found.folders, t('Folders'))}
+          {query.trim() && !searching && !found.artists.length && !found.tracks.length && !found.folders.length && <p className="px-2 py-6 text-center text-xs text-muted">{t('Nothing found')}</p>}
+          {!query.trim() && <p className="px-2 py-6 text-center text-xs text-muted">{t('Type a track, artist or folder name, then tick what to ignore.')}</p>}
         </div>
         <div className="flex items-center justify-end gap-2">
           <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs text-muted hover:text-white">{t('Cancel')}</button>
@@ -159,21 +175,23 @@ function AddModal({ open, list, onClose, onSaved }) {
 
 export default function LyricsIgnoreList() {
   const { t } = useTranslation()
-  const [list, setList] = useState({ tracks: [], artists: [] })
+  const [list, setList] = useState(EMPTY)
   const [open, setOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState(null) // { type, item }
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { api.lyricsSearchIgnoreGet().then(r => r && !r.error && setList(r)).catch(() => {}) }, [])
+  const keep = (r) => r && !r.error && setList({ ...EMPTY, ...r, folders: r.folders || [] })
+  useEffect(() => { api.lyricsSearchIgnoreGet().then(keep).catch(() => {}) }, [])
 
-  const count = list.tracks.length + list.artists.length
+  const count = list.tracks.length + list.artists.length + list.folders.length
   const remove = async () => {
     if (!removing) return
     setBusy(true)
     try {
-      const r = await api.lyricsSearchIgnoreRemove(removing.type === 'artist' ? { type: 'artist', name: removing.item.name } : { type: 'track', id: removing.item.id })
-      if (r && !r.error) setList(r)
+      const r = await api.lyricsSearchIgnoreRemove(removing.type === 'artist' ? { type: 'artist', name: removing.item.name }
+        : removing.type === 'folder' ? { type: 'folder', path: removing.item.path } : { type: 'track', id: removing.item.id })
+      keep(r)
       setRemoving(null)
     } finally { setBusy(false) }
   }
@@ -188,7 +206,7 @@ export default function LyricsIgnoreList() {
           <span className="text-xs tabular-nums text-muted">{count}</span>
         </button>
         {open && (
-          <button type="button" onClick={() => setAdding(true)} title={t('Add tracks or artists')} aria-label={t('Add tracks or artists')}
+          <button type="button" onClick={() => setAdding(true)} title={t('Add tracks, artists or folders')} aria-label={t('Add tracks, artists or folders')}
             className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-accent">
             <Plus size={15} />
           </button>
@@ -196,17 +214,20 @@ export default function LyricsIgnoreList() {
       </div>
       {open && (
         <div className="max-h-80 overflow-y-auto border-t border-border/60 px-1 py-1">
-          {!count && <p className="px-2 py-3 text-xs text-muted">{t('Nothing is ignored. Tracks and artists added here are skipped by the search, with no requests online.')}</p>}
+          {!count && <p className="px-2 py-3 text-xs text-muted">{t('Nothing is ignored. Tracks, artists and folders added here are skipped by the search, with no requests online.')}</p>}
+          {list.folders.map(item => <Row key={keyOf('folder', item)} type="folder" item={item} onRemove={(type, it) => setRemoving({ type, item: it })} />)}
           {list.artists.map(item => <Row key={keyOf('artist', item)} type="artist" item={item} onRemove={(type, it) => setRemoving({ type, item: it })} />)}
           {list.tracks.map(item => <Row key={keyOf('track', item)} type="track" item={item} onRemove={(type, it) => setRemoving({ type, item: it })} />)}
         </div>
       )}
 
-      <AddModal open={adding} list={list} onClose={() => setAdding(false)} onSaved={r => r && !r.error && setList(r)} />
+      <AddModal open={adding} list={list} onClose={() => setAdding(false)} onSaved={keep} />
       <Modal open={!!removing} onClose={busy ? undefined : () => setRemoving(null)} title={t('Remove from the ignore list')} width="max-w-md">
         <p className="text-sm leading-relaxed text-white/80">
           {removing?.type === 'artist'
             ? t('Remove {name} from the ignore list? Their tracks will be searched for lyrics again.', { name: removing.item.name })
+            : removing?.type === 'folder'
+              ? t('Remove the folder “{name}” from the ignore list? The tracks in it will be searched for lyrics again.', { name: removing.item.name })
             : t('Remove “{title}” from the ignore list? It will be searched for lyrics again.', { title: removing?.item?.title || '' })}
         </p>
         <div className="mt-5 flex justify-end gap-2">

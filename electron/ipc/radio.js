@@ -4,6 +4,7 @@
 const { getDB } = require('./db')
 const { loadCatalog } = require('../radio/catalog')
 const { nowPlaying } = require('../radio/nowPlaying')
+const history = require('../radio/history')
 
 function readSetting(key) {
   try { return getDB().prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null } catch { return null }
@@ -38,6 +39,10 @@ function registerRadioHandlers(ipcMain) {
   ipcMain.handle('radio:getCatalog', () => getCatalog())
   ipcMain.handle('radio:loadCatalog', (_, url) => loadAndSave(url).catch(error => ({ ok: false, errors: [{ path: '', code: 'network', detail: String(error?.message || error) }] })))
   ipcMain.handle('radio:nowPlaying', (_, api) => nowPlaying(api).catch(() => null))
+  // The stations' local history (electron/radio/history.js).
+  ipcMain.handle('radio:historyAdd', (_, stationId, station, song) => { try { return history.add(stationId, station, song) } catch { return { ok: false } } })
+  ipcMain.handle('radio:historyGet', (_, stationId) => { try { return history.get(stationId) } catch { return { stationId, station: '', entries: [] } } })
+  ipcMain.handle('radio:historyStations', () => { try { return history.stationIds() } catch { return [] } })
 }
 
 module.exports = { registerRadioHandlers, getCatalog, loadAndSave }

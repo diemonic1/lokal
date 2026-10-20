@@ -7,7 +7,8 @@
 //         database's unused pages (checkpoint + VACUUM).
 //   full: all of that, plus everything kept for web services -- the YouTube
 //         Music sign-in, cookies, every web profile's stored data, the exported
-//         YouTube cookies and the music video cache. Sign-ins have to be done again.
+//         YouTube cookies, the music video cache and online radio's local
+//         history (electron/radio/history.js). Sign-ins have to be done again.
 // The library itself (database rows, covers in use, settings, tools) stays.
 
 const fs = require('fs')
@@ -110,6 +111,14 @@ async function clean({ mode, userData, dataDir, db, electron, activePartition, c
     await step('cookies', async () => {
       await session.defaultSession.clearStorageData({ storages: ['cookies', 'indexdb', 'serviceworkers', 'cachestorage', 'shadercache', 'websql', 'filesystem'] })
     })
+    // Online radio's local history: the songs each station played.
+    if (dataDir) {
+      await step('radioHistory', async () => {
+        const dir = path.join(dataDir, require('./radio/history').DIR_NAME)
+        const removed = (await children(dir)).length
+        return { removed: (await rm(dir)) ? removed : 0 }
+      })
+    }
     // Cookies exported for yt-dlp.
     if (dataDir) {
       await step('youtubeCookies', async () => {

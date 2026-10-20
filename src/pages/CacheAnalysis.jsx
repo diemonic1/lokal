@@ -17,6 +17,7 @@ const SECTIONS = {
   artwork: { label: 'Covers & artist images', desc: 'Pictures saved from your files and downloaded for artists and playlists.', color: '#60a5fa' },
   browserCache: { label: 'Web engine cache', desc: 'Images, pages and shaders the built-in browser engine keeps. Safe to clear.', color: '#f59e0b' },
   lokalCache: { label: "Lokal's caches", desc: 'Motion covers, converted copies and videos. Everything here can be made again.', color: '#a78bfa' },
+  radioHistory: { label: 'Online radio local history', desc: 'The tracks each station played while you listened. Only the full cleanup removes it.', color: '#4ade80' },
   database: { label: 'Library database', desc: 'Your library, playlists, play history, search index and saved lyrics.', color: '#34d399' },
   tools: { label: 'Tools', desc: 'Programs Lokal downloads to work (yt-dlp and others).', color: '#f472b6' },
   sessions: { label: 'Sign-in sessions', desc: 'Separate browser profiles for YouTube Music sign-in and verification.', color: '#22d3ee' },
@@ -32,6 +33,7 @@ const ITEMS = {
   motionCovers: 'Motion covers (video)', playbackCache: 'Playback copies (converted files)', musicVideoCache: 'Music video cache',
   castCache: 'Cast copies', addonCache: 'Addon audio cache', musicVideoIndex: 'Music video index',
   lyricsSearchCache: 'Lyrics found by Lyrics Search (not saved)',
+  radioHistory: 'Station',
   lyricsFiles: 'Lyrics files', avatars: 'Avatars', plugins: 'Plugins', youtubeCookies: 'YouTube cookies',
   ghostTracks: 'Online tracks (ghost)', ytMusicSession: 'YouTube Music sign-in', youtubeAttest: 'YouTube verification', webSession: 'Web session',
 }
@@ -86,6 +88,7 @@ const CLEAN = {
       'Cookies and stored data of every web service and sign-in profile',
       'YouTube cookies exported for downloads',
       'Music video cache',
+      'Local history of online radio stations (the tracks heard on each)',
       'Online tracks with only play history, and that history',
     ],
     keep: 'Your library, playlists, settings, covers in use and online tracks in playlists or likes stay. You will need to sign in to web services again.',

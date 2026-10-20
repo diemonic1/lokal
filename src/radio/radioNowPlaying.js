@@ -107,6 +107,8 @@ export async function handleStationTitle(trackId, text, audioTime) {
     song_duration: 0, song_lyrics: null, song_year: null,
   })
   useRadioStore.getState().setNowPlaying(station.id, { artist: song.artist, title: song.title })
+  // Written into the station's local history the moment it's named.
+  useRadioStore.getState().addToHistory(station.id, station.title, song)
 
   let cover = coverCache.get(key)
   let info = null

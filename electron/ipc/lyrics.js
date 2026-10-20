@@ -89,6 +89,7 @@ function registerLyricsHandlers(ipcMain) {
   ipcMain.handle('lyricsSearch:fromSource', safely((_, trackId, providerId) => bulk.fromSource(db, trackId, providerId)))
   ipcMain.handle('lyricsSearch:allSources', safely((_, trackId) => bulk.allSources(db, trackId)))
   ipcMain.handle('lyricsSearch:useSource', safely((_, trackId, providerId) => bulk.useSource(db, trackId, providerId)))
+  ipcMain.handle('lyricsSearch:reject', safely((_, trackId, providerId) => bulk.rejectInReport(db, trackId, providerId)))
   ipcMain.handle('lyricsSearch:ignoreGet', safely(() => bulk.ignoreGet(db)))
   ipcMain.handle('lyricsSearch:ignoreSearch', safely((_, query) => bulk.ignoreSearch(db, query)))
   ipcMain.handle('lyricsSearch:ignoreAdd', safely((_, items) => bulk.ignoreAdd(db, items)))

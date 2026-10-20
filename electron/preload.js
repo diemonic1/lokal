@@ -222,6 +222,9 @@ contextBridge.exposeInMainWorld('electron', {
   radioGetCatalog: () => invoke('radio:getCatalog'),
   radioLoadCatalog: (url) => invoke('radio:loadCatalog', url),
   radioNowPlaying: (stationApi) => invoke('radio:nowPlaying', stationApi),
+  radioHistoryAdd: (stationId, station, song) => invoke('radio:historyAdd', stationId, station, song),
+  radioHistoryGet: (stationId) => invoke('radio:historyGet', stationId),
+  radioHistoryStations: () => invoke('radio:historyStations'),
   cacheUsage: () => invoke('cache:usage'),
   setEcoMode: (on) => invoke('eco:set', !!on),
   // The page's own image and resource caches first, then the main process's clean-up.
@@ -297,6 +300,7 @@ contextBridge.exposeInMainWorld('electron', {
   lyricsSearchFromSource: (trackId, providerId) => invoke('lyricsSearch:fromSource', trackId, providerId),
   lyricsSearchAllSources: (trackId) => invoke('lyricsSearch:allSources', trackId),
   lyricsSearchUseSource: (trackId, providerId) => invoke('lyricsSearch:useSource', trackId, providerId),
+  lyricsSearchReject: (trackId, providerId) => invoke('lyricsSearch:reject', trackId, providerId),
   lyricsSearchIgnoreGet: () => invoke('lyricsSearch:ignoreGet'),
   lyricsSearchIgnoreSearch: (query) => invoke('lyricsSearch:ignoreSearch', query),
   lyricsSearchIgnoreAdd: (items) => invoke('lyricsSearch:ignoreAdd', items),

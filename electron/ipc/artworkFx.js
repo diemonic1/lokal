@@ -91,8 +91,16 @@ function spotifyCheck() {
 }
 
 /** The full-size cover of a library song, out of its file (see artwork/fullCover), or null. */
-function fullCoverForTrack(trackId) {
-  return require('../artwork/fullCover').fullCoverFor(trackRow(trackId), getStorageDir())
+// Kept in the covers cache once read, the song's row pointing at it from then
+// on (artworkPath: its new cover path, when that changed).
+async function fullCoverForTrack(trackId) {
+  const { fullCoverFor, keepFullCover } = require('../artwork/fullCover')
+  const track = trackRow(trackId)
+  const cover = await fullCoverFor(track, getStorageDir())
+  if (!cover) return null
+  let artworkPath = null
+  try { artworkPath = keepFullCover(getDB(), track, cover) } catch {}
+  return artworkPath ? { ...cover, artworkPath } : cover
 }
 
 function registerArtworkFxHandlers(ipcMain) {

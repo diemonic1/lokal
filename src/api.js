@@ -508,7 +508,11 @@ export const api = {
     try {
       if (isE()) {
         const cover = el().fullArtwork ? await el().fullArtwork(trackId) : null
-        return cover?.bytes?.length ? new Blob([cover.bytes], { type: cover.mime || 'image/jpeg' }) : null
+        if (!cover?.bytes?.length) return null
+        const blob = new Blob([cover.bytes], { type: cover.mime || 'image/jpeg' })
+        // Kept in the covers cache now: the song's new cover path.
+        if (cover.artworkPath) blob.artworkPath = cover.artworkPath
+        return blob
       }
       const res = await fetch(`${BASE}/artwork-fx/full/${encodeURIComponent(trackId)}`)
       return res.ok ? await res.blob() : null
@@ -518,6 +522,10 @@ export const api = {
   artworkMeshFromUrl: (url) => isE() ? el().artworkMeshFromUrl(url) : apiFetch(`/artwork-fx/mesh-url?${new URLSearchParams({ url })}`).then(r => (Array.isArray(r) ? r : null)),
   radioGetCatalog: () => isE() ? el().radioGetCatalog() : apiFetch('/radio/catalog'),
   radioLoadCatalog: (url) => isE() ? el().radioLoadCatalog(url) : apiFetch('/radio/catalog', { method: 'POST', body: { url } }),
+  // A station's local history: the songs it played while listened to (electron/radio/history.js).
+  radioHistoryAdd: (stationId, station, song) => isE() ? el().radioHistoryAdd(stationId, station, song) : apiFetch('/radio/history', { method: 'POST', body: { stationId, station, song } }).catch(() => null),
+  radioHistoryGet: (stationId) => isE() ? el().radioHistoryGet(stationId) : apiFetch(`/radio/history/${encodeURIComponent(stationId)}`),
+  radioHistoryStations: () => isE() ? el().radioHistoryStations() : apiFetch('/radio/history').catch(() => []),
   radioNowPlaying: (stationApi) => isE() ? el().radioNowPlaying(stationApi) : apiFetch('/radio/now-playing', { method: 'POST', body: { api: stationApi } }).catch(() => null),
   // { src, source } -- src is something a <video> can play in this mode.
   spotifyCanvasCheck: () => isE() ? el().spotifyCanvasCheck() : apiFetch('/artwork-fx/spotify-check', { method: 'POST' }),
@@ -584,6 +592,7 @@ export const api = {
   lyricsSearchAllSources: (trackId) => isE() && el().lyricsSearchAllSources ? el().lyricsSearchAllSources(trackId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
   lyricsSearchUseSource: (trackId, providerId) => isE() && el().lyricsSearchUseSource ? el().lyricsSearchUseSource(trackId, providerId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
   // Its ignore list: songs and artists never looked up.
+  lyricsSearchReject: (trackId, providerId) => isE() && el().lyricsSearchReject ? el().lyricsSearchReject(trackId, providerId) : Promise.resolve({ ok: false, error: 'Lyrics search works in the desktop app.' }),
   lyricsSearchIgnoreGet: () => isE() && el().lyricsSearchIgnoreGet ? el().lyricsSearchIgnoreGet() : Promise.resolve({ tracks: [], artists: [] }),
   lyricsSearchIgnoreSearch: (query) => isE() && el().lyricsSearchIgnoreSearch ? el().lyricsSearchIgnoreSearch(query) : Promise.resolve({ tracks: [], artists: [] }),
   lyricsSearchIgnoreAdd: (items) => isE() && el().lyricsSearchIgnoreAdd ? el().lyricsSearchIgnoreAdd(items) : Promise.resolve({ tracks: [], artists: [] }),

@@ -2,7 +2,9 @@
 // electron/newArrivals.js). Recently added, then the last week, month and
 // year, then the last month's songs by genre -- each list five songs long
 // until "Show all" -- and at the bottom the artists new to the library.
-// It took Home's "Recently Added".
+// It took Home's "Recently Added". Each list's name sits in its own toolbar
+// row (the columns are the library's), a thin line between the lists, and a
+// list with nothing in it isn't shown at all.
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -42,22 +44,26 @@ function TrackSection({ icon: Icon, title, tracks, context }) {
   const [open, setOpen] = useState(false)
   if (!tracks.length) return null
   const shown = open ? tracks : tracks.slice(0, PREVIEW)
+  const heading = (
+    <div className="flex min-w-0 items-center gap-2">
+      {Icon && <Icon size={14} className="flex-shrink-0 text-accent" />}
+      <h2 className="truncate text-xs font-display uppercase tracking-widest text-white">{title}</h2>
+      <span className="text-xs text-muted/70">{tracks.length}</span>
+    </div>
+  )
+  const actions = (
+    <div className="flex items-center gap-4">
+      <button onClick={() => playQueue(tracks, 0, context)} className="text-xs text-accent hover:text-accent/70">{t('Play All')}</button>
+      {tracks.length > PREVIEW && (
+        <button onClick={() => setOpen(value => !value)} className="text-xs text-muted transition-colors hover:text-white">
+          {open ? t('Hide') : t('Show all')}
+        </button>
+      )}
+    </div>
+  )
   return (
-    <section>
-      <div className="mb-4 flex items-center gap-2">
-        {Icon && <Icon size={14} className="text-accent" />}
-        <h2 className="text-xs font-display uppercase tracking-widest text-muted">{title}</h2>
-        <span className="text-xs text-muted/70">{tracks.length}</span>
-        <div className="ml-auto flex items-center gap-4">
-          <button onClick={() => playQueue(tracks, 0, context)} className="text-xs text-accent hover:text-accent/70">{t('Play All')}</button>
-          {tracks.length > PREVIEW && (
-            <button onClick={() => setOpen(value => !value)} className="text-xs text-muted transition-colors hover:text-white">
-              {open ? t('Hide') : t('Show all')}
-            </button>
-          )}
-        </div>
-      </div>
-      <TrackList tracks={shown} reduceMotion context={context} />
+    <section className="py-5">
+      <TrackList tracks={shown} showQuality reduceMotion context={context} toolbarStart={heading} toolbarEnd={actions} columnPicker={false} />
     </section>
   )
 }
@@ -99,28 +105,28 @@ export default function NewArrivals() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-10 p-6 pb-10">
-      <div>
+    <div className="mx-auto w-full max-w-6xl p-6 pb-10">
+      <div className="mb-3">
         <h1 className="text-2xl font-display text-white">{t('New Arrivals')}</h1>
         <p className="mt-1 text-sm text-muted">{t('What joined your library lately')}</p>
       </div>
+      {/* A thin white line between the lists (the empty ones aren't there). */}
+      <div className="divide-y divide-white/25">
       <TrackSection icon={Sparkles} title={t('Recently Added')} tracks={recent} context={{ type: 'new-arrivals', name: 'Recently Added' }} />
       <TrackSection icon={Clock} title={t('Added this week')} tracks={week} context={{ type: 'new-arrivals', name: 'Added this week' }} />
       <TrackSection icon={CalendarDays} title={t('Added this month')} tracks={month} context={{ type: 'new-arrivals', name: 'Added this month' }} />
       <TrackSection icon={CalendarDays} title={t('Added this year')} tracks={year} context={{ type: 'new-arrivals', name: 'Added this year' }} />
       {genres.length > 0 && (
-        <div className="space-y-8">
-          <div className="flex items-center gap-2 border-t border-border pt-8">
-            <Tags size={16} className="text-accent" />
-            <h2 className="text-lg font-display text-white">{t('New by genre')}</h2>
-          </div>
-          {genres.map(group => (
-            <TrackSection key={group.name} title={group.name} tracks={group.tracks} context={{ type: 'new-arrivals', name: group.name }} />
-          ))}
+        <div className="flex items-center gap-2 pb-1 pt-8">
+          <Tags size={16} className="text-accent" />
+          <h2 className="text-lg font-display text-white">{t('New by genre')}</h2>
         </div>
       )}
+      {genres.map(group => (
+        <TrackSection key={group.name} title={group.name} tracks={group.tracks} context={{ type: 'new-arrivals', name: group.name }} />
+      ))}
       {artists.length > 0 && (
-        <section className="space-y-4 border-t border-border pt-8">
+        <section className="space-y-4 pt-8">
           <div className="flex items-center gap-2">
             <Users size={16} className="text-accent" />
             <h2 className="text-lg font-display text-white">{t('New artists')}</h2>
@@ -135,6 +141,7 @@ export default function NewArrivals() {
           </div>
         </section>
       )}
+      </div>
       {loaded && !recent.length && <p className="py-10 text-center text-sm text-muted">{t('No local tracks yet. Pick your music folder in Library.')}</p>}
     </div>
   )

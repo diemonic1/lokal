@@ -2,11 +2,14 @@
 // big). The library keeps a small thumbnail of each song's cover; the full
 // picture is read out of the song's file when one of those views opens, and
 // shown in place of the thumbnail as soon as it's ready. A few stay in memory
-// (as blob: URLs) so going back and forth doesn't read the file again.
+// (as blob: URLs) so going back and forth doesn't read the file again. The
+// app keeps a full cover once it's been read (electron/artwork/fullCover.js):
+// the song then shows it everywhere, so its lists read it again.
 
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { isGhostTrack } from './onlineTracks.js'
+import { announceTrackChanged } from './trackChanged.js'
 
 const KEEP = 6
 const covers = new Map() // key -> { promise, url }
@@ -26,6 +29,16 @@ function remember(key, entry) {
   }
 }
 
+/** The song's full cover is its cover now: the player and the lists showing it take the new path. */
+function coverKept(trackId, artworkPath) {
+  // Loaded when needed: this module is also used where there's no player.
+  import('./store/player.js').then(({ usePlayerStore }) => {
+    const { currentTrack, syncTrack } = usePlayerStore.getState()
+    if (currentTrack && String(currentTrack.id) === String(trackId)) syncTrack({ ...currentTrack, artwork_path: artworkPath })
+  }).catch(() => {})
+  announceTrackChanged(trackId)
+}
+
 /** Starts reading the song's full cover (if it has one) -> Promise<url | null>. */
 export function prefetchFullCover(track) {
   if (!hasFileCover(track) || typeof URL?.createObjectURL !== 'function') return Promise.resolve(null)
@@ -40,6 +53,7 @@ export function prefetchFullCover(track) {
   const entry = { url: null, promise: null }
   entry.promise = api.fullArtwork(track.id).then(async (blob) => {
     if (!blob) return null
+    if (blob.artworkPath && blob.artworkPath !== track.artwork_path) coverKept(track.id, blob.artworkPath)
     const url = URL.createObjectURL(blob)
     // Decoded before it's shown, so the swap from the thumbnail doesn't flash.
     try {

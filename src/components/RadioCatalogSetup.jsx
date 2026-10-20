@@ -50,7 +50,7 @@ const FIELD_NOTES = [
   ['url', 'required: the stream\'s address (http or https)'],
   ['genre', 'optional: shown in the Genre column'],
   ['description', 'optional: shown in the Comment column (a link opens in the browser)'],
-  ['history', 'optional: a link to the station\'s played-songs history, shown in the History column and in the station\'s menu'],
+  ['history', 'optional: a link to the station\'s played-songs history, shown in the Online history column and in the station\'s menu'],
   ['icon', 'optional: a picture, shown in the list and as the cover until a song\'s own is found'],
   ['api', 'optional: the station\'s own "now playing" service, for covers, album and lyrics: azuracast (url), radiorecord (station), lautfm (station), or json (url and where each field is: artist, title or text, cover, album, lyrics, duration)'],
 ]

@@ -246,9 +246,20 @@ export default function LyricsSearch() {
       const { trackId, toKind, source } = e.detail || {}
       setData(prev => prev?.items && ({ ...prev, items: prev.items.map(item => (item.trackId === trackId ? { ...item, toKind, source: source || item.source, edited: false } : item)) }))
     }
+    // "Remove wrong lyrics" there with nothing else to put in: the row leaves the report.
+    const onRemoved = (e) => {
+      const { trackId } = e.detail || {}
+      setData(prev => prev?.items && ({ ...prev, items: prev.items.filter(item => item.trackId !== trackId) }))
+      setComparing(prev => (prev?.trackId === trackId ? null : prev))
+      refresh()
+    }
     window.addEventListener('lokal:lyrics-search-entry', onEntry)
-    return () => window.removeEventListener('lokal:lyrics-search-entry', onEntry)
-  }, [])
+    window.addEventListener('lokal:lyrics-search-removed', onRemoved)
+    return () => {
+      window.removeEventListener('lokal:lyrics-search-entry', onEntry)
+      window.removeEventListener('lokal:lyrics-search-removed', onRemoved)
+    }
+  }, [refresh])
 
   const status = progress.status || 'idle'
   const items = useMemo(() => data?.items || [], [data])
@@ -470,11 +481,12 @@ export default function LyricsSearch() {
           {status === 'done' && <Timing progress={progress} />}
 
           <div className="overflow-hidden rounded-xl border border-border">
-            {items.map(item => {
+            {items.map((item, index) => {
               const art = trackArtURL(item.track)
               const checking = previewId === item.trackId
               return (
                 <div key={item.trackId} className={`flex items-center gap-3 border-b border-border/60 px-3 py-2 last:border-0 hover:bg-card ${checking ? 'bg-accent/[0.06]' : ''}`}>
+                  <span className="min-w-[2ch] flex-shrink-0 text-right text-xs tabular-nums text-muted" style={{ width: `${String(items.length).length}ch` }}>{index + 1}</span>
                   <Checkbox checked={item.checked} label={item.track.title} onChange={value => setChecked([item.trackId], value)} />
                   <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-card">
                     {art ? <img src={art} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-subtle"><Music size={16} /></div>}

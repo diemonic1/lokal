@@ -306,3 +306,52 @@ test('"added in the last day" looks only at the tracks added since yesterday', a
   bulk.cancel()
   assert.equal(bulk.start(db, {}, { recent: true }).ok, false)
 })
+
+test('an ignored folder skips every track under it, subfolders too', async (t) => {
+  const { db, dir } = fixture(t)
+  const sub = path.join(dir, 'Rock', 'Album')
+  fs.mkdirSync(sub, { recursive: true })
+  const inside = path.join(sub, 'inside.mp3')
+  fs.writeFileSync(inside, silentMp3())
+  db.prepare("INSERT INTO tracks (id, file_hash, title, artist, album, duration, file_path, lyrics_kind) VALUES ('t2', 'h2', 'Inside', 'Band', 'Album', 30, ?, '')").run(inside)
+  const asked = []
+  t.mock.method(repository, 'lookup', async (query) => { asked.push(query.title); return { result: null } })
+
+  const found = bulk.ignoreSearch(db, 'rock').folders
+  assert.deepEqual(found.map(f => f.path), [path.join(dir, 'Rock')])
+  assert.equal(found[0].count, 1)
+  bulk.ignoreAdd(db, { folders: [path.join(dir, 'Rock') + path.sep] })
+  const list = bulk.ignoreGet(db)
+  assert.deepEqual(list.folders.map(f => [f.path, f.count]), [[path.join(dir, 'Rock'), 1]])
+
+  bulk.start(db, {})
+  assert.equal(await finished(), 'done')
+  assert.deepEqual(asked, ['Song'], 'only the track outside the folder is looked up')
+
+  bulk.ignoreRemove(db, { type: 'folder', path: path.join(dir, 'rock') })
+  assert.deepEqual(bulk.ignoreGet(db).folders, [])
+})
+
+test('"Remove wrong lyrics" in the report puts another source in, or takes the track out', async (t) => {
+  const { db } = fixture(t)
+  const answers = { lrclib: SYLLABLE, other: '[00:01.00]Other synced lyrics found online here\n[00:03.00]And another line of them too' }
+  t.mock.method(repository, 'lookup', async (query, options = {}) => {
+    const sources = Object.keys(answers).filter(id => !(options.exclude || []).includes(id))
+    const results = Object.fromEntries(sources.map(id => [id, { ...repository.toResult(id, { raw: answers[id] }), source: id }]))
+    return { result: results[sources[0]] || null, results, attempts: {} }
+  })
+  bulk.start(db, {})
+  assert.equal(await finished(), 'done')
+  assert.equal(bulk.get(db).items[0].source, 'lrclib')
+
+  const replaced = await bulk.rejectInReport(db, 't1', 'lyrics-search')
+  assert.equal(replaced.replaced, true)
+  assert.equal(replaced.source, 'other')
+  assert.deepEqual(replaced.rejected, ['lrclib'])
+  assert.equal(bulk.get(db).items[0].source, 'other')
+
+  const removed = await bulk.rejectInReport(db, 't1', 'other')
+  assert.equal(removed.removed, true)
+  assert.equal(removed.reset, true, 'the last one gone: the search starts over')
+  assert.equal(bulk.get(db).progress.status, 'idle')
+})

@@ -81,12 +81,19 @@ export default function ArtistNames({ track, className = '', linkClassName = 'ho
       {parts.map(({ text: piece, artist: name }, index) => (
         <React.Fragment key={index}>
           {!name || disabled ? piece : (
-            <button type="button" className={`inline transition-colors ${linkClassName}`}
+            // A span, not a button: a button is one unbreakable box, so the
+            // ellipsis dropped a whole name that didn't fit instead of cutting
+            // it where the room ends.
+            <span role="link" tabIndex={0} className={`cursor-pointer transition-colors ${linkClassName}`}
               title={t('Go to artist: {artist}', { artist: name })}
               onClick={(event) => { event.stopPropagation(); onNavigate?.(); navigateToArtistName(nav, track, name) }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault(); event.stopPropagation(); onNavigate?.(); navigateToArtistName(nav, track, name)
+              }}
               onDoubleClick={event => event.stopPropagation()}>
               {name}
-            </button>
+            </span>
           )}
         </React.Fragment>
       ))}

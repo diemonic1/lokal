@@ -37,6 +37,9 @@ async function makeThumb(bytes) {
  * An existing file is kept (the name carries the file's version). -> its path.
  */
 async function writeCover(dir, base, bytes) {
+  // The full cover was opened once and kept: the library goes on using it.
+  const full = require('./fullCover').keptFullFor(dir, base)
+  if (full) return full
   const thumbPath = path.join(dir, `${base}.webp`)
   if (fs.existsSync(thumbPath)) return thumbPath
   fs.mkdirSync(dir, { recursive: true })

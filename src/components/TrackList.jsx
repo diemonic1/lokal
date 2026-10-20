@@ -67,12 +67,15 @@ const WINDOW_OVERSCAN = 100
 function AlbumLink({ track, navigate }) {
   const name = albumName(track)
   if (!name) return null
+  // A span, not a button: the cell's ellipsis can then cut the name where the room ends.
+  const open = e => { e.stopPropagation(); navigateToTrackAlbum(navigate, track) }
   return (
-    <button type="button" className="inline transition-colors hover:text-white hover:underline"
-      onClick={e => { e.stopPropagation(); navigateToTrackAlbum(navigate, track) }}
+    <span role="link" tabIndex={0} className="cursor-pointer transition-colors hover:text-white hover:underline"
+      onClick={open}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e) } }}
       onDoubleClick={e => e.stopPropagation()}>
       {name}
-    </button>
+    </span>
   )
 }
 
@@ -128,7 +131,7 @@ const GRAB_HOLD_MS = 1500
 // short press) doesn't flash it.
 const GRAB_BAR_DELAY_MS = 1000
 
-export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, highlightQuiet = false, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null, reorderable = false, onGrab = null, stickyBleed = '0.5rem' }) {
+export default function TrackList({ tracks = [], showQuality = false, onRemove = null, showPlayNext = true, showAddToQueue = true, playlistId = null, onReorder = null, onQuickAdd = null, reduceMotion = false, context = null, highlightTrackId = null, highlightRequestKey = null, highlightQuiet = false, extraColumns = [], resolveTracks = null, sort = null, onSortChange = null, trackNumbers = null, toolbarStart = null, toolbarEnd = null, columnPicker = true, reorderable = false, onGrab = null, stickyBleed = '0.5rem' }) {
   const { t } = useTranslation()
   const resolvedPlaybackRef = useRef(0)
   const resolvedToastRef = useRef(null)
@@ -943,8 +946,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
         {toolbarStart || <span />}
         <div className="flex items-center gap-1">
           {toolbarEnd}
-          <TrackColumnPicker columns={columns} playlist={!!playlistId}
-            onChange={(key, value) => setColumn(profile, key, value)} onReset={() => resetColumns(profile)} />
+          {columnPicker && (
+            <TrackColumnPicker columns={columns} playlist={!!playlistId}
+              onChange={(key, value) => setColumn(profile, key, value)} onReset={() => resetColumns(profile)} />
+          )}
         </div>
       </div>
       <div data-track-header className="grid grid-cols-[var(--tl-columns)] items-center gap-2 pl-1 pr-4 py-1.5 text-xs text-muted uppercase tracking-widest border-b border-border font-display mb-0.5">

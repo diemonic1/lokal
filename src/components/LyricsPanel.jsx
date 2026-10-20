@@ -12,11 +12,11 @@ import { useLyricSubline } from '../lyrics/useLyricSubline'
 import { announceLyricsChanged, announceLyricsFileChanged } from '../lyricLine'
 import { announceTrackChanged } from '../trackChanged'
 import { usePlayerStore } from '../store/player'
-import { isStationTrack, lyricsTrackFor, stationClockUnknown, stationSongTime } from '../radio/stations'
+import { isStationTrack, lyricsTrackFor, stationPlainLyrics, stationSongTime } from '../radio/stations'
 import { useTranslation } from '../i18n'
 import { markAutoScroll } from '../menuScroll'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
-import { showLyricsPreview, useLyricsPreviewFor } from '../lyricsPreview'
+import { clearLyricsPreview, showLyricsPreview, useLyricsPreviewFor } from '../lyricsPreview'
 import {
   canGrow, growLetters, unitProgress, unitLift, activeRows, focusRow, stillSinging, lineEndOf, groupUnits, withOutroBreak,
 } from '../lyrics/timing'
@@ -157,7 +157,7 @@ export function paintVoice(voiceEl, units, t, live) {
 // ---------------------------------------------------------------- rows
 
 const Row = React.memo(function Row({
-  line, index, until, clock, distance, isFocused, isLive, synced, browsing, wordSync, fullscreen, textScale, duet, sub, onSeek, registerRow,
+  line, index, until, clock, distance, isFocused, isNext, isLive, synced, browsing, wordSync, fullscreen, textScale, duet, sub, onSeek, registerRow,
 }) {
   const rowRef = useRef(null)
   const leadRef = useRef(null)
@@ -178,7 +178,9 @@ const Row = React.memo(function Row({
   // from one line to the next without two competing focal points.
   const near = isFocused ? 0 : distance
   const falloff = browsing ? 0.8 : FALLOFF_ALPHA[Math.min(near, FALLOFF_ALPHA.length - 1)]
-  const blur = browsing || !synced ? 0 : FALLOFF_BLUR[Math.min(near, FALLOFF_BLUR.length - 1)]
+  // The line after the one being sung stays sharp too (to read ahead); only
+  // its blur goes, its colour and size stay those of the other lines.
+  const blur = browsing || !synced || isNext ? 0 : FALLOFF_BLUR[Math.min(near, FALLOFF_BLUR.length - 1)]
   const lineOpacity = !synced ? 1 : near === 0 ? 1 : falloff
   const seekable = synced && Number.isFinite(line.time)
 
@@ -315,7 +317,9 @@ const FOUND = new Set(['syllable', 'line', 'none'])
 function SourceMenu({ sources: allSources, enabled = null, current, attempts, busy, searching = false, pickingId = null, canEmbed = false, embeddingId = null, onEmbed, onPick, onRefresh, onSearch, rejected = [], onReject, hidden = false, openUp = false,
   // Lyrics Search's Check: the found lyrics are an entry of their own (never
   // inserted or rejected), and inserting puts a source's lyrics into the report.
-  fixedIds = [], embedLabel = null, embedText = null }) {
+  fixedIds = [], embedLabel = null, embedText = null,
+  // ...where the found lyrics may be marked wrong too (rejectText(label, id) says what happens).
+  rejectFixed = false, rejectText = null }) {
   const { t } = useTranslation()
   const insertLabel = embedLabel || t('Insert into track')
   const [open, setOpen] = useState(false)
@@ -326,11 +330,12 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
   const actions = useContextMenu()
   const [ask, setAsk] = useState(null) // { kind: 'reject' | 'embed', id }
   const openActions = (event, id) => {
-    if (!id || id === 'local' || fixedIds.includes(id)) { event.preventDefault(); return }
+    const fixed = fixedIds.includes(id)
+    if (!id || id === 'local' || (fixed && !rejectFixed)) { event.preventDefault(); return }
     const found = FOUND.has(attempts?.[id]) || id === current
     const items = [
       onReject && { label: t('Remove wrong lyrics'), icon: Ban, danger: true, onSelect: () => setAsk({ kind: 'reject', id }) },
-      canEmbed && found && { label: insertLabel, icon: FileDown, disabled: !!embeddingId, onSelect: () => setAsk({ kind: 'embed', id }) },
+      canEmbed && found && !fixed && { label: insertLabel, icon: FileDown, disabled: !!embeddingId, onSelect: () => setAsk({ kind: 'embed', id }) },
     ].filter(Boolean)
     if (!items.length) { event.preventDefault(); return }
     actions.open(event, items)
@@ -462,7 +467,7 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-muted">
             {ask?.kind === 'reject'
-              ? t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: askLabel })
+              ? rejectText ? rejectText(askLabel, ask.id) : t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: askLabel })
               : embedText ? embedText(askLabel) : t("The lyrics from {source} will be written into the song's file, replacing the lyrics it has.", { source: askLabel })}
           </p>
           <div className="flex gap-2">
@@ -567,7 +572,7 @@ function Loading() {
 }
 
 export default function LyricsPanel({
-  track: shownTrack, progress, fullscreen = false, wordSync = true, onLyricsAvailable, onSearchRequest, textScale = 1, isAutoSynced = false,
+  track: shownTrack, progress, fullscreen = false, wordSync = true, onLyricsAvailable, onSearchRequest, textScale = 1, isAutoSynced: autoSyncWanted = false,
   // The full screen player hides the buttons along with its own after a few
   // seconds without the mouse moving.
   toolbarHidden = false,
@@ -583,6 +588,8 @@ export default function LyricsPanel({
   toolbarAtBottom = false,
   // The side panel: a "Size" button for its lyrics size, before Translate.
   sizeControl = false,
+  // The list fades out at its top and bottom edges (the side panel's Lyrics tab goes without).
+  edgeFade = true,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -602,7 +609,12 @@ export default function LyricsPanel({
   const [checkInserting, setCheckInserting] = useState(null)
   const picked = foundPreview && checkPick?.trackId === track?.id ? checkPick : null
   const previewResult = foundPreview ? (picked?.result || foundPreview) : null
-  const result = previewResult || loadedResult
+  // Online radio: always plain text (synced lyrics lose their time stamps).
+  const station = isStationTrack(track)
+  const shownResult = previewResult || loadedResult
+  const result = useMemo(() => (station ? stationPlainLyrics(shownResult) : shownResult), [station, shownResult])
+  // ...and not followed along roughly either.
+  const isAutoSynced = autoSyncWanted && !station
   // The song `result` is for: right after the song changes, until the new
   // song's lyrics are in, it's still the previous one's.
   const [resultFor, setResultFor] = useState(() => (track?.id && hasCachedLyrics(track.id) ? track.id : null))
@@ -649,9 +661,8 @@ export default function LyricsPanel({
     () => (markerText ? [] : withOutroBreak(result?.lines || [], { duration: track?.duration, crossfade: crossfadeSeconds, synced: result?.type === 'synced' })),
     [result, markerText, track?.duration, crossfadeSeconds],
   )
-  // Online radio, tuned in mid-song: the lines can't follow the song, so
-  // they're shown as plain text until the next song starts.
-  const synced = result?.type === 'synced' && !stationClockUnknown(track)
+  // Online radio never gets here synced (see stationPlainLyrics above).
+  const synced = result?.type === 'synced'
 
   // ---- data
   const trackKey = track?.id
@@ -1016,6 +1027,35 @@ export default function LyricsPanel({
       .finally(() => setCheckInserting(null))
   }
 
+  // "Remove wrong lyrics" while checking: the source is marked wrong for the
+  // song; when its lyrics were the report's, another source's take their
+  // place, or the song leaves the report when there are none.
+  const checkReject = (id) => {
+    const trackId = track?.id
+    if (!trackId || checkInserting) return
+    const label = id === CHECK_ID ? (checkLabel(foundPreview?.foundSource) || t('Found')) : checkLabel(id)
+    setCheckInserting(id)
+    api.lyricsSearchReject(trackId, id)
+      .then(async r => {
+        if (Array.isArray(r?.rejected) && currentTrackId.current === trackId) setRejected(r.rejected)
+        if (!r?.ok) { checkSay(t("Couldn't mark the lyrics as wrong: {error}", { error: r?.error || '?' })); return }
+        if (checkPick?.id === id || r.replaced) setCheckPick(null)
+        if (r.removed) {
+          clearLyricsPreview([trackId])
+          window.dispatchEvent(new CustomEvent('lokal:lyrics-search-removed', { detail: { trackId } }))
+          checkSay(t('Lyrics from {source} marked as wrong. No other lyrics were found, so the track was taken out of the report', { source: label }))
+        } else if (r.replaced) {
+          lastScrollIdx.current = -1
+          const next = await api.lyricsSearchPreview(trackId).catch(() => null)
+          if (next) showLyricsPreview(trackId, next)
+          window.dispatchEvent(new CustomEvent('lokal:lyrics-search-entry', { detail: { trackId, toKind: r.toKind, source: r.source } }))
+          checkSay(t('Lyrics from {source} marked as wrong. The report now has the lyrics from {next}', { source: label, next: checkLabel(r.source) }))
+        } else checkSay(t('Lyrics from {source} marked as wrong', { source: label }))
+      })
+      .catch(e => checkSay(t("Couldn't mark the lyrics as wrong: {error}", { error: e?.message || '?' })))
+      .finally(() => setCheckInserting(null))
+  }
+
   // "Insert into track": that source's lyrics go into the file's tags (LRC +
   // SYLT when synced, plain text otherwise). Then the file is read again.
   const hasFile = !!track?.file_path && !/^(ghost|https?):/i.test(String(track.file_path))
@@ -1080,6 +1120,12 @@ export default function LyricsPanel({
   }
 
   // ---- render
+  // The next line to be sung after the focused one (a break between them doesn't count).
+  const nextLineIdx = useMemo(() => {
+    if (focusIdx < 0) return -1
+    for (let i = focusIdx + 1; i < lines.length; i++) if (!lines[i]?.gap) return i
+    return -1
+  }, [focusIdx, lines])
   const liveSet = useMemo(() => new Set(liveKey ? liveKey.split(',').map(Number) : []), [liveKey])
   const sourceLabel = sources.find(s => s.id === result?.source)?.label || result?.source
   const attribution = result?.attribution
@@ -1157,6 +1203,12 @@ export default function LyricsPanel({
                 onPick={checkPickSource}
                 onRefresh={checkSearchAll}
                 fixedIds={[CHECK_ID]}
+                rejected={rejected}
+                onReject={checkReject}
+                rejectFixed
+                rejectText={(label, id) => (id === CHECK_ID
+                  ? t('The lyrics in the report (from {source}) will be marked as wrong for this song. Other lyrics found for it take their place; when there are none, the track leaves the report.', { source: checkLabel(foundPreview?.foundSource) || t('Found') })
+                  : t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: label }))}
                 embedLabel={t('Insert into report')}
                 embedText={source => t('The lyrics from {source} will replace the found ones in the report. Nothing is written into the file until the report is saved.', { source })}
                 hidden={toolbarHidden}
@@ -1214,8 +1266,8 @@ export default function LyricsPanel({
           // The sidebar has no empty space after the last line, so its closing
           // lines light up near the bottom edge -- keep the fade there short
           // enough not to dim them.
-          maskImage: `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)`,
-          WebkitMaskImage: `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)`,
+          maskImage: edgeFade ? `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)` : undefined,
+          WebkitMaskImage: edgeFade ? `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)` : undefined,
         }}
       >
         <div className={`w-full ${fullscreen ? 'max-w-3xl mx-auto px-6' : 'px-3'}`}>
@@ -1263,6 +1315,7 @@ export default function LyricsPanel({
                   clock={now}
                   distance={focusIdx >= 0 ? Math.abs(i - focusIdx) : i + 1}
                   isFocused={i === focusIdx}
+                  isNext={focusIdx >= 0 && i === nextLineIdx}
                   isLive={liveSet.has(i)}
                   synced={synced}
                   browsing={browsing}

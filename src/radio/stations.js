@@ -67,6 +67,17 @@ export function stationClockUnknown(track) {
   return isStationTrack(track) && track?.song_clock_known === false
 }
 
+/**
+ * Online radio never follows a song with timed lyrics (where the station is
+ * in it is too rarely right): synced lyrics are shown as plain text, their
+ * time stamps dropped.
+ */
+export function stationPlainLyrics(result) {
+  if (!result || result.type !== 'synced') return result
+  const lines = (result.lines || []).filter(line => line && !line.gap).map(line => ({ text: line.text || '', time: null, words: [] }))
+  return { ...result, type: 'plain', lines }
+}
+
 /** Seconds into the song now playing on a station (null when unknown). */
 export function stationSongTime(track, audioTime) {
   if (!isStationTrack(track) || !Number.isFinite(track?.song_clock_base) || !Number.isFinite(audioTime)) return null

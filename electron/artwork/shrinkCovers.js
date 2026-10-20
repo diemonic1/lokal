@@ -37,7 +37,8 @@ function shrinkableCovers(db, artworkDir) {
   for (const row of rows) {
     const art = path.resolve(String(row.artwork_path))
     const key = art.toLowerCase()
-    if (path.dirname(key) !== dir || /\.webp$/i.test(art) || HAND_PICKED.test(path.basename(art)) || skip.has(key)) continue
+    // A full cover kept after it was opened big (artwork/fullCover.js) stays full.
+    if (path.dirname(key) !== dir || /\.webp$/i.test(art) || /\.full\.[a-z]+$/i.test(art) || HAND_PICKED.test(path.basename(art)) || skip.has(key)) continue
     if (!byCover.has(key)) byCover.set(key, { path: art, size: 0, filePaths: [], usable: true })
     const entry = byCover.get(key)
     if (isLocalFile(row.file_path)) entry.filePaths.push(row.file_path)

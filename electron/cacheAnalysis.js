@@ -196,7 +196,7 @@ function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], shrinkabl
       const parts = path.relative(dataDir, file).split(path.sep)
       if (SAFE_DATA.has(parts[0]) || (parts[0] === 'spotiflac' && parts[1] === 'audio-cache')) return 'safe'
       if (parts.length === 1 && parts[0] === 'lokal.db-wal') return 'safe'
-      if (parts[0] === 'music-video-cache' || /^youtube-cookies/.test(parts[0])) return 'full'
+      if (parts[0] === 'music-video-cache' || parts[0] === 'radio-history' || /^youtube-cookies/.test(parts[0])) return 'full'
       return null
     }
     const parts = path.relative(userData, file).split(path.sep)
@@ -230,7 +230,7 @@ async function children(dir) {
  * (usually userData/data); `db`: the open library database.
  */
 async function analyze({ userData, dataDir, db, onProgress, activePartition, currentLog }) {
-  const groups = { database: [], artwork: [], lokalCache: [], userFiles: [], tools: [], browserCache: [], sessions: [], logs: [], appState: [], other: [] }
+  const groups = { database: [], artwork: [], lokalCache: [], radioHistory: [], userFiles: [], tools: [], browserCache: [], sessions: [], logs: [], appState: [], other: [] }
   const allFiles = []
   const step = (label) => { try { onProgress?.(label) } catch {} }
   const push = (group, entry) => groups[group].push(entry)
@@ -241,6 +241,19 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
     for (const name of await children(dir)) {
       const p = path.join(dir, name)
       step(path.relative(userData, p) || name)
+      // Online radio's local history: a row per station (only the full clean-up removes it).
+      if (name === 'radio-history') {
+        const m = await measure(p, { keepFiles: true })
+        allFiles.push(...m.list)
+        let stations = []
+        try { stations = require('./radio/history').list() } catch {}
+        const named = new Map(stations.map(s => [path.resolve(s.path).toLowerCase(), s.station || s.stationId]))
+        for (const f of m.list) {
+          const one = { size: f.size, disk: onDisk(f.size), files: 1, dirs: 0 }
+          push('radioHistory', item('radioHistory', one, { name: named.get(path.resolve(f.path).toLowerCase()) || path.basename(f.path) }))
+        }
+        continue
+      }
       if (name === 'artwork') {
         artworkInfo = await artwork(p, db)
         allFiles.push(...artworkInfo.total.list)

@@ -35,7 +35,7 @@ export default {
   'required: the stream\'s address (http or https)': 'обязательно: адрес потока (http или https)',
   'optional: shown in the Genre column': 'необязательно: показывается в колонке «Жанр»',
   'optional: shown in the Comment column (a link opens in the browser)': 'необязательно: показывается в колонке «Комментарий» (ссылка открывается в браузере)',
-  'optional: a link to the station\'s played-songs history, shown in the History column and in the station\'s menu': 'необязательно: ссылка на историю эфира станции — показывается в колонке «История» и в меню станции',
+  'optional: a link to the station\'s played-songs history, shown in the Online history column and in the station\'s menu': 'необязательно: ссылка на историю эфира станции — показывается в колонке «Онлайн-история» и в меню станции',
   'optional: a picture, shown in the list and as the cover until a song\'s own is found': 'необязательно: картинка — в списке и как обложка, пока не найдена обложка трека',
   'optional: the station\'s own "now playing" service, for covers, album and lyrics: azuracast (url), radiorecord (station), lautfm (station), or json (url and where each field is: artist, title or text, cover, album, lyrics, duration)':
     'необязательно: собственный сервис станции «сейчас играет» — для обложек, альбома и текстов: azuracast (url), radiorecord (station), lautfm (station) или json (url и где лежит каждое поле: artist, title или text, cover, album, lyrics, duration)',
@@ -75,4 +75,19 @@ export default {
   'Seconds of a station gathered before it starts playing, to ride out a slow connection. 0: no buffer, it starts at once. Applies the next time a station starts.':
     'Сколько секунд потока накапливается перед началом воспроизведения, чтобы пережить медленное соединение. 0 — без буфера, звук начинается сразу. Применяется при следующем запуске станции.',
   '{n} s': '{n} с',
+
+  // Local history
+  'Online history': 'Онлайн-история',
+  'Open online history': 'Открыть онлайн-историю',
+  'View local history': 'Просмотреть локальную историю',
+  'Local history: {station}': 'Локальная история: {station}',
+  'The last {n} tracks heard on this station in Lokal, newest first.': 'Последние {n} треков, прозвучавших на этой станции в Lokal, сначала новые.',
+  'Nothing has been heard on this station yet.': 'На этой станции ещё ничего не прозвучало.',
+  'Copy': 'Скопировать',
+  'Copy “{text}”': 'Скопировать «{text}»',
+  'Search online': 'Поиск в интернете',
+  'Search the web for “{text}”': 'Найти в интернете «{text}»',
+  'Online radio local history': 'Локальная история онлайн-радио',
+  'The tracks each station played while you listened. Only the full cleanup removes it.': 'Треки, которые играли на каждой станции, пока вы её слушали. Удаляется только полной очисткой.',
+  'Local history of online radio stations (the tracks heard on each)': 'Локальная история онлайн-радиостанций (прозвучавшие на каждой треки)',
 }

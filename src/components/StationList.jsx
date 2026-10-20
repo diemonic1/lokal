@@ -3,7 +3,7 @@
 // columns are set up like a song list's, but saved apart (src/radio/stationColumns.js).
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ExternalLink, Link2, Loader2, Pause, Play, Radio, RefreshCw } from 'lucide-react'
+import { ExternalLink, History, Link2, Loader2, Pause, Play, Radio, RefreshCw } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useRadioStore } from '../store/radio'
@@ -18,6 +18,7 @@ import TrackColumnPicker from './TrackColumnPicker'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import { showToast } from './Toaster'
 import { CatalogErrorModal } from './RadioCatalogSetup'
+import RadioHistoryModal from './RadioHistoryModal'
 
 // Once per launch, the list opens scrolled to the station that was playing.
 let revealedAtLaunch = false
@@ -48,6 +49,11 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
   const glass = useAppearanceFlag('glass_player_bar')
   const glassTransparency = Math.max(0, Math.min(90, useAppearanceValue('player_bar_glass_transparency', 40)))
   const menu = useContextMenu()
+  // The stations with a local history, and the one whose history is open.
+  const historyStations = useRadioStore(s => s.historyStations)
+  const loadHistoryStations = useRadioStore(s => s.loadHistoryStations)
+  useEffect(() => { loadHistoryStations() }, [loadHistoryStations])
+  const [historyOf, setHistoryOf] = useState(null)
 
   const listRef = useRef(null)
   const [listWidth, setListWidth] = useState(0)
@@ -91,7 +97,9 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
   const openMenu = (event, station) => menu.open(event, [
     { label: t(currentTrack?.id === station.id && isPlaying ? 'Pause' : 'Play'), icon: currentTrack?.id === station.id && isPlaying ? Pause : Play, onSelect: () => play(station) },
     { label: t('Copy stream link'), icon: Link2, onSelect: () => copyLink(station) },
-    ...(isLink(station.history) ? [{ label: t('Open station history'), icon: ExternalLink, onSelect: () => api.openExternal(station.history.trim()) }] : []),
+    // Only a station something was heard on has a local history to show.
+    ...(historyStations[String(station.id)] ? [{ label: t('View local history'), icon: History, onSelect: () => setHistoryOf(station) }] : []),
+    ...(isLink(station.history) ? [{ label: t('Open online history'), icon: ExternalLink, onSelect: () => api.openExternal(station.history.trim()) }] : []),
   ])
 
   // Dragging a header edge: a fixed column takes the new width in rem; a flex
@@ -145,7 +153,7 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
     title: <span>{t('Station')}</span>,
     genre: <span className="truncate tracking-normal">{t('Genre')}</span>,
     comment: <span className="truncate tracking-normal">{t('Comment')}</span>,
-    history: <span className="truncate tracking-normal">{t('History')}</span>,
+    history: <span className="truncate tracking-normal">{t('Online history')}</span>,
     nowPlaying: <span className="truncate tracking-normal">{t('Now playing')}</span>,
     stream: <span className="truncate text-right tracking-normal">{t('Stream')}</span>,
   })[key] || null
@@ -263,6 +271,7 @@ export default function StationList({ catalog, configUrl = '', toolbarStart = nu
         })}
       </div>
       <ContextMenu menu={menu} />
+      <RadioHistoryModal station={historyOf} onClose={() => setHistoryOf(null)} />
       <CatalogErrorModal errors={catalogErrors} onClose={() => setCatalogErrors(null)} />
     </div>
   )

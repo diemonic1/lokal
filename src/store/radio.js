@@ -24,6 +24,8 @@ export const useRadioStore = create((set, get) => ({
   nowPlaying: {},
   // stationId -> { bitrate, codec }
   streamInfo: {},
+  // The stations with a local history (electron/radio/history.js): stationId -> true.
+  historyStations: {},
 
   init: async () => {
     if (get().ready) return
@@ -50,5 +52,19 @@ export const useRadioStore = create((set, get) => ({
   },
 
   setNowPlaying: (stationId, song) => set(state => ({ nowPlaying: { ...state.nowPlaying, [stationId]: song ? { ...state.nowPlaying[stationId], ...song } : undefined } })),
+  loadHistoryStations: async () => {
+    try {
+      const ids = await api.radioHistoryStations?.()
+      if (Array.isArray(ids)) set({ historyStations: Object.fromEntries(ids.map(id => [String(id), true])) })
+    } catch {}
+  },
+  /** A song the station plays now goes into its local history. */
+  addToHistory: async (stationId, stationTitle, song) => {
+    if (stationId == null || !song?.title) return
+    try {
+      const result = await api.radioHistoryAdd?.(stationId, stationTitle || '', { artist: song.artist || '', title: song.title })
+      if (result?.ok) set(state => (state.historyStations[String(stationId)] ? {} : { historyStations: { ...state.historyStations, [String(stationId)]: true } }))
+    } catch {}
+  },
   setStreamInfo: (stationId, info) => set(state => ({ streamInfo: { ...state.streamInfo, [stationId]: { ...state.streamInfo[stationId], ...info } } })),
 }))

@@ -203,6 +203,14 @@ function rejectedSources(db, trackId) {
   try { return db.prepare('SELECT source FROM lyrics_rejected WHERE track_id = ?').all(String(trackId)).map(row => row.source) } catch { return [] }
 }
 
+/** Marks a source wrong for this song, and nothing else. -> the sources marked wrong now */
+function markRejected(db, trackId, providerId) {
+  ensureSchema(db)
+  if (!trackId || !providerId || providerId === 'local') return rejectedSources(db, trackId)
+  db.prepare('INSERT OR REPLACE INTO lyrics_rejected (track_id, source, rejected_at) VALUES (?, ?, ?)').run(String(trackId), providerId, Date.now())
+  return rejectedSources(db, trackId)
+}
+
 // ---------------------------------------------------------------- public API
 
 /** The lyrics in the file itself (sidecar, Lokal's tag, USLT/SYLT...), finished; null when none. */
@@ -467,7 +475,7 @@ async function rejectSource(db, args, providerId) {
   ensureSchema(db)
   const trackId = args?.trackId
   if (!trackId || !providerId || providerId === 'local') return { result: null, rejected: rejectedSources(db, trackId) }
-  db.prepare('INSERT OR REPLACE INTO lyrics_rejected (track_id, source, rejected_at) VALUES (?, ?, ?)').run(String(trackId), providerId, Date.now())
+  markRejected(db, trackId, providerId)
   const cached = readRow(db, trackId, trustedFilePath(db, trackId))
   if (cached?.source === providerId) {
     try { db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(trackId) } catch {}
@@ -505,4 +513,4 @@ async function romanize(db, trackId, lines) {
   return translation.romanize(db, trackId, lines)
 }
 
-module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, importLyrics, readFileLyrics, writeFileLyrics, writeFoundLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }
+module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, markRejected, importLyrics, readFileLyrics, writeFileLyrics, writeFoundLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }

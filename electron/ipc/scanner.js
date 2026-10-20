@@ -538,7 +538,7 @@ async function readTrackFile(filePath, stat, ctx, existingId = null) {
   if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
   const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
   const replaygain = c.replaygain_track_gain || null
-  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || 'Unknown Album', album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta) } }
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || null, album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta) } }
 }
 
 // Libraries from before the column existed get it on their first write.
@@ -2261,7 +2261,7 @@ async function indexSingleFile(filePath, opts = {}) {
   }
 
   const replaygain = c.replaygain_track_gain || null
-  const album = requestedAlbum || c.album?.trim() || 'Unknown Album'
+  const album = requestedAlbum || c.album?.trim() || null
   // A streamed (ghost) copy of the song isn't a copy in the library: the file
   // is added, and then takes the ghost's place.
   const dupe = db.prepare("SELECT * FROM tracks WHERE LOWER(title) = ? AND LOWER(artist) = ? AND (album IS NULL OR album = ? OR ? IS NULL OR album IS NULL) AND ABS(duration - ?) < 2 AND file_path NOT LIKE 'ghost://%'").get(title.toLowerCase(), artist.toLowerCase(), album, album, duration)

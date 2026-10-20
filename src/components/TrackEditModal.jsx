@@ -217,7 +217,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       const updateData = {}
       if (formData.title && formData.title !== track.title) updateData.title = formData.title
       if (formData.artist && formData.artist !== track.artist) updateData.artist = formData.artist
-      if (formData.album !== track.album) updateData.album = formData.album || null
+      if ((formData.album || null) !== (track.album || null)) updateData.album = formData.album || null
       if (formData.album_artist !== track.album_artist) updateData.album_artist = formData.album_artist || null
       if (String(formData.track_num) !== String(track.track_num ?? '')) updateData.track_num = parseIntegerField(formData.track_num)
       if (String(formData.year) !== String(track.year ?? '')) updateData.year = parseIntegerField(formData.year)

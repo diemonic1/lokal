@@ -98,20 +98,31 @@ const wordsOf = (text) => String(text || '').replace(/\[[^\]]*\]|<[^>]*>/g, ' ')
 
 // ---------------------------------------------------------------- the ignore list
 //
-// Songs and artists never looked up: not a single request goes online for
-// them. Kept in the settings table (so the app export carries it) as
-// { tracks: [{ id, title, artist }], artists: [{ name }] }. A song also matches
-// by its title and artist, so the list still works after an import elsewhere.
+// Songs, artists and library folders never looked up: not a single request
+// goes online for them. Kept in the settings table (so the app export carries
+// it) as { tracks: [{ id, title, artist }], artists: [{ name }], folders: [{ path }] }.
+// A song also matches by its title and artist, so the list still works after
+// an import elsewhere; a folder covers every song under it, subfolders too.
 
 const IGNORE_KEY = 'lyrics_search_ignore'
 const norm = (value) => String(value || '').trim().toLowerCase()
+/** A folder as compared: one kind of slash, no slash at the end, any case. */
+const normFolder = (value) => String(value || '').trim().replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
 
 function readIgnore(db) {
   let value = null
   try { value = JSON.parse(db.prepare('SELECT value FROM settings WHERE key = ?').get(IGNORE_KEY)?.value || 'null') } catch {}
   const tracks = Array.isArray(value?.tracks) ? value.tracks.filter(t => t && t.id != null) : []
   const artists = Array.isArray(value?.artists) ? value.artists.filter(a => a && String(a.name || '').trim()) : []
-  return { tracks, artists }
+  const folders = Array.isArray(value?.folders) ? value.folders.filter(f => f && normFolder(f.path)) : []
+  return { tracks, artists, folders }
+}
+
+/** True when the file lies in one of the folders (normFolder'ed), at any depth. */
+function inFolders(filePath, folders) {
+  if (!folders.length || !filePath) return false
+  const file = normFolder(filePath)
+  return folders.some(folder => file.startsWith(`${folder}/`))
 }
 
 function writeIgnore(db, list) {
@@ -134,14 +145,16 @@ function artistNamesOf(db, row) {
 
 /** A test for "is this song ignored?", made once per search. */
 function ignoreMatcher(db) {
-  const { tracks, artists } = readIgnore(db)
+  const { tracks, artists, folders } = readIgnore(db)
   const ids = new Set(tracks.map(t => String(t.id)))
   const key = (title, artist) => `${norm(title)}|${norm(artist)}`
   const titles = new Set(tracks.filter(t => t.title).map(t => key(t.title, t.artist)))
   const names = new Set(artists.map(a => norm(a.name)))
+  const dirs = folders.map(f => normFolder(f.path))
   return (row) => {
     if (!row) return false
     if (ids.has(String(row.id)) || titles.has(key(row.title, row.artist))) return true
+    if (inFolders(row.file_path, dirs)) return true
     if (!names.size) return false
     for (const name of artistNamesOf(db, row)) if (names.has(name)) return true
     return false
@@ -150,10 +163,11 @@ function ignoreMatcher(db) {
 
 /** The list as the tab shows it: songs with their covers, artists with their pictures. */
 function ignoreGet(db) {
-  const { tracks, artists } = readIgnore(db)
+  const { tracks, artists, folders } = readIgnore(db)
   const rows = tracksByIds(db, tracks.map(t => t.id))
   const artistRow = db.prepare('SELECT id, name, image_path FROM artists WHERE name = ? COLLATE NOCASE')
   return {
+    folders: folders.map(f => ({ path: f.path, name: path.basename(f.path) || f.path, count: folderTrackCount(db, f.path) })),
     tracks: tracks.map(t => {
       const row = rows.get(t.id)
       return { id: t.id, title: row?.title || t.title || '', artist: row?.artist || t.artist || '', artwork_path: row?.artwork_path || null, artwork_url: row?.artwork_url || null, track: row || null }
@@ -165,22 +179,67 @@ function ignoreGet(db) {
   }
 }
 
-/** The add window's search: library songs and artists matching the text. */
+const likeEscape = (value) => String(value).replace(/[!%_]/g, c => `!${c}`)
+
+/** The library files under a folder (subfolders too). */
+function folderFiles(db, folder) {
+  const dir = normFolder(folder)
+  if (!dir) return []
+  try {
+    return db.prepare(`SELECT file_path FROM tracks WHERE file_path LIKE ? ESCAPE '!'`).all(`${likeEscape(String(folder).replace(/[\\/]+$/, ''))}%`)
+      .map(row => row.file_path).filter(file => inFolders(file, [dir]))
+  } catch { return [] }
+}
+
+const folderTrackCount = (db, folder) => folderFiles(db, folder).length
+
+/**
+ * Library folders whose name has the text in it: every folder some song lies
+ * under, its parents too (a folder holding only subfolders counts as well).
+ */
+function folderSearch(db, q) {
+  const needle = q.toLowerCase()
+  const found = new Map() // normalized -> { path, name, count }
+  let rows = []
+  // SQLite's LIKE ignores case for Latin letters only: other text is matched here.
+  const ascii = /^[\x20-\x7e]*$/.test(q)
+  try {
+    rows = ascii
+      ? db.prepare(`SELECT file_path FROM tracks WHERE file_path NOT LIKE 'ghost://%' AND file_path LIKE ? ESCAPE '!'`).all(`%${likeEscape(q)}%`)
+      : db.prepare(`SELECT file_path FROM tracks WHERE file_path NOT LIKE 'ghost://%'`).all().filter(row => String(row.file_path).toLowerCase().includes(needle))
+  } catch {}
+  for (const { file_path: file } of rows) {
+    let folder = path.dirname(file)
+    while (folder && path.dirname(folder) !== folder) {
+      const name = path.basename(folder)
+      if (name.toLowerCase().includes(needle)) {
+        const key = normFolder(folder)
+        const entry = found.get(key) || { path: folder, name, count: 0 }
+        entry.count++
+        found.set(key, entry)
+      }
+      folder = path.dirname(folder)
+    }
+  }
+  return [...found.values()].sort((a, b) => a.path.localeCompare(b.path)).slice(0, 30)
+}
+
+/** The add window's search: library songs, artists and folders matching the text. */
 function ignoreSearch(db, query) {
   const q = String(query || '').trim()
-  if (!q) return { tracks: [], artists: [] }
-  const like = `%${q.replace(/[!%_]/g, c => `!${c}`)}%`
+  if (!q) return { tracks: [], artists: [], folders: [] }
+  const like = `%${likeEscape(q)}%`
   const tracks = db.prepare(`SELECT id, title, artist, album, artwork_path, artwork_url FROM tracks
     WHERE file_path NOT LIKE 'ghost://%' AND (title LIKE ? ESCAPE '!' OR artist LIKE ? ESCAPE '!')
     ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE LIMIT 50`).all(like, like)
   const artists = db.prepare(`SELECT a.id, a.name, a.image_path FROM artists a
     WHERE a.name LIKE ? ESCAPE '!' AND EXISTS (SELECT 1 FROM artist_track_links l JOIN tracks t ON t.id = l.track_id WHERE l.artist_id = a.id AND t.file_path NOT LIKE 'ghost://%')
     ORDER BY a.name COLLATE NOCASE LIMIT 30`).all(like)
-  return { tracks, artists }
+  return { tracks, artists, folders: folderSearch(db, q) }
 }
 
-/** Adds songs (by id) and artists (by name). */
-function ignoreAdd(db, { tracks = [], artists = [] } = {}) {
+/** Adds songs (by id), artists (by name) and folders (by path). */
+function ignoreAdd(db, { tracks = [], artists = [], folders = [] } = {}) {
   const list = readIgnore(db)
   const ids = (Array.isArray(tracks) ? tracks : []).map(String)
   const haveTrack = new Set(list.tracks.map(t => String(t.id)))
@@ -198,15 +257,23 @@ function ignoreAdd(db, { tracks = [], artists = [] } = {}) {
     haveArtist.add(norm(clean))
     list.artists.push({ name: clean })
   }
+  const haveFolder = new Set(list.folders.map(f => normFolder(f.path)))
+  for (const folder of Array.isArray(folders) ? folders : []) {
+    const clean = String(folder || '').trim().replace(/[\\/]+$/, '')
+    if (!normFolder(clean) || haveFolder.has(normFolder(clean))) continue
+    haveFolder.add(normFolder(clean))
+    list.folders.push({ path: clean })
+  }
   writeIgnore(db, list)
   return { ok: true, ...ignoreGet(db) }
 }
 
-/** Removes one song ({ type: 'track', id }) or artist ({ type: 'artist', name }). */
-function ignoreRemove(db, { type, id, name } = {}) {
+/** Removes one song ({ type: 'track', id }), artist ({ type: 'artist', name }) or folder ({ type: 'folder', path }). */
+function ignoreRemove(db, { type, id, name, path: folder } = {}) {
   const list = readIgnore(db)
   if (type === 'track') list.tracks = list.tracks.filter(t => String(t.id) !== String(id))
   else if (type === 'artist') list.artists = list.artists.filter(a => norm(a.name) !== norm(name))
+  else if (type === 'folder') list.folders = list.folders.filter(f => normFolder(f.path) !== normFolder(folder))
   writeIgnore(db, list)
   return { ok: true, ...ignoreGet(db) }
 }
@@ -568,6 +635,74 @@ async function useSource(db, trackId, providerId) {
   return { ok: true, toKind: written.toKind, source: providerId }
 }
 
+// Which answer goes into the report first: the higher level wins.
+const LEVEL = { instrumental: 0.5, ...RANK }
+
+/** The best of these answers that may go into the report: { source, written }, or null. */
+function bestUsable(entry, results, rejected) {
+  let best = null
+  for (const [source, result] of Object.entries(results || {})) {
+    if (!result || source === 'local' || rejected.includes(source)) continue
+    const written = toWritten(result)
+    if (!written || !isUpgrade(entry.fromKind, written.toKind)) continue
+    if (!best || (LEVEL[written.toKind] || 0) > (LEVEL[best.written.toKind] || 0)) best = { source, written }
+  }
+  return best
+}
+
+/** Takes a song out of the report, its found lyrics thrown away. -> { reset } */
+function dropFromReport(state, trackId) {
+  try { fs.rmSync(foundFile(trackId), { force: true }) } catch {}
+  tried.delete(trackId)
+  state.found = state.found.filter(id => id !== trackId)
+  state.checked = (state.checked || []).filter(id => id !== trackId)
+  // The last one gone from a finished search: it starts over, as after Save.
+  const reset = !state.found.length && state.status === 'done'
+  if (reset) cancel()
+  else saveState(state)
+  return { reset }
+}
+
+/**
+ * Check's "Remove wrong lyrics": the source is marked wrong for the song, as
+ * in the lyrics panel. When its lyrics were the report's ('lyrics-search'
+ * stands for them), another source's take their place -- one already heard
+ * while checking, or else every source asked again -- and when none may go
+ * into the report, the song leaves it.
+ * -> { ok, rejected, replaced?, removed?, toKind?, source?, reset? }
+ */
+async function rejectInReport(db, trackId, providerId) {
+  if (job) return { ok: false, error: 'running' }
+  const state = readState()
+  const entry = readEntry(trackId)
+  if (!reportable(state) || !entry || !state.found.includes(trackId)) return { ok: false, error: 'not-found' }
+  const source = providerId === 'lyrics-search' ? entry.source : providerId
+  if (!source || source === 'local') return { ok: false, error: 'unknown-source' }
+  const rejected = service.markRejected(db, trackId, source)
+  const heard = tried.get(trackId)
+  if (heard) delete heard[source]
+  if (entry.source !== source) return { ok: true, rejected, source }
+  let next = bestUsable(entry, tried.get(trackId), rejected)
+  if (!next) {
+    const found = queryFor(db, trackId)
+    if (found) {
+      const { results } = await repository.lookup(found.query, {
+        ...found.settings, prioritizeSyllable: true, exhaustive: true, exclude: ['local', ...rejected],
+      })
+      remember(trackId, results || {})
+      next = bestUsable(entry, results, rejected)
+    }
+  }
+  // The search may have been cancelled or saved meanwhile.
+  const now = readState()
+  if (!reportable(now) || !now.found.includes(trackId)) return { ok: false, error: 'not-found', rejected }
+  if (next) {
+    writeJson(foundFile(trackId), { ...entry, ...next.written, source: next.source, edited: false, foundAt: Date.now() })
+    return { ok: true, rejected, replaced: true, toKind: next.written.toKind, source: next.source }
+  }
+  return { ok: true, rejected, removed: true, ...dropFromReport(now, trackId) }
+}
+
 /**
  * Save: the ticked songs get their lyrics written in and leave the list.
  * A stopped search can be saved from too ("Go to report"): it carries on
@@ -615,15 +750,7 @@ function ignoreFromReport(db, trackId) {
   const state = readState()
   if (!reportable(state) || !state.found.includes(trackId)) return { ok: false, error: 'not-found' }
   ignoreAdd(db, { tracks: [trackId] })
-  try { fs.rmSync(foundFile(trackId), { force: true }) } catch {}
-  tried.delete(trackId)
-  state.found = state.found.filter(id => id !== trackId)
-  state.checked = (state.checked || []).filter(id => id !== trackId)
-  // The last one gone from a finished search: it starts over, as after Save.
-  const reset = !state.found.length && state.status === 'done'
-  if (reset) cancel()
-  else saveState(state)
-  return { ok: true, reset }
+  return { ok: true, ...dropFromReport(state, trackId) }
 }
 
-module.exports = { get, start, resume, stop, cancel, setChecked, compare, edit, preview, save, fromSource, allSources, useSource, ignoreGet, ignoreSearch, ignoreAdd, ignoreRemove, ignoreFromReport, IGNORE_KEY, DIR_NAME, isUpgrade }
+module.exports = { get, start, resume, stop, cancel, setChecked, compare, edit, preview, save, fromSource, allSources, useSource, rejectInReport, ignoreGet, ignoreSearch, ignoreAdd, ignoreRemove, ignoreFromReport, IGNORE_KEY, DIR_NAME, isUpgrade }

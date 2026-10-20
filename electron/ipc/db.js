@@ -334,6 +334,9 @@ function initDB() {
     `CREATE TABLE IF NOT EXISTS listening_events (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, track_id TEXT NOT NULL, event_type TEXT NOT NULL, source_type TEXT, source_id TEXT, session_id TEXT, seconds_played INTEGER DEFAULT 0, track_duration REAL, started_at INTEGER, ended_at INTEGER, created_at INTEGER DEFAULT (unixepoch()))`,
   ]
   for (const m of quickMigrations) { try { db.exec(m) } catch {} }
+  // A song without an album has none: the scanner used to file it under the
+  // literal "Unknown Album" (an album of its own on the Albums page).
+  try { db.prepare("UPDATE tracks SET album = NULL WHERE album IS NOT NULL AND (TRIM(album) = '' OR LOWER(TRIM(album)) = 'unknown album')").run() } catch {}
   // Audio quality and ISRC columns (electron/quality).
   // The scanner writes these columns: without them indexing would fail later
   // and less clearly, so a failure here stops start-up.
