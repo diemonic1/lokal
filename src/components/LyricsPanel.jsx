@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall, ScanSearch } from 'lucide-react'
@@ -296,6 +296,10 @@ const Row = React.memo(function Row({
 // The toolbar's pills fade out by themselves when the full-screen player
 // hides its controls (their parent row must not fade: see the row).
 const TOOLBAR_FADE = 'transition-[opacity,color,background-color] duration-300 group-data-[hidden=true]/toolbar:opacity-0'
+// Moved up into the full-screen player's header row (toolbarTarget), the pills
+// take that row's size.
+const ToolbarLarge = createContext(false)
+const pillSize = large => (large ? 'h-9 px-3.5 text-xs gap-1.5' : 'px-2.5 py-1 text-[11px] gap-1')
 
 const SYNC_LABEL = { syllable: 'Syllable synced', line: 'Line synced', none: 'Not synced' }
 
@@ -319,8 +323,9 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
   // inserted or rejected), and inserting puts a source's lyrics into the report.
   fixedIds = [], embedLabel = null, embedText = null,
   // ...where the found lyrics may be marked wrong too (rejectText(label, id) says what happens).
-  rejectFixed = false, rejectText = null }) {
+  rejectFixed = false, rejectText = null, onOpenChange = null }) {
   const { t } = useTranslation()
+  const large = useContext(ToolbarLarge)
   const insertLabel = embedLabel || t('Insert into track')
   const [open, setOpen] = useState(false)
   // Sources marked wrong for this song aren't offered any more.
@@ -349,6 +354,8 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
   // The toolbar hid (full screen idle): the menu goes with it rather than
   // staying up, unclickable, over the lyrics.
   useEffect(() => { if (hidden) setOpen(false) }, [hidden])
+  useEffect(() => { onOpenChange?.(open) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onOpenChange?.(false), []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return
     const close = (e) => { if (!ref.current?.contains(e.target) && !panelRef.current?.contains(e.target)) setOpen(false) }
@@ -368,7 +375,9 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
       const above = anchor.top - margin - 6
       const up = openUp ? above >= 160 || above > below : below < 260 && above > below
       setPlace({
-        right: Math.max(margin, window.innerWidth - anchor.right),
+        // Lined up with the button's right edge, but kept on screen at the left
+        // (the full-screen header has it near the left edge).
+        right: Math.max(margin, Math.min(window.innerWidth - anchor.right, window.innerWidth - 256 - margin)),
         top: up ? undefined : anchor.bottom + 6,
         bottom: up ? window.innerHeight - anchor.top + 6 : undefined,
         maxHeight: Math.max(120, up ? above : below),
@@ -387,12 +396,13 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
       <button
         onClick={() => setOpen(o => !o)}
         onContextMenu={(e) => openActions(e, current)}
-        className={`flex max-w-full items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${TOOLBAR_FADE}`}
+        aria-expanded={open}
+        className={`flex max-w-full items-center ${pillSize(large)} rounded-full text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${TOOLBAR_FADE}`}
         title={label ? t('Lyrics source: {source}', { source: label }) : t('Lyrics source')}
       >
-        {busy || searching ? <Loader2 size={11} className="flex-shrink-0 animate-spin" /> : null}
+        {busy || searching ? <Loader2 size={large ? 13 : 11} className="flex-shrink-0 animate-spin" /> : null}
         <span className="min-w-0 max-w-[9rem] truncate">{label || (searching ? t('Searching...') : t('Source'))}</span>
-        <ChevronDown size={11} className="flex-shrink-0" />
+        <ChevronDown size={large ? 13 : 11} className="flex-shrink-0" />
       </button>
       {createPortal(<AnimatePresence>
         {open && place && (
@@ -491,12 +501,13 @@ function SourceMenu({ sources: allSources, enabled = null, current, attempts, bu
 }
 
 function Pill({ active, onClick, children, title, disabled }) {
+  const large = useContext(ToolbarLarge)
   return (
     <button
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] ${TOOLBAR_FADE} disabled:opacity-40 ${active ? 'bg-white text-black' : 'text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md'}`}
+      className={`flex items-center ${pillSize(large)} rounded-full ${TOOLBAR_FADE} disabled:opacity-40 ${active ? 'bg-white text-black' : 'text-white/60 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md'}`}
     >
       {children}
     </button>
@@ -590,6 +601,11 @@ export default function LyricsPanel({
   sizeControl = false,
   // The list fades out at its top and bottom edges (the side panel's Lyrics tab goes without).
   edgeFade = true,
+  // The full screen player: the buttons go into its header row (this element)
+  // instead of over the lyrics; toolbarConcealed fades them out there (until
+  // the mouse comes near) without closing the source menu, and
+  // onToolbarMenuChange says while that menu is open.
+  toolbarTarget = null, toolbarConcealed = false, onToolbarMenuChange = null,
 }) {
   const { t } = useTranslation()
   // Online radio: the song playing on the station, under its own id.
@@ -1147,7 +1163,89 @@ export default function LyricsPanel({
   const passThrough = idleVisual && idle && !searchOpen
   return (
     <div className={`relative w-full h-full ${passThrough ? 'pointer-events-none' : 'pointer-events-auto'}`}>
-      {showToolbar && (
+      {showToolbar && toolbarTarget && createPortal(
+        <ToolbarLarge.Provider value>
+          <div data-hidden={toolbarHidden || toolbarConcealed} className="group/toolbar flex items-center gap-2">
+          <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : toolbarTarget ? 'hidden' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
+            <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
+              {translationBusy ? <Loader2 size={toolbarTarget ? 13 : 11} className="animate-spin" /> : <Languages size={toolbarTarget ? 13 : 11} />}
+              {t('Translate')}
+            </Pill>
+            {canRomanize && (
+              <Pill active={subline === 'romanization'} onClick={() => toggleSub('romanization')} title={t('Show pronunciation in Latin letters')}>
+                {romanizationBusy ? <Loader2 size={toolbarTarget ? 13 : 11} className="animate-spin" /> : <span className="font-semibold leading-none">Aa</span>}
+                {t('Romanize')}
+              </Pill>
+            )}
+          </div>
+          {!toolbarTarget && <div className="flex-1" />}
+          <div className={`flex min-w-0 items-center justify-end gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'}`} inert={toolbarHidden}>
+            {previewResult && (
+              // Lyrics Search's Check: says what this is, beside the source menu.
+              <span
+                className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE}`}
+                title={t('Lyrics found by Lyrics Search, not saved anywhere yet')}
+              >
+                <ScanSearch size={11} className="flex-shrink-0" />
+                <span className="whitespace-nowrap">{t('Checking lyrics')}</span>
+              </span>
+            )}
+            {previewResult ? (
+              <SourceMenu
+                sources={[{ id: CHECK_ID, label: t('Found') }, ...sources.filter(s => s.id !== 'local')]}
+                enabled={enabledSources}
+                current={picked?.id || CHECK_ID}
+                attempts={{ ...(checkAttempts.trackId === track?.id ? checkAttempts.attempts : {}), [CHECK_ID]: foundPreview?.instrumental ? 'instrumental' : foundPreview?.sync }}
+                busy={!!checkPickingId || !!checkInserting}
+                searching={checkSearching}
+                pickingId={checkPickingId}
+                canEmbed
+                embeddingId={checkInserting}
+                onEmbed={checkInsert}
+                onPick={checkPickSource}
+                onRefresh={checkSearchAll}
+                fixedIds={[CHECK_ID]}
+                rejected={rejected}
+                onReject={checkReject}
+                rejectFixed
+                rejectText={(label, id) => (id === CHECK_ID
+                  ? t('The lyrics in the report (from {source}) will be marked as wrong for this song. Other lyrics found for it take their place; when there are none, the track leaves the report.', { source: checkLabel(foundPreview?.foundSource) || t('Found') })
+                  : t("The lyrics from {source} will be hidden for this song, and {source} won't be offered for it again.", { source: label }))}
+                embedLabel={t('Insert into report')}
+                embedText={source => t('The lyrics from {source} will replace the found ones in the report. Nothing is written into the file until the report is saved.', { source })}
+                hidden={toolbarHidden}
+                openUp={toolbarAtBottom}
+                onOpenChange={onToolbarMenuChange}
+              />
+            ) : sources.length > 0 && (result?.source || searching) && (
+              <SourceMenu
+                sources={sources}
+                enabled={enabledSources}
+                current={result?.source || null}
+                attempts={result?.attempts}
+                busy={sourceBusy || !!embeddingId}
+                searching={searching}
+                pickingId={pickingId}
+                canEmbed={hasFile}
+                embeddingId={embeddingId}
+                onEmbed={embedSource}
+                onPick={pickSource}
+                onRefresh={() => load({ refresh: true }, lines.length > 0)}
+                onSearch={requestSearch}
+                rejected={rejected}
+                onReject={rejectSource}
+                hidden={toolbarHidden}
+                openUp={toolbarAtBottom}
+                onOpenChange={onToolbarMenuChange}
+              />
+            )}
+          </div>
+          </div>
+        </ToolbarLarge.Provider>,
+        toolbarTarget,
+      )}
+      {showToolbar && !toolbarTarget && (
         <div
           // The pills fade by themselves (TOOLBAR_FADE), not this row: glass
           // inside a fading parent shows as flat grey until the fade ends.

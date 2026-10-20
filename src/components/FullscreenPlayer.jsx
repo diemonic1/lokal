@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat, Repeat1, Mic2, ListMusic, ListPlus, Search, Maximize2, Expand, Minimize, Volume2, Film, Clapperboard, Image as ImageIcon } from 'lucide-react'
+import { X, Scaling, Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat, Repeat1, Mic2, ListMusic, ListPlus, Search, Maximize2, Expand, Minimize, Volume2, Film, Clapperboard, Image as ImageIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -25,10 +25,53 @@ import FullCoverImage from './FullCoverImage'
 import { isStationTrack } from '../radio/stations'
 import ArtistNames from './ArtistNames'
 import { useEcoMode } from '../ecoMode'
+import { COVER_PERCENT, fullscreenCoverPercent, setFullscreenCoverPercent, useFullscreenCoverScale } from '../fullscreenCoverSize'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
-const COVER_SIZE = 'min(34rem, 54vh)'
+// The cover follows its size setting (fullscreenCoverSize), but never past
+// the room it has: the screen's height under the header and over the title,
+// and the column's width beside the panel.
 const PANEL_WIDTH = 'min(52vw, 780px)'
+const coverSize = (scale, panel) => `min(calc(min(34rem, 54vh) * ${scale}), calc(100vh - 17rem), calc(100vw - ${panel ? PANEL_WIDTH : '0px'} - 6rem))`
+const canvasHeight = scale => `min(calc(min(38rem, 62vh) * ${scale}), calc(100vh - 16rem))`
+
+/** The small button over the card's top right: a slider for the card's size. */
+function CoverSizeButton({ hidden }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const percent = fullscreenCoverPercent(useFullscreenCoverScale())
+  const ref = useRef(null)
+  useEffect(() => { if (hidden) setOpen(false) }, [hidden])
+  useEffect(() => {
+    if (!open) return undefined
+    const onDown = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey, true)
+    return () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey, true) }
+  }, [open])
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(o => !o)} title={t('Cover size')} aria-label={t('Cover size')} aria-expanded={open}
+        className={`w-8 h-8 flex items-center justify-center rounded-full text-white/80 hover:text-white transition-opacity duration-200 drop-shadow-[0_1px_4px_rgba(0,0,0,0.45)] ${open ? 'opacity-100' : 'opacity-45 hover:opacity-100'}`}>
+        <Scaling size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 z-40 w-60 rounded-xl border border-white/10 bg-black/85 px-3 py-2.5 backdrop-blur-md shadow-xl">
+          <div className="mb-1.5 flex items-center justify-between text-[11px] text-white/60">
+            <span>{t('Cover size')}</span>
+            <span className="tabular-nums text-white">{percent}%</span>
+          </div>
+          <input type="range" min={COVER_PERCENT.min} max={COVER_PERCENT.max} step={COVER_PERCENT.step} value={percent}
+            onChange={(e) => setFullscreenCoverPercent(e.target.value)}
+            onDoubleClick={() => setFullscreenCoverPercent(COVER_PERCENT.initial)}
+            title={t('Double-click to reset')}
+            className="block w-full h-5 cursor-pointer accent-accent" />
+        </div>
+      )}
+    </div>
+  )
+}
 const FULLSCREEN_LYRICS_WAIT_MS = 1500 // lyrics found after this don't open the panel on their own
 // The header and the cover's controls hide (and the cursor too) after this
 // long without the mouse moving.
@@ -277,7 +320,10 @@ export default function FullscreenPlayer() {
   const clipNow = !songClip && coverClip.id === currentTrack?.id ? coverClip.clip : null
   const { video: musicVideo } = useMusicVideo(currentTrack, showFullscreen || showLyricsFullscreen)
   const showMusicVideo = useMusicVideoView(s => s.show)
-  const clipName = clipNow && (clipNow.tall || clipNow.source === 'spotify') ? 'Canvas' : 'Moving Cover'
+  // The switch over the card: the song's video / Canvas / moving cover, or the still cover.
+  const motionLabel = songClip ? t('Music video')
+    : clipNow ? ({ spotify: 'Spotify Canvas', apple: 'Apple Music', tidal: 'Tidal' }[clipNow.source] || t('Moving cover'))
+    : null
   const [settings, setSettings] = useState({})
   const [showSearch, setShowSearch] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -557,7 +603,38 @@ export default function FullscreenPlayer() {
   // Each piece of the header fades by itself (glass inside a fading parent flashes grey; see COVER_FADE).
   const chromeFade = `transition-[opacity,color,background-color] duration-300 ${chromeHidden ? 'opacity-0' : 'opacity-100'}`
   const [coverHover, setCoverHover] = useState(false)
+  // The card's own buttons over it (clip / cover, size) show while the mouse
+  // is anywhere on the left: the card, them, the title.
+  const [sideHover, setSideHover] = useState(false)
+  const coverScale = useFullscreenCoverScale()
   const controlsShown = coverHover && !chromeHidden
+  // The lyrics' buttons in the header's left block (full-screen lyrics,
+  // Translate, the source, search) only show while the mouse is near them --
+  // or while the source menu is open. Native listeners: the lyrics' own
+  // buttons are portaled in, so React's enter/leave wouldn't count them.
+  const [toolsEl, setToolsEl] = useState(null)
+  const [lyricsBarEl, setLyricsBarEl] = useState(null)
+  const [toolsHover, setToolsHover] = useState(false)
+  const [toolsMenu, setToolsMenu] = useState(false)
+  useEffect(() => {
+    if (!toolsEl) return undefined
+    const enter = () => setToolsHover(true)
+    const leave = () => setToolsHover(false)
+    const blur = (e) => { if (!toolsEl.contains(e.relatedTarget)) setToolsHover(false) }
+    toolsEl.addEventListener('pointerenter', enter)
+    toolsEl.addEventListener('pointerleave', leave)
+    toolsEl.addEventListener('focusin', enter)
+    toolsEl.addEventListener('focusout', blur)
+    return () => {
+      toolsEl.removeEventListener('pointerenter', enter)
+      toolsEl.removeEventListener('pointerleave', leave)
+      toolsEl.removeEventListener('focusin', enter)
+      toolsEl.removeEventListener('focusout', blur)
+    }
+  }, [toolsEl])
+  useEffect(() => { if (!open) { setToolsHover(false); setToolsMenu(false) } }, [open])
+  const toolsShown = !chromeHidden && (toolsHover || toolsMenu)
+  const toolsFade = `transition-[opacity,color,background-color] duration-300 ${toolsShown ? 'opacity-100' : 'opacity-0'}`
 
   // The whole screen (the OS's full screen), on top of this view; left when
   // the view closes.
@@ -677,16 +754,7 @@ export default function FullscreenPlayer() {
               the mouse moving, and comes back as soon as it moves. */}
           <div className={`absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-start gap-4 px-5 pt-5 ${chromeHidden ? 'pointer-events-none' : ''}`}
             onMouseEnter={() => { overChromeRef.current = true }} onMouseLeave={() => { overChromeRef.current = false }}>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Straight to full-screen lyrics (the view to come back from
-                  has a Player button). */}
-              {currentTrack && (
-                <button onClick={() => switchFullscreenView('lyrics')} title={t('Switch to full-screen lyrics')}
-                  className={`h-9 px-3.5 flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs text-white/80 hover:text-white backdrop-blur-sm ${chromeFade}`}>
-                  <Maximize2 size={13} /> {t('Lyrics')}
-                </button>
-              )}
-            </div>
+            <div />
             {playbackContext?.name && (
               <div className={`col-start-2 min-w-0 text-center ${chromeFade}`}>
                 <p className="text-[10px] font-display uppercase tracking-[0.28em] text-white/45">
@@ -704,13 +772,33 @@ export default function FullscreenPlayer() {
                 )}
               </div>
             )}
-            <div className="col-start-3 justify-self-end flex items-center gap-2">
+            <div className="relative col-start-3 justify-self-end pointer-events-auto flex items-center gap-2">
+              {/* The lyrics' buttons: straight to full-screen lyrics (the view to
+                  come back from has a Player button), then the lyrics panel's own
+                  (Translate, the source...; portaled in by LyricsPanel), then
+                  search. Left of full screen and close, and unseen until the mouse
+                  comes near (the block reaches a little past them to catch it). */}
+              <div ref={setToolsEl} className="absolute right-full top-0 -my-4 -ml-4 py-4 pl-4 pr-2 flex items-center gap-2 whitespace-nowrap">
+                {currentTrack && (
+                  <button onClick={() => switchFullscreenView('lyrics')} title={t('Switch to full-screen lyrics')}
+                    className={`h-9 px-3.5 flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs text-white/80 hover:text-white backdrop-blur-sm ${toolsFade}`}>
+                    <Maximize2 size={13} /> {t('Lyrics')}
+                  </button>
+                )}
+                <div ref={setLyricsBarEl} className="contents" />
+                {currentTrack && fullscreenPanel === 'lyrics' && (
+                  <button onClick={() => setShowSearch(true)} title={t('Search lyrics')} aria-label={t('Search lyrics')}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white backdrop-blur-sm ${toolsFade}`}>
+                    <Search size={14} />
+                  </button>
+                )}
+              </div>
               <button onClick={toggleScreen} title={screenFull ? t('Exit full screen') : t('Fill the whole screen')} aria-label={screenFull ? t('Exit full screen') : t('Fill the whole screen')}
-                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
+                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm`}>
                 {screenFull ? <Minimize size={15} /> : <Expand size={15} />}
               </button>
               <button onClick={toggleFullscreen} title={t('Close')} aria-label={t('Close full-screen player')}
-                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm ${chromeFade}`}>
+                className={`w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm`}>
                 <X size={15} />
               </button>
             </div>
@@ -719,10 +807,38 @@ export default function FullscreenPlayer() {
           {/* The cover, with the controls over it (shown while the pointer is
               on it), then the progress, the title and the artist. Clear of
               the header, so a tall canvas doesn't run into "Playing from". */}
-          <div className={`relative z-10 flex flex-col items-center justify-center flex-1 min-w-0 px-12 pt-24 pb-12 ${showFullscreen ? 'transition-all duration-500' : ''}`}>
+          <div className={`relative z-10 flex flex-col items-center justify-center flex-1 min-w-0 px-12 pt-24 pb-12 ${showFullscreen ? 'transition-all duration-500' : ''}`}
+            onMouseEnter={() => setSideHover(true)} onMouseLeave={() => setSideHover(false)}>
             {/* One card for every song (never swapped, so never waiting on an
                 exit while the window is minimized): the artwork changes inside
                 it (MixCovers: AutoMix's cloudy dissolve, else a short fade). */}
+            <div className="relative flex-shrink-0">
+              {/* Over the card: its video (the song's clip, Canvas or moving
+                  cover) or the still cover, for this song, in the middle; the
+                  card's size at its right corner. */}
+              {currentTrack && (
+                <div className={`absolute bottom-full inset-x-0 mb-3 flex items-center justify-center transition-opacity duration-300 ${sideHover && !chromeHidden ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  {motionLabel && (
+                    <div className="flex items-center gap-2">
+                      {[
+                        { off: false, label: motionLabel, Icon: songClip ? Clapperboard : Film },
+                        { off: true, label: t('Artwork'), Icon: ImageIcon },
+                      ].map(({ off, label, Icon }) => {
+                        const current = coverOff === off
+                        return (
+                          <button key={label} onClick={() => setCoverOff(off)} aria-pressed={current}
+                            className={`h-8 px-3 flex items-center gap-1.5 rounded-full border text-xs font-medium transition-[opacity,border-color,color] duration-200 drop-shadow-[0_1px_4px_rgba(0,0,0,0.45)] ${current ? 'border-white/90 text-white opacity-70 hover:opacity-100' : 'border-transparent text-white/80 opacity-45 hover:opacity-100 hover:text-white'}`}>
+                            <Icon size={13} /> {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="absolute right-0 bottom-0">
+                    <CoverSizeButton hidden={!sideHover || chromeHidden} />
+                  </div>
+                </div>
+              )}
               <motion.div
                 ref={coverRef}
                 initial={{ opacity: 0, scale: 0.92, y: 16 }}
@@ -737,15 +853,15 @@ export default function FullscreenPlayer() {
                 // lyrics panel, whose blur then had to be redone every video
                 // frame -- slow, especially while the panel slid open.)
                 style={fsCanvas
-                  ? { height: 'min(38rem, 62vh)', aspectRatio: '9 / 16', transition: 'height 420ms ease' }
-                  : { width: COVER_SIZE, height: COVER_SIZE }}
+                  ? { height: canvasHeight(coverScale), aspectRatio: '9 / 16', transition: 'height 420ms ease' }
+                  : { width: coverSize(coverScale, isPanelVisible), height: coverSize(coverScale, isPanelVisible) }}
               >
                 {artSrc
                   ? <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
                         <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />
                         {songClip && String(track?.id) === String(currentTrack?.id) ? (
-                          <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} />
+                          !coverOff && <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} />
                         ) : (
                           <>
                             <MotionCover trackId={track?.id} only="square" off={coverOff} />
@@ -775,11 +891,6 @@ export default function FullscreenPlayer() {
                       <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label={t('Add to a playlist')}><ListPlus size={19} /></CoverButton>
                       <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? t('Hide the queue') : t('Show the queue')} active={fullscreenPanel === 'queue'}><ListMusic size={19} /></CoverButton>
                       <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? t('Hide the lyrics') : t('Show the lyrics')} active={fullscreenPanel === 'lyrics'}><Mic2 size={19} /></CoverButton>
-                      {clipNow && (
-                        <CoverButton onClick={() => setCoverOff(!coverOff)} label={clipName === 'Canvas' ? (coverOff ? t('Show Canvas') : t('Hide Canvas')) : (coverOff ? t('Show Moving Cover') : t('Hide Moving Cover'))} active={coverOff}>
-                          {coverOff ? <Film size={19} /> : <ImageIcon size={19} />}
-                        </CoverButton>
-                      )}
                     </div>
                     <div className={`relative flex items-center justify-center gap-8 pb-7 ${COVER_FADE}`}>
                       <CoverIcon onClick={toggleShuffle} label={t('Shuffle')} pressed={shuffle} dim={!shuffle}>
@@ -812,8 +923,9 @@ export default function FullscreenPlayer() {
                 )}
                 {burst && burst.trackId === currentTrack?.id && <LikeBurst key={burst.id} kind={burst.kind} />}
               </motion.div>
+            </div>
 
-            <div className="relative mt-6 flex items-center gap-3" style={{ width: COVER_SIZE }}>
+            <div className="relative mt-6 flex items-center gap-3" style={{ width: coverSize(coverScale, isPanelVisible) }}>
               <MixingMark className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none !text-white/80" />
               <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
               <div ref={barRef} className="group/bar relative h-3.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-white/20 backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
@@ -825,7 +937,7 @@ export default function FullscreenPlayer() {
 
             {/* In at once, fading: never waiting on the old title's way out (see PlayerBar). */}
             <motion.div key={currentTrack?.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="mt-5 text-center" style={{ width: COVER_SIZE }}>
+              className="mt-5 text-center" style={{ width: coverSize(coverScale, isPanelVisible) }}>
               <h2 className="text-3xl font-bold text-white leading-tight truncate">{currentTrack?.title || '—'}</h2>
               <p className="mt-1.5 text-lg text-white/70 truncate"><ArtistNames track={currentTrack} disabled={isStationTrack(currentTrack)} onNavigate={toggleFullscreen} linkClassName="hover:text-white hover:underline" /></p>
               {currentTrack?.album && <p className="mt-0.5 text-sm text-white/40 truncate">{currentTrack.album}</p>}
@@ -845,14 +957,6 @@ export default function FullscreenPlayer() {
                   <QueueContent variant="fullscreen" />
                 ) : (
                   <>
-                    <div className={`absolute right-6 top-[4.5rem] z-10 flex items-center gap-1 transition-opacity duration-300 ${chromeHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                      <button onClick={toggleLyricsFullscreen} className="p-2 text-white/40 hover:text-white transition-colors" title={t('Expand lyrics')} aria-label={t('Expand lyrics')}>
-                        <Maximize2 size={15} />
-                      </button>
-                      <button onClick={() => setShowSearch(true)} className="p-2 text-white/40 hover:text-white transition-colors" title={t('Search lyrics')} aria-label={t('Search lyrics')}>
-                        <Search size={15} />
-                      </button>
-                    </div>
                     <div className="flex-1 min-h-0 pr-6">
                       <LyricsPanel
                         key={`${currentTrack?.id}-${refreshKey}`}
@@ -864,6 +968,9 @@ export default function FullscreenPlayer() {
                         onSearchRequest={() => setShowSearch(true)}
                         textScale={1.6}
                         toolbarHidden={chromeHidden}
+                        toolbarTarget={fullscreenPanel === 'lyrics' ? lyricsBarEl : null}
+                        toolbarConcealed={!toolsShown}
+                        onToolbarMenuChange={setToolsMenu}
                         isAutoSynced={isAutoSynced}
                       />
                     </div>

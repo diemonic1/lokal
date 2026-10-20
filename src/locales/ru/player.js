@@ -65,6 +65,7 @@ export default {
   'Translate': 'Перевести',
   'Size': 'Размер',
   'Lyrics size': 'Размер текста',
+  'Cover size': 'Размер обложки',
   'Show pronunciation in Latin letters': 'Показать произношение латиницей',
   'Romanize': 'Латиница',
   'Already in your language': 'Уже на вашем языке',
