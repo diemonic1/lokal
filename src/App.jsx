@@ -2612,7 +2612,9 @@ export default function App() {
           if (plan && cur >= plan.start - AUTOMIX_PRELOAD_S) triggerCrossfade(nextTrack, plan)
         }
       }
-    } else if (cf > CROSSFADE_MIN_S && remaining <= cf && remaining > 0.3) {
+    } else if (cf > CROSSFADE_MIN_S && state.repeat !== 'one' && remaining <= cf && remaining > 0.3) {
+      // Repeat one: no crossfade into the next song; the song plays to its
+      // end and starts again (handlePrimaryEnded / handleCfEnded).
       const { shuffle, shuffleQueue, shuffleIndex, queue, queueIndex } = state
       let nextTrack = null
       

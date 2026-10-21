@@ -133,13 +133,19 @@ const configKeys = db => new Set(configLists(db).names.map(name => name.toLowerC
 
 // What Settings shows (the IPC handlers and the web server answer with these).
 const state = {
-  /** Separator words: built in, from the config, the user's, and all applied. */
+  /**
+   * Separator words: "Always on" (the splitter's own and the bundled file's),
+   * the downloaded file's that aren't among those or the user's, the user's,
+   * and all applied.
+   */
   splitWords(db) {
     const artistSplit = require('./artistSplit')
+    const key = word => word.toLowerCase().replace(/\.$/, '').trim()
     const words = artistSplit.readSplitWords(db)
-    const own = new Set(words.map(word => word.replace(/\.$/, '')))
-    const config = artistSplit.configSplitWords(db).filter(word => !own.has(word.replace(/\.$/, '')))
-    return { builtIn: artistSplit.DEFAULT_SPLIT_WORDS, config, words, applied: artistSplit.applySplitWordsFrom(db) }
+    const builtIn = uniqueTexts(artistSplit.DEFAULT_SPLIT_WORDS, BUNDLED_PERFORMERS.separator_words)
+    const taken = new Set([...builtIn, ...words].map(key))
+    const config = uniqueTexts(getPerformersConfig(db).data?.separator_words).filter(word => !taken.has(key(word)))
+    return { builtIn, config, words, applied: artistSplit.applySplitWordsFrom(db) }
   },
   /** The config's link and data, and the whole artist names: the config's, the user's, all. */
   config(db) {
