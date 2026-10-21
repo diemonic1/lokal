@@ -129,34 +129,47 @@ router.post('/factory-reset', (req, res) => {
   }
 })
 
+// Every whole artist name (the performers config's and the user's); the
+// user's own come with /performers-config (as electron/ipc/scanner.js does).
 router.get('/keep-comma-artists', (req, res) => {
-  try {
-    const db = getDB()
-    const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    res.json(setting?.value ? JSON.parse(setting.value) : [])
-  } catch {
-    res.json([])
-  }
+  try { res.json(require('../../electron/artistSplit').readKeepCommaList(getDB())) } catch { res.json([]) }
 })
 
 router.put('/keep-comma-artists', (req, res) => {
-  const { artists = [] } = req.body
-  getDB().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('keep_comma_artists', ?)").run(JSON.stringify(artists))
-  res.json({ ok: true })
+  const db = getDB()
+  const artists = (Array.isArray(req.body?.artists) ? req.body.artists : []).map(name => String(name || '').trim()).filter(Boolean)
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('keep_comma_artists', ?)").run(JSON.stringify(artists))
+  try { require('../../electron/ipc/scanner').relinkArtistsIfNeeded(db) } catch {}
+  res.json({ ok: true, artists, all: require('../../electron/artistSplit').readKeepCommaList(db) })
 })
 
 router.get('/artist-split-words', (req, res) => {
-  const artistSplit = require('../../electron/artistSplit')
-  res.json({ builtIn: artistSplit.DEFAULT_SPLIT_WORDS, words: artistSplit.applySplitWordsFrom(getDB()) })
+  res.json(require('../../electron/performers').state.splitWords(getDB()))
 })
 
 router.put('/artist-split-words', (req, res) => {
   try {
     const db = getDB()
-    const words = require('../../electron/artistSplit').saveSplitWords(db, req.body?.words || [])
+    require('../../electron/artistSplit').saveSplitWords(db, req.body?.words || [])
     const relinked = require('../../electron/ipc/scanner').relinkArtistsIfNeeded(db)
-    res.json({ ok: true, words, relinked })
+    res.json({ ok: true, ...require('../../electron/performers').state.splitWords(db), relinked })
   } catch (e) { res.json({ ok: false, error: e.message }) }
+})
+
+// The performers config (electron/performers.js): its link, and "Update".
+router.get('/performers-config', (req, res) => {
+  res.json(require('../../electron/performers').state.config(getDB()))
+})
+
+router.post('/performers-config', async (req, res) => {
+  try {
+    const db = getDB()
+    const performers = require('../../electron/performers')
+    const result = await performers.loadPerformers(db, req.body?.url)
+    if (!result.ok) return res.json(result)
+    const relinked = require('../../electron/ipc/scanner').relinkArtistsIfNeeded(db)
+    res.json({ ...performers.state.config(db), ok: true, relinked })
+  } catch (e) { res.json({ ok: false, errors: [{ path: '', code: 'network', detail: String(e?.message || e) }] }) }
 })
 
 router.post('/scan', async (req, res) => {

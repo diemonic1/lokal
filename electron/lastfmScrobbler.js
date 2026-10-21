@@ -35,8 +35,7 @@ const DEFAULT_KEEP_COMMA = [
 function keepCommaArtists(db) {
   const keep = new Set(DEFAULT_KEEP_COMMA)
   try {
-    const raw = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()?.value
-    if (raw) JSON.parse(raw).forEach(a => keep.add(String(a || '').toLowerCase().trim()))
+    require('./artistSplit').readKeepCommaList(db).forEach(a => keep.add(a.toLowerCase()))
   } catch {}
   return keep
 }

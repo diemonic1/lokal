@@ -56,8 +56,7 @@ function readSettings(db) {
   }
   let keepCommaArtists = []
   try {
-    const v = s.keep_comma_artists || ''
-    keepCommaArtists = v.startsWith('[') ? JSON.parse(v) : v.split('\n').map(x => x.trim()).filter(Boolean)
+    keepCommaArtists = require('../artistSplit').readKeepCommaList(db)
   } catch { keepCommaArtists = [] }
   const savedOrder = parseList(s.lyrics_sources_order)
   const order = savedOrder ? [...savedOrder] : [...DEFAULT_ORDER]

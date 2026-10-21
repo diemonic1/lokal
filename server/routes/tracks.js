@@ -266,13 +266,12 @@ function slugify(str) {
 }
 
 function getKeepCommaArtists() {
-  let userDefined = []
+  let names = []
   try {
-    const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    if (setting?.value) userDefined = JSON.parse(setting.value)
+    names = artistSplit.readKeepCommaList(getDB())
     artistSplit.applySplitWordsFrom(getDB())
   } catch {}
-  return artistSplit.keepCommaSet(userDefined)
+  return artistSplit.keepCommaSet(names)
 }
 
 const splitArtists = raw => artistSplit.splitArtists(raw, getKeepCommaArtists())

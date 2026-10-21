@@ -64,6 +64,7 @@ export function catalogErrorText(error, t) {
       : t('The file isn\'t valid JSON: {detail}', { detail: error.detail })
     case 'empty': return t('The file is empty.')
     case 'root-not-object': return t('The file must be a JSON object with a "stations" list.')
+    case 'performers-root': return t('The file must be a JSON object with a "whole_artist_names" or "separator_words" list.')
     case 'required-missing': return at + t('the required field "{field}" wasn\'t found.', { field: error.field })
     case 'not-array': return at + t('must be a list ([...]).')
     case 'not-string': return at + t('must be text.')
@@ -81,14 +82,14 @@ export function catalogErrorText(error, t) {
   }
 }
 
-/** The window listing why a catalogue couldn't be used. */
-export function CatalogErrorModal({ errors, onClose }) {
+/** The window listing why a catalogue (or another config file: title, note) couldn't be used. */
+export function CatalogErrorModal({ errors, onClose, title, note }) {
   const { t } = useTranslation()
   const syntax = errors?.find(error => error.excerpt)
   return (
-    <Modal open={!!errors?.length} onClose={onClose} title={t('The station catalogue couldn\'t be loaded')} width="max-w-2xl">
+    <Modal open={!!errors?.length} onClose={onClose} title={title || t('The station catalogue couldn\'t be loaded')} width="max-w-2xl">
       <div className="space-y-3 text-sm">
-        <p className="text-muted">{t('Nothing was changed: the stations already loaded stay as they were. Fix the file and try again.')}</p>
+        <p className="text-muted">{note || t('Nothing was changed: the stations already loaded stay as they were. Fix the file and try again.')}</p>
         <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto rounded-lg border border-border bg-card p-3 font-mono text-xs text-red-200">
           {(errors || []).map((error, index) => <li key={index} className="break-words">{catalogErrorText(error, t)}</li>)}
         </ul>

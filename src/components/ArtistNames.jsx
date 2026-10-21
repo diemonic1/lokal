@@ -36,7 +36,9 @@ function applySplitWords(words) {
 function loadSplitWords() {
   if (splitWordsRequest) return splitWordsRequest
   splitWordsRequest = Promise.resolve(api.getArtistSplitWords?.()).then(result => {
-    if (Array.isArray(result?.words) && result.words.length) applySplitWords(result.words)
+    // Every word applied: the performers config's and the user's.
+    const words = Array.isArray(result?.applied) ? result.applied : result?.words
+    if (Array.isArray(words) && words.length) applySplitWords(words)
   }).catch(() => {})
   return splitWordsRequest
 }

@@ -22,6 +22,7 @@ import PlaybackSourceSettings from '../components/PlaybackSourceSettings'
 import { useAppStore, usePlayerStore } from '../store/player'
 import Modal from '../components/Modal'
 import SplitWordsSettings from '../components/SplitWordsSettings'
+import PerformersConfigSetup from '../components/PerformersConfigSetup'
 import LyricsSourcesSettings from '../components/LyricsSourcesSettings'
 import AccentColorPicker from '../components/AccentColorPicker'
 import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
@@ -336,6 +337,12 @@ export default function Settings() {
   const [deduplicateResult, setDeduplicateResult] = useState('')
   const [keepCommaArtists, setKeepCommaArtists] = useState([])
   const [commaInput, setCommaInput] = useState('')
+  const [configCommaArtists, setConfigCommaArtists] = useState([])
+  useEffect(() => {
+    const onConfig = (event) => { if (Array.isArray(event.detail?.configNames)) setConfigCommaArtists(event.detail.configNames) }
+    window.addEventListener('lokal:performers-config-updated', onConfig)
+    return () => window.removeEventListener('lokal:performers-config-updated', onConfig)
+  }, [])
   const [showCommaModal, setShowCommaModal] = useState(false)
   const [exportingHistory, setExportingHistory] = useState(false)
   const [historyExported, setHistoryExported] = useState(false)
@@ -545,17 +552,16 @@ export default function Settings() {
       setSettingsLoaded(true)
     })
 
-    api.getKeepCommaArtists().then(a => {
-
-      const defaults = ['Tyler, The Creator', 'Earth, Wind & Fire']
-
-      const combined = [...defaults, ...(a || [])]
-
-      setKeepCommaArtists(combined)
-
-      setCommaInput(combined.join('\n'))
-
-    })
+    // Only the user's own names are edited here; the performers config's
+    // are listed apart (they used to be added to the user's list on every
+    // load, and saved back with it, so they piled up).
+    Promise.resolve(api.getPerformersConfig?.()).then(state => {
+      if (!state) return
+      const own = Array.isArray(state.userNames) ? state.userNames : []
+      setConfigCommaArtists(Array.isArray(state.configNames) ? state.configNames : [])
+      setKeepCommaArtists(own)
+      setCommaInput(own.join('\n'))
+    }).catch(() => {})
 
     if (api.isElectron) {
 
@@ -849,15 +855,24 @@ export default function Settings() {
   }
 
   const saveCommaArtists = async () => {
-    const artists = commaInput.split('\n').map(s => s.trim()).filter(Boolean)
-    await api.setKeepCommaArtists(artists)
+    const seen = new Set()
+    const artists = commaInput.split('\n').map(s => s.trim()).filter(name => {
+      const key = name.toLowerCase()
+      if (!name || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    const result = await api.setKeepCommaArtists(artists)
     setKeepCommaArtists(artists)
+    setCommaInput(artists.join('\n'))
     setShowCommaModal(false)
+    // Every list on screen splits with all the names (the config's too).
+    const all = Array.isArray(result?.all) ? result.all : [...configCommaArtists, ...artists]
     // RightSidebar keeps its own copy of this list (loaded once at mount,
     // since it stays mounted across normal route navigation) so its artist
     // link can resolve comma-containing names the same way PlayerBar's
     // does. Without this, the fix only takes effect after a remount/reload.
-    try { window.dispatchEvent(new CustomEvent('lokal:comma-artists-updated', { detail: artists })) } catch {}
+    try { window.dispatchEvent(new CustomEvent('lokal:comma-artists-updated', { detail: all })) } catch {}
   }
 
   const handleHistoryExport = async (format = 'json') => {
@@ -1411,10 +1426,13 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('library') && (
       <Section title="Artists">
-              <Row label="Whole Artist Names" desc="Artists whose name holds a separator -- a comma, &, /, x and so on, like Tyler, The Creator or AC/DC -- so they aren't split into several artists.">
-          <button onClick={() => setShowCommaModal(true)}
+        <Row stacked label="Performers Config" desc="A JSON file with whole artist names and separator words, used along with your own. Leave the link empty for the app's own file; Update downloads it again.">
+          <PerformersConfigSetup />
+        </Row>
+        <Row label="Whole Artist Names" desc="Artists whose name holds a separator -- a comma, &, /, x and so on, like Tyler, The Creator or AC/DC -- so they aren't split into several artists.">
+          <button onClick={() => { setCommaInput(keepCommaArtists.join('\n')); setShowCommaModal(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
-            {t('Configure ({n})', { n: keepCommaArtists.length })}
+            {t('Configure ({n})', { n: new Set([...configCommaArtists, ...keepCommaArtists].map(name => name.toLowerCase())).size })}
           </button>
         </Row>
         <Row label="Separator Words" desc="Words that credit a second artist, like feat., remix or prod.: add your own to split credits by them too.">
@@ -2851,19 +2869,21 @@ activeCategory === 'data' ? usersTried
           <p className="text-sm text-muted">
             {t('These names always stay one artist, whatever separator they hold (a comma, &, /, x...): "Tyler, The Creator" isn’t split into "Tyler" and "The Creator", and "Simon & Garfunkel" or "AC/DC" stay whole, also next to other artists. Enter one artist per line.')}
           </p>
-          <div className="bg-card/50 rounded-lg p-3 mb-2">
-            <p className="text-xs text-muted mb-2">{t('Examples (one per line):')}</p>
-            <div className="flex flex-wrap gap-2">
-              {['Tyler, The Creator', 'Earth, Wind & Fire', 'Simon & Garfunkel', 'AC/DC'].map(ex => (
-                <span key={ex} className="text-xs bg-accent/20 text-accent px-2 py-1 rounded">{ex}</span>
-              ))}
+          {configCommaArtists.length > 0 && (
+            <div>
+              <p className="text-xs font-display text-muted uppercase tracking-widest mb-1.5">{t('From the performers config')}</p>
+              <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+                {configCommaArtists.map(name => (
+                  <span key={name} className="rounded-full border border-border bg-card/60 px-2.5 py-1 text-xs text-white/70">{name}</span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div>
-            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Artists (one per line)')}</label>
+            <label className="text-xs font-display text-muted uppercase tracking-widest block mb-1.5">{t('Your artists (one per line)')}</label>
             <textarea value={commaInput} onChange={e => setCommaInput(e.target.value)}
-              placeholder="Tyler, The Creator
-Earth, Wind & Fire"
+              placeholder="Simon & Garfunkel
+AC/DC"
               rows={6}
               className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent/50 resize-none" />
           </div>

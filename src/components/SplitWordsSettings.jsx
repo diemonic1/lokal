@@ -14,17 +14,24 @@ import { useTranslation } from '../i18n'
 export default function SplitWordsSettings() {
   const { t } = useTranslation()
   const [builtIn, setBuiltIn] = useState([])
+  const [config, setConfig] = useState([])
   const [words, setWords] = useState([])
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState([''])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  const take = (result) => {
+    if (Array.isArray(result?.builtIn)) setBuiltIn(result.builtIn)
+    if (Array.isArray(result?.config)) setConfig(result.config)
+    if (Array.isArray(result?.words)) setWords(result.words)
+  }
   useEffect(() => {
-    Promise.resolve(api.getArtistSplitWords?.()).then(result => {
-      setBuiltIn(Array.isArray(result?.builtIn) ? result.builtIn : [])
-      setWords(Array.isArray(result?.words) ? result.words : [])
-    }).catch(() => {})
+    Promise.resolve(api.getArtistSplitWords?.()).then(take).catch(() => {})
+    // "Update" in Performers Config brings new words.
+    const onConfig = (event) => take(event.detail)
+    window.addEventListener('lokal:performers-config-updated', onConfig)
+    return () => window.removeEventListener('lokal:performers-config-updated', onConfig)
   }, [])
 
   const show = () => {
@@ -42,9 +49,9 @@ export default function SplitWordsSettings() {
     try {
       const result = await api.setArtistSplitWords(draft.map(word => word.trim()).filter(Boolean))
       if (!result || result.ok === false) throw new Error(result?.error || '?')
-      setWords(result.words || [])
+      take(result)
       // Every credit on screen splits with them now (ArtistNames.jsx).
-      try { window.dispatchEvent(new CustomEvent('lokal:split-words-updated', { detail: result.words || [] })) } catch {}
+      try { window.dispatchEvent(new CustomEvent('lokal:split-words-updated', { detail: result.applied || result.words || [] })) } catch {}
       setOpen(false)
     } catch (e) {
       setError(e?.message || String(e))
@@ -56,7 +63,7 @@ export default function SplitWordsSettings() {
   return <>
     <button onClick={show}
       className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white transition-colors">
-      {t('Configure ({n})', { n: builtIn.length + words.length })}
+      {t('Configure ({n})', { n: builtIn.length + config.length + words.length })}
     </button>
     <Modal open={open} onClose={() => setOpen(false)} title={t('Separator Words')} width="max-w-md">
       <div className="space-y-4">
@@ -71,6 +78,16 @@ export default function SplitWordsSettings() {
             ))}
           </div>
         </div>
+        {config.length > 0 && (
+          <div>
+            <p className="text-xs font-display text-muted uppercase tracking-widest mb-1.5">{t('From the performers config')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {config.map(word => (
+                <span key={word} className="rounded-full border border-border bg-card/60 px-2.5 py-1 text-xs text-white/70">{word}</span>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <p className="text-xs font-display text-muted uppercase tracking-widest mb-1.5">{t('Your words')}</p>
           <div className="space-y-1.5">

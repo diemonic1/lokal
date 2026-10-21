@@ -575,6 +575,21 @@ app.whenReady().then(() => {
       if (packages.list().length || packages.repos().length > 1) packages.refreshDue(0).catch(e => console.error('SpotiFLAC repository refresh:', e.message))
     } catch (e) { console.error('SpotiFLAC repository refresh:', e.message) }
   }, 8000).unref?.()
+  // The performers config (Settings > Artists) is downloaded again once a
+  // day, quietly: a failure keeps what's there (the window with the reason
+  // is for "Update" in Settings).
+  setTimeout(() => {
+    try {
+      const db = getDB()
+      const performers = require('./performers')
+      const { url, updatedAt } = performers.getPerformersConfig(db)
+      if (Date.now() - updatedAt < 24 * 60 * 60 * 1000) return
+      performers.loadPerformers(db, url).then((result) => {
+        if (result.ok) require('./ipc/scanner').relinkArtistsIfNeeded(db)
+        else console.warn('[performers] config not updated:', result.errors?.[0]?.code)
+      }).catch(e => console.error('Performers config:', e.message))
+    } catch (e) { console.error('Performers config:', e.message) }
+  }, 10000).unref?.()
   // Full-size song covers from before thumbnails become thumbnails (artwork/thumb.js)
   // (the full picture is read out of the file when shown big). Quietly in
   // the background; the lists then show the new paths.

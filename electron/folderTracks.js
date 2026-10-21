@@ -216,21 +216,89 @@ async function moveTrackToFolder(db, trackId, relativeFolder) {
   return { ok: true, filePath: target, trackNum: number, track: db.prepare('SELECT * FROM tracks WHERE id = ?').get(track.id) }
 }
 
-/** Copies files into the folder, numbered on from its biggest number. */
+/** A file name made of tag text: no characters Windows refuses, not too long. */
+function safeFileStem(text) {
+  const clean = String(text || '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/, '')
+  return clean.slice(0, 180).trim()
+}
+
+/** "Artist - Title.ext" when the tags hold both, else the file's own name. */
+async function droppedFileName(source) {
+  try {
+    const meta = await require('./musicMetadata').parseFile(source, { duration: false, skipCovers: true })
+    const artist = safeFileStem(meta.common.artist)
+    const title = safeFileStem(meta.common.title)
+    if (artist && title) return `${artist} - ${title}${path.extname(source).toLowerCase()}`
+  } catch {}
+  return path.basename(source)
+}
+
+/** Every genre the library has now (genreKey), so a dropped file brings no new ones. */
+function libraryGenreKeys(db) {
+  const { trackGenres, genreKey } = require('./genreList')
+  const keys = new Set()
+  try {
+    for (const row of db.prepare("SELECT genre, genres FROM tracks WHERE file_path NOT LIKE 'ghost://%'").iterate()) {
+      for (const name of trackGenres(row)) keys.add(genreKey(name))
+    }
+  } catch {}
+  return keys
+}
+
+/**
+ * A dropped file's copy: its track number, and only the genres the library
+ * already has (new ones are taken out of the tag). One save.
+ */
+function prepareDroppedCopy(filePath, number, knownGenres) {
+  const T = lib()
+  if (!T) throw new Error('Tag writer unavailable')
+  const { splitGenres, genreKey } = require('./genreList')
+  let file
+  try {
+    file = T.File.createFromPath(filePath)
+    const mp3 = /\.mp3$/i.test(filePath)
+    const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
+    file.tag.track = Math.max(0, Math.floor(Number(number) || 0))
+    const genres = Array.isArray(file.tag.genres) ? file.tag.genres : []
+    const parts = splitGenres(genres.join(';'))
+    const kept = parts.filter(name => knownGenres.has(genreKey(name)))
+    if (kept.length !== parts.length) file.tag.genres = kept
+    if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
+    file.save()
+  } catch (e) {
+    const busy = /EBUSY|EPERM|EACCES/i.test(String(e?.code || e?.message || ''))
+    throw new Error(busy ? 'The file is in use or read-only' : (e?.message || String(e)))
+  } finally {
+    try { file?.dispose() } catch {}
+  }
+}
+
+/**
+ * Copies files into the folder, numbered on from its biggest number. A copy
+ * is named "Artist - Title" when its tags hold both, and keeps only the
+ * genres the library already has.
+ */
 async function addFilesToFolder(db, filePaths, relativeFolder) {
   const dir = folderPath(db, relativeFolder)
   if (!dir) return { ok: false, error: 'That folder is not in the music folder', added: [], failed: [] }
   await fs.ensureDir(dir)
   let next = maxTrackNumber(db, relativeFolder) + 1
+  // Taken before any copy, so files dropped together don't vouch for each other's genres.
+  const knownGenres = libraryGenreKeys(db)
   const added = []
   const failed = []
   for (const source of Array.isArray(filePaths) ? filePaths : []) {
     try {
       if (typeof source !== 'string' || !fs.existsSync(source) || !fs.statSync(source).isFile()) throw new Error('File not found')
       if (!AUDIO_EXTS.has(path.extname(source).toLowerCase())) throw new Error('Not an audio file')
-      const target = freeName(dir, path.basename(source))
+      const target = freeName(dir, await droppedFileName(source))
       await fs.copy(source, target)
-      try { writeTrackNumber(target, next) } catch (e) { await fs.remove(target).catch(() => {}); throw e }
+      try { prepareDroppedCopy(target, next, knownGenres) } catch (e) { await fs.remove(target).catch(() => {}); throw e }
       // It joins the library now (LOKAL_ADDED, see addedDate.js).
       require('./addedDate').stampNewFile(db, target)
       added.push({ filePath: target, trackNum: next })

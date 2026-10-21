@@ -772,4 +772,16 @@ export default {
   'Your words': 'Ваши слова',
   'e.g. with': 'например, with',
   'Add a word': 'Добавить слово',
+
+  // Library > Artists > Performers Config
+  'Performers Config': 'Конфиг исполнителей',
+  "A JSON file with whole artist names and separator words, used along with your own. Leave the link empty for the app's own file; Update downloads it again.": 'JSON-файл с цельными именами исполнителей и словами-разделителями, они работают вместе с вашими. Оставьте ссылку пустой, чтобы использовать файл приложения; «Обновить» скачивает его заново.',
+  'Performers config link': 'Ссылка на конфиг исполнителей',
+  'Download the config again': 'Скачать конфиг заново',
+  'Loaded: {names} names, {words} words': 'Загружено: имён — {names}, слов — {words}',
+  "The performers config couldn't be loaded": 'Не удалось загрузить конфиг исполнителей',
+  'Nothing was changed: the names and words already loaded stay as they were. Fix the file or the link and try again.': 'Ничего не изменилось: уже загруженные имена и слова остались как были. Исправьте файл или ссылку и попробуйте снова.',
+  'The file must be a JSON object with a "whole_artist_names" or "separator_words" list.': 'Файл должен быть JSON-объектом со списком "whole_artist_names" или "separator_words".',
+  'From the performers config': 'Из конфига исполнителей',
+  'Your artists (one per line)': 'Ваши исполнители (по одному на строку)',
 }

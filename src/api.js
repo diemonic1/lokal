@@ -368,6 +368,9 @@ export const api = {
   setKeepCommaArtists: (artists) => isE() ? el().setKeepCommaArtists(artists) : apiFetch('/settings/keep-comma-artists', { method:'PUT', body:{artists} }),
   getArtistSplitWords: () => isE() ? el().getArtistSplitWords() : apiFetch('/settings/artist-split-words'),
   setArtistSplitWords: (words) => isE() ? el().setArtistSplitWords(words) : apiFetch('/settings/artist-split-words', { method: 'PUT', body: { words } }),
+  // The performers config (electron/performers.js): its link, data and the names/words it adds.
+  getPerformersConfig: () => isE() ? el().getPerformersConfig() : apiFetch('/settings/performers-config'),
+  loadPerformersConfig: (url) => isE() ? el().loadPerformersConfig(url) : apiFetch('/settings/performers-config', { method: 'POST', body: { url } }),
   getTheme: () => isE() ? el().getTheme() : apiFetch('/settings/theme'),
   saveTheme: (theme, overrides) => isE() ? el().saveTheme(theme, overrides) : apiFetch('/settings/theme', { method:'PUT', body:{theme, overrides} }),
   scanFolder: (f, o = {}) => isE() ? el().scanFolder(f, o) : apiFetch('/settings/scan', { method:'POST', body:{folder:f, full:!!o.full} }),

@@ -364,6 +364,8 @@ contextBridge.exposeInMainWorld('electron', {
   setKeepCommaArtists: (artists) => invoke('settings:setKeepCommaArtists', artists),
   getArtistSplitWords: () => invoke('settings:getArtistSplitWords'),
   setArtistSplitWords: (words) => invoke('settings:setArtistSplitWords', words),
+  getPerformersConfig: () => invoke('settings:getPerformersConfig'),
+  loadPerformersConfig: (url) => invoke('settings:loadPerformersConfig', url),
   getTheme: () => invoke('settings:getTheme'),
   saveTheme: (theme, overrides) => invoke('settings:saveTheme', { theme, overrides }),
   reportRemoteState: (state) => ipcRenderer.send('remote:stateUpdate', state),

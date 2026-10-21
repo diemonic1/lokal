@@ -66,6 +66,8 @@ function slugify(str) {
 }
 
 const artistSplit = require('../artistSplit')
+const performers = require('../performers')
+const performersState = performers.state
 
 // The music video's zoom in the side panel: 0-100 (%), null for none.
 function clipZoomValue(value) {
@@ -74,14 +76,14 @@ function clipZoomValue(value) {
 }
 
 function getKeepCommaArtists() {
-  let userDefined = []
+  let names = []
   try {
-    const setting = getDB().prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    if (setting?.value) userDefined = JSON.parse(setting.value)
-    // The user's separator words (Settings > Separator Words) too.
+    // The performers config's names and the user's own.
+    names = artistSplit.readKeepCommaList(getDB())
+    // The separator words (the config's and Settings > Separator Words) too.
     artistSplit.applySplitWordsFrom(getDB())
   } catch {}
-  return artistSplit.keepCommaSet(userDefined)
+  return artistSplit.keepCommaSet(names)
 }
 
 // The split itself (feat., / \ ; , & x vs) lives in electron/artistSplit.js.
@@ -200,7 +202,7 @@ function relinkArtists(db = getDB()) {
  * since the last pass, so a routine scan doesn't walk every track.
  */
 function relinkArtistsIfNeeded(db = getDB()) {
-  const keepComma = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()?.value || '[]'
+  const keepComma = JSON.stringify(artistSplit.readKeepCommaList(db))
   const splitWords = JSON.stringify(artistSplit.applySplitWordsFrom(db))
   const fingerprint = `${ARTIST_SPLITTER_VERSION}:${keepComma}:${splitWords}`
   const last = db.prepare("SELECT value FROM settings WHERE key = 'artist_relink_fingerprint'").get()?.value
@@ -1898,18 +1900,37 @@ function registerScannerHandlers(ipcMain) {
     // Write, or remove, the file made from a pasted YouTube cookie.
     require('./ytCookies').syncPastedCookie(Object.fromEntries(getDB().prepare('SELECT key, value FROM settings').all().map(r => [r.key, r.value])))
   })
-  ipcMain.handle('settings:getKeepCommaArtists', () => { try { const db = getDB(); const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get(); return setting?.value ? JSON.parse(setting.value) : [] } catch { return [] } })
-  ipcMain.handle('settings:setKeepCommaArtists', (_, artists) => getDB().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('keep_comma_artists', ?)").run(JSON.stringify(artists)))
-  // Separator words: the built-in ones (always on) and the user's own. Saving
-  // re-links the library's artists straight away.
-  ipcMain.handle('settings:getArtistSplitWords', () => ({ builtIn: artistSplit.DEFAULT_SPLIT_WORDS, words: artistSplit.applySplitWordsFrom(getDB()) }))
+  // Every whole artist name the credits are read with (the performers
+  // config's and the user's); Settings edits only the user's (getPerformersConfig).
+  ipcMain.handle('settings:getKeepCommaArtists', () => { try { return artistSplit.readKeepCommaList(getDB()) } catch { return [] } })
+  ipcMain.handle('settings:setKeepCommaArtists', (_, artists) => {
+    const db = getDB()
+    const list = (Array.isArray(artists) ? artists : []).map(name => String(name || '').trim()).filter(Boolean)
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('keep_comma_artists', ?)").run(JSON.stringify(list))
+    try { relinkArtistsIfNeeded(db) } catch {}
+    return { ok: true, artists: list, all: artistSplit.readKeepCommaList(db) }
+  })
+  // Separator words: the built-in ones (always on), the performers config's
+  // and the user's own. Saving re-links the library's artists straight away.
+  ipcMain.handle('settings:getArtistSplitWords', () => performersState.splitWords(getDB()))
   ipcMain.handle('settings:setArtistSplitWords', (_, words) => {
     try {
       const db = getDB()
-      const saved = artistSplit.saveSplitWords(db, words)
+      artistSplit.saveSplitWords(db, words)
       const relinked = relinkArtistsIfNeeded(db)
-      return { ok: true, words: saved, relinked }
+      return { ok: true, ...performersState.splitWords(db), relinked }
     } catch (e) { return { ok: false, error: e.message } }
+  })
+  // The performers config (electron/performers.js): its link, and "Update".
+  ipcMain.handle('settings:getPerformersConfig', () => performersState.config(getDB()))
+  ipcMain.handle('settings:loadPerformersConfig', async (_, url) => {
+    try {
+      const db = getDB()
+      const result = await performers.loadPerformers(db, url)
+      if (!result.ok) return result
+      const relinked = relinkArtistsIfNeeded(db)
+      return { ...performersState.config(db), ok: true, relinked }
+    } catch (e) { return { ok: false, errors: [{ path: '', code: 'network', detail: String(e?.message || e) }] } }
   })
 
   ipcMain.handle('settings:getTheme', () => {

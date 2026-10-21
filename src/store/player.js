@@ -264,6 +264,12 @@ let outputRoute = null
 export function setOutputRoute(route) { outputRoute = route || null }
 export function getOutputRoute() { return outputRoute }
 
+// Playback paused by turning the volume down to 0 (setVolume): turning it up
+// plays on. Pressing play or pause meanwhile (anything else that changes
+// isPlaying, see the subscription below the store) forgets it.
+let pausedByVolume = false
+let volumeToggling = false
+
 export const usePlayerStore = create((set, get) => ({
   queue: [], queueIndex: -1, currentTrack: null,
   playbackContext: null,
@@ -932,9 +938,21 @@ export const usePlayerStore = create((set, get) => ({
   setDuration: (v) => set({ duration: v }),
   // While casting the slider is the TV's volume, and this computer's own is
   // left as it was (put back when casting ends).
+  // Turning the volume down to 0 pauses (a song or a station), and turning it
+  // up again plays on -- unless play or pause was pressed in between; play
+  // still works at 0.
   setVolume: (v) => {
-    if (outputRoute) { outputRoute.setVolume(v); set({ volume: v }); return }
-    localStorage.setItem('lokal-volume', String(v)); set({ volume: v })
+    const { volume: before, isPlaying, currentTrack } = get()
+    if (outputRoute) { outputRoute.setVolume(v); set({ volume: v }) }
+    else { localStorage.setItem('lokal-volume', String(v)); set({ volume: v }) }
+    const toggle = () => { volumeToggling = true; try { get().togglePlay() } finally { volumeToggling = false } }
+    if (v <= 0 && before > 0 && isPlaying && currentTrack) {
+      toggle()
+      pausedByVolume = !get().isPlaying
+    } else if (v > 0 && pausedByVolume) {
+      pausedByVolume = false
+      if (!isPlaying && currentTrack) toggle()
+    }
   },
   toggleRepeat: () => set(s => ({ repeat: s.repeat === 'none' ? 'all' : s.repeat === 'all' ? 'one' : 'none' })),
   // Direct setter, unlike toggleRepeat above: needed for the Windows SMTC
@@ -1172,6 +1190,10 @@ export const usePlayerStore = create((set, get) => ({
     }
   }) },
 }))
+
+usePlayerStore.subscribe((state, previous) => {
+  if (!volumeToggling && state.isPlaying !== previous.isPlaying) pausedByVolume = false
+})
 
 export const useAppStore = create((set, get) => ({
   user: loadUser(),

@@ -17,11 +17,7 @@ function getKeepCommaArtists() {
   ])
   try {
     const db = getDB()
-    const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-    if (setting?.value) {
-      const userDefined = JSON.parse(setting.value)
-      userDefined.forEach(artist => keepComma.add(String(artist || '').toLowerCase().trim()))
-    }
+    require('../artistSplit').readKeepCommaList(db).forEach(artist => keepComma.add(artist.toLowerCase()))
   } catch {}
   return keepComma
 }

@@ -20,8 +20,7 @@ function getFirstArtist(artistString) {
     try {
       const { getDB } = require('./db')
       const db = getDB()
-      const setting = db.prepare("SELECT value FROM settings WHERE key = 'keep_comma_artists'").get()
-      keepCommaArtistsCache = setting?.value ? JSON.parse(setting.value) : []
+      keepCommaArtistsCache = require('../artistSplit').readKeepCommaList(db)
     } catch {
       keepCommaArtistsCache = []
     }

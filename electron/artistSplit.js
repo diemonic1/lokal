@@ -177,6 +177,7 @@ function splitArtists(raw, keepComma = keepCommaSet()) {
 const SPLIT_WORDS_KEY = 'artist_split_words'
 let appliedWords = null
 
+/** The user's own words (Settings > Separator Words). */
 function readSplitWords(db) {
   try {
     const value = db.prepare('SELECT value FROM settings WHERE key = ?').get(SPLIT_WORDS_KEY)?.value
@@ -184,12 +185,44 @@ function readSplitWords(db) {
   } catch { return [] }
 }
 
-/** Splits with the words the settings hold now. -> the words */
+/** The performers config's words (electron/performers.js) that aren't built in. */
+function configSplitWords(db) {
+  try { return normalizeSplitWords(require('./performers').configLists(db).words) } catch { return [] }
+}
+
+/** Splits with the words the settings and the performers config hold now. -> every word applied */
 function applySplitWordsFrom(db) {
-  const words = readSplitWords(db)
+  const words = normalizeSplitWords([...configSplitWords(db), ...readSplitWords(db)])
   const key = JSON.stringify(words)
   if (key !== appliedWords) { appliedWords = key; setSplitWords(words) }
   return words
+}
+
+// The user's whole artist names (Settings > keep_comma_artists), as typed.
+const KEEP_COMMA_KEY = 'keep_comma_artists'
+
+function readUserKeepComma(db) {
+  try {
+    const value = db.prepare('SELECT value FROM settings WHERE key = ?').get(KEEP_COMMA_KEY)?.value
+    const list = value ? JSON.parse(value) : []
+    return Array.isArray(list) ? list.map(name => String(name || '').trim()).filter(Boolean) : []
+  } catch { return [] }
+}
+
+/**
+ * Every whole artist name besides the built-in ones: the performers
+ * config's and the user's, without repeats. keepCommaSet() adds the built-in.
+ */
+function readKeepCommaList(db) {
+  let fromConfig = []
+  try { fromConfig = require('./performers').configLists(db).names } catch {}
+  const seen = new Set()
+  return [...fromConfig, ...readUserKeepComma(db)].filter(name => {
+    const key = name.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 /** Saves the user's words (cleaned) and splits with them from now on. -> the words */
@@ -200,4 +233,4 @@ function saveSplitWords(db, words) {
   return list
 }
 
-module.exports = { DEFAULT_KEEP_COMMA_ARTISTS, DEFAULT_SPLIT_WORDS, SPLIT_WORDS_KEY, keepCommaSet, normalizeSplitWords, setSplitWords, splitArtists, readSplitWords, applySplitWordsFrom, saveSplitWords }
+module.exports = { DEFAULT_KEEP_COMMA_ARTISTS, DEFAULT_SPLIT_WORDS, SPLIT_WORDS_KEY, KEEP_COMMA_KEY, keepCommaSet, normalizeSplitWords, setSplitWords, splitArtists, readSplitWords, configSplitWords, applySplitWordsFrom, saveSplitWords, readUserKeepComma, readKeepCommaList }
