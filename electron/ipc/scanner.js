@@ -24,6 +24,10 @@ const { recordListeningEvent } = require('./recaps')
 
 const DEFAULT_MUSIC_PATH = 'C:\\Users\\sipbuu\\Music'
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.wav', '.aac', '.opus', '.wma', '.alac', '.ape'])
+// Syncthing's copy of a file two devices changed at once ("Song.sync-conflict-20261021-123456-ABCDEFG.mp3"):
+// not a song of its own.
+const SYNC_CONFLICT = /\.sync-conflict-\d{8}-\d{6}(-[A-Z0-9]+)?\.[^.]+$/i
+const isAudioFile = name => AUDIO_EXTS.has(path.extname(name).toLowerCase()) && !SYNC_CONFLICT.test(name)
 // Same secrets as the web server's SECRET_KEYS (server/routes/settings.js):
 // masked by settings:get, left out of settings:exportAll, kept on import.
 const SECRET_SETTING_KEYS = new Set(['soulseek_api_key', 'soulseek_password', 'spicylyrics_api_key', 'spotify_sp_dc', 'apple_music_user_token', 'listenbrainz_token', 'lastfm_api_secret', 'lastfm_session_key', 'yt_cookie_header'])
@@ -481,7 +485,7 @@ async function listAudioFiles(dir, files = []) {
   for (const entry of entries) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) subdirs.push(full)
-    else if (AUDIO_EXTS.has(path.extname(entry.name).toLowerCase())) files.push(full)
+    else if (isAudioFile(entry.name)) files.push(full)
   }
   for (const sub of subdirs) await listAudioFiles(sub, files)
   return files
@@ -730,7 +734,7 @@ async function applyFileChanges(changes) {
       // A folder moved or copied in: its songs. (A folder only "changes"
       // when something in it does, and that something is reported itself.)
       if (renamed) for (const file of await listAudioFiles(changed)) files.add(file)
-    } else if (AUDIO_EXTS.has(path.extname(changed).toLowerCase())) files.add(changed)
+    } else if (isAudioFile(changed)) files.add(changed)
   }
   const items = []
   await eachLimit([...files], PARSE_CONCURRENCY, async (filePath) => {
@@ -2370,7 +2374,7 @@ async function indexSingleFile(filePath, opts = {}) {
   return { success: true, id: trackId }
 }
 
-module.exports = { sourceFilter, genreFilter, userStats, registerScannerHandlers, scanFolder, applyFileChanges, watchLibraryAfterScans, DEFAULT_MUSIC_PATH, indexSingleFile, AUDIO_EXTS, relinkArtists, relinkArtistsIfNeeded, SECRET_SETTING_KEYS, getLibraryFolders }
+module.exports = { sourceFilter, genreFilter, userStats, registerScannerHandlers, scanFolder, applyFileChanges, watchLibraryAfterScans, DEFAULT_MUSIC_PATH, indexSingleFile, AUDIO_EXTS, isAudioFile, relinkArtists, relinkArtistsIfNeeded, SECRET_SETTING_KEYS, getLibraryFolders }
 
 
 function registerExtraHandlers(ipcMain) {

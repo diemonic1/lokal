@@ -39,7 +39,12 @@ function registerAutomixHandlers(ipcMain) {
     if (!file || /^(ghost|https?):/i.test(file) || !fs.existsSync(file)) return null
     let stamp = ''
     try { const st = fs.statSync(file); stamp = `${st.size}:${Math.round(st.mtimeMs)}` } catch {}
-    return { db: getDB(), key: `${track.id}|${stamp}`, file, log, ffmpeg: () => require('./tools').findFfmpeg() }
+    const db = getDB()
+    return {
+      db, key: `${track.id}|${stamp}`, file, log, ffmpeg: () => require('./tools').findFfmpeg(),
+      // The ReplayGain tags went into the file: the watcher needn't read it again.
+      onWritten: written => require('../fileStamp').noteFileWritten(db, written),
+    }
   }
   ipcMain.handle('loudness:measure', async (_, track) => {
     const job = loudnessJob(track)

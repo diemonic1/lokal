@@ -1,0 +1,64 @@
+{
+  "sine-44100-stereo-cbr.mp3": {
+    "status": 0,
+    "lufsTenths": -385,
+    "peakMicro": 11993,
+    "sampleRate": 44100,
+    "channels": 2,
+    "frames": 267264,
+    "taggedSha256": "88c2f75b208dcafd72ee1b2d1e8a31475f9d2dd81e996ab3f8af9bd5b27c8f93"
+  },
+  "pink-48000-stereo-vbr-v24.mp3": {
+    "status": 0,
+    "lufsTenths": -209,
+    "peakMicro": 284027,
+    "sampleRate": 48000,
+    "channels": 2,
+    "frames": 243072,
+    "taggedSha256": "ecb1131d17b85b42cc190189b7cf5483339acd2cd40c825ddecc9364b19cc277"
+  },
+  "white-32000-mono-v23-padded.mp3": {
+    "status": 0,
+    "lufsTenths": -128,
+    "peakMicro": 443329,
+    "sampleRate": 32000,
+    "channels": 1,
+    "frames": 131328,
+    "taggedSha256": "95214b981b9ccb693107dab4857302d873bbc969c5002622177ec5d4b85c017b"
+  },
+  "brown-22050-mono-id3v1.mp3": {
+    "status": 0,
+    "lufsTenths": -189,
+    "peakMicro": 647949,
+    "sampleRate": 22050,
+    "channels": 1,
+    "frames": 90432,
+    "taggedSha256": "cbd82979b89ef0402d304819e8747da7264382c46d659152d81a6fbf47cdcb32"
+  },
+  "sine-8000-mono-mpeg25.mp3": {
+    "status": 0,
+    "lufsTenths": -341,
+    "peakMicro": 29968,
+    "sampleRate": 8000,
+    "channels": 1,
+    "frames": 33984,
+    "taggedSha256": "c2c902de5c96a207d9e6f1a3ffc58801b9c5aa255d06a94037ae86775468e9e9"
+  },
+  "square-44100-clipped-v23-rg.mp3": {
+    "status": 0,
+    "lufsTenths": 20,
+    "peakMicro": 1000000,
+    "sampleRate": 44100,
+    "channels": 2,
+    "frames": 179712,
+    "taggedSha256": "7b0f2abb02a6b2e48189aeeeb9b550ae1935ca4040a6634e76e54154466d10f3"
+  },
+  "silence-44100-stereo.mp3": {
+    "status": 1,
+    "lufsTenths": 0,
+    "peakMicro": 0,
+    "sampleRate": 44100,
+    "channels": 2,
+    "frames": 134784
+  }
+}

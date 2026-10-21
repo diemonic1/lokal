@@ -29,14 +29,26 @@ export const MAX_CUT_DB = 24
  * ({ lufs, peakDb }), else 1. `target` null: ReplayGain only, as it was.
  */
 export function normalizedMultiplier({ tags, mode, measured, target }) {
-  const offsetDb = target == null ? 0 : target - REPLAYGAIN_REFERENCE_LUFS
-  if (hasReplayGain(tags, mode)) return replayGainMultiplier(tags, mode) * Math.pow(10, offsetDb / 20)
-  if (target == null || !Number.isFinite(measured?.lufs)) return 1
+  if (target == null) return hasReplayGain(tags, mode) ? replayGainMultiplier(tags, mode) : 1
+  // With normalization on, a song's tags stand for a measurement (gain = -18 -
+  // LUFS; Lokal writes them from its own) and get the same limits, so a song
+  // plays as loud before and after its tags were written.
+  if (hasReplayGain(tags, mode)) measured = replayGainAsMeasured(tags, mode)
+  if (!Number.isFinite(measured?.lufs)) return 1
   let gainDb = Math.max(-MAX_CUT_DB, Math.min(MAX_BOOST_DB, target - measured.lufs))
   // A boost doesn't push the peaks more than 6 dB past full scale (the limiter
   // can take that much without being heard).
   if (gainDb > 0 && Number.isFinite(measured.peakDb)) gainDb = Math.min(gainDb, Math.max(0, 6 - measured.peakDb))
   return Math.pow(10, gainDb / 20)
+}
+
+/** The tags' gain (track or album, as `mode` says) as { lufs, peakDb }. */
+function replayGainAsMeasured(tags, mode) {
+  const albumGain = finiteNumber(tags.albumGainDb)
+  const useAlbum = normalizeReplayGainMode(mode) === 'album' && albumGain !== null
+  const gainDb = useAlbum ? albumGain : finiteNumber(tags.trackGainDb)
+  const peak = (useAlbum ? finiteNumber(tags.albumPeak) : null) ?? finiteNumber(tags.trackPeak)
+  return { lufs: REPLAYGAIN_REFERENCE_LUFS - gainDb, peakDb: peak !== null && peak > 0 ? 20 * Math.log10(peak) : null }
 }
 
 export function replayGainMultiplier(tags, mode) {

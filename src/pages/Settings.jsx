@@ -1514,7 +1514,7 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('playback') && (
       <Section title="Loudness Normalization">
-        <Row label="Normalize Loudness" desc="Plays every song at the same loudness, so you don't reach for the volume between a quiet old recording and a loud new one. Each song's loudness is measured once (LUFS, as streaming services do; needs ffmpeg) and kept; a song played for the first time settles to its level within a few seconds. A limiter keeps boosted songs from clipping. The visualizations move with the normalized sound.">
+        <Row label="Normalize Loudness" desc="Plays every song at the same loudness, so you don't reach for the volume between a quiet old recording and a loud new one. Each song's loudness is measured once (LUFS, as streaming services do) and kept; MP3s also get it written into their ReplayGain tags, which other players and Lokal for Android read. A song played for the first time settles to its level within a moment. A limiter keeps boosted songs from clipping. The visualizations move with the normalized sound.">
           <button
             onClick={() => set('loudness_normalization', loudnessSettings.enabled ? '0' : '1')}
             className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${loudnessSettings.enabled ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
