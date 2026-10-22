@@ -1374,11 +1374,10 @@ export default function LyricsPanel({
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          // The sidebar has no empty space after the last line, so its closing
-          // lines light up near the bottom edge -- keep the fade there short
-          // enough not to dim them.
-          maskImage: edgeFade ? `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)` : undefined,
-          WebkitMaskImage: edgeFade ? `linear-gradient(to bottom, transparent 0, black 9%, black ${fullscreen ? 82 : 94}%, transparent 100%)` : undefined,
+          // Only full screen fades its edges: in the side panels the fade hid
+          // the lines near the bottom (and top) edge.
+          maskImage: edgeFade && fullscreen ? 'linear-gradient(to bottom, transparent 0, black 9%, black 82%, transparent 100%)' : undefined,
+          WebkitMaskImage: edgeFade && fullscreen ? 'linear-gradient(to bottom, transparent 0, black 9%, black 82%, transparent 100%)' : undefined,
         }}
       >
         <div className={`w-full ${fullscreen ? 'max-w-3xl mx-auto px-6' : 'px-3'}`}>

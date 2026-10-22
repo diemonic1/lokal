@@ -13,7 +13,7 @@ import { useCachedState, usePageReady } from '../pageCache'
 import { plural } from '../plural'
 import ContextMenu, { useContextMenu } from '../components/ContextMenu'
 import { showToast, showLoadingToast } from '../components/Toaster'
-import { addToPlaylistMany, addToQueueMany, playNextMany, saveAsPlaylist } from '../trackActions'
+import { addToPlaylistMany, addToQueueMany, playNextMany } from '../trackActions'
 import { artistPath } from '../releaseActions'
 import ProviderConnections from '../components/ProviderConnections'
 import { libraryDownloadMessage, saveTracksToLibrary, trackArtURL } from '../onlineTracks'
@@ -30,7 +30,6 @@ import UnfollowedArtists from '../components/UnfollowedArtists'
 import MadeForYou from '../components/MadeForYou'
 import { madeForYou } from '../madeForYou'
 
-const today = () => new Date().toLocaleDateString(getLanguage(), { day: 'numeric', month: 'long', year: 'numeric' })
 const mixTitle = (mix) => (mix.type === 'artist' ? translate('{name} Mix', { name: mix.name }) : mix.name)
 
 function homeRoute(pathname) {
@@ -65,8 +64,7 @@ function dateLabel(timestamp) {
   return new Date(value * 1000).toLocaleDateString(getLanguage(), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-function MixCard({ mix, onClick, onSave, saving, onContextMenu }) {
-  const { t } = useTranslation()
+function MixCard({ mix, onClick, onContextMenu }) {
   const arts = [...new Map(mix.tracks.map(track => [trackArtURL(track), track]).filter(([art]) => art)).values()].slice(0, 4)
   return (
     <motion.div whileHover={{ scale: 1.03 }} className="relative group" onContextMenu={onContextMenu}>
@@ -79,9 +77,6 @@ function MixCard({ mix, onClick, onSave, saving, onContextMenu }) {
         </div>
         <div><p className="text-sm font-medium text-white truncate">{mix.name}</p><p className="text-xs text-muted">{plural(mix.tracks.length, 'track')} · {mixTitle(mix)}</p></div>
       </motion.button>
-      <button onClick={onSave} disabled={saving} title={t('Save as playlist')} aria-label={t('Save {name} as a playlist', { name: mixTitle(mix) })} className={`absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/85 backdrop-blur transition-all hover:bg-black/80 hover:text-accent focus:opacity-100 ${saving ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        {saving ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" /> : <ListPlus size={15} />}
-      </button>
     </motion.div>
   )
 }
@@ -150,7 +145,7 @@ function ScrobbleHistory({ entries, resolveTracks }) {
   return <div className="space-y-6">{groups.map(group => <section key={group.date}><div className="mb-2 flex items-center gap-2 text-xs font-display uppercase tracking-widest text-muted"><CalendarDays size={14} />{group.date}</div><div className="rounded-xl border border-border bg-elevated p-3"><TrackList tracks={recommendationRows(group.entries)} extraColumns={historyColumns()} resolveTracks={resolveTracks} reduceMotion context={{ type: 'discovery', name: 'Scrobble History' }} /></div></section>)}</div>
 }
 
-function RecommendationSections({ data, localArtists, allArtists, source: selectedSource, loading, error, onRefresh, onSourceChange, onPlay, resolveTracks, getDownloadTrack, onTrackMenu, onRadio, onArtistPlay, onArtistMenu, onAlbumPlay, onAlbumMenu, onProviderMixPlay, onProviderMixMenu, onSaveFresh, onSaveQuick, saving, onOpenSettings, activeSection, onSection }) {
+function RecommendationSections({ data, localArtists, allArtists, source: selectedSource, loading, error, onRefresh, onSourceChange, onPlay, resolveTracks, getDownloadTrack, onTrackMenu, onRadio, onArtistPlay, onArtistMenu, onAlbumPlay, onAlbumMenu, onProviderMixPlay, onProviderMixMenu, onOpenSettings, activeSection, onSection }) {
   const { t } = useTranslation()
   const source = sourceName(selectedSource)
   const quick = Array.isArray(data?.quickPicks) ? data.quickPicks : []
@@ -178,8 +173,8 @@ function RecommendationSections({ data, localArtists, allArtists, source: select
     {data && !secondary.length && !history.length && !albums.length && !providerMixes.length && !artists.length && !fresh.length && <p className="py-10 text-center text-sm text-muted">{t('No {source} recommendations are available yet.', { source })}</p>}
     {/* YouTube Music: your personal mixes first. */}
     {selectedSource === 'youtube' && data && <section><SectionHeader icon={Radio} eyebrow={t('Made for you')} title={t('Mixed for you')} count={providerMixes.length || null} onExpand={providerMixes.length ? () => toggle('mixes') : undefined} expanded={activeSection === 'mixes'} />{providerMixes.length ? <div className="grid grid-cols-2 gap-4 @md:grid-cols-3 @lg:grid-cols-6">{(activeSection === 'mixes' ? providerMixes : providerMixes.slice(0, 6)).map((mix, index) => <div key={mix.id} className={activeSection === 'mixes' || index < 2 ? '' : index < 3 ? 'hidden @md:block' : 'hidden @lg:block'}><AlbumRecommendation album={{ ...mix, artist: mix.author || 'YouTube Music' }} onClick={() => onProviderMixPlay(mix)} onContextMenu={event => onProviderMixMenu(event, mix)} /></div>)}</div> : <p role="status" className="rounded-xl border border-border bg-elevated p-4 text-sm text-muted">{loading ? t('Loading your YouTube Music mixes…') : data.mixError ? t('Could not load your YouTube Music mixes. {error}', { error: t(data.mixError) }) : t('YouTube Music did not return your personalized mixes. Refresh to try again.')}</p>}</section>}
-    {fresh.length > 0 && <section><SectionHeader icon={Music} eyebrow={t('Fresh Finds')} title={t('Fresh Finds')} count={fresh.length} subtitle={t('More music from {source}.', { source })} onExpand={() => toggle('fresh')} expanded={activeSection === 'fresh'} action={<button type="button" aria-label={t('Save Fresh Finds as a playlist')} title={t('Save Fresh Finds as a playlist')} onClick={onSaveFresh} disabled={!!saving} className="inline-flex h-7 w-7 items-center justify-center rounded-full text-accent hover:bg-accent/10 hover:text-accent/70 disabled:opacity-50">{saving === 'fresh-finds' ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" /> : <ListPlus size={15} />}</button>} /><div className="grid gap-2 @md:grid-cols-2 @lg:grid-cols-3">{(activeSection === 'fresh' ? fresh : fresh.slice(0, 6)).map(track => <DiscoveryTrack key={songKey(track)} track={track} getDownloadTrack={getDownloadTrack} onPlay={item => onPlay(item, 'fresh')} onRadio={onRadio} onContextMenu={(event, item) => onTrackMenu(event, item, 'fresh')} />)}</div></section>}
-    {secondary.length > 0 && <section><SectionHeader icon={Sparkles} eyebrow={selectedSource === 'youtube' ? t('Recently liked') : t('Jump back in')} title={selectedSource === 'youtube' ? t('YouTube Music Likes') : t('Quick Picks')} count={secondary.length} subtitle={selectedSource === 'youtube' ? t('Your 30 most recently liked tracks on YouTube Music.') : t('Tracks you scrobbled most often over the past week.')} onExpand={() => toggle(secondaryKey)} expanded={activeSection === secondaryKey} action={<button type="button" aria-label={t('Save {name} as a playlist', { name: selectedSource === 'youtube' ? t('YouTube Music Likes') : t('Quick Picks') })} title={t('Save {name} as a playlist', { name: selectedSource === 'youtube' ? t('YouTube Music Likes') : t('Quick Picks') })} onClick={onSaveQuick} disabled={!!saving} className="inline-flex h-7 w-7 items-center justify-center rounded-full text-accent hover:bg-accent/10 hover:text-accent/70 disabled:opacity-50">{saving === (selectedSource === 'youtube' ? 'youtube-likes' : 'quick-picks') ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" /> : <ListPlus size={15} />}</button>} /><div className="grid gap-2 @md:grid-cols-2 @lg:grid-cols-3">{(activeSection === secondaryKey ? secondary : secondary.slice(0, 6)).map(track => <DiscoveryTrack key={songKey(track)} track={track} getDownloadTrack={getDownloadTrack} onPlay={item => onPlay(item, secondaryKey)} onRadio={onRadio} onContextMenu={(event, item) => onTrackMenu(event, item, secondaryKey)} />)}</div></section>}
+    {fresh.length > 0 && <section><SectionHeader icon={Music} eyebrow={t('Fresh Finds')} title={t('Fresh Finds')} count={fresh.length} subtitle={t('More music from {source}.', { source })} onExpand={() => toggle('fresh')} expanded={activeSection === 'fresh'} /><div className="grid gap-2 @md:grid-cols-2 @lg:grid-cols-3">{(activeSection === 'fresh' ? fresh : fresh.slice(0, 6)).map(track => <DiscoveryTrack key={songKey(track)} track={track} getDownloadTrack={getDownloadTrack} onPlay={item => onPlay(item, 'fresh')} onRadio={onRadio} onContextMenu={(event, item) => onTrackMenu(event, item, 'fresh')} />)}</div></section>}
+    {secondary.length > 0 && <section><SectionHeader icon={Sparkles} eyebrow={selectedSource === 'youtube' ? t('Recently liked') : t('Jump back in')} title={selectedSource === 'youtube' ? t('YouTube Music Likes') : t('Quick Picks')} count={secondary.length} subtitle={selectedSource === 'youtube' ? t('Your 30 most recently liked tracks on YouTube Music.') : t('Tracks you scrobbled most often over the past week.')} onExpand={() => toggle(secondaryKey)} expanded={activeSection === secondaryKey} /><div className="grid gap-2 @md:grid-cols-2 @lg:grid-cols-3">{(activeSection === secondaryKey ? secondary : secondary.slice(0, 6)).map(track => <DiscoveryTrack key={songKey(track)} track={track} getDownloadTrack={getDownloadTrack} onPlay={item => onPlay(item, secondaryKey)} onRadio={onRadio} onContextMenu={(event, item) => onTrackMenu(event, item, secondaryKey)} />)}</div></section>}
     {history.length > 0 && <section><SectionHeader icon={History} eyebrow={t('History')} title={selectedSource === 'youtube' ? t('YouTube Music History') : t('Scrobble History')} count={history.length} subtitle={selectedSource === 'youtube' ? t('Recent tracks from your YouTube Music listening history.') : t('Your last 100 provider scrobbles, grouped by date.')} onExpand={() => toggle('history')} expanded={activeSection === 'history'} />{selectedSource === 'youtube' ? <TrackList tracks={recommendationRows(activeSection === 'history' ? history : history.slice(0, 6))} resolveTracks={resolveTracks} reduceMotion context={{ type: 'discovery', name: 'YouTube Music History' }} /> : <ScrobbleHistory entries={activeSection === 'history' ? history : history.slice(0, 6)} resolveTracks={resolveTracks} />}</section>}
     {selectedSource !== 'youtube' && albums.length > 0 && <section><SectionHeader icon={Disc3} eyebrow={t('Rotation')} title={t('Albums For You')} count={albums.length} onExpand={() => toggle('albums')} expanded={activeSection === 'albums'} /><div className="grid grid-cols-2 gap-4 @md:grid-cols-3 @lg:grid-cols-6">{(activeSection === 'albums' ? albums : albums.slice(0, 6)).map(album => <AlbumRecommendation key={`${album.artist}-${album.title}`} album={album} onClick={onAlbumPlay} onContextMenu={onAlbumMenu} />)}</div></section>}
     {artists.length > 0 && <section><SectionHeader icon={User} eyebrow={t('For You')} title={t('Artists For You')} count={artists.length} onExpand={() => toggle('artists')} expanded={activeSection === 'artists'} /><div className="grid grid-cols-3 gap-4 @sm:grid-cols-4 @md:grid-cols-6 @lg:grid-cols-8">{(activeSection === 'artists' ? artists : artists.slice(0, 8)).map(artist => <ArtistRecommendation key={artist.name} artist={artist} onClick={onArtistPlay} onContextMenu={onArtistMenu} />)}</div></section>}
@@ -210,7 +205,6 @@ function HomeContent({ user }) {
   const playQueue = usePlayerStore(s => s.playQueue)
   const navigate = useNavigate()
   const menu = useContextMenu()
-  const [saving, setSaving] = useState(null)
   const [localArtists, setLocalArtists] = useState([])
   const [artistsLoaded, setArtistsLoaded] = useState(false)
   const hiddenArtists = useDiscoveryArtists(s => s.hidden)
@@ -229,22 +223,6 @@ function HomeContent({ user }) {
   const pendingPlayRef = useRef(null)
   const accountRef = useRef(sessionState.account)
   accountRef.current = sessionState.account
-  const saveBusyRef = useRef(false)
-
-  const saveList = async (key, name, items, description) => {
-    if (saveBusyRef.current) return
-    saveBusyRef.current = true
-    setSaving(key)
-    try {
-      const tracks = typeof items === 'function' ? await items() : items
-      if (!tracks.length) { showToast(t('No playable matches were found.')); return }
-      const playlist = await saveAsPlaylist(name, tracks, { userId: user?.id, description })
-      showToast(playlist ? t('Saved "{name}" ({count})', { name, count: plural(new Set(tracks.map(track => track.id)).size, 'song') }) : t('Could not create playlist'))
-    } catch { showToast(t('Could not create playlist')) }
-    finally { saveBusyRef.current = false; setSaving(null) }
-  }
-  const saveMix = mix => saveList(`mix:${mix.id}`, `${mixTitle(mix)} - ${today()}`, mix.tracks, t('Your {name} from Home', { name: mixTitle(mix) }))
-
   const playRecommendation = async (entry, context = 'recommendations', pool = [entry]) => {
     const track = entry?.track || entry
     if (!track) return
@@ -325,18 +303,6 @@ function HomeContent({ user }) {
     return resolved
   }
 
-  const saveRecommendedAlbum = async album => {
-    const toast = showLoadingToast(t('Loading {name}…', { name: album.title }))
-    try {
-      const tracks = await resolveRecommendedAlbum(album, message => toast.update(message))
-      if (!tracks.length) { toast.close(); return }
-      const playlist = await saveAsPlaylist(`${album.title} - ${today()}`, tracks, { userId: user?.id, description: t('Recommended album by {artist}', { artist: album.artist }) })
-      toast.close(playlist ? t('Saved “{name}” as a playlist.', { name: album.title }) : t('Could not save “{name}”.', { name: album.title }))
-    } catch {
-      toast.close(t('Could not save “{name}”.', { name: album.title }))
-    }
-  }
-
   const downloadRecommendedAlbum = async album => {
     const toast = showLoadingToast(t('Loading {name}…', { name: album.title }))
     try {
@@ -394,8 +360,6 @@ function HomeContent({ user }) {
     { label: t('Play next'), icon: Clock, onSelect: () => playNextMany(mix.tracks) },
     { label: t('Add to queue'), icon: ListEnd, onSelect: () => addToQueueMany(mix.tracks) },
     { label: t('Add to playlist…'), icon: Plus, onSelect: () => addToPlaylistMany(mix.tracks) },
-    { separator: true },
-    { label: t('Save as playlist'), icon: ListPlus, onSelect: () => saveMix(mix), disabled: !!saving },
   ])
   const visibleArtists = artists => (Array.isArray(artists) ? artists : []).filter(artist => !hiddenArtists.has(discoveryArtistKey(artist.name)))
   const openArtistMenu = (event, artist) => menu.open(event, [
@@ -444,7 +408,7 @@ function HomeContent({ user }) {
     } catch (error) { toast.close(isCurrent() ? error.message || t('Could not load {name}.', { name: mix.title }) : '') }
     finally { if (request === playRequestRef.current) pendingPlayRef.current = null }
   }
-  const saveProviderMix = async (mix, download = false) => {
+  const downloadProviderMix = async mix => {
     const account = session.getSnapshot().account
     const isCurrent = () => account === session.getSnapshot().account
     const toast = showLoadingToast(t('Loading {name}…', { name: mix.title }))
@@ -453,14 +417,9 @@ function HomeContent({ user }) {
       const tracks = await resolveRecommendationTracks(candidates, api, { isCurrent, prepareStreams: false, onProgress: message => { if (isCurrent()) toast.update(message) } })
       if (!isCurrent()) { toast.close(); return }
       if (!tracks.length) { toast.close(t('No matching songs were found in {name}.', { name: mix.title })); return }
-      if (download) {
-        const result = await saveTracksToLibrary(tracks, { isCurrent, onProgress: message => toast.update(message) })
-        result.failed += candidates.length - tracks.length
-        toast.close(libraryDownloadMessage(result))
-      } else {
-        const playlist = await saveAsPlaylist(`${mix.title} - ${today()}`, tracks, { userId: user?.id, description: t('Mixed for you on YouTube Music'), coverURL: secureImage(mix.artwork_url || mix.thumbnail) })
-        toast.close(playlist ? t('Saved “{name}” as a playlist.', { name: mix.title }) : t('Could not save “{name}”.', { name: mix.title }))
-      }
+      const result = await saveTracksToLibrary(tracks, { isCurrent, onProgress: message => toast.update(message) })
+      result.failed += candidates.length - tracks.length
+      toast.close(libraryDownloadMessage(result))
     } catch (error) { toast.close(isCurrent() ? error.message || t('Could not load {name}.', { name: mix.title }) : '') }
   }
   const openTrackMenu = (event, track, section = 'fresh') => {
@@ -479,18 +438,13 @@ function HomeContent({ user }) {
       ...followMenu(track.artist),
     ])
   }
-  const saveRecommendations = (key, title, tracks, description) => {
-    const account = accountRef.current
-    return saveList(key, `${t(title)} - ${today()}`, () => resolveRecommendationTracks(tracks, api, { isCurrent: () => account === accountRef.current }), description)
-  }
   const sectionProps = {
     data: data ? { ...data, artists: visibleArtists(data.artists) } : data, localArtists: visibleArtists(localArtists), allArtists: [...localArtists, ...(discovery?.artists || [])], source: recommendationSource, loading: discoveryLoading, error: discoveryError,
     getDownloadTrack: resolveDownloadTrack,
     onProviderMixPlay: playProviderMix,
     onProviderMixMenu: (event, mix) => menu.open(event, [
       { label: t('Play mix'), icon: Play, onSelect: () => playProviderMix(mix) },
-      { label: t('Save as playlist'), icon: ListPlus, onSelect: () => saveProviderMix(mix) },
-      { label: t('Download mix'), icon: Download, onSelect: () => saveProviderMix(mix, true) },
+      { label: t('Download mix'), icon: Download, onSelect: () => downloadProviderMix(mix) },
     ]),
     onRefresh: () => { session.refresh() }, onSourceChange: async source => {
       if (source === recommendationSource) return
@@ -513,17 +467,11 @@ function HomeContent({ user }) {
     onAlbumPlay: album => playCatalogue('album', album),
     onAlbumMenu: (event, album) => menu.open(event, [
       { label: t('Play album'), icon: Play, onSelect: () => playCatalogue('album', album) },
-      { label: t('Save as playlist'), icon: ListPlus, onSelect: () => saveRecommendedAlbum(album) },
       { label: t('Download album'), icon: Download, onSelect: () => downloadRecommendedAlbum(album) },
       { separator: true },
       { label: t('Start album radio'), icon: Radio, onSelect: () => startRadio({ title: album.title, artist: album.artist, type: 'album' }) },
       ...followMenu(album.artist),
     ]),
-    onSaveFresh: () => saveRecommendations('fresh-finds', 'Fresh Finds', recommendationTracks, t('Fresh Finds from {source}', { source: sourceName(recommendationSource) })),
-    onSaveQuick: () => recommendationSource === 'youtube'
-      ? saveRecommendations('youtube-likes', 'YouTube Music Likes', data?.liked || [], t('Recently liked on YouTube Music'))
-      : saveRecommendations('quick-picks', 'Quick Picks', data?.quickPicks || [], t('Quick Picks from {source}', { source: sourceName(recommendationSource) })),
-    saving,
     onOpenSettings: () => navigate('/settings', { state: { category: 'integrations' } }),
   }
   // Two songs from each of Your Mixes, picked once per start (src/madeForYou.js).
@@ -541,8 +489,8 @@ function HomeContent({ user }) {
     {picks.length > 0 && <MadeForYou picks={picks}
       onPlay={index => playQueue(pickTracks, index, madeForYouContext)}
       onContextMenu={openPickMenu} />}
-    {mixes.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Radio size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Your Mixes")}</h2></div><div className="grid grid-cols-2 @md:grid-cols-3 gap-3">{mixes.slice(0, 6).map(mix => <MixCard key={mix.id} mix={mix} onClick={() => playQueue(mix.tracks, 0)} onSave={() => saveMix(mix)} saving={saving === `mix:${mix.id}`} onContextMenu={event => openMixMenu(event, mix)} />)}</div></section>}
-    {suggestions.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Sparkles size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Suggested for You")}</h2><button onClick={() => saveList('suggestions', `${t('Suggested for You')} - ${today()}`, suggestions, t('Suggested for you on Home'))} disabled={!!saving} className="ml-auto inline-flex items-center gap-1 text-xs text-accent disabled:opacity-50"><ListPlus size={13} />{t("Save as playlist")}</button></div><TrackList tracks={suggestions.slice(0, 8)} reduceMotion /></section>}
+    {mixes.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Radio size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Your Mixes")}</h2></div><div className="grid grid-cols-2 @md:grid-cols-3 gap-3">{mixes.slice(0, 6).map(mix => <MixCard key={mix.id} mix={mix} onClick={() => playQueue(mix.tracks, 0)} onContextMenu={event => openMixMenu(event, mix)} />)}</div></section>}
+    {suggestions.length > 0 && <section><div className="flex items-center gap-2 mb-4"><Sparkles size={14} className="text-accent" /><h2 className="text-xs font-display text-muted uppercase tracking-widest">{t("Suggested for You")}</h2></div><TrackList tracks={suggestions.slice(0, 8)} reduceMotion /></section>}
     {loaded && !recentTracks.length && !suggestions.length && !mixes.length && <p className="py-10 text-center text-sm text-muted">{t("No local tracks yet. Pick your music folder in Library.")}</p>}
   </>
 

@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { api } from '../api'
 import PlaylistCover from './PlaylistCover'
 import { plural } from '../plural'
+import { useFavoritesEnabled } from '../appearanceFlags'
 import { useTranslation } from '../i18n'
 
 export default function AddToPlaylistModal() {
@@ -20,6 +21,9 @@ export default function AddToPlaylistModal() {
   const track = addToPlaylistTrack
   const trackCount = addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : (track ? 1 : 0)
 
+  const favorites = useFavoritesEnabled()
+  const trackIds = addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds : (track ? [track.id] : [])
+
   useEffect(() => {
     if (!track && addToPlaylistTrackIds.length === 0) { setAdded(new Set()); return }
     // Smart playlists fill themselves from their rules: nothing to add to.
@@ -28,25 +32,25 @@ export default function AddToPlaylistModal() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 1800) }
 
+  // One call for all the songs, so they land together in their order (at the
+  // playlist's start or end, Settings → Playlists; one already there moves).
   const addTrack = async (playlist) => {
-    if (addToPlaylistTrackIds.length > 1) {
-      await api.addMultipleToPlaylist(playlist.id, addToPlaylistTrackIds)
-    } else if (track) {
-      await api.addToPlaylist(playlist.id, track.id)
-    }
+    const result = await api.addToPlaylist(playlist.id, trackIds)
+    if (result?.error) { showToast(t(result.error)); return }
     setAdded(s => new Set([...s, playlist.id]))
-    showToast(t('Added {n} track(s) to "{name}"', { n: addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1, name: playlist.name }))
+    showToast(t('Added {n} track(s) to "{name}"', { n: trackIds.length, name: playlist.name }))
     window.dispatchEvent(new CustomEvent('lokal:playlist-updated', { detail: { playlistId: playlist.id } }))
   }
 
   const toggleLike = async () => {
-    if (addToPlaylistTrackIds.length > 1) {
-      for (const tid of addToPlaylistTrackIds) {
-        await api.toggleLike(tid, user?.id)
-      }
-      showToast(t('Added {tracks} to Liked Songs', { tracks: plural(addToPlaylistTrackIds.length, 'track') }))
+    if (trackIds.length > 1) {
+      const result = await api.addToPlaylist('liked', trackIds)
+      if (result?.error) { showToast(t(result.error)); return }
+      showToast(t('Added {tracks} to Liked Songs', { tracks: plural(trackIds.length, 'track') }))
+      window.dispatchEvent(new CustomEvent('lokal:playlists-changed', { detail: {} }))
     } else if (track) {
       const r = await api.toggleLike(track.id, user?.id, track)
+      if (r?.error) { showToast(t(r.error)); return }
       const liked = typeof r === 'boolean' ? r : r?.liked ?? false
       setLiked(track.id, liked)
       showToast(liked ? t('Added to Liked Songs') : t('Removed from Liked Songs'))
@@ -56,18 +60,13 @@ export default function AddToPlaylistModal() {
   const createAndAdd = async () => {
     if (!newName.trim()) return
     setCreating(true)
-    const pl = await api.createPlaylist(newName.trim(), user?.id)
+    const pl = await api.createPlaylist(newName.trim(), user?.id, null, trackIds)
     if (pl?.id) {
-      if (addToPlaylistTrackIds.length > 1) {
-        await api.addMultipleToPlaylist(pl.id, addToPlaylistTrackIds)
-      } else if (track) {
-        await api.addToPlaylist(pl.id, track.id)
-      }
       setPlaylists(prev => [...prev, pl])
       setAdded(s => new Set([...s, pl.id]))
-      showToast(t('Added {n} track(s) to "{name}"', { n: addToPlaylistTrackIds.length > 1 ? addToPlaylistTrackIds.length : 1, name: pl.name }))
-      window.dispatchEvent(new Event('lokal:playlist-created'))
-    }
+      showToast(t('Added {n} track(s) to "{name}"', { n: trackIds.length, name: pl.name }))
+      window.dispatchEvent(new CustomEvent('lokal:playlists-changed', { detail: { playlistId: pl.id, action: 'created' } }))
+    } else if (pl?.error) showToast(t(pl.error))
     setNewName(''); setCreating(false)
   }
 
@@ -103,14 +102,14 @@ export default function AddToPlaylistModal() {
                 </button>
               </div>
 
-              <button onClick={toggleLike}
+              {favorites && <button onClick={toggleLike}
                 className="w-full flex items-center gap-3 px-5 py-3 border-b border-border hover:bg-elevated transition-colors">
                 <div className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
                   <Heart size={15} className={track && likedIds.has(track?.id) ? 'text-accent' : 'text-muted'} fill={track && likedIds.has(track?.id) ? 'currentColor' : 'none'} />
                 </div>
                 <span className="text-sm text-white">{t('Liked Songs')}</span>
                 {track && likedIds.has(track?.id) && <Check size={14} className="text-accent ml-auto" />}
-              </button>
+              </button>}
 
               <div className="px-4 py-3 border-b border-border">
                 <div className="flex gap-2">

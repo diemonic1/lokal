@@ -40,7 +40,7 @@ import ExplicitBadge from './ExplicitBadge'
 import { genreText } from '../genres'
 import ArtistNames from './ArtistNames'
 import GenrePopover from './GenrePopover'
-import { useAppearanceFlag, useAppearanceValue } from '../appearanceFlags'
+import { useAppearanceFlag, useAppearanceValue, useFavoritesEnabled } from '../appearanceFlags'
 import { TRACK_SEARCH_SITES, clipLink, clipText, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 import { trackFolderItems } from '../trackFolderItem'
 
@@ -208,6 +208,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
   const shouldAnimateRows = !reduceMotion && tracks.length <= 120
   const anyStreamed = useMemo(() => tracks.some(t => isStreamed(t)), [tracks])
   const anyLiked = useMemo(() => tracks.some(track => likedIds.has(track.id)), [tracks, likedIds])
+  const favorites = useFavoritesEnabled()
   const actionSlots = (showPlayNext ? 1 : 0) + (anyStreamed || resolveTracks ? 1 : 0) + (showAddToQueue ? 1 : 0) + (onQuickAdd ? 1 : 0) + 4
   // Rows can be dragged into a new order in a playlist, or wherever the page
   // asks for it (`reorderable`: Library's "Reorder").
@@ -722,6 +723,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
       { label: one ? t('Play') : t('Play {n} songs', { n }), icon: Play, onSelect: () => (one ? handlePlay(one, { stopPropagation() {} }) : playMany(list)) },
       { label: t('Play next'), icon: Clock, onSelect: () => runResolved(list, playNextMany) },
       { label: t('Add to queue'), icon: ListEnd, onSelect: () => runResolved(list, addToQueueMany) },
+      { label: t('Add to playlist'), icon: Plus, onSelect: () => runResolved(list, addToPlaylistMany) },
        one && { label: t('Start radio'), icon: Radio, onSelect: () => openRadio(navigate, one, useAppStore.getState().user?.id) },
       one && onQuickAdd && { label: t('Add to this playlist'), icon: LibraryBig, onSelect: () => handleQuickAdd(one) },
        list.some(item => isStreamed(item) || needsResolution(item)) && { label: resolveTracks || !one ? (one ? t('Download song') : t('Download {n} songs', { n })) : t('Save to library'), icon: Download, onSelect: () => downloadSongs(list) },
@@ -1213,7 +1215,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                   </button>
                 )}
               </div>
-              <div className={`${layout.actions || layout.likedTrack ? '' : 'hidden'} relative flex-shrink-0`}>
+              <div className={`${(layout.actions || layout.likedTrack) && favorites ? '' : 'hidden'} relative flex-shrink-0`}>
                 <button onClick={e => toggleLike(track, e)}
                   aria-label={liked ? t('Unlike song') : t('Like song')} className={`transition-all focus:opacity-100 ${liked ? 'text-accent' : 'text-muted opacity-0 group-hover:opacity-100 hover:text-white'}`}>
                   <Heart size={13} fill={liked ? 'currentColor' : 'none'} />

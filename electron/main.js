@@ -68,7 +68,6 @@ const { setRemoteState, setRemoteCommandHandler } = require('./ipc/remote')
 const { updateThumbarButtons, registerThumbarHandlers } = require('./ipc/thumbar')
 const { registerSmtcHandlers, updateSmtcState, stopSmtcBridge } = require('./ipc/smtc')
 const { registerOnlineHandlers, registerStreamScheme, registerStreamProtocol } = require('./ipc/online')
-const { registerSpotifyLikesHandlers } = require('./ipc/spotifyLikes')
 const { registerAutomixHandlers } = require('./ipc/automix')
 const { registerFlowHandlers } = require('./ipc/flow')
 const { registerCastHandlers, shutdownCast } = require('./ipc/cast')
@@ -530,6 +529,8 @@ app.whenReady().then(() => {
   try { initDB() } catch (e) { console.error('DB:', e.message) }
   // Plays shared with other devices through the music folder (listeningHistory.js).
   try { require('./listeningHistory').start() } catch (e) { console.error('History:', e.message) }
+  // Playlists shared the same way, as M3U8 files (playlistFiles.js).
+  try { require('./playlistFiles').start() } catch (e) { console.error('Playlists:', e.message) }
   try { markInterruptedPlaylistsIncomplete() } catch (e) { console.error('Downloads:', e.message) }
   try { initPlugins() } catch (e) { console.error('Plugins:', e.message) }
   try {
@@ -562,7 +563,6 @@ app.whenReady().then(() => {
   try { registerCacheHandlers(ipcMain) } catch (e) { console.error('registerCacheHandlers:', e.message) }
   try { registerEcoHandlers(ipcMain) } catch (e) { console.error('registerEcoHandlers:', e.message) }
   try { registerOnlineHandlers(ipcMain) } catch (e) { console.error('registerOnlineHandlers:', e.message) }
-  try { registerSpotifyLikesHandlers(ipcMain) } catch (e) { console.error('registerSpotifyLikesHandlers:', e.message) }
   try { registerAutomixHandlers(ipcMain) } catch (e) { console.error('registerAutomixHandlers:', e.message) }
   try { registerFlowHandlers(ipcMain) } catch (e) { console.error('registerFlowHandlers:', e.message) }
   try { registerCastHandlers(ipcMain, { getWindow: () => mainWindow, powerSaveBlocker }) } catch (e) { console.error('registerCastHandlers:', e.message) }

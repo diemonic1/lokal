@@ -39,11 +39,12 @@ function updateThumbarButtons(mainWindow, { isPlaying = false, isLiked = false }
         icon: icons.next,
         click: () => mainWindow.webContents.send('thumbar:next'),
       },
-      {
+      // No heart with the favourites off (Settings > Library > Playlists).
+      ...(require('../playlistFiles').favoritesEnabled() ? [{
         tooltip: isLiked ? 'Unlike' : 'Like',
         icon: isLiked ? icons.likeFilled : icons.like,
         click: () => mainWindow.webContents.send('thumbar:toggle-like'),
-      },
+      }] : []),
     ])
   } catch (e) {
     console.warn('[thumbar] Failed to set thumbar buttons:', e.message)

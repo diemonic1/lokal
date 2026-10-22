@@ -5,7 +5,7 @@ import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { api, wordSyncEnabled as getWordSyncEnabled } from '../api'
 import Waveform from '../visualizers/Waveform'
-import { usePlayerVisualizer } from '../appearanceFlags'
+import { usePlayerVisualizer, useFavoritesEnabled } from '../appearanceFlags'
 import { trackArtURL } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
 import { useMusicVideo, useMusicVideoView } from '../musicVideo'
@@ -61,6 +61,7 @@ export default function MiniPlayer({ windowed = false }) {
   }, [])
 
   const isLiked = currentTrack && likedIds.has(currentTrack.id)
+  const favorites = useFavoritesEnabled()
   // The line being sung, for the video's caption.
   const lyricLine = lyricsCurrent
   const miniRootRef = useRef(null)
@@ -304,7 +305,7 @@ export default function MiniPlayer({ windowed = false }) {
                 <button onClick={next} aria-label={t('Next')} className="p-1.5 text-white/80 hover:text-white"><SkipForward size={15} fill="currentColor" /></button>
               </div>
               <div className="flex w-20 items-center justify-end gap-0.5">
-                <button onClick={toggleLike} disabled={!currentTrack} aria-label={isLiked ? t('Unlike') : t('Like')} className={`p-1.5 disabled:opacity-40 ${isLiked ? 'text-accent' : 'text-white/80 hover:text-white'}`}><Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /></button>
+                {favorites && <button onClick={toggleLike} disabled={!currentTrack} aria-label={isLiked ? t('Unlike') : t('Like')} className={`p-1.5 disabled:opacity-40 ${isLiked ? 'text-accent' : 'text-white/80 hover:text-white'}`}><Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /></button>}
                 <button onClick={() => setVolume(volume > 0 ? 0 : 0.8)} aria-label={volume === 0 ? t('Unmute') : t('Mute')} className="p-1.5 text-white/80 hover:text-white">{volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}</button>
               </div>
             </div>
@@ -378,13 +379,13 @@ export default function MiniPlayer({ windowed = false }) {
           >
             {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
-          <button
+          {favorites && <button
             onClick={toggleLike}
             disabled={!currentTrack}
             className={`transition-colors p-2 disabled:opacity-40 ${isLiked ? 'text-accent' : 'text-muted hover:text-white'}`}
           >
             <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
-          </button>
+          </button>}
         </div>
 
         <div className="flex items-center gap-2">

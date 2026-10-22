@@ -30,7 +30,7 @@ import LikeBurst from './LikeBurst'
 import { showToast } from './Toaster'
 import { formatLabel, isSuspect, losslessMenuItem, tierOf, TIERS } from '../quality'
 import { trackGenreList } from '../genres'
-import { useAppearanceSettings, useAppearanceText, useAppearanceValue, useSideVisual } from '../appearanceFlags'
+import { useAppearanceSettings, useAppearanceText, useAppearanceValue, useSideVisual, useFavoritesEnabled } from '../appearanceFlags'
 import PowerCircle, { CHARACTER_DEFAULTS } from '../visualizers/PowerCircle'
 import Anomaly from '../visualizers/Anomaly'
 import Splashes from '../visualizers/Splashes'
@@ -103,6 +103,7 @@ export default function RightSidebar() {
   const nav = useNavigate()
   const menu = useContextMenu()
   const likeBusy = useRef(false)
+  const favorites = useFavoritesEnabled()
   const burstTimer = useRef(null)
   const [burst, setBurst] = useState(null)
   useEffect(() => () => clearTimeout(burstTimer.current), [])
@@ -319,7 +320,7 @@ export default function RightSidebar() {
   }
 
   const doubleClickLike = async event => {
-    if (!currentTrack || likeBusy.current || event.target.closest?.('button, a, input, [role="slider"]')) return
+    if (!currentTrack || likeBusy.current || !favorites || event.target.closest?.('button, a, input, [role="slider"]')) return
     likeBusy.current = true
     const liked = likedIds.has(currentTrack.id)
     setBurst({ id: Date.now(), trackId: currentTrack.id, kind: liked ? 'unlike' : 'like' })

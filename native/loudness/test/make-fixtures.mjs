@@ -63,6 +63,27 @@ fs.mkdirSync(out, { recursive: true })
 const addon = require(path.join(root, 'electron', 'native', `loudness.${process.platform}-${process.arch}.node`))
 const { writeTrackReplayGain } = require(path.join(root, 'electron', 'replayGainTag.js'))
 const sha = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+// The song id (electron/trackId.js): made from LOKAL_ADDED (a fixed date for files without one)
+// and the audio, and the bytes once written alone and together with ReplayGain (either first).
+const ids = require(path.join(root, 'electron', 'trackId.js'))
+const tags = require(path.join(root, 'electron', 'replayGainTag.js'))
+const LOKAL_ADDED_FALLBACK = 1792615071
+function idFields(file) {
+  const read = tags.readLokalTags(file)
+  const added = require(path.join(root, 'electron', 'addedDate.js')).parse(read.added) ?? LOKAL_ADDED_FALLBACK
+  const lokalId = ids.computeId(added, ids.audioSample(file, read.audioStart, read.size))
+  const copy = path.join(tmp, 'id-' + path.basename(file))
+  fs.copyFileSync(file, copy)
+  tags.writeLokalId(copy, lokalId)
+  const out = { lokalAdded: added, lokalId, idSha256: sha(copy) }
+  tags.writeTrackReplayGain(copy, { lufsTenths: -143, peakMicro: 987654 })
+  out.idThenGainSha256 = sha(copy)
+  fs.copyFileSync(file, copy)
+  tags.writeTrackReplayGain(copy, { lufsTenths: -143, peakMicro: 987654 })
+  tags.writeLokalId(copy, lokalId)
+  out.gainThenIdSha256 = sha(copy)
+  return out
+}
 const expected = {}
 for (const [name, make] of Object.entries(fixtures)) {
   const file = path.join(out, name)
@@ -75,6 +96,7 @@ for (const [name, make] of Object.entries(fixtures)) {
     writeTrackReplayGain(copy, r)
     entry.taggedSha256 = sha(copy)
   }
+  Object.assign(entry, idFields(file))
   expected[name] = entry
   console.log(name, JSON.stringify(entry))
 }

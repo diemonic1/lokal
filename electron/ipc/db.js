@@ -225,6 +225,9 @@ function initDB() {
     `ALTER TABLE play_history ADD COLUMN seconds_played INTEGER DEFAULT 0`,
     `ALTER TABLE play_history ADD COLUMN session_id TEXT`,
     `ALTER TABLE tracks ADD COLUMN genres TEXT`,
+    // The song's own id from its LOKAL_ID tag (electron/trackId.js); playlists find songs by it.
+    `ALTER TABLE tracks ADD COLUMN lokal_id TEXT`,
+    `ALTER TABLE playlists ADD COLUMN file_name TEXT`,
     // Ghost tracks: where the song can be found (an import link, or the
     // YouTube Music page of an online song) and its remote cover.
     `ALTER TABLE tracks ADD COLUMN source_url TEXT`,

@@ -26,6 +26,7 @@ import { isStationTrack } from '../radio/stations'
 import ArtistNames from './ArtistNames'
 import { useEcoMode } from '../ecoMode'
 import { COVER_PERCENT, fullscreenCoverPercent, setFullscreenCoverPercent, useFullscreenCoverScale } from '../fullscreenCoverSize'
+import { useFavoritesEnabled } from '../appearanceFlags'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
 // The cover follows its size setting (fullscreenCoverSize), but never past
@@ -540,6 +541,7 @@ export default function FullscreenPlayer() {
   const artSrc = trackArtURL(currentTrack)
 
   const isLiked = currentTrack && likedIds.has(currentTrack.id)
+  const favorites = useFavoritesEnabled()
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat
 
 
@@ -560,7 +562,7 @@ export default function FullscreenPlayer() {
   // likes the song; doing it again un-likes it. One at a time, so a quick triple
   // click can't get the heart and the server out of step.
   const doubleClickLike = async (event) => {
-    if (!currentTrack || likeBusy.current) return
+    if (!currentTrack || likeBusy.current || !favorites) return
     if (event.target.closest?.('button, a, input, [role="slider"]')) return
     window.clearTimeout(burstTimer.current)
     setBurst({ id: Date.now(), trackId: currentTrack.id, kind: isLiked ? 'unlike' : 'like' })
@@ -877,7 +879,7 @@ export default function FullscreenPlayer() {
                   <div data-shown={controlsShown} className="group/controls absolute inset-0 z-10 flex flex-col justify-between">
                     <div className={`absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40 pointer-events-none ${COVER_FADE}`} />
                     <div className="relative flex items-center justify-center gap-3 pt-5">
-                      <CoverButton onClick={toggleLike} label={isLiked ? t('Remove from Liked Songs') : t('Add to Liked Songs')} active={isLiked}>
+                      {favorites && <CoverButton onClick={toggleLike} label={isLiked ? t('Remove from Liked Songs') : t('Add to Liked Songs')} active={isLiked}>
                         <Heart size={19} fill={isLiked ? 'currentColor' : 'none'} />
                         <AnimatePresence>
                           {likeAnim && (
@@ -887,7 +889,7 @@ export default function FullscreenPlayer() {
                             </motion.span>
                           )}
                         </AnimatePresence>
-                      </CoverButton>
+                      </CoverButton>}
                       <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label={t('Add to a playlist')}><ListPlus size={19} /></CoverButton>
                       <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? t('Hide the queue') : t('Show the queue')} active={fullscreenPanel === 'queue'}><ListMusic size={19} /></CoverButton>
                       <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? t('Hide the lyrics') : t('Show the lyrics')} active={fullscreenPanel === 'lyrics'}><Mic2 size={19} /></CoverButton>

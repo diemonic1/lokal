@@ -67,6 +67,8 @@
 //                   and every visualization read as off while it's on
 //   library_all_tracks  Settings > Library > All Tracks: '1' adds "All tracks" (every song) under the
 //                   sidebar's folders (see ALL_TRACKS in libraryNav.js). Unset: off
+//   playlists_favorites  Settings > Library > Playlists > Favourites: '0' turns them off (no hearts,
+//                   no Любимые.m3u8; see electron/playlistFiles.js). Unset: on
 
 import { useEffect, useState } from 'react'
 import { api } from './api'
@@ -75,7 +77,7 @@ import { TRAILS_SETTING_KEYS } from './visualizers/trailsSettings'
 import { isEcoMode, subscribeEcoMode } from './ecoMode'
 
 const KEYS = ['glass_player_bar', 'player_bar_floating', 'player_bar_gradient', 'player_waveform', 'side_panel_visualizer', 'taskbar_progress']
-const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps', 'library_all_tracks',
+const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed', 'player_bar_glass_transparency', 'player_bar_shade_transparency', 'app_tabs', 'taskbar_title', 'volume_wheel_step', 'folder_transition', 'radio_buffer_sec', 'radio_config_page_url', 'folder_apps', 'library_all_tracks', 'playlists_favorites',
   'player_visualizer', 'player_spectrum_bars', 'player_spectrum_bar_width', 'player_spectrum_height', 'player_spectrum_strength', 'player_spectrum_opacity', 'player_spectrum_color', 'player_spectrum_radius',
   'player_center_spectrum_bars', 'player_center_spectrum_bar_width', 'player_center_spectrum_height', 'player_center_spectrum_strength', 'player_center_spectrum_opacity', 'player_center_spectrum_color', 'player_center_spectrum_radius',
   'side_lyrics_backdrop_strength', 'side_lyrics_offset', 'side_visual_gradient_off',
@@ -145,6 +147,11 @@ export function useAppearanceText(key, fallback = '') {
 /** `read(get)` over the appearance settings (get(key): the saved text, or undefined). */
 export function useAppearanceSettings(read) {
   return useSubscribed(() => read(key => raw[key]))
+}
+
+/** Are the favourites (Liked Songs, the hearts) on? Settings > Library > Playlists. */
+export function useFavoritesEnabled() {
+  return useSubscribed(() => raw.playlists_favorites !== '0')
 }
 
 /** Shows a value at once (a slider being dragged), before the save comes back. */

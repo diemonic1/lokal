@@ -133,7 +133,7 @@ export default function SmartPlaylistModal() {
     setSaving(true)
     try {
       let playlist = editing
-      if (!playlist) playlist = await api.createPlaylist(title, user?.id)
+      if (!playlist) playlist = await api.createSmartPlaylist(title, user?.id)
       if (!playlist?.id) throw new Error(playlist?.error || t('Could not create the playlist'))
       const update = { smartRules: saved }
       if (editing && title !== editing.name) update.name = title

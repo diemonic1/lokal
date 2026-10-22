@@ -351,36 +351,23 @@ function foldStreamedLikes(db, userId) {
 
 /**
  * Like or unlike a song, from wherever it shows: a streamed copy of a song
- * you have counts as that song, so the like is the library copy's (and an
- * older like on the streamed copy is folded into it). Returns
- * { liked, trackId, ids }: every id the song goes by, to update all hearts.
+ * you have counts as that song. Likes are the favourites playlist file in the
+ * music folder (electron/playlistFiles.js), so only songs in the library can
+ * be liked. Returns { liked, trackId, ids }: every id the song goes by, to
+ * update all hearts.
  */
 function toggleSongLike(db, userId, trackId) {
   const id = libraryTrackId(db, trackId)
-  const ids = [...new Set([trackId, ...songIds(db, id)])]
-  const marks = ids.map(() => '?').join(', ')
-  const liked = !!db.prepare(`SELECT 1 FROM user_likes WHERE user_id = ? AND track_id IN (${marks})`).get(userId, ...ids)
-  db.prepare(`DELETE FROM user_likes WHERE user_id = ? AND track_id IN (${marks})`).run(userId, ...ids)
-  if (!liked) db.prepare('INSERT OR IGNORE INTO user_likes (user_id, track_id) VALUES (?, ?)').run(userId, id)
-  return { liked: !liked, trackId: id, ids }
+  return setSongLike(db, userId, trackId, !require('../playlistFiles').isFavorite(id))
 }
 
-/** Set a song's local like state without toggling it. */
+/** Set a song's like state without toggling it. */
 function setSongLike(db, userId, trackId, liked) {
   const id = libraryTrackId(db, trackId)
   const ids = [...new Set([trackId, ...songIds(db, id)])]
-  const marks = ids.map(() => '?').join(', ')
-  if (liked) {
-    const otherIds = ids.filter(candidate => candidate !== id)
-    if (otherIds.length) {
-      const otherMarks = otherIds.map(() => '?').join(', ')
-      db.prepare(`DELETE FROM user_likes WHERE user_id = ? AND track_id IN (${otherMarks})`).run(userId, ...otherIds)
-    }
-    db.prepare('INSERT OR IGNORE INTO user_likes (user_id, track_id) VALUES (?, ?)').run(userId, id)
-  } else {
-    db.prepare(`DELETE FROM user_likes WHERE user_id = ? AND track_id IN (${marks})`).run(userId, ...ids)
-  }
-  return { liked: !!liked, trackId: id, ids }
+  let result = { liked: false }
+  try { result = require('../playlistFiles').setFavorite(id, !!liked) } catch (e) { return { liked: false, trackId: id, ids, error: e.message } }
+  return { liked: !!result.liked, trackId: id, ids }
 }
 
 /**

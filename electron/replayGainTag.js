@@ -11,6 +11,9 @@
 // way. Keep this file and Id3.kt in step (the tests compare their output).
 //
 //   - every other frame is kept as it is; the two frames go last, gain first
+//   - TXXX:LOKAL_ID (electron/trackId.js) goes right before them when they're
+//     the tag's last two frames, else last: either written first, the file
+//     comes out the same
 //   - the tag keeps its version (v2.3/v2.4); a file without one gets v2.3;
 //     v2.2 isn't written
 //   - when the tag fits in the old one's room it's patched in place, else the
@@ -22,6 +25,7 @@ const zlib = require('zlib')
 
 const GAIN = 'REPLAYGAIN_TRACK_GAIN'
 const PEAK = 'REPLAYGAIN_TRACK_PEAK'
+const LOKAL_ID = 'LOKAL_ID'
 
 /** "-3.70 dB" from the measured loudness in tenths of a LUFS (ReplayGain 2's reference is -18 LUFS). */
 function gainText(lufsTenths) {
@@ -202,11 +206,12 @@ function userTextFrame(major, desc, value) {
 }
 
 /**
- * Writes the track gain and peak into the MP3's ID3v2 tag (replacing any
- * there). Throws when the file can't be written (busy, read-only, an ID3v2.2
- * or broken tag).
+ * Rewrites the MP3's ID3v2 tag: `edit(frames, describe, major)` changes the
+ * frame list in place (describe(frame): a TXXX's description, upper case).
+ * Throws when the file can't be written (busy, read-only, an ID3v2.2 or
+ * broken tag).
  */
-function writeTrackReplayGain(filePath, { lufsTenths, peakMicro }) {
+function rewriteTag(filePath, edit) {
   const fd = fs.openSync(filePath, 'r')
   let old, audioStart, fileSize
   try {
@@ -220,12 +225,9 @@ function writeTrackReplayGain(filePath, { lufsTenths, peakMicro }) {
   if (old && old.broken) throw new Error('The ID3v2 tag is broken')
   const major = old ? old.major : 3
   const tagUnsync = !!old && major === 4 && (old.flags & 0x80) !== 0
-  const frames = (old ? old.frames : []).map(f => (tagUnsync ? { id: f.id, flags: f.flags | 0x0002, data: f.data } : f))
-
-  const ours = new Set([GAIN, PEAK])
-  const kept = frames.filter(f => !(f.id === 'TXXX' && ours.has(String(txxxDescription(f, old) ?? '').toUpperCase())))
-  kept.push({ id: 'TXXX', flags: 0, data: userTextFrame(major, GAIN, gainText(lufsTenths)) })
-  kept.push({ id: 'TXXX', flags: 0, data: userTextFrame(major, PEAK, peakText(peakMicro)) })
+  const kept = (old ? old.frames : []).map(f => (tagUnsync ? { id: f.id, flags: f.flags | 0x0002, data: f.data } : f))
+  const describe = f => (f.id === 'TXXX' ? String((old && txxxDescription(f, old)) ?? '').toUpperCase() : null)
+  edit(kept, describe, major)
 
   const parts = []
   for (const f of kept) {
@@ -274,4 +276,58 @@ function writeTrackReplayGain(filePath, { lufsTenths, peakMicro }) {
   }
 }
 
-module.exports = { GAIN, PEAK, gainText, peakText, readTrackReplayGain, writeTrackReplayGain }
+/**
+ * Writes the track gain and peak into the MP3's ID3v2 tag (replacing any
+ * there), last, gain first.
+ */
+function writeTrackReplayGain(filePath, { lufsTenths, peakMicro }) {
+  rewriteTag(filePath, (frames, describe, major) => {
+    const ours = new Set([GAIN, PEAK])
+    for (let i = frames.length - 1; i >= 0; i--) if (ours.has(describe(frames[i]))) frames.splice(i, 1)
+    frames.push({ id: 'TXXX', flags: 0, data: userTextFrame(major, GAIN, gainText(lufsTenths)) })
+    frames.push({ id: 'TXXX', flags: 0, data: userTextFrame(major, PEAK, peakText(peakMicro)) })
+  })
+}
+
+/**
+ * Writes TXXX:LOKAL_ID (replacing any there): just before Lokal's ReplayGain
+ * pair when that pair ends the tag, else last. So "id, then gain" and "gain,
+ * then id" give the same frames.
+ */
+function writeLokalId(filePath, id) {
+  rewriteTag(filePath, (frames, describe, major) => {
+    for (let i = frames.length - 1; i >= 0; i--) if (describe(frames[i]) === LOKAL_ID) frames.splice(i, 1)
+    const n = frames.length
+    const pairLast = n >= 2 && describe(frames[n - 2]) === GAIN && describe(frames[n - 1]) === PEAK
+    frames.splice(pairLast ? n - 2 : n, 0, { id: 'TXXX', flags: 0, data: userTextFrame(major, LOKAL_ID, id) })
+  })
+}
+
+/**
+ * The few things Lokal reads from the raw tag without music-metadata:
+ * { id: TXXX:LOKAL_ID, added: TXXX:LOKAL_ADDED text, audioStart, size }
+ * (id / added null when missing), or null when the file can't be read.
+ */
+function readLokalTags(filePath) {
+  let fd
+  try {
+    fd = fs.openSync(filePath, 'r')
+    const size = fs.fstatSync(fd).size
+    const tag = readRawTag(fd, size)
+    const out = { id: null, added: null, audioStart: tag ? tag.totalSize : 0, size }
+    for (const f of tag?.frames || []) {
+      if (f.id !== (tag.major === 2 ? 'TXX' : 'TXXX')) continue
+      const [desc, value] = userText(decodedData(f, tag))
+      const key = desc.toUpperCase()
+      if (key === LOKAL_ID && out.id == null) out.id = value.trim() || null
+      if (key === 'LOKAL_ADDED' && out.added == null) out.added = value
+    }
+    return out
+  } catch {
+    return null
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd) } catch {}
+  }
+}
+
+module.exports = { GAIN, PEAK, LOKAL_ID, gainText, peakText, readTrackReplayGain, writeTrackReplayGain, writeLokalId, readLokalTags }

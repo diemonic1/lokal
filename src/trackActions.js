@@ -1,12 +1,11 @@
-// What a selection of songs can be sent to: the queue, a playlist, a new
-// playlist. Shared by the song lists, the album page, the albums grid, Home's
+// What a selection of songs can be sent to: the queue or a playlist.
+// Shared by the song lists, the album page, the albums grid, Home's
 // mixes and suggestions, and the recap.
 
 import { usePlayerStore, useAppStore } from './store/player'
 import { showToast } from './components/Toaster'
 import { plural } from './plural'
 import { isGhostTrack, isPlayable } from './onlineTracks'
-import { api } from './api'
 import { translate } from './i18n'
 
 // Import placeholders can't be played; streamed songs can.
@@ -40,35 +39,4 @@ export function addToPlaylistMany(tracks) {
   const { openAddToPlaylist, openAddMultipleToPlaylist } = useAppStore.getState()
   if (list.length === 1) openAddToPlaylist(list[0])
   else openAddMultipleToPlaylist(list.map(track => track.id))
-}
-
-/**
- * Save `tracks` as a new playlist called `name`, in their order. All or
- * nothing: if a song can't be added, the new playlist is deleted again and
- * this throws (so trying again doesn't leave half-made playlists behind).
- * `coverURL`: an https image to use as the playlist photo (a YouTube Music
- * mix's cover); the playlist is still saved if it can't be fetched.
- * @returns the playlist, or null when there was nothing to save or it wasn't created
- */
-export async function saveAsPlaylist(name, tracks, { description, coverURL, userId = useAppStore.getState().user?.id } = {}) {
-  const ids = [...new Set((tracks || []).map(track => track?.id).filter(Boolean))]
-  if (!ids.length) return null
-  const playlist = await api.createPlaylist(name, userId, description)
-  if (!playlist?.id) return null
-  try {
-    for (const id of ids) {
-      const added = await api.addToPlaylist(playlist.id, id)
-      if (added?.error) throw new Error(added.error)
-    }
-  } catch (error) {
-    await Promise.resolve(api.deletePlaylist(playlist.id)).catch(() => {})
-    throw error
-  }
-  let saved = playlist
-  if (/^https:\/\//.test(String(coverURL || ''))) {
-    const updated = await Promise.resolve(api.updatePlaylist(playlist.id, { coverURL })).catch(() => null)
-    if (updated?.id) saved = updated
-  }
-  window.dispatchEvent(new CustomEvent('lokal:playlists-changed', { detail: { playlistId: playlist.id, action: 'created' } }))
-  return saved
 }

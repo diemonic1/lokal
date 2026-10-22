@@ -6,7 +6,12 @@
     "sampleRate": 44100,
     "channels": 2,
     "frames": 267264,
-    "taggedSha256": "88c2f75b208dcafd72ee1b2d1e8a31475f9d2dd81e996ab3f8af9bd5b27c8f93"
+    "taggedSha256": "88c2f75b208dcafd72ee1b2d1e8a31475f9d2dd81e996ab3f8af9bd5b27c8f93",
+    "lokalAdded": 1792615071,
+    "lokalId": "db822639de45500b",
+    "idSha256": "b1467f8b750f3c28c1d99f60d2ada2b5ad8a096c73a67bc70f958674452d9a2c",
+    "idThenGainSha256": "d27e9fbf80872a9fe8bb45488817f7838b94e78d91cc1f1ed81802b874df581d",
+    "gainThenIdSha256": "2ed64e56dd01e1ed039d9578a280187a8d62a42047fea757c29c2396753194a8"
   },
   "pink-48000-stereo-vbr-v24.mp3": {
     "status": 0,
@@ -15,7 +20,12 @@
     "sampleRate": 48000,
     "channels": 2,
     "frames": 243072,
-    "taggedSha256": "ecb1131d17b85b42cc190189b7cf5483339acd2cd40c825ddecc9364b19cc277"
+    "taggedSha256": "ecb1131d17b85b42cc190189b7cf5483339acd2cd40c825ddecc9364b19cc277",
+    "lokalAdded": 1792413296,
+    "lokalId": "feb7e604b8845ce0",
+    "idSha256": "f343471f7a29dc76358b1a22e89d844d39da2645b8806e385f2b9dfb85d469c1",
+    "idThenGainSha256": "d432677605218526f411b1900b518373ab3459fe882db24ac540414fcaeb0255",
+    "gainThenIdSha256": "325f175e6e10caf4913b320e9ffa7dc6e2c7edca394d46817a0d2c18520610d4"
   },
   "white-32000-mono-v23-padded.mp3": {
     "status": 0,
@@ -24,7 +34,12 @@
     "sampleRate": 32000,
     "channels": 1,
     "frames": 131328,
-    "taggedSha256": "95214b981b9ccb693107dab4857302d873bbc969c5002622177ec5d4b85c017b"
+    "taggedSha256": "95214b981b9ccb693107dab4857302d873bbc969c5002622177ec5d4b85c017b",
+    "lokalAdded": 1792615071,
+    "lokalId": "dfdf1f72a6b35bcf",
+    "idSha256": "1dd00ae665e66d02da892238c8e9f8bd3a23c2c9fe867953acf7bfeb6de8df65",
+    "idThenGainSha256": "af295cd28827be7aea2cdc1da17c7f3dfec139d0cd17629291befd0606982a5e",
+    "gainThenIdSha256": "af295cd28827be7aea2cdc1da17c7f3dfec139d0cd17629291befd0606982a5e"
   },
   "brown-22050-mono-id3v1.mp3": {
     "status": 0,
@@ -33,7 +48,12 @@
     "sampleRate": 22050,
     "channels": 1,
     "frames": 90432,
-    "taggedSha256": "cbd82979b89ef0402d304819e8747da7264382c46d659152d81a6fbf47cdcb32"
+    "taggedSha256": "cbd82979b89ef0402d304819e8747da7264382c46d659152d81a6fbf47cdcb32",
+    "lokalAdded": 1792615071,
+    "lokalId": "24c79b06fd88eaff",
+    "idSha256": "086ffd89867c25ea127a9e49ae1fc100ff2598bee8720c8beb75c6e72a8730db",
+    "idThenGainSha256": "208b9eeee65a5af46b760133c9e36c289c3f93df10ae99245ead6ac073e6535b",
+    "gainThenIdSha256": "1927c9b16ae0a25bc1bab4bdb477467846b827cc0ad0c1c2796238b3e2382b28"
   },
   "sine-8000-mono-mpeg25.mp3": {
     "status": 0,
@@ -42,7 +62,12 @@
     "sampleRate": 8000,
     "channels": 1,
     "frames": 33984,
-    "taggedSha256": "c2c902de5c96a207d9e6f1a3ffc58801b9c5aa255d06a94037ae86775468e9e9"
+    "taggedSha256": "c2c902de5c96a207d9e6f1a3ffc58801b9c5aa255d06a94037ae86775468e9e9",
+    "lokalAdded": 1792615071,
+    "lokalId": "bdf7243c190000e0",
+    "idSha256": "86db8886536569f77032d3b9d78a9dbb463a4ba0ee784cb008ed3003324f09a0",
+    "idThenGainSha256": "73a4572f8e01edfd0718100bec9ed8b8f9ad812f577cb10e4e0c38765c0faec9",
+    "gainThenIdSha256": "75eb885139d7030bb182ec38688128566fddf753f44a88703477ef04d382eef8"
   },
   "square-44100-clipped-v23-rg.mp3": {
     "status": 0,
@@ -51,7 +76,12 @@
     "sampleRate": 44100,
     "channels": 2,
     "frames": 179712,
-    "taggedSha256": "7b0f2abb02a6b2e48189aeeeb9b550ae1935ca4040a6634e76e54154466d10f3"
+    "taggedSha256": "7b0f2abb02a6b2e48189aeeeb9b550ae1935ca4040a6634e76e54154466d10f3",
+    "lokalAdded": 1792615071,
+    "lokalId": "f70179c0a403805c",
+    "idSha256": "d4b9ef4b112c89c9e0880931cbc03beb1e7c27c64c8e9ce4d92eb566501eab7f",
+    "idThenGainSha256": "17e8735c20e78877c5c1ee985aa82b1f1cd3d0a7e1e6a7d0c213da88b4fb8434",
+    "gainThenIdSha256": "88518a708d4d0194b046374b71ff83f38f08eb0d615b9ad28901e1664847756f"
   },
   "silence-44100-stereo.mp3": {
     "status": 1,
@@ -59,6 +89,11 @@
     "peakMicro": 0,
     "sampleRate": 44100,
     "channels": 2,
-    "frames": 134784
+    "frames": 134784,
+    "lokalAdded": 1792615071,
+    "lokalId": "5499272a256c86a6",
+    "idSha256": "a063f93bad38460f3a172553bc90c081c950a81f810273b856909ec605a9b2c2",
+    "idThenGainSha256": "fffea04a8a9de963baef62c62bcb1ae6cdbd7be8bf31b06dbd72803a34678e6a",
+    "gainThenIdSha256": "7701868ee4635b7496a6442fcb108583ba31fd219e0cf66b78317731022868ce"
   }
 }

@@ -199,7 +199,7 @@ export default {
   'Sign in to ListenBrainz in Account Connections first.': 'Сначала войдите в ListenBrainz в разделе «Подключённые аккаунты».',
   '{n} listen waiting to be sent|{n} listens waiting to be sent': ['{n} прослушивание ожидает отправки', '{n} прослушивания ожидают отправки', '{n} прослушиваний ожидают отправки'],
   'Spotify Cookie': 'Cookie Spotify',
-  'Your Spotify sign-in, for Liked Songs here and Spotify Canvas covers: open open.spotify.com in your browser and sign in, press F12, go to Application (Storage in Firefox) › Cookies › open.spotify.com, and copy the value of sp_dc. It lasts about a year.\n\nIt stays on this computer and is only sent to Spotify.': 'Ваш вход в Spotify — для любимых треков и обложек Spotify Canvas: откройте open.spotify.com в браузере и войдите, нажмите F12, перейдите в Application (Storage в Firefox) › Cookies › open.spotify.com и скопируйте значение sp_dc. Оно действует около года.\n\nОно хранится только на этом компьютере и отправляется только в Spotify.',
+  'Your Spotify sign-in, for Spotify Canvas covers: open open.spotify.com in your browser and sign in, press F12, go to Application (Storage in Firefox) › Cookies › open.spotify.com, and copy the value of sp_dc. It lasts about a year.\n\nIt stays on this computer and is only sent to Spotify.': 'Ваш вход в Spotify — для обложек Spotify Canvas: откройте open.spotify.com в браузере и войдите, нажмите F12, перейдите в Application (Storage в Firefox) › Cookies › open.spotify.com и скопируйте значение sp_dc. Оно действует около года.\n\nОно хранится только на этом компьютере и отправляется только в Spotify.',
   'sp_dc value': 'значение sp_dc',
   'Spotify cookie (sp_dc)': 'Cookie Spotify (sp_dc)',
   'Save & Test': 'Сохранить и проверить',

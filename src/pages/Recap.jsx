@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { BarChart3, CalendarRange, Clock3, Disc3, ListMusic, ListPlus, Play, Plus, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
+import { BarChart3, CalendarRange, Clock3, Disc3, ListMusic, Play, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
 import { useCachedState, usePageReady } from '../pageCache'
@@ -15,7 +15,6 @@ import { plural } from '../plural'
 import { filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionLabel, trackArt } from '../recapText'
 import RecapStory from '../components/RecapStory'
 import { showToast } from '../components/Toaster'
-import { saveAsPlaylist } from '../trackActions'
 import { openShareCard, coversOf } from '../shareCard'
 
 
@@ -114,7 +113,7 @@ function RoundAction({ onClick, label, disabled, accent, children }) {
   )
 }
 
-function SessionCard({ session, onPlay, onSave }) {
+function SessionCard({ session, onPlay }) {
   const { t } = useTranslation()
   const genres = filteredGenres(session.topGenres || []).slice(0, 3)
   const topArtist = session.topArtists?.[0]
@@ -132,7 +131,6 @@ function SessionCard({ session, onPlay, onSave }) {
               <p className="mt-1 text-xs text-muted">{fmtDate(session.start)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <RoundAction onClick={onSave} disabled={!hasTracks} label="Save this session as a playlist"><ListPlus size={15} /></RoundAction>
               <RoundAction onClick={onPlay} disabled={!hasTracks} label="Play this session" accent><Play size={14} fill="currentColor" /></RoundAction>
             </div>
           </div>
@@ -171,7 +169,7 @@ function SessionCard({ session, onPlay, onSave }) {
  * Top Artists / Genres: a row plays that artist's (or genre's) songs from
  * this recap; its button saves them as a playlist.
  */
-function RankedList({ title, items, nameKey, emptyText, busyKey, onPlay, onSave }) {
+function RankedList({ title, items, nameKey, emptyText, busyKey, onPlay }) {
   const { t } = useTranslation()
   return (
     <section className="rounded-xl border border-border bg-elevated p-4">
@@ -188,10 +186,6 @@ function RankedList({ title, items, nameKey, emptyText, busyKey, onPlay, onSave 
                 <span className="min-w-0 flex-1 truncate text-sm text-white">{name}</span>
                 <span className="flex-shrink-0 text-xs text-muted group-hover/row:hidden">{plural(item.plays, 'play')}</span>
                 <Play size={13} fill="currentColor" className="hidden flex-shrink-0 text-accent group-hover/row:block" />
-              </button>
-              <button onClick={() => onSave(name)} disabled={busy} title={t('Save {name} as a playlist', { name })} aria-label={t('Save {name} as a playlist', { name })}
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40">
-                {busy ? <RefreshCw size={13} className="animate-spin" /> : <ListPlus size={14} />}
               </button>
             </div>
           )
@@ -544,30 +538,6 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   // This recap's genres, counted the same way as its top artists.
   const topGenres = filteredGenres(recap?.topGenres || [])
 
-  /** Save `tracks` as a new playlist called `name`. Returns the name, or null. */
-  const saveTracks = async (name, tracks) => {
-    const playlist = await saveAsPlaylist(name, tracks, { userId: user?.id, description: shownTitle ? t('From your {name}', { name: shownTitle }) : t('From your listening recap') }).catch(() => null)
-    return playlist ? name : null
-  }
-
-  // Playlists are named after what they hold and the recap they're from
-  // ("Top 50 - September 2026 - Week 3"), so ones from different recaps
-  // can be told apart.
-  const savePlaylist = async () => {
-    // Not while another period loads: the tracks shown are still the old period's.
-    if (loading || !replayQueue.length || !shownPeriod) return
-    setStatus(t('Creating playlist...'))
-    const saved = await saveTracks(recapPlaylistName(t('Top {n}', { n: Math.min(replayQueue.length, 50) }), shownPeriod), replayQueue.slice(0, 50))
-    setStatus(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
-  }
-
-  const saveSession = async (session) => {
-    if (loading) return
-    // A session is one sitting: its own date says which one.
-    const saved = await saveTracks(`${sessionLabel(session)} - ${fmtDate(session.start)}`, session.tracks)
-    showToast(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
-  }
-
   // An artist's or genre's songs in the recap on screen (fetched once each).
   const subjectTracksRef = useRef(new Map())
   const [busySubject, setBusySubject] = useState('')
@@ -593,11 +563,6 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   }
   const playSubject = (kind, name) => withSubject(kind, name, (tracks) =>
     playQueue(tracks, 0, { type: 'recap', id: `${shownId}:${kind}:${name}`, name: recapPlaylistName(name, shownPeriod) }))
-  const saveSubject = (kind, name) => withSubject(kind, name, async (tracks) => {
-    const saved = await saveTracks(recapPlaylistName(name, shownPeriod), tracks)
-    showToast(saved ? t('Saved {name}', { name: saved }) : t('Could not create playlist'))
-  })
-
   return (
     <div className="p-6 pb-10 space-y-6 w-full max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 @lg:flex-row @lg:items-end @lg:justify-between">
@@ -617,10 +582,6 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
           <button onClick={() => replayQueue.length && playQueue(replayQueue, 0)} disabled={loading || !replayQueue.length} title={t("Replay this era")} aria-label={t("Replay this era")} className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-accent px-3 py-2 text-sm font-medium text-base transition-colors hover:bg-accent/85 disabled:opacity-50 @md:px-4">
             <Play size={14} fill="currentColor" />
             <span className="hidden @sm:inline">{t("Replay")}</span>
-          </button>
-          <button onClick={savePlaylist} disabled={loading || !replayQueue.length} title={t("Save as a playlist")} aria-label={t("Save as a playlist")} className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-accent/40 bg-accent/15 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 disabled:opacity-50 @md:px-4">
-            <Plus size={14} />
-            <span className="hidden @sm:inline">{t("Save as playlist")}</span>
           </button>
           <button onClick={() => setStoryOpen(true)} disabled={loading || !recap || isEmptyRecap(recap)} title={t("Show the story")} aria-label={t("Show the story")} className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-elevated px-3 py-2 text-sm text-white transition-colors hover:border-accent/40 disabled:opacity-50 @md:px-4">
             <Sparkles size={14} />
@@ -741,10 +702,10 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
             <aside className="min-w-0 space-y-4">
               <RankedList title={t("Top Artists")} items={(recap.topArtists || []).slice(0, 5)} nameKey="artist"
                 emptyText="No artist stood out yet." busyKey={busySubject}
-                onPlay={(name) => playSubject('artist', name)} onSave={(name) => saveSubject('artist', name)} />
+                onPlay={(name) => playSubject('artist', name)} />
               <RankedList title={t("Genres")} items={topGenres.slice(0, 5)} nameKey="genre"
                 emptyText="No specific genre stood out yet." busyKey={busySubject}
-                onPlay={(name) => playSubject('genre', name)} onSave={(name) => saveSubject('genre', name)} />
+                onPlay={(name) => playSubject('genre', name)} />
               {recap.topStations?.length > 0 && <StationsList stations={recap.topStations.slice(0, 5)} />}
             </aside>
           </div>
@@ -764,7 +725,6 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
                     key={session.id || index}
                     session={session}
                     onPlay={() => session.tracks?.length && playQueue(session.tracks, 0, { type: 'recap', id: `${shownId}:session:${session.id || index}`, name: `${sessionLabel(session)} - ${fmtDate(session.start)}` })}
-                    onSave={() => saveSession(session)}
                   />
                 ))}
               </div>
@@ -774,7 +734,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
         </div>
       )}
 
-      <RecapStory open={storyOpen} onClose={() => setStoryOpen(false)} recap={recap} period={shownPeriod} onSavePlaylist={savePlaylist} playlistStatus={status} />
+      <RecapStory open={storyOpen} onClose={() => setStoryOpen(false)} recap={recap} period={shownPeriod} />
     </div>
   )
 }

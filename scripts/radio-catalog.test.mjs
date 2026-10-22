@@ -174,15 +174,19 @@ test('a station API that fails is just nothing', async () => {
 
 test('the Online Radio tab comes just before Videos, also in a saved order', async () => {
   const { tabOrder } = await import('../src/appTabs.js')
-  assert.deepEqual(tabOrder('').slice(0, 9), ['/', '/library', '/new', '/flow', '/albums', '/artists', '/genres', '/stations', '/videos'])
+  assert.deepEqual(tabOrder('').slice(0, 10), ['/', '/library', '/playlists', '/new', '/flow', '/albums', '/artists', '/genres', '/stations', '/videos'])
   const saved = tabOrder(JSON.stringify(['/', '/library', '/artists', '/genres', '/albums', '/videos', '|', '/recap', '/quality', '/lyrics-analysis']))
   assert.equal(saved.indexOf('/stations'), saved.indexOf('/videos') - 1)
 })
 
-test('New Arrivals comes right after Library, then Flow, also in a saved order', async () => {
+test('Playlists come right after Library, then New Arrivals and Flow, also in a saved order', async () => {
   const { tabOrder } = await import('../src/appTabs.js')
   const saved = tabOrder(JSON.stringify(['/', '/artists', '/genres', '/library', '/albums', '/videos', '|', '/recap']))
-  assert.equal(saved.indexOf('/new'), saved.indexOf('/library') + 1)
+  assert.equal(saved.indexOf('/playlists'), saved.indexOf('/library') + 1)
+  assert.equal(saved.indexOf('/new'), saved.indexOf('/playlists') + 1)
+  // An order saved with New Arrivals already in it gets Playlists just after Library.
+  const older = tabOrder(JSON.stringify(['/', '/library', '/new', '/flow', '|', '/recap']))
+  assert.deepEqual(older.slice(0, 5), ['/', '/library', '/playlists', '/new', '/flow'])
   assert.equal(saved.indexOf('/flow'), saved.indexOf('/new') + 1)
   // Moved elsewhere by the user: it stays there.
   const moved = tabOrder(JSON.stringify(['/', '/library', '/albums', '|', '/flow']))

@@ -5,8 +5,6 @@ const fs = require('fs-extra')
 const path = require('path')
 const { getDB, getStorageDir } = require('../../electron/ipc/db')
 const { normalizeIsrc } = require('../../electron/quality')
-const { fetchCoverData } = require('../../electron/playlists/remoteCover')
-const { deduplicatePlaylist } = require('../../electron/playlists/deduplicate')
 
 function parseCsvLine(line) {
   const result = []
@@ -597,31 +595,48 @@ async function writePlaylistCover(playlistId, imageData) {
   return coverPath
 }
 
+// Regular playlists are M3U8 files in the music folder (electron/playlistFiles.js);
+// the database holds a copy. Smart playlists live only in the database.
+const playlistFiles = () => require('../../electron/playlistFiles')
+const fileCall = (res, fn) => {
+  try { res.json(fn() || { ok: true }) } catch (e) { res.status(400).json({ error: e.message }) }
+}
+const isFilePlaylist = id => id === 'liked' || !!getDB().prepare('SELECT file_name FROM playlists WHERE id = ?').get(id)?.file_name
+
 router.get('/', (req, res) => {
   const uid = req.query.userId || 'guest'
-  res.json(getDB().prepare('SELECT * FROM playlists WHERE user_id = ? ORDER BY name').all(uid))
+  res.json(getDB().prepare('SELECT p.*, (SELECT COUNT(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id) AS track_count FROM playlists p WHERE p.user_id = ? OR p.file_name IS NOT NULL ORDER BY p.name COLLATE NOCASE').all(uid))
 })
 
-router.post('/', (req, res) => {
-  const { name, userId = 'guest' } = req.body
+router.get('/favorites-enabled', (req, res) => res.json(playlistFiles().favoritesEnabled()))
+
+router.post('/', (req, res) => fileCall(res, () => playlistFiles().create(req.body?.name, { trackIds: req.body?.trackIds || [] })))
+
+router.post('/smart', (req, res) => {
+  const db = getDB()
   const id = 'pl-' + Date.now()
-  getDB().prepare('INSERT INTO playlists (id, name, user_id, cover_path) VALUES (?, ?, ?, ?)').run(id, name, userId, null)
-  res.json(getDB().prepare('SELECT * FROM playlists WHERE id = ?').get(id))
+  db.prepare('INSERT INTO playlists (id, name, user_id, smart_rules) VALUES (?, ?, ?, ?)').run(id, String(req.body?.name || '').trim() || 'Smart playlist', req.body?.userId || 'guest', JSON.stringify({ match: 'all', rules: [] }))
+  res.json(db.prepare('SELECT * FROM playlists WHERE id = ?').get(id))
 })
 
 router.put('/:id', async (req, res) => {
   const db = getDB()
   const playlist = db.prepare('SELECT * FROM playlists WHERE id = ?').get(req.params.id)
-  if (!playlist) return res.status(404).json({ error: 'Playlist not found' })
-  const { name, description, clearCover, smartRules, coverURL } = req.body || {}
-  // coverURL: a cover from the web (a saved YouTube Music mix's).
-  const coverData = req.body?.coverData || (coverURL ? await fetchCoverData(coverURL) : null)
+  if (req.params.id !== 'liked' && !playlist) return res.status(404).json({ error: 'Playlist not found' })
+  const { name, description, clearCover, smartRules, coverData } = req.body || {}
+  if (isFilePlaylist(req.params.id)) {
+    return fileCall(res, () => {
+      if (name !== undefined) playlistFiles().rename(req.params.id, name)
+      if (coverData) playlistFiles().setCover(req.params.id, coverData)
+      if (clearCover) playlistFiles().setCover(req.params.id, null)
+      return db.prepare('SELECT * FROM playlists WHERE id = ?').get(req.params.id)
+    })
+  }
   if (name !== undefined) db.prepare('UPDATE playlists SET name = ? WHERE id = ?').run(name, req.params.id)
   if (description !== undefined) db.prepare('UPDATE playlists SET description = ? WHERE id = ?').run(description, req.params.id)
-  // Smart playlist rules (null: a regular playlist again).
-  if (smartRules !== undefined) {
-    const rules = smartRules === null ? null : normalizeRules(smartRules)
-    db.prepare('UPDATE playlists SET smart_rules = ? WHERE id = ?').run(rules ? JSON.stringify(rules) : null, req.params.id)
+  if (smartRules !== undefined && smartRules !== null) {
+    const rules = normalizeRules(smartRules)
+    db.prepare('UPDATE playlists SET smart_rules = ? WHERE id = ?').run(JSON.stringify(rules || { match: 'all', rules: [] }), req.params.id)
   }
   if (coverData) {
     if (playlist.cover_path && fs.existsSync(playlist.cover_path)) {
@@ -643,222 +658,6 @@ router.get('/:id/cover', (req, res) => {
   const playlist = getDB().prepare('SELECT cover_path FROM playlists WHERE id = ?').get(req.params.id)
   if (!playlist?.cover_path || !fs.existsSync(playlist.cover_path)) return res.status(404).end()
   res.sendFile(path.resolve(playlist.cover_path))
-})
-
-
-router.post('/import', (req, res) => {
-  const { name, entries = [], userId = 'guest' } = req.body
-  const db = getDB()
-  const playlistId = 'pl-' + Date.now()
-  const uid = userId || 'guest'
-  
-  
-  db.prepare('INSERT INTO playlists (id, name, user_id) VALUES (?, ?, ?)').run(playlistId, name, uid)
-  
-  let matched = 0
-  for (const entry of entries) {
-    let track = null
-    
-    
-    if (entry.file_path) {
-      track = db.prepare('SELECT id FROM tracks WHERE file_path = ?').get(entry.file_path)
-    }
-    
-    
-    if (!track && entry.title && entry.artist) {
-      track = db.prepare(`
-        SELECT id FROM tracks 
-        WHERE LOWER(title) = ? AND LOWER(artist) = ?
-        LIMIT 1
-      `).get(entry.title.toLowerCase(), entry.artist.toLowerCase())
-    }
-    
-    
-    if (!track && entry.title) {
-      track = db.prepare(`
-        SELECT id FROM tracks 
-        WHERE LOWER(title) = ?
-        LIMIT 1
-      `).get(entry.title.toLowerCase())
-    }
-    
-    if (track) {
-      const max = db.prepare('SELECT MAX(position) as m FROM playlist_tracks WHERE playlist_id = ?').get(playlistId)
-      db.prepare('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)').run(playlistId, track.id, (max?.m || 0) + 1)
-      matched++
-    }
-  }
-  
-  res.json({ playlistId, name, matched, total: entries.length })
-})
-
-
-router.post('/import-file', (req, res) => {
-  const { name, fileContent, fileType, userId = 'guest' } = req.body
-  const db = getDB()
-  const playlistId = 'pl-' + Date.now()
-  const uid = userId || 'guest'
-  
-  db.prepare('INSERT INTO playlists (id, name, user_id) VALUES (?, ?, ?)').run(playlistId, name, uid)
-  
-  let entries = []
-  
-  if (fileType === 'm3u' || fileType === 'm3u8') {
-    const lines = fileContent.split(/\r?\n/)
-    let currentMeta = null
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (trimmed.startsWith('#EXTM3U')) continue
-      if (trimmed.startsWith('#EXTINF:')) {
-        const match = trimmed.match(/#EXTINF:(\d+),(.+)/)
-        if (match) {
-          const meta = match[2].trim()
-          const dashIndex = meta.lastIndexOf(' - ')
-          if (dashIndex > 0) {
-            currentMeta = { artist: meta.substring(0, dashIndex).trim(), title: meta.substring(dashIndex + 3).trim() }
-          } else {
-            currentMeta = { title: meta, artist: null }
-          }
-        }
-        continue
-      }
-      if (trimmed.startsWith('#') || !trimmed) continue
-      entries.push({ file_path: trimmed, title: currentMeta?.title || null, artist: currentMeta?.artist || null })
-      currentMeta = null
-    }
-  } else if (fileType === 'csv') {
-    const lines = fileContent.split(/\r?\n/).filter(l => l.trim())
-    if (lines.length >= 2) {
-      const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''))
-      const findCol = (names) => headers.findIndex(h => names.some(n => h.includes(n)))
-      const titleCol = findCol(['track name', 'trackname', 'title', 'name', 'track'])
-      const artistCol = findCol(['artist name', 'artist', 'performer'])
-      if (titleCol !== -1) {
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-          const title = values[titleCol]
-          const artist = artistCol !== -1 ? values[artistCol] : null
-          if (title) entries.push({ title, artist })
-        }
-      }
-    }
-  } else if (fileType === 'json') {
-    try {
-      const json = JSON.parse(fileContent)
-      if (json.tracks) {
-        entries = json.tracks.map(t => ({ title: t.title, artist: t.artist, file_path: t.file_path }))
-      }
-    } catch {}
-  }
-  
-  let matched = 0
-  const unmatched = []
-  
-  for (const entry of entries) {
-    let track = null
-    if (entry.file_path) {
-      track = db.prepare('SELECT id FROM tracks WHERE file_path = ?').get(entry.file_path)
-      if (!track) {
-        const filename = entry.file_path.split(/[/\\]/).pop().replace(/\.[^.]+$/, '').toLowerCase()
-        track = db.prepare('SELECT id FROM tracks WHERE LOWER(title) = ? LIMIT 1').get(filename)
-      }
-    }
-    if (!track && entry.title && entry.artist) {
-      track = db.prepare('SELECT id FROM tracks WHERE LOWER(title) = ? AND LOWER(artist) = ? LIMIT 1').get(entry.title.toLowerCase(), entry.artist.toLowerCase())
-    }
-    if (!track && entry.title) {
-      track = db.prepare('SELECT id FROM tracks WHERE LOWER(title) = ? LIMIT 1').get(entry.title.toLowerCase())
-    }
-    if (track) {
-      const max = db.prepare('SELECT MAX(position) as m FROM playlist_tracks WHERE playlist_id = ?').get(playlistId)
-      db.prepare('INSERT INTO playlist_tracks (playlist_id, track_id, position, added_by, added_at) VALUES (?, ?, ?, ?, ?)').run(playlistId, track.id, (max?.m || 0) + 1, uid, Date.now())
-      matched++
-    } else {
-      unmatched.push({ title: entry.title, artist: entry.artist })
-    }
-  }
-  
-  res.json({ created: name, matched, total: entries.length, unmatched, playlistId })
-})
-
-router.post('/external-import-preview', (req, res) => {
-  const db = getDB()
-  const { entries, fileCount, fileSummaries } = collectImportEntries(req.body || {})
-  res.json({
-    ok: true,
-    fileType: req.body?.fileType || req.body?.files?.[0]?.fileType || 'csv',
-    fileCount,
-    files: fileSummaries,
-    ...buildImportPreview(db, entries),
-  })
-})
-
-router.post('/external-import', (req, res) => {
-  const { name, userId = 'guest', sourcePlatform = 'generic' } = req.body || {}
-  const db = getDB()
-  const playlistId = 'pl-' + Date.now()
-  const uid = userId || 'guest'
-  const { entries, fileCount } = collectImportEntries(req.body || {})
-  db.prepare('INSERT INTO playlists (id, name, user_id) VALUES (?, ?, ?)').run(playlistId, name, uid)
-  let matched = 0
-  let ghosted = 0
-  const unresolved = []
-  for (const entry of entries) {
-    let track = findTrack(db, entry)
-    if (!track) {
-      track = createGhostTrack(db, entry, sourcePlatform, playlistId)
-      ghosted++
-      unresolved.push({
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        status: 'Ghost Song',
-        action: 'Search YouTube, download, pick local file, or skip',
-      })
-    } else {
-      applyImportedMetadata(db, track.id, entry)
-      matched++
-    }
-    const max = db.prepare('SELECT MAX(position) as m FROM playlist_tracks WHERE playlist_id = ?').get(playlistId)
-    db.prepare('INSERT INTO playlist_tracks (playlist_id, track_id, position, added_by, added_at) VALUES (?, ?, ?, ?, ?)').run(playlistId, track.id, (max?.m || 0) + 1, uid, Date.now())
-  }
-  res.json({ ok: true, playlistId, name, fileCount, total: entries.length, matched, ghosted, unresolved: unresolved.slice(0, 50) })
-})
-
-router.post('/link-preview', async (req, res) => {
-  try {
-    const linkImport = require('../../electron/playlists/linkImport')
-    const download = require('./download')
-    const playlist = await linkImport.fetchPlaylist({ ytdlp: download.findBinary('yt-dlp'), url: req.body?.url, settings: download.manager().settings(), db: getDB() })
-    if (playlist.error) return res.status(400).json({ error: playlist.error })
-    const { rows, matched, ghostable } = await linkImport.previewEntries(getDB(), playlist.entries, { findTrack })
-    res.json({ ok: true, title: playlist.title, owner: playlist.owner, platform: playlist.platform, total: rows.length, matched, ghostable, skipped: playlist.skipped, truncated: playlist.truncated, limit: playlist.limit, entries: rows })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-router.post('/link-import', async (req, res) => {
-  try {
-    const linkImport = require('../../electron/playlists/linkImport')
-    const name = String(req.body?.name || '').trim().slice(0, 200)
-    if (!name) return res.status(400).json({ error: 'Please enter a playlist name' })
-    const entries = linkImport.sanitizeEntries(req.body?.entries)
-    if (!entries.length) return res.status(400).json({ error: 'No tracks selected' })
-    const result = await linkImport.importLinkEntries(getDB(), {
-      name,
-      userId: req.body?.userId,
-      entries,
-      platform: linkImport.platformOf(entries[0].source_url),
-      helpers: { findTrack, createGhostTrack },
-    })
-    let downloads = null
-    if (req.body?.downloadAfter && result.ghosts.length) downloads = linkImport.queueGhostDownloads(require('./download').manager(), result.ghosts)
-    const { ghosts, ...summary } = result
-    res.json({ ok: true, ...summary, downloads })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
 })
 
 router.post('/external-import-metadata', (req, res) => {
@@ -883,63 +682,31 @@ router.post('/smart-preview', (req, res) => {
 
 router.get('/:id/tracks', (req, res) => {
   const db = getDB()
+  if (req.params.id === 'liked') return res.json(db.prepare("SELECT t.*, ul.liked_at AS playlist_track_id FROM tracks t JOIN user_likes ul ON ul.track_id = t.id WHERE ul.user_id = 'guest' ORDER BY ul.liked_at DESC").all())
   const playlist = db.prepare('SELECT user_id, smart_rules FROM playlists WHERE id = ?').get(req.params.id)
   if (playlistRules(playlist)) return res.json(smartTracks(db, playlist.smart_rules, playlist.user_id))
   res.json(db.prepare(`
-    SELECT t.*, pt.added_by, pt.added_at FROM tracks t 
+    SELECT t.*, pt.position AS playlist_track_id, pt.added_by, pt.added_at FROM tracks t
     JOIN playlist_tracks pt ON pt.track_id = t.id
-    WHERE pt.playlist_id = ? 
+    WHERE pt.playlist_id = ?
     ORDER BY pt.position
   `).all(req.params.id))
 })
 
-router.post('/:id/tracks', (req, res) => {
-  const db = getDB()
-  const { trackId, addedBy = 'guest' } = req.body
-  const max = db.prepare('SELECT MAX(position) as m FROM playlist_tracks WHERE playlist_id = ?').get(req.params.id)
-  // A streamed song you already have: the playlist gets the library copy.
-  const id = require('../../electron/online/sources').libraryTrackId(db, trackId)
-  db.prepare('INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position, added_by, added_at) VALUES (?, ?, ?, ?, ?)').run(req.params.id, id, (max?.m || 0) + 1, addedBy, Date.now())
-  res.json({ ok: true })
-})
-
-router.delete('/:id/tracks/:trackId', (req, res) => {
-  getDB().prepare('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?').run(req.params.id, req.params.trackId)
-  res.json({ ok: true })
-})
-
+router.post('/:id/tracks', (req, res) => fileCall(res, () => playlistFiles().addTracks(req.params.id, req.body?.trackIds || [req.body?.trackId].filter(Boolean))))
+router.post('/:id/tracks/remove', (req, res) => fileCall(res, () => playlistFiles().removeTracks(req.params.id, req.body?.trackIds || [])))
 
 router.put('/:id/reorder', (req, res) => {
-  const db = getDB()
-  const { trackIds } = req.body
-  
-  if (!Array.isArray(trackIds)) {
-    return res.status(400).json({ error: 'trackIds must be an array' })
-  }
-  
-  const playlistId = req.params.id
-  const stmt = db.prepare('UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?')
-  
-  trackIds.forEach((trackId, index) => {
-    stmt.run(index + 1, playlistId, trackId)
-  })
-  
-  res.json({ ok: true })
+  if (!Array.isArray(req.body?.trackIds)) return res.status(400).json({ error: 'trackIds must be an array' })
+  fileCall(res, () => playlistFiles().reorder(req.params.id, req.body.trackIds))
 })
 
-router.post('/:id/deduplicate', (req, res) => {
-  try {
-    const result = deduplicatePlaylist(getDB(), req.params.id)
-    if (result.error) return res.status(result.error === 'Playlist not found' ? 404 : 400).json(result)
-    res.json(result)
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
+router.post('/:id/deduplicate', (req, res) => fileCall(res, () => playlistFiles().deduplicate(req.params.id)))
 
 router.delete('/:id', (req, res) => {
   const db = getDB()
-  const playlist = db.prepare('SELECT cover_path FROM playlists WHERE id = ?').get(req.params.id)
+  const playlist = db.prepare('SELECT cover_path, file_name FROM playlists WHERE id = ?').get(req.params.id)
+  if (playlist?.file_name) return fileCall(res, () => playlistFiles().remove(req.params.id))
   db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(req.params.id)
   db.prepare('DELETE FROM playlists WHERE id = ?').run(req.params.id)
   if (playlist?.cover_path && fs.existsSync(playlist.cover_path)) {

@@ -404,7 +404,6 @@ function registerLastFmHandlers(ipcMain) {
   ipcMain.handle('lastfm:catalogue', (_, options) => lastfmCatalogue(storedLastfmSettings(), lastfmCall, options).catch(e => ({ error: e.message })))
   ipcMain.handle('lastfm:loved', (_, page) => fetchLovedTracks(page).catch(e => ({ error: e.message })))
   ipcMain.handle('lastfm:setLoved', (_, artist, track, loved) => setLovedTrack(artist, track, loved).catch(e => ({ error: e.message })))
-  ipcMain.handle('lastfm:syncLikes', (_, userId, page) => syncLovedTracks(userId, page).catch(e => ({ error: e.message })))
 
   // Scrobbles queued while offline: try once shortly after start-up.
   setTimeout(() => { try { scrobbler.flushQueue(getDB()).catch(() => {}) } catch {} }, 20000)

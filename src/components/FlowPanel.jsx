@@ -6,12 +6,11 @@
 
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Infinity as InfinityIcon, ListPlus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react'
+import { Infinity as InfinityIcon, Pause, Play, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import TrackList from './TrackList'
 import { showToast } from './Toaster'
-import { saveAsPlaylist } from '../trackActions'
 import { plural } from '../plural'
 import { FLOW_MOODS, flowSource, normalizeTuner, sameTuner, topGenres, trackGenres, DEFAULT_TUNER } from '../flow/engine'
 import { ONLINE_SOURCES, onlineError, subscribeOnline } from '../flow/online'
@@ -135,7 +134,6 @@ export default function FlowPanel({ userId }) {
   const [tunerOpen, setTunerOpen] = useState(true)
   const [pool, setPool] = useState(null)
   const [starting, setStarting] = useState(false)
-  const [savingList, setSavingList] = useState(false)
   const context = usePlayerStore(state => state.playbackContext)
   const isPlaying = usePlayerStore(state => state.isPlaying)
   const togglePlay = usePlayerStore(state => state.togglePlay)
@@ -195,17 +193,6 @@ export default function FlowPanel({ userId }) {
     else showToast(t('Flow Tuner saved'))
   }
 
-  const saveUpcoming = async () => {
-    if (savingList || !flowOn) return
-    setSavingList(true)
-    try {
-      const tracks = [currentTrack, ...coming].filter(Boolean)
-      const name = `${flowTitle(context.mood)} - ${new Date().toLocaleDateString(getLanguage(), { day: 'numeric', month: 'long' })}`
-      const playlist = await saveAsPlaylist(name, tracks, { userId, description: t('Saved from Flow') })
-      showToast(playlist ? t('Saved "{name}" ({count})', { name, count: plural(tracks.length, 'song') }) : t('Could not create playlist'))
-    } catch { showToast(t('Could not create playlist')) } finally { setSavingList(false) }
-  }
-
   const playingThis = flowOn && isPlaying
 
   return (
@@ -232,12 +219,6 @@ export default function FlowPanel({ userId }) {
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${tunerOpen ? 'border-accent/60 bg-accent/15 text-accent' : 'border-border bg-card text-muted hover:text-white'}`}>
                 <SlidersHorizontal size={16} />
               </button>
-              {flowOn && (
-                <button type="button" onClick={saveUpcoming} disabled={savingList} title={t('Save as playlist')}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted hover:text-white disabled:opacity-50">
-                  <ListPlus size={16} />
-                </button>
-              )}
             </div>
           </div>
         </div>

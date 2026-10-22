@@ -2,11 +2,12 @@
 // both remembered across launches.
 
 import { useEffect, useState } from 'react'
-import { Home, Library, Sparkles, Infinity as InfinityIcon, BarChart2, ChartColumn, History, Disc3, Users, AudioWaveform, Clapperboard, ScrollText, Tags, Radio, HardDrive, FileSearch } from 'lucide-react'
+import { Home, Library, ListMusic, Sparkles, Infinity as InfinityIcon, BarChart2, ChartColumn, History, Disc3, Users, AudioWaveform, Clapperboard, ScrollText, Tags, Radio, HardDrive, FileSearch } from 'lucide-react'
 
 export const TABS = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Library, label: 'Library', path: '/library', tour: 'library' },
+  { icon: ListMusic, label: 'Playlists', path: '/playlists' },
   { icon: Sparkles, label: 'New Arrivals', path: '/new' },
   { icon: InfinityIcon, label: 'Flow', path: '/flow' },
   { icon: BarChart2, label: 'Recap', path: '/recap' },
@@ -32,6 +33,7 @@ export function tabForPath(pathname) {
   if (pathname === '/' || pathname.startsWith('/home/')) return '/'
   if (pathname === '/artists' || pathname.startsWith('/artist/')) return '/artists'
   if (pathname === '/genres' || pathname.startsWith('/genre/')) return '/genres'
+  if (pathname === '/playlists' || pathname.startsWith('/playlist/')) return '/playlists'
   return TABS.some(tab => tab.path === pathname) ? pathname : null
 }
 

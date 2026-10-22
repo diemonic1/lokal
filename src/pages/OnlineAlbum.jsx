@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Disc3, Download, ListPlus, Play, Shuffle } from 'lucide-react'
+import { ArrowLeft, Disc3, Download, Play, Shuffle } from 'lucide-react'
 import DiscoveryImage from '../components/DiscoveryImage'
 import ImageZoom from '../components/ImageZoom'
 import OnlineSongList from '../components/OnlineSongList'
@@ -13,10 +13,8 @@ import RefreshButton from '../components/RefreshButton'
 import { usePageReady } from '../pageCache'
 import { albumCacheKey, isOnlineTrack, libraryAlbum, loadOnlineAlbumCached, mergeWithLibrary, onlineAlbumPath, peekOnline } from '../onlineBrowse'
 import { api } from '../api'
-import { downloadOnline, playOnline, resolveOnline } from '../onlineActions'
-import { saveAsPlaylist } from '../trackActions'
+import { downloadOnline, playOnline } from '../onlineActions'
 import { artistPath } from '../releaseActions'
-import { showToast } from '../components/Toaster'
 import { plural } from '../plural'
 import { useTranslation } from '../i18n'
 
@@ -106,12 +104,6 @@ export default function OnlineAlbum() {
   // With some of it in the library: only the songs it doesn't have.
   const missing = tracks.filter(isOnlineTrack)
   const download = () => run('download', () => downloadOnline(missing, { label: owned ? t('{n} missing songs', { n: missing.length }) : label }))
-  const savePlaylist = () => run('playlist', async () => {
-    const rows = await resolveOnline(tracks, { label })
-    if (!rows.length) return
-    const playlist = await saveAsPlaylist(album, rows, { description: `${album} by ${artist}`, coverURL: /^https:\/\//.test(cover) ? cover : undefined }).catch(() => null)
-    showToast(playlist ? t('Saved {name} as a playlist.', { name: label }) : t('Could not save {name}.', { name: label }))
-  })
   const duration = useMemo(() => tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0), [tracks])
   // The cover, big (click it).
   const [zoom, setZoom] = useState(false)
@@ -135,7 +127,6 @@ export default function OnlineAlbum() {
             <button onClick={() => play(tracks[0])} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-base transition-opacity hover:opacity-90 disabled:opacity-40"><Play size={15} fill="currentColor" /> {t('Play')}</button>
             <button onClick={() => { const list = shuffled(tracks); play(list[0], list) }} disabled={!tracks.length} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-white transition-colors hover:border-accent/50 disabled:opacity-40"><Shuffle size={15} /> {t('Shuffle')}</button>
             {missing.length > 0 && <button onClick={download} disabled={!!busy} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-white transition-colors hover:border-accent/50 disabled:opacity-40"><Download size={15} /> {busy === 'download' ? t('Finding songs…') : owned ? t('Download missing ({n})', { n: missing.length }) : t('Download album')}</button>}
-            <button onClick={savePlaylist} disabled={!tracks.length || !!busy} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-white transition-colors hover:border-accent/50 disabled:opacity-40"><ListPlus size={15} /> {busy === 'playlist' ? t('Saving…') : t('Save as playlist')}</button>
             <RefreshButton onClick={() => setReload(n => n + 1)} loading={state.loading} loadedAt={state.loadedAt} />
           </div>
         </div>

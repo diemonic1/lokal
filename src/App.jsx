@@ -42,6 +42,7 @@ import Library from './pages/Library'
 import Search from './pages/Search'
 import Artist from './pages/Artist'
 import Playlist from './pages/Playlist'
+import Playlists from './pages/Playlists'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import Recap from './pages/Recap'
@@ -55,7 +56,6 @@ import Radio from './pages/Radio'
 import LosslessModal from './components/LosslessModal'
 import BulkLosslessModal from './components/BulkLosslessModal'
 import SmartPlaylistModal from './components/SmartPlaylistModal'
-import ImportPlaylistModal from './components/ImportPlaylistModal'
 import ShareCardModal from './components/ShareCardModal'
 import { usePlayerStore, useAppStore } from './store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -81,8 +81,7 @@ import { handleLiveSeek } from './liveSeek'
 import { useMusicVideoView } from './musicVideo'
 import { skipUnavailableRecommendation } from './recommendationPlayback'
 import { THEMES, applyTheme } from './theme'
-import { useAppearanceFlag } from './appearanceFlags'
-import { startSpotifyLikesSync } from './spotifyLikes'
+import { useAppearanceFlag, useFavoritesEnabled } from './appearanceFlags'
 import { continueFlow, flowNeedsMore } from './flow/session'
 import { playbackSpeed, usePlaybackSpeed } from './playbackSpeed'
 import { useCastPlayback, takeResumePosition, setResumePosition } from './cast/useCastPlayback'
@@ -350,6 +349,7 @@ function AnimatedRoutes() {
         <Route path="/search" element={<PageTransition><Search /></PageTransition>} />
         <Route path="/artist/:id" element={<PageTransition><Artist /></PageTransition>} />
         <Route path="/online/album" element={<PageTransition><OnlineAlbum /></PageTransition>} />
+        <Route path="/playlists" element={<PageTransition gated><Playlists /></PageTransition>} />
         <Route path="/playlist/:id" element={<PageTransition gated><Playlist /></PageTransition>} />
         {/* The Downloader lives in Search now; what asked for it (a Soulseek search) is passed on. */}
         <Route path="/downloader" element={<Navigate to="/search" replace state={location.state} />} />
@@ -1338,10 +1338,12 @@ export default function App() {
     return off
   }, [])
 
+  // The taskbar's heart goes with the favourites setting.
+  const favoritesOn = useFavoritesEnabled()
   useEffect(() => {
     if (!api.isElectron) return
     api.updateThumbarState({ isPlaying, isLiked: !!(currentTrack && likedIds.has(currentTrack.id)) })
-  }, [isPlaying, currentTrack, likedIds])
+  }, [isPlaying, currentTrack, likedIds, favoritesOn])
 
   // Settings > Appearance > Taskbar > Song progress: the song's progress under
   // the taskbar button, like AIMP. Nothing with no song, no length (a radio
@@ -1483,9 +1485,6 @@ export default function App() {
 
   useEffect(() => { userRef.current = user }, [user])
 
-  // Songs liked on Spotify since likes sync was turned on, liked here too (src/spotifyLikes.js).
-  useEffect(() => { startSpotifyLikesSync() }, [])
-
   useEffect(() => {
     if (!api.isElectron || !window.electron?.reportRemoteState) return
     const publish = () => {
@@ -1566,8 +1565,6 @@ export default function App() {
   const likedRevisionRef = useRef(0)
   useEffect(() => {
     let cancelled = false
-    let syncTimer = null
-    const syncCooldownMs = 10 * 60 * 1000
     // Each liked song with every id it goes by (its streamed copies too).
     const load = () => {
       const revision = likedRevisionRef.current
@@ -1577,54 +1574,24 @@ export default function App() {
         initLiked((t || []).flatMap(x => [x.id, ...(x.also_ids || [])]))
       }).catch(() => {})
     }
-    const syncKey = `lokal-lastfm-like-sync:${user?.id || 'guest'}`
-    const nextPageKey = `lokal-lastfm-like-sync-page:${user?.id || 'guest'}`
-    const lastSync = Number(localStorage.getItem(syncKey) || 0)
-    const pendingPage = Number(localStorage.getItem(nextPageKey) || 0)
-    const scheduleSync = (page, delay = syncCooldownMs) => {
-      if (cancelled) return
-      clearTimeout(syncTimer)
-      syncTimer = setTimeout(() => {
-        syncTimer = null
-        if (cancelled) return
-        api.lastfmSyncLikes(user?.id, page).then(result => {
-          if (cancelled) return
-          if (result?.partial && result.nextPage) {
-            try { localStorage.setItem(nextPageKey, String(result.nextPage)) } catch {}
-            scheduleSync(Number(result.nextPage) || page)
-          } else if (result?.error) {
-            try { localStorage.setItem(nextPageKey, String(page)) } catch {}
-            scheduleSync(page)
-          } else {
-            try { localStorage.removeItem(nextPageKey) } catch {}
-          }
-        }).catch(() => {
-          if (cancelled) return
-          try { localStorage.setItem(nextPageKey, String(page)) } catch {}
-          scheduleSync(page)
-        }).finally(() => {
-          try { localStorage.setItem(syncKey, String(Date.now())) } catch {}
-          if (!cancelled) load()
-        })
-      }, Math.max(0, delay))
-    }
-    const elapsed = Date.now() - lastSync
-    if (elapsed > syncCooldownMs || pendingPage) {
-      if (pendingPage) load()
-      scheduleSync(pendingPage || 1, Math.max(0, syncCooldownMs - Math.max(0, elapsed)))
-    } else {
-      load()
-    }
-    // A download that added songs: a liked streamed song may now be a file
-    // with an id of its own (its like moved to it), so reload the hearts.
+    load()
+    // A download that added songs, or the playlist files changed (here or
+    // through Syncthing: the favourites are one of them), so reload the hearts.
     const onLibraryChanged = () => { if (!cancelled) load() }
     window.addEventListener('lokal:refresh', onLibraryChanged)
+    window.addEventListener('lokal:playlists-changed', onLibraryChanged)
     return () => {
       cancelled = true
-      clearTimeout(syncTimer)
       window.removeEventListener('lokal:refresh', onLibraryChanged)
+      window.removeEventListener('lokal:playlists-changed', onLibraryChanged)
     }
   }, [user?.id])
+
+  // The playlist files changed (electron/playlistFiles.js): every page showing playlists reloads.
+  useEffect(() => {
+    if (!api.isElectron || !window.electron?.onPlaylistsChanged) return
+    return window.electron.onPlaylistsChanged(() => window.dispatchEvent(new CustomEvent('lokal:playlists-changed', { detail: {} })))
+  }, [])
 
   // A like from any heart: the song's other ids follow (see api.toggleLike).
   useEffect(() => {
@@ -1705,22 +1672,6 @@ export default function App() {
     const view = useMusicVideoView.getState()
     if (view.fromVideo) useMusicVideoView.setState({ open: !!state.currentTrack, fromVideo: false })
   }), [])
-
-  // Settings → Sync Linked Playlists at Launch: once, a little after start.
-  useEffect(() => {
-    if (!api.isElectron) return undefined
-    const timer = setTimeout(async () => {
-      const settings = await Promise.resolve(api.getSettings()).catch(() => null)
-      if (settings?.playlist_sync_on_launch !== '1') return
-      const { syncLinkedPlaylists } = await import('./playlistSync')
-      const results = await syncLinkedPlaylists({ userId: useAppStore.getState().user?.id }).catch(() => [])
-      const added = results.reduce((sum, result) => sum + (Number(result.added) || 0), 0)
-      const failed = results.filter(result => result.error)
-      if (added) showToast(translate('Linked playlists synced: {n} new song.|Linked playlists synced: {n} new songs.', { n: added }))
-      if (failed.length) showToast(translate('{n} linked playlist couldn\'t sync: {error}|{n} linked playlists couldn\'t sync: {error}', { n: failed.length, error: failed[0].error }))
-    }, 15000)
-    return () => clearTimeout(timer)
-  }, [])
 
   // An addon's login / verification window closed: sources refresh, and a
   // successful verification is confirmed wherever the person is.
@@ -3053,7 +3004,6 @@ export default function App() {
             <BulkLosslessModal />
             <LosslessModal />
             <SmartPlaylistModal />
-            <ImportPlaylistModal />
             <ShareCardModal />
             <RecapStories
               open={showRecapStories}

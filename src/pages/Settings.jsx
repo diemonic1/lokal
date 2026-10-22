@@ -1263,6 +1263,28 @@ activeCategory === 'data' ? usersTried
       )}
 
       {inCategory('library') && (
+      <Section title="Playlists">
+        <Row label="Liked Songs" desc="The favourites playlist (Любимые.m3u8 in the music folder's Playlists folder) and the hearts on songs. Off: the file isn't made, the hearts and “Liked Songs” disappear and nothing can be liked.">
+          <button
+            onClick={() => setVisual('playlists_favorites', settings.playlists_favorites === '0' ? '1' : '0')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.playlists_favorites !== '0' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.playlists_favorites !== '0' ? 'On' : 'Off')}
+          </button>
+        </Row>
+        <Row label="Add New Songs To" desc="Where songs added to a playlist go: its start or its end. Several songs added at once keep their order. A song that's already in the playlist moves there.">
+          <div className="flex gap-1">
+            {[['start', 'Start'], ['end', 'End']].map(([value, label]) => (
+              <button key={value} onClick={() => set('playlists_add_position', value)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${(settings.playlists_add_position === 'end' ? 'end' : 'start') === value ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+                {t(label)}
+              </button>
+            ))}
+          </div>
+        </Row>
+      </Section>
+      )}
+
+      {inCategory('library') && (
       <Section title="All Tracks">
         <Row label="Show the All Tracks section" desc="Adds “All tracks” at the bottom of the left sidebar, under the folders: every song in the library in one list. It can be sorted, filtered and searched like a folder, but not reordered.">
           <button
@@ -1401,13 +1423,6 @@ activeCategory === 'data' ? usersTried
             {t(settings.clean_download_metadata !== '0' ? 'On' : 'Off')}
           </button>
         </Row>
-        {api.isElectron && <Row label="Sync Linked Playlists at Launch" desc="Playlists linked to one on Spotify, Tidal, Apple Music or Qobuz get the songs added there since the last sync each time Lokal starts, downloaded through your sources. Otherwise use Sync on the playlist.">
-          <button
-            onClick={() => set('playlist_sync_on_launch', settings.playlist_sync_on_launch === '1' ? '0' : '1')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.playlist_sync_on_launch === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-            {t(settings.playlist_sync_on_launch === '1' ? 'On' : 'Off')}
-          </button>
-        </Row>}
         <Row label="Add Right Away" desc="When downloading a playlist or album, add each song to your library as soon as it's done, not all at the end.">
           <button
             onClick={() => set('index_while_downloading', settings.index_while_downloading === '1' ? '0' : '1')}
@@ -1726,7 +1741,7 @@ activeCategory === 'data' ? usersTried
 
       {api.isElectron && inCategory('integrations') && (
       <Section title="Spotify">
-        <Row stacked label="Spotify Cookie" desc={"Your Spotify sign-in, for Liked Songs here and Spotify Canvas covers: open open.spotify.com in your browser and sign in, press F12, go to Application (Storage in Firefox) › Cookies › open.spotify.com, and copy the value of sp_dc. It lasts about a year.\n\nIt stays on this computer and is only sent to Spotify."}>
+        <Row stacked label="Spotify Cookie" desc={"Your Spotify sign-in, for Spotify Canvas covers: open open.spotify.com in your browser and sign in, press F12, go to Application (Storage in Firefox) › Cookies › open.spotify.com, and copy the value of sp_dc. It lasts about a year.\n\nIt stays on this computer and is only sent to Spotify."}>
           <div className="flex flex-wrap items-center gap-2">
             <input type="password" value={settings.spotify_sp_dc || ''} onChange={e => { set('spotify_sp_dc', e.target.value); setSpotifyCheck(null) }}
               placeholder={t('sp_dc value')} spellCheck={false} autoComplete="off" aria-label={t('Spotify cookie (sp_dc)')}
@@ -1742,7 +1757,6 @@ activeCategory === 'data' ? usersTried
             )}
           </div>
         </Row>
-        <SpotifyLikesRow hasCookie={!!settings.spotify_sp_dc} userId={user?.id || 'guest'} />
       </Section>
       )}
 
@@ -3322,42 +3336,4 @@ AC/DC"
   )
 }
 
-// Settings → Integrations → Spotify → Sync Likes (electron/ipc/spotifyLikes.js).
-function SpotifyLikesRow({ hasCookie, userId }) {
-  const { t } = useTranslation()
-  const [status, setStatus] = useState(null)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    const unknown = { enabled: false, unknown: true, error: 'Could not read whether sync is on. Reopen Settings to try again.' }
-    Promise.resolve(api.spotifyLikesStatus()).then(next => setStatus(next || unknown)).catch(() => setStatus(unknown))
-  }, [])
-  const on = !!status?.enabled
-  // Until its state is known, the switch waits: turning "on" an already-on
-  // sync would move its starting point past likes not yet brought in.
-  const loading = status === null || !!status.unknown
-  const toggle = async () => {
-    if (loading || busy) return
-    setBusy(true)
-    try {
-      const next = on ? await api.spotifyLikesDisable() : await api.spotifyLikesEnable(userId)
-      setStatus(next)
-      window.dispatchEvent(new Event('lokal:spotify-likes-changed'))
-    } finally { setBusy(false) }
-  }
-  const since = status?.since ? new Date(status.since).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''
-  // Row translates the plain phrases (and the English error above).
-  const desc = !hasCookie ? 'Add your Spotify cookie above first.'
-    : status?.error ? status.error
-      : on ? t('Songs you like here are liked on Spotify, and songs you like on Spotify are liked here, since {date}. Likes from before stay where they are.', { date: since })
-        : 'Songs you like here are liked on Spotify, and songs you like on Spotify from now on are liked here. Your existing Spotify likes aren\'t brought in.'
-  return (
-    <Row label="Sync Likes" desc={desc}>
-      <button disabled={!hasCookie || busy || loading} aria-pressed={on} onClick={toggle}
-        className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors disabled:opacity-40 ${on ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
-        {busy || loading ? '…' : t(on ? 'On' : 'Off')}
-
-      </button>
-    </Row>
-  )
-}
 

@@ -1,22 +1,20 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Heart, Music, Play, Shuffle, Trash2, Edit2, Check, X, RefreshCw, Image as ImageIcon, AlertCircle, Search, Sparkles, SlidersHorizontal, Share2 } from 'lucide-react'
+import { Heart, Music, Play, Shuffle, Trash2, Edit2, Check, X, RefreshCw, Image as ImageIcon, Search, Sparkles, SlidersHorizontal, Share2, ListOrdered } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import TrackList from '../components/TrackList'
 import PlaylistCover from '../components/PlaylistCover'
 import { api } from '../api'
+import { showToast } from '../components/Toaster'
 import { describeRules, openSmartPlaylistEditor } from '../smartPlaylists'
 import { openShareCard, coversOf } from '../shareCard'
 import { makePlaylistContext } from '../playbackContext'
 import { isPlayable } from '../onlineTracks'
 import { plural } from '../plural'
 import { useCachedState, usePageReady } from '../pageCache'
-import PlaylistSyncButton from '../components/PlaylistSyncButton'
-import GhostSongsModal from '../components/GhostSongsModal'
-import { usePlaylistSortStore, playlistSortPreference } from '../store/playlistSort'
-import { sortPlaylistTracks } from '../playlistSorting'
 import { filterPlaylistTracks } from '../playlistSearch'
+import { useFavoritesEnabled } from '../appearanceFlags'
 import { useTranslation } from '../i18n'
 
 // The playlist's actions, as plain icons beside the Play button.
@@ -35,12 +33,10 @@ export default function Playlist() {
   // playlist, so the keys never change while mounted.
   const cacheKey = isLiked ? `playlist:liked:${user?.id || 'guest'}` : `playlist:${id}`
   const [tracks, setTracks, tracksCached] = useCachedState(`${cacheKey}:tracks`, [])
-  const sort = usePlaylistSortStore(state => playlistSortPreference(state.sorts?.[cacheKey]))
-  const saveSort = usePlaylistSortStore(state => state.setSort)
-  const setSort = useCallback(next => saveSort(cacheKey, next), [cacheKey, saveSort])
-  const sortedTracks = useMemo(() => sortPlaylistTracks(tracks, sort), [tracks, sort])
+  // No sorting in a playlist: its own order (the file's), changed by dragging.
+  const sortedTracks = tracks
   const trackNumbers = useMemo(() => new Map(tracks.map((track, index) => [track.playlist_track_id ?? track.id, index + 1])), [tracks])
-  const manualOrder = sort.column === 'number' && sort.direction === 'asc'
+  const favorites = useFavoritesEnabled()
   const [playlist, setPlaylist, metaCached] = useCachedState(`${cacheKey}:meta`, null)
   // A playlist is ready from the cache only with its name too (left before
   // that came in, it would show "Playlist" until it did).
@@ -54,7 +50,6 @@ export default function Playlist() {
   const [playlistSearch, setPlaylistSearch] = useState('')
   const playlistSearchRef = useRef(null)
   const visibleTracks = useMemo(() => filterPlaylistTracks(sortedTracks, playlistSearch), [sortedTracks, playlistSearch])
-  const [showResolveGhosts, setShowResolveGhosts] = useState(false)
   const playQueue = usePlayerStore(s => s.playQueue)
   const location = useLocation()
   // load() below re-fetches on every id change but doesn't clear `playlist`
@@ -90,10 +85,6 @@ export default function Playlist() {
 
   // Online songs are ghost tracks too, but they stream, so they play.
   const playableTracks = useMemo(() => sortedTracks.filter(track => isPlayable(track)), [sortedTracks])
-  // Songs to resolve: entries with nothing to play (an import that found no
-  // file). Streamed songs (a saved YouTube Music mix...) are ghost rows too,
-  // but they play, so they aren't missing anything.
-  const ghostTracks = useMemo(() => tracks.filter(track => String(track.file_path || '').startsWith('ghost://') && !isPlayable(track)), [tracks])
 
   // A smart playlist fills itself from its rules: no adding, removing or reordering by hand.
   const smart = !isLiked && !!playlist?.smart_rules
@@ -102,14 +93,7 @@ export default function Playlist() {
     // The page shows once both the songs and the name are in (or failed).
     const done = () => setLoaded(true)
     if (isLiked) {
-      Promise.resolve(api.getLikedTracks(user?.id)).then(t => {
-        const liked = Array.isArray(t) ? t : []
-        // Every song here is liked: its hearts (under every id it goes by)
-        // show filled even when the app's liked set predates it (a liked
-        // streamed song since downloaded is a new file, with a new id).
-        usePlayerStore.getState().setLikedMany(liked.flatMap(track => [track.id, ...(track.also_ids || [])]), true)
-        setTracks(liked)
-      }).catch(() => {}).finally(done)
+      Promise.resolve(api.getPlaylistTracks('liked')).then(t => setTracks(Array.isArray(t) ? t : [])).catch(() => {}).finally(done)
       return
     }
     const songs = Promise.resolve(api.getPlaylistTracks(id)).then(t => {
@@ -143,7 +127,7 @@ export default function Playlist() {
 
     const handleDeleted = (e) => {
       const playlistId = e?.detail?.playlistId
-      if (playlistId && String(playlistId) === String(id)) nav('/')
+      if (playlistId && String(playlistId) === String(id)) nav('/playlists')
       else load()
     }
 
@@ -162,13 +146,11 @@ export default function Playlist() {
     }
   }, [id, load, nav])
 
-  // Every ghost song resolved: nothing left to show.
-  useEffect(() => { if (!ghostTracks.length) setShowResolveGhosts(false) }, [ghostTracks.length])
-
   const removeTrack = async (track) => {
-    await api.removeFromPlaylist(id, track.playlist_track_id)
-    setTracks(t => t.filter(tr => tr.playlist_track_id !== track.playlist_track_id))
-    window.dispatchEvent(new CustomEvent('lokal:playlist-updated', { detail: { playlistId: id } }))
+    const result = await api.removeFromPlaylist(id, [track.id])
+    if (result?.error) return
+    setTracks(t => t.filter(tr => tr.id !== track.id))
+    window.dispatchEvent(new CustomEvent(isLiked ? 'lokal:playlists-changed' : 'lokal:playlist-updated', { detail: { playlistId: id } }))
   }
 
   const saveName = async () => {
@@ -185,18 +167,29 @@ export default function Playlist() {
     window.dispatchEvent(new CustomEvent('lokal:playlists-changed', {
       detail: { playlistId: id, action: 'deleted' },
     }))
-    nav('/')
+    nav('/playlists')
   }
 
-  const handleReorder = async (newTrackIds) => {
-    try {
-      await api.reorderPlaylist(id, newTrackIds)
-      const reorderedTracks = newTrackIds.map(trackId => tracks.find(t => t.id === trackId)).filter(Boolean)
-      setTracks(reorderedTracks)
-    } catch (err) {
-      console.error('Failed to reorder playlist:', err)
-    }
+  // "Reorder" (as in Library's folders): the songs are dragged in a draft,
+  // written to the playlist's file only on Save; Cancel drops the draft.
+  const [reorder, setReorder] = useState(null) // the songs in their new order while reordering
+  const [savingOrder, setSavingOrder] = useState(false)
+  const startReorder = () => {
+    setPlaylistSearchOpen(false)
+    setPlaylistSearch('')
+    setReorder(tracks)
   }
+  const saveReorder = async () => {
+    if (!reorder) return
+    setSavingOrder(true)
+    const result = await Promise.resolve(api.reorderPlaylist(id, reorder.map(track => track.id))).catch(e => ({ error: e.message }))
+    setSavingOrder(false)
+    if (result?.error) { showToast(t('Could not save: {error}', { error: t(result.error) })); return }
+    setTracks(reorder)
+    setReorder(null)
+    window.dispatchEvent(new CustomEvent(isLiked ? 'lokal:playlists-changed' : 'lokal:playlist-updated', { detail: { playlistId: id } }))
+  }
+  const reorderNumbers = useMemo(() => reorder && new Map(reorder.map((track, index) => [track.playlist_track_id ?? track.id, index + 1])), [reorder])
 
   const fetchRecommendations = useCallback(async () => {
     if (isLiked) return
@@ -357,7 +350,19 @@ export default function Playlist() {
 
       {/* No per-row entrance: the page fades in as a whole (see Library). */}
       <TrackList
-        toolbarStart={(
+        toolbarStart={reorder ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1">
+            <p className="mr-auto text-sm text-muted">{t('Drag the songs into a new order, then save.')}</p>
+            <button type="button" onClick={() => setReorder(null)} disabled={savingOrder}
+              className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs text-muted transition-colors hover:text-white disabled:opacity-50">
+              <X size={13} /> {t('Cancel')}
+            </button>
+            <button type="button" onClick={saveReorder} disabled={savingOrder}
+              className="flex h-8 items-center gap-1.5 rounded-md border border-accent/40 bg-accent/15 px-3 text-xs text-accent transition-colors hover:bg-accent/25 disabled:opacity-50">
+              <Check size={13} /> {savingOrder ? t('Saving...') : t('Save')}
+            </button>
+          </div>
+        ) : (
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap py-1 [&>*]:shrink-0">
             <button
               type="button"
@@ -398,24 +403,16 @@ export default function Playlist() {
             <button type="button" onClick={shuffleTracks} disabled={!playableTracks.length} aria-label={t("Shuffle")} title={t("Shuffle")} className={ICON_BUTTON}>
               <Shuffle size={17} />
             </button>
+            {!smart && (
+              <button type="button" onClick={startReorder} disabled={tracks.length < 2} aria-label={t('Reorder')} title={t('Reorder')} className={ICON_BUTTON}>
+                <ListOrdered size={17} />
+              </button>
+            )}
             <button type="button" onClick={sharePlaylist} disabled={!tracks.length} aria-label={t('Share as a picture')} title={t('Share as a picture')} className={ICON_BUTTON}>
               <Share2 size={17} />
             </button>
             {!isLiked && (
               <>
-                {!!ghostTracks.length && (
-                  <button
-                    type="button"
-                    onClick={() => setShowResolveGhosts(true)}
-                    aria-label={t('Ghost songs ({n})', { n: ghostTracks.length })}
-                    title={t('Ghost songs ({n}): songs not in your library yet', { n: ghostTracks.length })}
-                    className={`${ICON_BUTTON} relative !text-yellow-200 hover:!text-yellow-100`}
-                  >
-                    <AlertCircle size={17} />
-                    <span className="absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-yellow-400 px-1 text-center text-[9px] font-semibold leading-4 text-black tabular-nums">{ghostTracks.length > 99 ? '99+' : ghostTracks.length}</span>
-                  </button>
-                )}
-                {!smart && playlist?.id && <PlaylistSyncButton playlistId={playlist.id} userId={user?.id} buttonClassName={ICON_BUTTON} />}
                 {smart && (
                   <button type="button" onClick={() => openSmartPlaylistEditor(playlist)} aria-label={t("Edit rules")} title={t("Edit rules")} className={ICON_BUTTON}>
                     <SlidersHorizontal size={17} />
@@ -428,15 +425,16 @@ export default function Playlist() {
             )}
           </div>
         )}
-        tracks={visibleTracks}
-        sort={sort}
-        onSortChange={setSort}
-        trackNumbers={trackNumbers}
+        tracks={reorder || visibleTracks}
+        trackNumbers={reorderNumbers || trackNumbers}
         showQuality
         reduceMotion
-        onRemove={!isLiked && !smart ? removeTrack : null}
-        playlistId={!isLiked && !smart ? id : null}
-         onReorder={!isLiked && !smart && manualOrder && !playlistSearch.trim() ? handleReorder : null}
+        onRemove={!smart && !reorder ? removeTrack : null}
+        playlistId={!smart ? id : null}
+        onReorder={reorder ? ids => setReorder(prev => {
+          const byId = new Map(prev.map(track => [track.id, track]))
+          return ids.map(trackId => byId.get(trackId)).filter(Boolean)
+        }) : null}
         context={playbackContext}
         highlightTrackId={highlightTrackId}
         highlightRequestKey={highlightRequestKey}
@@ -476,13 +474,10 @@ export default function Playlist() {
       {loaded && !tracks.length && (
         <div className="text-center py-20 text-muted">
           <Music size={40} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm">{isLiked ? t('Like some tracks to see them here.') : smart ? t('No songs match these rules yet. Use Edit Rules to change them.') : t('This playlist is empty. Add songs to it with “Add to playlist” from any song’s menu.')}</p>
+          <p className="text-sm">{isLiked ? t(favorites ? 'Like some tracks to see them here.' : 'Liked Songs are turned off in Settings → Library → Playlists.') : smart ? t('No songs match these rules yet. Use Edit Rules to change them.') : t('This playlist is empty. Add songs to it with “Add to playlist” from any song’s menu.')}</p>
         </div>
       )}
 
-      {!isLiked && (
-        <GhostSongsModal open={showResolveGhosts} onClose={() => setShowResolveGhosts(false)} ghostTracks={ghostTracks} playlistId={id} onChanged={load} />
-      )}
     </div>
   )
 }

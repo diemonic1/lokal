@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Disc3, Moon, Pause, Play, Plus, Radio, Share2, Sun, Sunrise, Sunset, Volume2, VolumeX, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Disc3, Moon, Pause, Play, Radio, Share2, Sun, Sunrise, Sunset, Volume2, VolumeX, X } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
 import { plural } from '../plural'
 import { translate, useTranslation } from '../i18n'
@@ -234,7 +234,7 @@ export default function RecapStory({ open, recap, ...props }) {
   )
 }
 
-function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus }) {
+function StoryViewer({ onClose, recap, period }) {
   const { t, language } = useTranslation()
   const reduceMotion = useReducedMotion()
   const slides = useMemo(() => buildSlides(recap, period), [recap, period, language]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -473,7 +473,7 @@ function StoryViewer({ onClose, recap, period, onSavePlaylist, playlistStatus })
                   className="mt-auto pt-[5cqw]"
                 >
                   <SlideVisual slide={slide} recap={recap} topTracks={topTracks} replayQueue={replayQueue}
-                    playAndClose={playAndClose} periodTitle={period ? periodTitle(period) : ''} onSavePlaylist={onSavePlaylist} playlistStatus={playlistStatus} />
+                    playAndClose={playAndClose} periodTitle={period ? periodTitle(period) : ''} />
                 </motion.div>
               </motion.div>
             </AnimatePresence>
@@ -531,7 +531,7 @@ function TrackChip({ track }) {
   )
 }
 
-function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, periodTitle, onSavePlaylist, playlistStatus }) {
+function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, periodTitle }) {
   const { t } = useTranslation()
   if (slide.key === 'overview') {
     const stats = [
@@ -831,11 +831,6 @@ function SlideVisual({ slide, recap, topTracks, replayQueue, playAndClose, perio
           className="flex w-full items-center justify-center gap-[2cqw] rounded-[4cqw] bg-accent py-[3.6cqw] text-[3.6cqw] font-semibold text-base hover:bg-accent/85">
           <Play size={15} fill="currentColor" /> {t('play top {n}', { n: Math.min(replayQueue.length, 50) })}
         </button>
-        <button data-interactive onClick={onSavePlaylist}
-          className="flex w-full items-center justify-center gap-[2cqw] rounded-[4cqw] border border-white/10 bg-white/[0.06] py-[3.6cqw] text-[3.6cqw] hover:bg-white/[0.1]">
-          <Plus size={15} /> {t('add to my playlists')}
-        </button>
-        {playlistStatus && <p className="text-center text-[3cqw] text-accent" role="status">{playlistStatus}</p>}
       </div>
     </div>
   )

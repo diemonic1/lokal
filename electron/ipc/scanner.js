@@ -10,6 +10,7 @@ const { setFileLyrics } = require('../searchIndex')
 const quality = require('../quality')
 const trackExtras = require('../trackExtras')
 const addedDate = require('../addedDate')
+const lokalIds = require('../trackId')
 const { findFolderArtwork, getLibraryFolders } = require('../libraryFolder')
 const { getDB, getStorageDir, importAppData, resetAppData } = require('./db')
 const { ipcMain } = require('electron')
@@ -17,8 +18,6 @@ const { emitPluginHook } = require('./plugins')
 const { applyPendingImportedMetadataToTrack, resolveGhostsByIsrc } = require('./playlists')
 const { removeTrackFiles, forgetDownloads } = require('./trackFiles')
 const { smartTracks, smartPreview, normalizeRules, playlistRules } = require('../playlists/smart')
-const { deduplicatePlaylist } = require('../playlists/deduplicate')
-const { fetchCoverData } = require('../playlists/remoteCover')
 const { cacheArtistMetadata, refreshArtistMetadata, startRefreshAll, refreshAllStatus, cancelRefreshAll, searchArtistMetadataCandidates, applyArtistMetadataSelection, clearArtistImageOverride } = require('./artistMetadata')
 
 const DEFAULT_MUSIC_PATH = 'C:\\Users\\sipbuu\\Music'
@@ -543,7 +542,7 @@ async function readTrackFile(filePath, stat, ctx, existingId = null) {
   if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
   const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
   const replaygain = c.replaygain_track_gain || null
-  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || null, album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta) } }
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || null, album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta), lokal_id: lokalIds.fromMeta(meta) } }
 }
 
 // Libraries from before the column existed get it on their first write.
@@ -558,6 +557,7 @@ function ensureReplaygainColumn(db) {
 async function storeTracks(db, items) {
   if (!items.length) return
   ensureReplaygainColumn(db)
+  lokalIds.ensureColumn(db)
   const linkArtist = db.prepare(`INSERT OR IGNORE INTO artist_track_links (artist_id, track_id) VALUES (?, ?)`)
   const findExistingTrackByPath = db.prepare('SELECT id FROM tracks WHERE file_path = ?')
   const insertTrack = db.prepare(`
@@ -602,6 +602,8 @@ async function storeTracks(db, items) {
       // When it joined the library, from the file's LOKAL_ADDED tag (without
       // one, the library's date stays and is written into the file after).
       addedDate.applyToRow(db, trackId, item.added)
+      // The song's own id, from the file's LOKAL_ID tag (without one it's written after, electron/trackId.js).
+      db.prepare('UPDATE tracks SET lokal_id = ? WHERE id = ?').run(item.lokal_id ?? null, trackId)
       saveFileGenres(db, trackId, item.file_genres)
       // The file changed: a "Can't play" noted for its old version no longer holds.
       try { db.prepare('DELETE FROM track_errors WHERE track_id = ?').run(trackId) } catch {}
@@ -697,6 +699,11 @@ async function runScan(folderPath, { full = false } = {}) {
       console.log(`[scanFolder] Wrote the date added into ${stamped.written} file(s)${stamped.failed ? `, ${stamped.failed} couldn't be written` : ''}`)
     } catch (e) { console.warn('[scanFolder] Date added tags skipped:', e.message) }
   }
+  // Every MP3 without its own id gets one (after its date added, which it's made from).
+  try {
+    const ids = await lokalIds.stampTrackIds(db)
+    if (ids.written || ids.read || ids.failed) console.log(`[scanFolder] Song ids: ${ids.written} written, ${ids.read} read from files${ids.failed ? `, ${ids.failed} couldn't be written` : ''}`)
+  } catch (e) { console.warn('[scanFolder] Song ids skipped:', e.message) }
   try {
     const read = await backfillComments(db)
     if (read) console.log(`[scanFolder] Read comment tags for ${read} track(s)`)
@@ -709,6 +716,7 @@ async function runScan(folderPath, { full = false } = {}) {
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
   // New or moved songs can match plays other devices wrote.
   try { require('../listeningHistory').sync({ force: true }) } catch {}
+  try { require('../playlistFiles').sync({ force: true }) } catch {}
   if (watchAfterScan) require('../libraryWatcher').watchLibrary(folderPath)
   return scanStatus
 }
@@ -760,6 +768,10 @@ async function applyFileChanges(changes) {
   const unstamped = items.filter(item => item.isNew && item.added == null).map(item => item.file_path)
   if (unstamped.length) {
     try { await addedDate.stampAddedDates(db, unstamped) } catch (e) { console.warn('[libraryWatcher] Date added tags skipped:', e.message) }
+  }
+  const withoutId = items.filter(item => !item.lokal_id).map(item => item.file_path)
+  if (withoutId.length) {
+    try { await lokalIds.stampTrackIds(db, withoutId) } catch (e) { console.warn('[libraryWatcher] Song ids skipped:', e.message) }
   }
   return {
     added: items.filter(item => item.isNew).map(item => item.id),
@@ -1644,8 +1656,7 @@ function registerScannerHandlers(ipcMain) {
   ipcMain.handle('scanner:setLike', (_, trackId, userId, liked) => require('../online/sources').setSongLike(getDB(), userId || 'guest', trackId, !!liked))
   ipcMain.handle('scanner:getLikedTracks', (_, userId) => {
     const db = getDB()
-    const { songIds, foldStreamedLikes } = require('../online/sources')
-    foldStreamedLikes(db, userId || 'guest')
+    const { songIds } = require('../online/sources')
     // also_ids: the other ids each song goes by, so its heart shows everywhere.
     return db.prepare(`SELECT t.* FROM tracks t JOIN user_likes ul ON ul.track_id = t.id WHERE ul.user_id = ? ORDER BY ul.liked_at DESC`).all(userId || 'guest')
       .map(t => ({ ...t, also_ids: songIds(db, t.id).filter(id => id !== t.id) }))
@@ -1660,32 +1671,43 @@ function registerScannerHandlers(ipcMain) {
     if (!genres.length && !artists.length) return db.prepare("SELECT * FROM tracks WHERE file_path NOT LIKE 'ghost://%' ORDER BY RANDOM() LIMIT 20").all()
     return db.prepare(`SELECT * FROM tracks WHERE file_path NOT LIKE 'ghost://%' AND (genre IN (${genres.map(() => '?').join(',') || "''"}) OR artist IN (${artists.map(() => '?').join(',') || "''"})) ORDER BY RANDOM() LIMIT 20`).all(...genres, ...artists)
   })
-  ipcMain.handle('scanner:getPlaylists', (_, userId) => getDB().prepare('SELECT * FROM playlists WHERE user_id = ? ORDER BY name').all(userId || 'guest'))
-  ipcMain.handle('scanner:createPlaylist', (_, name, userId, description) => {
+  // Regular playlists are M3U8 files in the music folder (playlistFiles.js);
+  // the database holds a copy. Smart playlists live only in the database.
+  const playlistFiles = () => require('../playlistFiles')
+  const fileCall = (fn) => { try { return fn() } catch (e) { return { error: e.message } } }
+  ipcMain.handle('scanner:getPlaylists', (_, userId) => getDB().prepare("SELECT p.*, (SELECT COUNT(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id) AS track_count FROM playlists p WHERE p.user_id = ? OR p.file_name IS NOT NULL ORDER BY p.name COLLATE NOCASE").all(userId || 'guest'))
+  ipcMain.handle('scanner:createPlaylist', (_, name, userId, description, trackIds) => fileCall(() => playlistFiles().create(name, { trackIds })))
+  ipcMain.handle('playlist:createSmart', (_, name, userId) => {
     const db = getDB()
     const id = 'pl-' + Date.now()
-    const uid = userId || 'guest'
-    db.prepare('INSERT INTO playlists (id, name, user_id, description, cover_path) VALUES (?, ?, ?, ?, ?)').run(id, name, uid, description || null, null)
+    db.prepare('INSERT INTO playlists (id, name, user_id, smart_rules) VALUES (?, ?, ?, ?)').run(id, String(name || '').trim() || 'Smart playlist', userId || 'guest', JSON.stringify({ match: 'all', rules: [] }))
     return db.prepare('SELECT * FROM playlists WHERE id = ?').get(id)
   })
   ipcMain.handle('scanner:updatePlaylist', async (_, plId, data) => {
     const db = getDB()
     const existing = db.prepare('SELECT * FROM playlists WHERE id = ?').get(plId)
-    if (!existing) return { error: 'Playlist not found' }
+    if (plId !== 'liked' && !existing) return { error: 'Playlist not found' }
+    if (plId === 'liked' || existing.file_name) {
+      const result = fileCall(() => {
+        if (data.name !== undefined) playlistFiles().rename(plId, data.name)
+        if (data.coverData) playlistFiles().setCover(plId, data.coverData)
+        if (data.clearCover) playlistFiles().setCover(plId, null)
+        return null
+      })
+      return result || db.prepare('SELECT * FROM playlists WHERE id = ?').get(plId)
+    }
     if (data.name !== undefined) db.prepare('UPDATE playlists SET name = ? WHERE id = ?').run(data.name, plId)
     if (data.description !== undefined) db.prepare('UPDATE playlists SET description = ? WHERE id = ?').run(data.description, plId)
-    // Smart playlist rules (null: a regular playlist again).
-    if (data.smartRules !== undefined) {
-      const rules = data.smartRules === null ? null : normalizeRules(data.smartRules)
-      db.prepare('UPDATE playlists SET smart_rules = ? WHERE id = ?').run(rules ? JSON.stringify(rules) : null, plId)
+    // Smart playlist rules.
+    if (data.smartRules !== undefined && data.smartRules !== null) {
+      const rules = normalizeRules(data.smartRules)
+      db.prepare('UPDATE playlists SET smart_rules = ? WHERE id = ?').run(JSON.stringify(rules || { match: 'all', rules: [] }), plId)
     }
-    // coverURL: a cover from the web (a saved YouTube Music mix's).
-    const coverData = data.coverData || (data.coverURL ? await fetchCoverData(data.coverURL) : null)
-    if (coverData) {
+    if (data.coverData) {
       if (existing.cover_path && fs.existsSync(existing.cover_path)) {
         try { fs.removeSync(existing.cover_path) } catch {}
       }
-      const coverPath = await writePlaylistCover(plId, coverData)
+      const coverPath = await writePlaylistCover(plId, data.coverData)
       db.prepare('UPDATE playlists SET cover_path = ? WHERE id = ?').run(coverPath, plId)
     }
     if (data.clearCover) {
@@ -1696,30 +1718,23 @@ function registerScannerHandlers(ipcMain) {
     }
     return db.prepare('SELECT * FROM playlists WHERE id = ?').get(plId)
   })
-  ipcMain.handle('scanner:addToPlaylist', (_, plId, trackId, userId) => { 
-    const db = getDB() 
-    const uid = userId || 'guest'
-    const max = db.prepare('SELECT MAX(position) as m FROM playlist_tracks WHERE playlist_id = ?').get(plId)
-    // A streamed song you already have: the playlist gets the library copy.
-    const id = require('../online/sources').libraryTrackId(db, trackId)
-    db.prepare('INSERT INTO playlist_tracks (playlist_id, track_id, position, added_by, added_at) VALUES (?, ?, ?, ?, ?)').run(plId, id, (max?.m || 0) + 1, uid, Date.now()) 
-  })
-  ipcMain.handle('scanner:removeFromPlaylist', (_, plId, rowId) => {
-    
-    getDB().prepare('DELETE FROM playlist_tracks WHERE id = ?').run(rowId)
-  })
+  // Songs in order, all at once: at the playlist's start or end (Settings → Playlists).
+  ipcMain.handle('scanner:addToPlaylist', (_, plId, trackIds) => fileCall(() => playlistFiles().addTracks(plId, Array.isArray(trackIds) ? trackIds : [trackIds])))
+  ipcMain.handle('scanner:removeFromPlaylist', (_, plId, trackIds) => fileCall(() => playlistFiles().removeTracks(plId, Array.isArray(trackIds) ? trackIds : [trackIds])))
   ipcMain.handle('scanner:getPlaylistTracks', (_, plId) => {
     const db = getDB()
+    if (plId === 'liked') return db.prepare("SELECT t.*, ul.liked_at AS playlist_track_id FROM tracks t JOIN user_likes ul ON ul.track_id = t.id WHERE ul.user_id = 'guest' ORDER BY ul.liked_at DESC").all()
     const playlist = db.prepare('SELECT user_id, smart_rules FROM playlists WHERE id = ?').get(plId)
     if (playlistRules(playlist)) return smartTracks(db, playlist.smart_rules, playlist.user_id)
-    return db.prepare(`SELECT t.*, pt.id as playlist_track_id, pt.added_by, pt.added_at FROM tracks t JOIN playlist_tracks pt ON pt.track_id = t.id WHERE pt.playlist_id = ? ORDER BY pt.position`).all(plId)
+    return db.prepare(`SELECT t.*, pt.position as playlist_track_id, pt.added_by, pt.added_at FROM tracks t JOIN playlist_tracks pt ON pt.track_id = t.id WHERE pt.playlist_id = ? ORDER BY pt.position`).all(plId)
   })
   ipcMain.handle('playlist:smartPreview', (_, rules, userId) => {
     try { return smartPreview(getDB(), rules, userId) } catch (e) { return { error: e.message } }
   })
   ipcMain.handle('scanner:deletePlaylist', (_, plId) => {
     const db = getDB()
-    const playlist = db.prepare('SELECT cover_path FROM playlists WHERE id = ?').get(plId)
+    const playlist = db.prepare('SELECT cover_path, file_name FROM playlists WHERE id = ?').get(plId)
+    if (playlist?.file_name) return fileCall(() => playlistFiles().remove(plId))
     db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(plId)
     db.prepare('DELETE FROM playlists WHERE id = ?').run(plId)
     if (playlist?.cover_path && fs.existsSync(playlist.cover_path)) {
@@ -1727,15 +1742,11 @@ function registerScannerHandlers(ipcMain) {
     }
   })
   ipcMain.handle('scanner:reorderPlaylist', (_, plId, trackIds) => {
-    const db = getDB()
     if (!Array.isArray(trackIds)) return { error: 'trackIds must be an array' }
-    const stmt = db.prepare('UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?')
-    trackIds.forEach((trackId, index) => {
-      stmt.run(index + 1, plId, trackId)
-    })
-    return { ok: true }
+    return fileCall(() => playlistFiles().reorder(plId, trackIds))
   })
-  ipcMain.handle('scanner:deduplicatePlaylist', (_, plId) => deduplicatePlaylist(getDB(), plId))
+  ipcMain.handle('scanner:deduplicatePlaylist', (_, plId) => fileCall(() => playlistFiles().deduplicate(plId)))
+  ipcMain.handle('playlist:favoritesEnabled', () => { try { return playlistFiles().favoritesEnabled() } catch { return true } })
   ipcMain.handle('artist:updateBio', (_, artistId, bio) => getDB().prepare('UPDATE artists SET bio = ?, bio_source = ?, bio_fetched_at = ? WHERE id = ?').run(bio, 'manual', Date.now(), artistId))
   ipcMain.handle('artist:setImage', async (_, artistId, imageData) => { const buf = Buffer.from(imageData.split(',')[1], 'base64'); const imgPath = path.join(getStorageDir(), 'artwork', `artist-${artistId}.jpg`); await fs.writeFile(imgPath, buf); getDB().prepare('UPDATE artists SET image_path = ?, image_source = ?, image_fetched_at = ? WHERE id = ?').run(imgPath, 'manual', Date.now(), artistId); return imgPath })
   ipcMain.handle('artist:rename', (_, artistId, newName) => { const db = getDB(); lockArtistLinks(db, artistId); const newId = 'a-' + newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); db.prepare('UPDATE tracks SET artist = ? WHERE artist = (SELECT name FROM artists WHERE id = ?)').run(newName, artistId); db.prepare('UPDATE artists SET id = ?, name = ? WHERE id = ?').run(newId, newName, artistId); db.prepare('UPDATE artist_track_links SET artist_id = ? WHERE artist_id = ?').run(newId, artistId) })
@@ -1904,6 +1915,8 @@ function registerScannerHandlers(ipcMain) {
     for (const [k, v] of Object.entries(s)) { if (SECRET_SETTING_KEYS.has(k) && String(v) === SECRET_SETTING_PLACEHOLDER) continue; stmt.run(k, String(v)) }
     // Write, or remove, the file made from a pasted YouTube cookie.
     require('./ytCookies').syncPastedCookie(Object.fromEntries(getDB().prepare('SELECT key, value FROM settings').all().map(r => [r.key, r.value])))
+    // The favourites turned on or off, the music folder changed: the playlist files read again.
+    if (Object.keys(s).some(k => k.startsWith('playlists_') || k === 'music_folder')) try { require('../playlistFiles').settingsChanged() } catch {}
   })
   // Every whole artist name the credits are read with (the performers
   // config's and the user's); Settings edits only the user's (getPerformersConfig).
@@ -2363,6 +2376,7 @@ async function indexSingleFile(filePath, opts = {}) {
   if (addedDate.fromMeta(meta) == null) {
     try { await addedDate.stampAddedDates(db, [filePath]) } catch (e) { console.warn('[indexSingleFile] Date added tag skipped:', e.message) }
   }
+  try { await lokalIds.stampTrackIds(db, [filePath]) } catch (e) { console.warn('[indexSingleFile] Song id skipped:', e.message) }
   await emitPluginHook('onTrackIndexed', {
     id: trackId,
     title,

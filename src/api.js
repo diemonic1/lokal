@@ -210,8 +210,6 @@ export const api = {
         Promise.resolve(api.youtubeSetLiked(youtubeId, r.liked)).catch(() => {})
       }
       if (track.artist && track.title) Promise.resolve(api.lastfmSetLoved(track.artist, track.title, r.liked)).catch(() => {})
-      // New likes go to Spotify's Liked Songs too, when sync is on (it checks).
-      if (r.liked && track.artist && track.title) Promise.resolve(api.spotifyLikesPush({ title: track.title, artist: track.artist, album: track.album, userId: uid ?? 'guest' })).catch(() => {})
     }
     return r
   },
@@ -221,19 +219,12 @@ export const api = {
     return r
   },
   isYoutubeLocallyUnliked: (videoId, uid) => youtubeLocalUnlikes(uid || 'guest').has(String(videoId || '')),
-  // Likes kept in step with Spotify (desktop; electron/ipc/spotifyLikes.js).
-  spotifyLikesStatus: () => isE() && el()?.spotifyLikesStatus ? el().spotifyLikesStatus() : Promise.resolve({ enabled: false }),
-  spotifyLikesEnable: (userId) => isE() && el()?.spotifyLikesEnable ? el().spotifyLikesEnable(userId) : Promise.resolve({ enabled: false, error: 'Only in the desktop app' }),
-  spotifyLikesDisable: () => isE() && el()?.spotifyLikesDisable ? el().spotifyLikesDisable() : Promise.resolve({ enabled: false }),
-  spotifyLikesPoll: () => isE() && el()?.spotifyLikesPoll ? el().spotifyLikesPoll() : Promise.resolve({ items: [] }),
-  spotifyLikesAck: (progress) => isE() && el()?.spotifyLikesAck ? el().spotifyLikesAck(progress) : Promise.resolve(null),
   // AutoMix: a song's analysis (desktop; electron/automix), null when it can't be.
   automixAnalyze: (track) => isE() && el()?.automixAnalyze ? el().automixAnalyze(track) : Promise.resolve(null),
   measureLoudness: (track) => isE() && el()?.measureLoudness ? el().measureLoudness(track) : Promise.resolve(null),
   estimateLoudness: (track) => isE() && el()?.estimateLoudness ? el().estimateLoudness(track) : Promise.resolve(null),
   // Flow's songs: the library with this user's likes and plays (electron/ipc/flow.js; the server's /tracks/flow-pool on the web).
   flowPool: (uid) => isE() && el()?.flowPool ? el().flowPool(uid || 'guest') : apiFetch(`/tracks/flow-pool?userId=${encodeURIComponent(uid || 'guest')}`),
-  spotifyLikesPush: (track) => isE() && el()?.spotifyLikesPush ? el().spotifyLikesPush(track) : Promise.resolve({ ok: false }),
   getLikedTracks: (uid) => isE() ? el().getLikedTracks(uid) : apiFetch(`/tracks/liked?userId=${uid||'guest'}`),
   incrementPlayTime: (tid, uid, s) => isE() ? el().incrementPlayTime(tid, uid, s) : Promise.resolve(),
   // Time on an online radio station, for the history (desktop, like incrementPlayTime).
@@ -295,33 +286,20 @@ export const api = {
   trackSetArtwork: (id, d) => isE() ? el().trackSetArtwork(id, d) : apiFetch(`/tracks/${id}/artwork`, { method:'PUT', body:{imageData:d} }),
   trackSetGenre: (id, genre) => isE() ? el().trackSetGenre(id, genre) : apiFetch(`/tracks/${id}/genre`, { method:'PUT', body:{genre} }),
   getPlaylists: (uid) => isE() ? el().getPlaylists(uid) : apiFetch(`/playlists?userId=${uid||'guest'}`),
-  createPlaylist: (n, uid, d) => isE() ? el().createPlaylist(n, uid, d) : apiFetch('/playlists', { method:'POST', body:{name:n,userId:uid,description:d} }),
+  // Regular playlists are M3U8 files in the music folder (electron/playlistFiles.js).
+  createPlaylist: (n, uid, d, trackIds = []) => isE() ? el().createPlaylist(n, uid, d, trackIds) : apiFetch('/playlists', { method:'POST', body:{name:n,userId:uid,trackIds} }),
+  createSmartPlaylist: (n, uid) => isE() ? el().createSmartPlaylist(n, uid) : apiFetch('/playlists/smart', { method:'POST', body:{name:n,userId:uid} }),
   updatePlaylist: (id, d) => isE() ? el().updatePlaylist(id, d) : apiFetch(`/playlists/${id}`, { method:'PUT', body:d }),
   smartPlaylistPreview: (rules, uid) => isE() ? el().smartPlaylistPreview(rules, uid) : apiFetch('/playlists/smart-preview', { method:'POST', body:{ rules, userId: uid } }),
-  addToPlaylist: (pl, tid) => isE() ? el().addToPlaylist(pl, tid) : apiFetch(`/playlists/${pl}/tracks`, { method:'POST', body:{trackId:tid} }),
-  addMultipleToPlaylist: async (pl, trackIds) => {
-    if (!trackIds || trackIds.length === 0) return
-    for (const tid of trackIds) {
-      await (isE() ? el().addToPlaylist(pl, tid) : apiFetch(`/playlists/${pl}/tracks`, { method:'POST', body:{trackId:tid} }))
-    }
-  }, 
-  removeFromPlaylist: (pl, tid) => isE() ? el().removeFromPlaylist(pl, tid) : apiFetch(`/playlists/${pl}/tracks/${tid}`, { method:'DELETE' }),
+  // Songs (ids, in order) into a playlist ('liked': the favourites), at its start or end per Settings → Playlists.
+  addToPlaylist: (pl, ids) => { const trackIds = Array.isArray(ids) ? ids : [ids]; return isE() ? el().addToPlaylist(pl, trackIds) : apiFetch(`/playlists/${pl}/tracks`, { method:'POST', body:{trackIds} }) },
+  addMultipleToPlaylist: (pl, trackIds) => api.addToPlaylist(pl, trackIds || []),
+  removeFromPlaylist: (pl, ids) => { const trackIds = Array.isArray(ids) ? ids : [ids]; return isE() ? el().removeFromPlaylist(pl, trackIds) : apiFetch(`/playlists/${pl}/tracks/remove`, { method:'POST', body:{trackIds} }) },
+  playlistFavoritesEnabled: () => isE() ? el().playlistFavoritesEnabled() : apiFetch('/playlists/favorites-enabled'),
+  importExternalTrackMetadata: (payload) => isE() ? el().importExternalTrackMetadata(payload) : apiFetch('/playlists/external-import-metadata', { method:'POST', body:payload }),
+  resolveGhostTrack: (ghostTrackId, targetTrackId, options = {}) => isE() ? el().resolveGhostTrack(ghostTrackId, targetTrackId, options) : apiFetch('/playlists/resolve-ghost', { method:'POST', body:{ ghostTrackId, targetTrackId, options } }),
   getPlaylistTracks: (pl) => isE() ? el().getPlaylistTracks(pl) : apiFetch(`/playlists/${pl}/tracks`),
   deletePlaylist: (pl) => isE() ? el().deletePlaylist(pl) : apiFetch(`/playlists/${pl}`, { method:'DELETE' }),
-  playlistImport: (name, entries, userId) => isE() ? el().playlistImport(name, entries, userId || 'guest') : apiFetch('/playlists/import', { method: 'POST', body: { name, entries, userId: userId || 'guest' }}),
-  playlistImportFile: (name, fileContent, fileType, userId) => isE() ? el().playlistImportFile(name, fileContent, fileType, userId || 'guest') : apiFetch('/playlists/import-file', { method:'POST', body:{name, fileContent, fileType, userId:userId||'guest'} }),
-  previewExternalPlaylistImport: (payload) => isE() ? el().previewExternalPlaylistImport(payload) : apiFetch('/playlists/external-import-preview', { method:'POST', body:payload }),
-  importExternalPlaylist: (payload) => isE() ? el().importExternalPlaylist(payload) : apiFetch('/playlists/external-import', { method:'POST', body:payload }),
-  importExternalTrackMetadata: (payload) => isE() ? el().importExternalTrackMetadata(payload) : apiFetch('/playlists/external-import-metadata', { method:'POST', body:payload }),
-  previewLinkPlaylist: (payload) => isE() ? el().previewLinkPlaylist(payload) : apiFetch('/playlists/link-preview', { method:'POST', body:payload }),
-  importLinkPlaylist: (payload) => isE() ? el().importLinkPlaylist(payload) : apiFetch('/playlists/link-import', { method:'POST', body:payload }),
-  // A playlist linked to one on Spotify / Tidal / Apple Music / Qobuz (desktop).
-  playlistSyncStatus: (id) => isE() ? el().playlistSyncStatus(id) : Promise.resolve({ linked: false, unsupported: true }),
-  playlistSyncLink: (id, url) => isE() ? el().playlistSyncLink(id, url) : Promise.resolve({ error: 'Playlist sync works in the desktop app.' }),
-  playlistSyncUnlink: (id) => isE() ? el().playlistSyncUnlink(id) : Promise.resolve({ ok: true }),
-  playlistSyncLinked: () => isE() ? el().playlistSyncLinked() : Promise.resolve([]),
-  playlistSync: (id, userId) => isE() ? el().playlistSync(id, userId) : Promise.resolve({ error: 'Playlist sync works in the desktop app.' }),
-  resolveGhostTrack: (ghostTrackId, targetTrackId, options = {}) => isE() ? el().resolveGhostTrack(ghostTrackId, targetTrackId, options) : apiFetch('/playlists/resolve-ghost', { method:'POST', body:{ ghostTrackId, targetTrackId, options } }),
   reorderPlaylist: (pl, trackIds) => isE() ? el().reorderPlaylist(pl, trackIds) : apiFetch(`/playlists/${pl}/reorder`, { method:'PUT', body:{trackIds} }),
   deduplicatePlaylist: pl => isE() ? el().deduplicatePlaylist(pl) : apiFetch(`/playlists/${pl}/deduplicate`, { method:'POST' }),
   getMixes: (uid) => isE() ? el().getMixes(uid) : apiFetch(`/mixes?userId=${uid||'guest'}`),
@@ -693,7 +671,6 @@ export const api = {
   lastfmSimilar: (artist, track, limit = 24) => isE() ? el().lastfmSimilar(artist, track, limit) : apiFetch(`/lastfm/similar-music?${new URLSearchParams({ artist, ...(track ? { track } : {}), limit: String(limit) })}`),
   lastfmLoved: (page) => isE() ? el().lastfmLoved(page) : apiFetch(`/lastfm/loved${page ? `?page=${encodeURIComponent(page)}` : ''}`),
   lastfmSetLoved: (artist, track, loved) => isE() ? el().lastfmSetLoved(artist, track, loved) : apiFetch('/lastfm/loved', { method:'POST', body:{ artist, track, loved } }),
-  lastfmSyncLikes: (uid, page) => isE() ? el().lastfmSyncLikes(uid || 'guest', page) : apiFetch('/lastfm/sync-likes', { method:'POST', body:{ userId: uid || 'guest', page } }),
   listenbrainzStatus: () => isE() ? el().listenbrainzStatus() : apiFetch('/listenbrainz/status'),
   listenbrainzConnect: (token) => isE() ? el().listenbrainzConnect(token) : apiFetch('/listenbrainz/connect', { method: 'POST', body: { token } }),
   listenbrainzDisconnect: () => isE() ? el().listenbrainzDisconnect() : apiFetch('/listenbrainz/disconnect', { method: 'POST' }),
