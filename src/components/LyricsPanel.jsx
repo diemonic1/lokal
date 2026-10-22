@@ -753,6 +753,9 @@ export default function LyricsPanel({
     setPickingId(null)
     setRefreshing(false)
     setEmbeddingId(null)
+    // Scrolling around the previous song's lyrics doesn't carry over.
+    clearTimeout(browseTimer.current)
+    setBrowsing(false)
     const cached = trackKey != null && hasCachedLyrics(trackKey)
     // Cached: its lines show right away (even if the previous song was still
     // loading); otherwise the loading state until this song's answer.
@@ -944,6 +947,16 @@ export default function LyricsPanel({
       rowEl.style.transform = ''
     })
   }, [focusIdx, anchorFraction])
+
+  // Another song (or a refreshed result): start from the top right away. The
+  // list otherwise kept the previous song's scroll position until this one's
+  // first sung line came round to move it.
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container || lastScrollIdx.current >= 0 || container.scrollTop < 1) return
+    markAutoScroll(container)
+    container.scrollTop = 0
+  }, [trackKey, lines])
 
   useLayoutEffect(() => {
     if (focusIdx < 0 || browsing) return
