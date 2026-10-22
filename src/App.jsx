@@ -45,6 +45,8 @@ import Playlist from './pages/Playlist'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import Recap from './pages/Recap'
+import History from './pages/History'
+import Stats from './pages/Stats'
 import Quality from './pages/Quality'
 import LyricsAnalysis from './pages/LyricsAnalysis'
 import LyricsSearch from './pages/LyricsSearch'
@@ -358,6 +360,10 @@ function AnimatedRoutes() {
         <Route path="/cache-analysis" element={<PageTransition gated><CacheAnalysis /></PageTransition>} />
         <Route path="/radio" element={<PageTransition gated><Radio /></PageTransition>} />
         <Route path="/recap" element={<PageTransition gated><Recap /></PageTransition>} />
+        <Route path="/stats" element={<PageTransition gated><Stats /></PageTransition>} />
+        <Route path="/history" element={<PageTransition gated><History /></PageTransition>} />
+        {/* The History tab used to be on Home. */}
+        <Route path="/home/history" element={<Navigate to="/history" replace />} />
         <Route path="/settings" element={<PageTransition gated><Settings /></PageTransition>} />
       </Routes>
     </AnimatePresence>
@@ -1943,7 +1949,19 @@ export default function App() {
     tryScrobbleLastfmTrack(flushedTrack, secs)
     trySubmitListenBrainz(flushedTrack, secs)
     if (secs >= 3 && trackId && !isStationTrack(flushedTrack)) api.incrementPlayTime(trackId, userRef.current?.id, secs)
+    // A station: the time on it (no songs), for the history and recaps.
+    if (secs >= 3 && isStationTrack(flushedTrack) && flushedTrack.station) {
+      const { id, title, url } = flushedTrack.station
+      api.recordStationTime({ id, title, url }, userRef.current?.id, secs)
+    }
   }, [tryScrobbleLastfmTrack, trySubmitListenBrainz])
+
+  // Closing the app ends what's playing: its time so far is kept (an hour of a station included).
+  useEffect(() => {
+    const onClose = () => { if (playSecsRef.current >= 3) flushTime(currentTrackRef.current?.id) }
+    window.addEventListener('beforeunload', onClose)
+    return () => window.removeEventListener('beforeunload', onClose)
+  }, [flushTime])
 
   // Top up ordinary queues when fewer than 3 tracks remain.
   // Flow never ends: more of its own songs instead (src/flow/session.js).

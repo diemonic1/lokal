@@ -9,6 +9,8 @@ const { initDB, getDB, getStorageDir } = require('../electron/ipc/db')
 const { initPlugins } = require('../electron/ipc/plugins')
 initDB()
 initPlugins()
+// Plays shared through the music folder (electron/listeningHistory.js).
+try { require('../electron/listeningHistory').start() } catch (e) { console.error('History:', e.message) }
 console.log(`DB: ${getStorageDir()}`)
 
 const app = express()

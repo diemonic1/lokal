@@ -1,10 +1,13 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { BarChart3, CalendarRange, Clock3, Disc3, ListMusic, ListPlus, Play, Plus, RefreshCw, Sparkles, Share2 } from 'lucide-react'
+import { BarChart3, CalendarRange, Clock3, Disc3, ListMusic, ListPlus, Play, Plus, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
 import { useCachedState, usePageReady } from '../pageCache'
 import { useAppStore, usePlayerStore } from '../store/player'
+import { useRadioStore } from '../store/radio'
+import { RADIO_CONTEXT, stationTrack } from '../radio/stations'
 import TrackList from '../components/TrackList'
 import FadeImg from '../components/FadeImg'
 import { latestPeriod, listenerTimeZone, nextPeriodBoundary, periodLabel, periodPlace, periodQuery, periodTitle, recapPlaylistName, recapTree, treePeriods, markRecapOpened } from '../recapPeriods'
@@ -15,6 +18,43 @@ import { showToast } from '../components/Toaster'
 import { saveAsPlaylist } from '../trackActions'
 import { openShareCard, coversOf } from '../shareCard'
 
+
+/** Nothing to show: no plays and no time on the radio. */
+const isEmptyRecap = (recap) => !recap?.totalPlays && !recap?.radioMinutes
+
+/**
+ * Favorite stations: the online radio listened to longest (the radio counts
+ * towards the time, never towards plays or tracks). A row plays the station.
+ */
+function StationsList({ stations }) {
+  const { t } = useTranslation()
+  const catalog = useRadioStore(state => state.catalog)
+  const initRadio = useRadioStore(state => state.init)
+  const playTrack = usePlayerStore(state => state.playTrack)
+  useEffect(() => { initRadio() }, [initRadio])
+  const play = (item) => {
+    const station = catalog?.stations?.find(entry => entry.title.toLowerCase() === item.station.toLowerCase()) || (item.url ? { id: item.id || item.url, title: item.station, url: item.url } : null)
+    if (!station) return
+    const track = stationTrack(station, catalog?.title || '')
+    playTrack(track, [track], { type: RADIO_CONTEXT, name: catalog?.title || t('Online Radio') })
+  }
+  return (
+    <section className="rounded-xl border border-border bg-elevated p-4">
+      <h2 className="flex items-center gap-2 text-xs font-display uppercase tracking-widest text-muted"><Radio size={12} />{t('Favorite stations')}</h2>
+      <div className="mt-4 space-y-2">
+        {stations.map((item, index) => (
+          <button key={item.station} onClick={() => play(item)} title={t('Play {name}', { name: item.station })}
+            className="group/row flex w-full items-center gap-3 rounded-lg bg-card px-3 py-2 text-left transition-colors hover:bg-white/[0.06]">
+            <span className="w-4 flex-shrink-0 text-xs text-muted">{index + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-white">{item.station}</span>
+            <span className="flex-shrink-0 text-xs text-muted group-hover/row:hidden">{fmtMinutes(Math.round(item.seconds / 60))}</span>
+            <Play size={13} fill="currentColor" className="hidden flex-shrink-0 text-accent group-hover/row:block" />
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 function Metric({ label, value, icon: Icon }) {
   const { t } = useTranslation()
@@ -262,6 +302,9 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   const [status, setStatus] = useState('')
   const [storyOpen, setStoryOpen] = useState(false)
   const playQueue = usePlayerStore(s => s.playQueue)
+  // A recap asked for by another page (Statistics' recap cards), opened once its period is listed.
+  const location = useLocation()
+  const requestedIdRef = useRef(location.state?.periodId || '')
   // The period selected right now, for answers that arrive after a switch.
   const selectedIdRef = useRef(selectedId)
   selectedIdRef.current = selectedId
@@ -368,7 +411,9 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     setRecapsById(current => (selectedId && current[selectedId] && available.some(p => p.id === selectedId) ? { [selectedId]: current[selectedId] } : {}))
     setTree(nextTree)
     const latest = latestPeriod(nextTree)
-    const keep = available.find(period => period.id === selectedId)
+    const requested = requestedIdRef.current && available.find(period => period.id === requestedIdRef.current)
+    requestedIdRef.current = ''
+    const keep = requested || available.find(period => period.id === selectedId)
     // Nothing finished yet: the newest month (or year) so far.
     const soFar = available.find(period => period.partial && period.scope === 'month') || available.find(period => period.partial)
     select(keep || latest || soFar, nextTree)
@@ -577,7 +622,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
             <Plus size={14} />
             <span className="hidden @sm:inline">{t("Save as playlist")}</span>
           </button>
-          <button onClick={() => setStoryOpen(true)} disabled={loading || !recap || recap.totalPlays === 0} title={t("Show the story")} aria-label={t("Show the story")} className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-elevated px-3 py-2 text-sm text-white transition-colors hover:border-accent/40 disabled:opacity-50 @md:px-4">
+          <button onClick={() => setStoryOpen(true)} disabled={loading || !recap || isEmptyRecap(recap)} title={t("Show the story")} aria-label={t("Show the story")} className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-elevated px-3 py-2 text-sm text-white transition-colors hover:border-accent/40 disabled:opacity-50 @md:px-4">
             <Sparkles size={14} />
             <span className="hidden @sm:inline">{t("Story")}</span>
           </button>
@@ -638,7 +683,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
 
       {loading && !recap ? (
         <div className="rounded-xl border border-border bg-elevated p-10 text-center text-sm text-muted">{t("Building recap...")}</div>
-      ) : !recap || recap.totalPlays === 0 ? (
+      ) : !recap || isEmptyRecap(recap) ? (
         <div className="rounded-xl border border-border bg-elevated p-10 text-center">
           <Disc3 size={36} className="mx-auto text-muted/40" />
           <p className="mt-3 text-sm text-white">{t("No finished recap selected yet.")}</p>
@@ -665,6 +710,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
                 <h2 className="mt-3 break-words text-3xl font-display text-white @sm:text-4xl">{shownTitle}</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
                   {t('You played {tracks} ({plays}) for {time}, with {n} sessions strong enough to name.', { tracks: plural(recap.uniqueTracks || 0, 'track'), plays: plural(recap.totalPlays, 'play'), time: fmtMinutes(recap.totalMinutes), n: recap.sessions?.length || 0 })}
+                  {recap.radioMinutes > 0 && ` ${t('Online radio: {time} of it.', { time: fmtMinutes(recap.radioMinutes) })}`}
                 </p>
                 <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 @sm:grid-cols-2 @xl:grid-cols-4">
                   <Metric label="Minutes" value={fmtMinutes(recap.totalMinutes)} icon={Clock3} />
@@ -699,6 +745,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
               <RankedList title={t("Genres")} items={topGenres.slice(0, 5)} nameKey="genre"
                 emptyText="No specific genre stood out yet." busyKey={busySubject}
                 onPlay={(name) => playSubject('genre', name)} onSave={(name) => saveSubject('genre', name)} />
+              {recap.topStations?.length > 0 && <StationsList stations={recap.topStations.slice(0, 5)} />}
             </aside>
           </div>
 

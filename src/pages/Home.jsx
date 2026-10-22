@@ -38,7 +38,8 @@ function homeRoute(pathname) {
   if (parts[0] !== 'home') return { tab: 'home', section: null }
   // Flow has its own tab now (/flow; App.jsx sends /home/flow there).
   const tab = parts[1]
-  return { tab: ['discovery', 'releases', 'history'].includes(tab) ? tab : 'home', section: parts[2] || null }
+  // History has its own tab now (/history; App.jsx sends /home/history there).
+  return { tab: ['discovery', 'releases'].includes(tab) ? tab : 'home', section: parts[2] || null }
 }
 
 function secureImage(value) {
@@ -196,7 +197,6 @@ function HomeContent({ user }) {
   const uidKey = user?.id || 'guest'
   const [recentTracks, setRecentTracks] = useCachedState(`home:recent:${uidKey}`, [])
   const [suggestions, setSuggestions] = useCachedState(`home:suggestions:${uidKey}`, [])
-  const [localHistory, setLocalHistory] = useCachedState(`home:history:${uidKey}`, [])
   const [mixes, setMixes] = useCachedState(`home:mixes:${uidKey}`, [])
   const session = recommendationSession(uidKey)
   const sessionState = useSyncExternalStore(session.subscribe, session.getSnapshot)
@@ -361,18 +361,16 @@ function HomeContent({ user }) {
       // Only to tell an empty library (Recently Added moved to the New tab).
       soft(api.getTracks({ sort: 'added_at DESC', limit: 1 })),
       soft(api.getSuggestions(uid)),
-      soft(api.getHistory(uid, 100)),
       soft(api.getMixes(uid)),
       soft(api.getArtists()),
-    ]).then(([tracks, suggested, history, userMixes, artists]) => {
+    ]).then(([tracks, suggested, userMixes, artists]) => {
       const nonGhost = items => (Array.isArray(items) ? items.filter(item => !String(item?.file_path || '').startsWith('ghost://')) : [])
       if (Array.isArray(tracks)) setRecentTracks(nonGhost(tracks))
       if (Array.isArray(suggested)) setSuggestions(nonGhost(suggested))
-      if (Array.isArray(history)) setLocalHistory(history.map(entry => ({ ...entry, scrobbledAt: entry.played_at })))
       if (Array.isArray(userMixes)) setMixes(userMixes.map(mix => ({ ...mix, tracks: nonGhost(mix.tracks) })).filter(mix => mix.tracks.length > 0))
       if (Array.isArray(artists)) setArtistsLoaded(true)
       if (Array.isArray(artists)) setLocalArtists(artists.map(artist => ({ ...artist, image: artist.image || (artist.image_path ? (api.isElectron ? `file://${artist.image_path}` : `/api/artist-image/${encodeURIComponent(artist.id)}`) : ''), source: 'library' })))
-      if ([tracks, suggested, history, userMixes, artists].every(Array.isArray)) setLoaded(true)
+      if ([tracks, suggested, userMixes, artists].every(Array.isArray)) setLoaded(true)
     })
   }
 
@@ -550,13 +548,9 @@ function HomeContent({ user }) {
 
   return <div className="p-6 space-y-7 w-full max-w-6xl mx-auto pb-10">
     <div><h1 className="text-2xl font-display text-white">{new Date().getHours() < 12 ? t('Good morning') : new Date().getHours() < 18 ? t('Good afternoon') : t('Good evening')}</h1><p className="text-sm text-muted mt-1">{t("Your music, listening history, and recommendations")}</p></div>
-    <div className="flex gap-1 p-0.5 bg-elevated rounded-lg border border-border w-fit">{[['home', 'Local'], ['discovery', 'Discovery'], ['releases', 'Releases'], ['history', 'History']].map(([id, label]) => <button key={id} onClick={() => goHome(id)} className={`px-4 py-1.5 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>{t(label)}</button>)}</div>
+    <div className="flex gap-1 p-0.5 bg-elevated rounded-lg border border-border w-fit">{[['home', 'Local'], ['discovery', 'Discovery'], ['releases', 'Releases']].map(([id, label]) => <button key={id} onClick={() => goHome(id)} className={`px-4 py-1.5 text-xs font-display uppercase tracking-wider rounded transition-colors ${tab === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>{t(label)}</button>)}</div>
     <SectionSwap id={tab} className="space-y-10">
-      {tab === 'history' ? <section>
-        <SectionHeader icon={History} eyebrow={t("History")} title={t("Listen History")} count={localHistory.length} />
-        {localHistory.length ? <TrackList tracks={localHistory} reduceMotion context={{ type: 'history', name: 'Listen History' }} /> : <p className="py-10 text-center text-sm text-muted">{t("No listen history yet.")}</p>}
-      </section>
-        : tab === 'releases' ? <ReleasesPanel artists={[...followedArtists.values()].map(name => ({ name }))} libraryArtists={localArtists}
+      {tab === 'releases' ? <ReleasesPanel artists={[...followedArtists.values()].map(name => ({ name }))} libraryArtists={localArtists}
             onPlay={album => playCatalogue('album', album)}
             onOpen={album => navigate(onlineAlbumPath({ artist: album.artist, album: album.title, albumId: album.albumId }), { state: { artwork: album.artwork_url || '' } })}
             onMenu={sectionProps.onAlbumMenu}

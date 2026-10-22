@@ -20,7 +20,6 @@ const { smartTracks, smartPreview, normalizeRules, playlistRules } = require('..
 const { deduplicatePlaylist } = require('../playlists/deduplicate')
 const { fetchCoverData } = require('../playlists/remoteCover')
 const { cacheArtistMetadata, refreshArtistMetadata, startRefreshAll, refreshAllStatus, cancelRefreshAll, searchArtistMetadataCandidates, applyArtistMetadataSelection, clearArtistImageOverride } = require('./artistMetadata')
-const { recordListeningEvent } = require('./recaps')
 
 const DEFAULT_MUSIC_PATH = 'C:\\Users\\sipbuu\\Music'
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.m4a', '.ogg', '.wav', '.aac', '.opus', '.wma', '.alac', '.ape'])
@@ -708,6 +707,8 @@ async function runScan(folderPath, { full = false } = {}) {
   } catch (e) { console.warn('[scanFolder] Explicit / video tags skipped:', e.message) }
   if (rereadTags) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('tag_reader_version', ?)").run(String(TAG_READER_VERSION))
   scanStatus.scanning = false; emit('scanner:progress', { ...scanStatus, complete: true })
+  // New or moved songs can match plays other devices wrote.
+  try { require('../listeningHistory').sync({ force: true }) } catch {}
   if (watchAfterScan) require('../libraryWatcher').watchLibrary(folderPath)
   return scanStatus
 }
@@ -1649,8 +1650,8 @@ function registerScannerHandlers(ipcMain) {
     return db.prepare(`SELECT t.* FROM tracks t JOIN user_likes ul ON ul.track_id = t.id WHERE ul.user_id = ? ORDER BY ul.liked_at DESC`).all(userId || 'guest')
       .map(t => ({ ...t, also_ids: songIds(db, t.id).filter(id => id !== t.id) }))
   })
-  ipcMain.handle('scanner:incrementPlay', (_, trackId, userId) => { const db = getDB(); const uid = userId || 'guest'; db.prepare('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?').run(trackId); db.prepare('INSERT INTO play_history (user_id, track_id) VALUES (?, ?)').run(uid, trackId) })
-  ipcMain.handle('scanner:getHistory', (_, userId, limit) => getDB().prepare(`SELECT t.*, ph.played_at FROM tracks t JOIN play_history ph ON ph.track_id = t.id WHERE ph.user_id = ? ORDER BY ph.played_at DESC LIMIT ?`).all(userId || 'guest', limit || 30))
+  ipcMain.handle('scanner:incrementPlay', (_, trackId, userId) => require('../listeningHistory').recordPlay({ trackId, userId: userId || 'guest', seconds: 0 }))
+  ipcMain.handle('scanner:getHistory', (_, userId, limit, before) => require('../listeningHistory').historyPage(getDB(), userId || 'guest', limit || 30, before))
   ipcMain.handle('scanner:getSuggestions', (_, userId) => {
     const db = getDB(); const uid = userId || 'guest'
     const liked = db.prepare(`SELECT t.genre, t.artist FROM tracks t JOIN user_likes ul ON ul.track_id = t.id WHERE ul.user_id = ? LIMIT 20`).all(uid)
@@ -2463,20 +2464,9 @@ function registerV4Handlers(ipcMain) {
     }
     return related.slice(0, 25)
   })
+  // Written to this PC's history file in the music folder (electron/listeningHistory.js) and play_history.
   ipcMain.handle('scanner:incrementPlayTime', (_, trackId, userId, seconds) => {
-    try {
-      const db = getDB()
-      const uid = userId || 'guest'
-      const thresholdSetting = db.prepare("SELECT value FROM settings WHERE key = 'scrobble_threshold'").get()
-      const threshold = thresholdSetting ? parseInt(thresholdSetting.value) : 30
-      try { db.exec('ALTER TABLE play_history ADD COLUMN seconds_played INTEGER DEFAULT 0') } catch {}
-      try { db.exec('ALTER TABLE play_history ADD COLUMN session_id TEXT') } catch {}
-      const track = db.prepare('SELECT duration FROM tracks WHERE id = ?').get(trackId)
-      const minSeconds = track ? Math.max(30, (track.duration || 0) * (threshold / 100)) : 30
-      if (seconds >= minSeconds) db.prepare('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?').run(trackId)
-      const sessionId = recordListeningEvent(db, { userId: uid, trackId, secondsPlayed: seconds, trackDuration: track?.duration || null })
-      db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id) VALUES (?, ?, ?, ?)').run(uid, trackId, Math.round(seconds || 0), sessionId)
-    } catch(e) { console.warn('incrementPlayTime:', e.message) }
+    try { require('../listeningHistory').recordPlay({ trackId, userId: userId || 'guest', seconds }) } catch (e) { console.warn('incrementPlayTime:', e.message) }
   })
   // Settings > Library > Fill In Genres (see electron/online/genres.js).
   ipcMain.handle('scanner:fetchMissingGenres', () => require('../online/genres').startLibraryGenres(getDB()))

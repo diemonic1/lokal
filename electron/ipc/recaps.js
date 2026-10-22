@@ -152,6 +152,34 @@ function resolveRange(opts = {}) {
   return { from, to, scope: 'custom' }
 }
 
+/**
+ * Online radio's time (electron/listeningHistory.js): counted when every song
+ * is (no "library" / "streamed" filter), 30 seconds or more like a play.
+ */
+function radioRows(db, userId, from, to, sources) {
+  if (sources === 'library' || sources === 'streamed') return []
+  try {
+    return db.prepare(`
+      SELECT station_id, station_name, station_url, played_at, COALESCE(seconds_played, 0) AS seconds_played
+      FROM radio_history WHERE user_id = ? AND played_at BETWEEN ? AND ? AND COALESCE(seconds_played, 0) >= ?
+      ORDER BY played_at
+    `).all(userId, from, to, QUALIFIED_SECONDS)
+  } catch { return [] }
+}
+
+/** The stations listened to longest: [{ station, id, url, seconds, sessions }]. */
+function topStations(rows, limit = 10) {
+  const byName = new Map()
+  for (const row of rows) {
+    const key = String(row.station_name).toLowerCase()
+    const entry = byName.get(key) || { station: row.station_name, id: row.station_id, url: row.station_url, seconds: 0, sessions: 0 }
+    entry.seconds += Number(row.seconds_played) || 0
+    entry.sessions += 1
+    byName.set(key, entry)
+  }
+  return [...byName.values()].sort((a, b) => b.seconds - a.seconds || a.station.localeCompare(b.station)).slice(0, limit)
+}
+
 function ensureRecapTables(db = getDB()) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS listening_events (
@@ -368,7 +396,7 @@ function buildRecap(db, userId = 'guest', opts = {}) {
       SELECT COUNT(*) AS n FROM play_history ph JOIN tracks t ON t.id = ph.track_id
       WHERE ph.user_id = ? AND ph.played_at BETWEEN ? AND ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${COUNTED}
     `).get(userId, range.from, range.to, QUALIFIED_SECONDS)
-    return { ...range, userId, totalPlays: n }
+    return { ...range, userId, totalPlays: n, radioSessions: radioRows(db, userId, range.from, range.to, opts.sources).length }
   }
   const rows = db.prepare(`
     SELECT t.*, ph.id as history_id, ph.played_at, COALESCE(ph.seconds_played, 0) as seconds_played, ph.session_id
@@ -385,13 +413,18 @@ function buildRecap(db, userId = 'guest', opts = {}) {
   const genreMap = new Map()
   const albumMap = new Map()
   const skippedMap = new Map()
+  // Minutes with each artist, and whose each album is (the story's lists show both).
+  const artistSeconds = new Map()
+  const albumArtists = new Map()
   for (const row of qualified) {
     const existing = trackMap.get(row.id) || { ...row, plays: 0, seconds: 0 }
     existing.plays += 1
     existing.seconds += Number(row.seconds_played || 0)
     trackMap.set(row.id, existing)
     incrementMap(artistMap, row.artist)
+    incrementMap(artistSeconds, row.artist, Number(row.seconds_played || 0))
     incrementMap(albumMap, row.album)
+    if (row.album && !albumArtists.has(row.album)) albumArtists.set(row.album, row.album_artist || row.artist || '')
     for (const genre of splitGenres(row)) incrementMap(genreMap, genre)
   }
   for (const row of rows.filter(row => Number(row.seconds_played || 0) < QUALIFIED_SECONDS)) {
@@ -402,7 +435,10 @@ function buildRecap(db, userId = 'guest', opts = {}) {
   const sessions = buildSessions(rows)
   const topTracks = [...trackMap.values()].sort((left, right) => right.plays - left.plays || right.seconds - left.seconds).slice(0, 50)
   const replayQueue = topTracks.slice(0, 50)
-  const totalSeconds = qualified.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0)
+  // Radio counts towards the time listened (and has its own top), never towards plays, tracks or artists.
+  const radio = radioRows(db, userId, range.from, range.to, opts.sources)
+  const radioSeconds = radio.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0)
+  const totalSeconds = qualified.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0) + radioSeconds
   // The listening profile is of all the listening, not of one filter's share.
   const filtered = COUNTED !== COUNTED_TRACKS
   const preferenceProfile = filtered ? null : savePreferenceProfile(db, userId, rows)
@@ -419,13 +455,15 @@ function buildRecap(db, userId = 'guest', opts = {}) {
     totalPlays: qualified.length,
     totalSkips: rows.length - qualified.length,
     totalMinutes: Math.round(totalSeconds / 60),
+    radioMinutes: Math.round(radioSeconds / 60),
+    topStations: topStations(radio),
     uniqueArtists: new Set(qualified.map(row => row.artist).filter(Boolean)).size,
     uniqueAlbums: new Set(qualified.map(row => row.album || row.id).filter(Boolean)).size,
     uniqueTracks: new Set(qualified.map(row => row.id)).size,
     topTracks,
-    topArtists: topFromMap(artistMap, 'artist', 10),
+    topArtists: topFromMap(artistMap, 'artist', 10).map(item => ({ ...item, seconds: artistSeconds.get(item.artist) || 0 })),
     topGenres: topFromMap(genreMap, 'genre', 10),
-    topAlbums: topFromMap(albumMap, 'album', 10).filter(item => item.album),
+    topAlbums: topFromMap(albumMap, 'album', 10).filter(item => item.album).map(item => ({ ...item, artist: albumArtists.get(item.album) || '' })),
     skippedTracks: [...skippedMap.values()].sort((left, right) => right.skips - left.skips).slice(0, 10),
     sessions: sessions.slice(0, 12),
     longestSession: [...sessions].sort((left, right) => right.durationMinutes - left.durationMinutes)[0] || null,
@@ -489,6 +527,8 @@ function listeningDays(db, userId = 'guest', opts = {}) {
     FROM play_history ph JOIN tracks t ON t.id = ph.track_id
     WHERE ph.user_id = ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${countedTracks(opts.sources)}
   `).all(userId, QUALIFIED_SECONDS).map(row => row.h)
+  // Days with only radio have a recap too.
+  for (const row of radioRows(db, userId, 0, 9e15, opts.sources)) hours.push(Math.floor(Number(row.played_at) / 3600))
   const format = new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
   const days = new Set()
   for (const h of hours) {
@@ -496,6 +536,44 @@ function listeningDays(db, userId = 'guest', opts = {}) {
     days.add(format.format(new Date((h * 3600 + 3599) * 1000)))
   }
   return { days: [...days].sort(), tz: zone }
+}
+
+/**
+ * Everything the Statistics page draws, from one pass over the plays that
+ * count (30 seconds or more, files and streamed songs) and the online radio:
+ * per day (in the listener's time zone `tz`) the plays, the seconds listened
+ * (radio included) and the radio's seconds, as
+ * { 'YYYY-MM-DD': [plays, seconds, radioSeconds] }, and the first play's time. Weeks,
+ * months, years, streaks and the calendar are worked out from the days.
+ */
+function listeningStats(db, userId = 'guest', opts = {}) {
+  ensureRecapTables(db)
+  try { db.exec('ALTER TABLE play_history ADD COLUMN seconds_played INTEGER DEFAULT 0') } catch {}
+  const zone = validTimeZone(opts.tz)
+  const rows = db.prepare(`
+    SELECT ph.played_at AS at, COALESCE(ph.seconds_played, 0) AS seconds
+    FROM play_history ph JOIN tracks t ON t.id = ph.track_id
+    WHERE ph.user_id = ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${COUNTED_TRACKS}
+    ORDER BY ph.played_at
+  `).all(userId, QUALIFIED_SECONDS)
+  const radio = radioRows(db, userId, 0, 9e15, 'all')
+  const format = new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
+  // Every time zone's offset is whole quarters of an hour: one date lookup per quarter.
+  const dayOfQuarter = new Map()
+  const days = {}
+  const add = (at, plays, seconds, radioSeconds) => {
+    const quarter = Math.floor(Number(at) / 900)
+    if (!dayOfQuarter.has(quarter)) dayOfQuarter.set(quarter, format.format(new Date(quarter * 900 * 1000)))
+    const day = dayOfQuarter.get(quarter)
+    const entry = days[day] || (days[day] = [0, 0, 0])
+    entry[0] += plays
+    entry[1] += seconds
+    entry[2] += radioSeconds
+  }
+  for (const row of rows) add(row.at, 1, Number(row.seconds) || 0, 0)
+  for (const row of radio) add(row.played_at, 0, Number(row.seconds_played) || 0, Number(row.seconds_played) || 0)
+  const first = Math.min(...[rows[0]?.at, radio[0]?.played_at].filter(Boolean).map(Number))
+  return { days, first: Number.isFinite(first) ? first : null, tz: zone }
 }
 
 /**
@@ -542,6 +620,11 @@ function trackPlays(db, userId = 'guest', trackId) {
 function registerRecapHandlers(ipcMain) {
   ipcMain.handle('recaps:trackPlays', (_, userId, trackId) => trackPlays(getDB(), userId || 'guest', trackId))
   ipcMain.handle('recaps:artistPlays', (_, userId, artistId) => artistPlays(getDB(), userId || 'guest', artistId))
+  // Where this PC keeps its plays (the History page shows it).
+  ipcMain.handle('history:info', () => require('../listeningHistory').info())
+  // Time on an online radio station, written to the history like a play.
+  ipcMain.handle('history:recordStation', (_, payload) => { try { return require('../listeningHistory').recordStation(payload || {}) } catch (e) { console.warn('recordStation:', e.message); return null } })
+  ipcMain.handle('recaps:stats', (_, userId, opts) => listeningStats(getDB(), userId || 'guest', opts || {}))
   ipcMain.handle('recaps:days', (_, userId, opts) => listeningDays(getDB(), userId || 'guest', opts || {}))
   ipcMain.handle('recaps:get', (_, userId, opts) => buildRecap(getDB(), userId || 'guest', opts || {}))
   ipcMain.handle('recaps:tracks', (_, userId, opts) => recapTracks(getDB(), userId || 'guest', opts || {}))
@@ -551,4 +634,4 @@ function registerRecapHandlers(ipcMain) {
   })
 }
 
-module.exports = { registerRecapHandlers, recordListeningEvent, buildRecap, recapTracks, listeningDays, artistPlays, trackPlays, ensureRecapTables }
+module.exports = { registerRecapHandlers, recordListeningEvent, buildRecap, recapTracks, listeningDays, listeningStats, artistPlays, trackPlays, ensureRecapTables }

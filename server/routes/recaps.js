@@ -1,6 +1,6 @@
 const router = require('express').Router()
 const { getDB } = require('../../electron/ipc/db')
-const { buildRecap, recapTracks, listeningDays, artistPlays, trackPlays } = require('../../electron/ipc/recaps')
+const { buildRecap, recapTracks, listeningDays, listeningStats, artistPlays, trackPlays } = require('../../electron/ipc/recaps')
 
 router.get('/:userId', (req, res) => {
   try {
@@ -25,6 +25,15 @@ router.get('/:userId/days', (req, res) => {
     res.json(listeningDays(getDB(), req.params.userId || 'guest', { tz: typeof req.query.tz === 'string' ? req.query.tz : undefined, sources: typeof req.query.sources === 'string' ? req.query.sources : undefined }))
   } catch (e) {
     res.json({ error: e.message, days: [] })
+  }
+})
+
+// Plays and time per day (the Statistics page).
+router.get('/:userId/stats', (req, res) => {
+  try {
+    res.json(listeningStats(getDB(), req.params.userId || 'guest', { tz: typeof req.query.tz === 'string' ? req.query.tz : undefined }))
+  } catch (e) {
+    res.json({ error: e.message, days: {} })
   }
 })
 

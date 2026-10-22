@@ -22,6 +22,7 @@ async function deleteUserData(db, userId) {
     db.prepare('DELETE FROM playlists WHERE user_id = ?').run(userId)
     db.prepare('DELETE FROM user_likes WHERE user_id = ?').run(userId)
     db.prepare('DELETE FROM play_history WHERE user_id = ?').run(userId)
+    try { db.prepare('DELETE FROM radio_history WHERE user_id = ?').run(userId) } catch {}
     db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(userId)
     db.prepare('DELETE FROM users WHERE id = ?').run(userId)
   })

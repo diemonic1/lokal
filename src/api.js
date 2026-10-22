@@ -236,7 +236,13 @@ export const api = {
   spotifyLikesPush: (track) => isE() && el()?.spotifyLikesPush ? el().spotifyLikesPush(track) : Promise.resolve({ ok: false }),
   getLikedTracks: (uid) => isE() ? el().getLikedTracks(uid) : apiFetch(`/tracks/liked?userId=${uid||'guest'}`),
   incrementPlayTime: (tid, uid, s) => isE() ? el().incrementPlayTime(tid, uid, s) : Promise.resolve(),
-  getHistory: (uid, l) => isE() ? el().getHistory(uid, l) : apiFetch(`/tracks/history?userId=${uid||'guest'}&limit=${l||30}`),
+  // Time on an online radio station, for the history (desktop, like incrementPlayTime).
+  recordStationTime: (station, uid, s) => isE() && el()?.recordStationTime ? el().recordStationTime({ station, userId: uid, seconds: s }) : Promise.resolve(),
+  getHistory: (uid, l, before) => isE() ? el().getHistory(uid, l, before) : apiFetch(`/tracks/history?userId=${uid||'guest'}&limit=${l||30}${before ? `&before=${before}` : ''}`),
+  // Plays from another device arrived (desktop only; the web page refreshes on focus).
+  onHistoryChanged: (fn) => (isE() && el()?.onHistoryChanged ? el().onHistoryChanged(fn) : () => {}),
+  // { folder, device, name }: where this PC writes its plays (desktop only).
+  historyInfo: () => (isE() && el()?.historyInfo ? el().historyInfo() : Promise.resolve(null)),
   getSuggestions: (uid) => isE() ? el().getSuggestions(uid) : apiFetch(`/tracks/suggestions?userId=${uid||'guest'}`),
   getRelated: (tid, uid) => isE() ? el().getRelated(tid, uid) : apiFetch(`/tracks/${tid}/related?userId=${uid||'guest'}`),
   checkDuplicates: () => isE() ? el().checkDuplicates() : apiFetch('/tracks/duplicates'),
@@ -662,6 +668,7 @@ export const api = {
     ? el().getRecapTracks(uid, opts)
     : apiFetch(`/recaps/${uid || 'guest'}/tracks?${new URLSearchParams(Object.fromEntries(Object.entries(opts || {}).filter(([, value]) => value !== undefined && value !== null)))}`),
   getListeningDays: (uid, opts = {}) => isE() ? el().getListeningDays(uid, opts) : apiFetch(`/recaps/${uid || 'guest'}/days?${new URLSearchParams(Object.fromEntries(Object.entries(opts || {}).filter(([, value]) => value !== undefined && value !== null)))}`),
+  getListeningStats: (uid, opts = {}) => isE() ? el().getListeningStats(uid, opts) : apiFetch(`/recaps/${uid || 'guest'}/stats?${new URLSearchParams(Object.fromEntries(Object.entries(opts || {}).filter(([, value]) => value !== undefined && value !== null)))}`),
   // One artist's plays by the user (30 s or more, files and streams), with their most played songs.
   getArtistPlays: (uid, artistId) => isE() ? el().getArtistPlays(uid, artistId) : apiFetch(`/recaps/${uid || 'guest'}/artist/${encodeURIComponent(artistId)}`),
   // One song's plays by the user (30 s or more), files and streams alike.

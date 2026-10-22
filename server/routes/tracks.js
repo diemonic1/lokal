@@ -4,7 +4,6 @@ const { removeTrackFiles, forgetDownloads } = require('../../electron/ipc/trackF
 const { getDB } = require('../../electron/ipc/db')
 const artistSplit = require('../../electron/artistSplit')
 const { getLibraryFolders } = require('../../electron/libraryFolder')
-const { recordListeningEvent } = require('../../electron/ipc/recaps')
 const path = require('path')
 const fs = require('fs')
 
@@ -589,13 +588,9 @@ router.get('/liked', (req, res) => {
 })
 
 router.get('/history', (req, res) => {
-  const { userId = 'guest', limit = 30 } = req.query
-  res.json(getDB().prepare(`
-    SELECT t.*, ph.played_at FROM tracks t
-    JOIN play_history ph ON ph.track_id = t.id
-    WHERE ph.user_id = ?
-    ORDER BY ph.played_at DESC LIMIT ?
-  `).all(userId, parseInt(limit)))
+  const { userId = 'guest', limit = 30, before } = req.query
+  // Songs and online radio stations (electron/listeningHistory.js).
+  res.json(require('../../electron/listeningHistory').historyPage(getDB(), userId, parseInt(limit), before))
 })
 
 
@@ -825,15 +820,8 @@ router.post('/:id/like-state', (req, res) => {
 router.post('/:id/playtime', (req, res) => {
   try {
     const { userId = 'guest', seconds = 0 } = req.body
-    const db = getDB()
-    const secs = Math.round(seconds)
-    if (secs >= 30) db.prepare('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?').run(req.params.id)
-    const track = db.prepare('SELECT duration FROM tracks WHERE id = ?').get(req.params.id)
-    const sessionId = recordListeningEvent(db, { userId, trackId: req.params.id, secondsPlayed: secs, trackDuration: track?.duration || null })
-    const hasSecs = db.prepare('PRAGMA table_info(play_history)').all().some(c => c.name === 'seconds_played')
-    try { db.exec('ALTER TABLE play_history ADD COLUMN session_id TEXT') } catch {}
-    if (hasSecs) db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id) VALUES (?, ?, ?, ?)').run(userId, req.params.id, secs, sessionId)
-    else db.prepare('INSERT INTO play_history (user_id, track_id) VALUES (?, ?)').run(userId, req.params.id)
+    // This PC's history file in the music folder, then play_history (electron/listeningHistory.js).
+    require('../../electron/listeningHistory').recordPlay({ trackId: req.params.id, userId, seconds })
     res.json({ ok: true })
   } catch (e) { res.json({ error: e.message }) }
 })
