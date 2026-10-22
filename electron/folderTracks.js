@@ -250,8 +250,8 @@ function libraryGenreKeys(db) {
 }
 
 /**
- * A dropped file's copy: its track number, and only the genres the library
- * already has (new ones are taken out of the tag). One save.
+ * A dropped file's copy: its track number, only the genres the library
+ * already has (new ones are taken out of the tag), and no comment. One save.
  */
 function prepareDroppedCopy(filePath, number, knownGenres) {
   const T = lib()
@@ -267,6 +267,8 @@ function prepareDroppedCopy(filePath, number, knownGenres) {
     const parts = splitGenres(genres.join(';'))
     const kept = parts.filter(name => knownGenres.has(genreKey(name)))
     if (kept.length !== parts.length) file.tag.genres = kept
+    // The comment the file came with isn't this library's (see fileComment.js).
+    require('./fileComment').setOpenFileComment(T, file, filePath, '')
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
     aimpSafeSylt(T, file)
     file.save()
@@ -280,8 +282,8 @@ function prepareDroppedCopy(filePath, number, knownGenres) {
 
 /**
  * Copies files into the folder, numbered on from its biggest number. A copy
- * is named "Artist - Title" when its tags hold both, and keeps only the
- * genres the library already has.
+ * is named "Artist - Title" when its tags hold both, keeps only the genres
+ * the library already has, and loses its comment.
  */
 async function addFilesToFolder(db, filePaths, relativeFolder) {
   const dir = folderPath(db, relativeFolder)

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast, Clock, ListEnd, Download, Disc3, Edit2, Camera, FolderOpen, ExternalLink, Link2, Clapperboard } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Volume2, VolumeX, PanelRight, Maximize2, Radio, Gem, Cast, Clock, ListEnd, Download, Disc3, Edit2, Camera, FolderOpen, Link2, Clapperboard } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { useNavigate } from 'react-router-dom'
@@ -276,7 +276,7 @@ export default function PlayerBar() {
       api.isElectron && { label: t('Replace artwork'), icon: Camera, onSelect: () => replaceArtwork(track) },
       !ghost && !isStreamed(track) && api.isElectron && { label: t('Show in Explorer'), icon: FolderOpen, onSelect: () => api.showItemInFolder(track.file_path) },
       { separator: true },
-      ...(trackSearchText(track) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: ExternalLink, onSelect: () => openLink(trackSearchUrl(site, track)) })) : []),
+      ...(trackSearchText(track) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: site.icon, onSelect: () => openLink(trackSearchUrl(site, track)) })) : []),
       commentLink(track) && { label: t('Open comment'), icon: Link2, onSelect: () => openLink(commentLink(track)) },
       clipLink(track) && { label: t('Open music video'), icon: Clapperboard, onSelect: () => openLink(clipLink(track)) },
     ].filter(Boolean).filter((item, index, all) => !(item.separator && (index === 0 || index === all.length - 1 || all[index - 1]?.separator))))

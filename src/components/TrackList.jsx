@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, Globe, Radio, ChevronUp, ChevronDown, FolderOpen, ExternalLink, Link2, Clapperboard } from 'lucide-react'
+import { Play, Pause, Heart, Plus, Camera, Trash2, Music, LibraryBig, Clock, ListEnd, GripVertical, X, Check, Edit2, Search, Download, AlertCircle, Gem, Disc3, User, ListMinus, Globe, Radio, ChevronUp, ChevronDown, FolderOpen, Link2, Clapperboard } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { showToast, showLoadingToast } from './Toaster'
 import { canGetLossless, openLossless, formatLabel, isSuspect, tierOf, TIERS } from '../quality'
@@ -732,7 +732,7 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
       !resolveTracks && one && api.isElectron && { label: t('Replace artwork'), icon: Camera, onSelect: () => replaceArtwork(one, { stopPropagation() {} }) },
       one && !oneGhost && !isStreamed(one) && api.isElectron && one.file_path && { label: t('Show in Explorer'), icon: FolderOpen, onSelect: () => api.showItemInFolder(one.file_path) },
       { separator: true },
-      ...(one && trackSearchText(one) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: ExternalLink, onSelect: () => openLink(trackSearchUrl(site, one)) })) : []),
+      ...(one && trackSearchText(one) ? TRACK_SEARCH_SITES.map(site => ({ label: t(site.label), icon: site.icon, onSelect: () => openLink(trackSearchUrl(site, one)) })) : []),
       one && commentLink(one) && { label: t('Open comment'), icon: Link2, onSelect: () => openLink(commentLink(one)) },
       one && clipLink(one) && { label: t('Open music video'), icon: Clapperboard, onSelect: () => openLink(clipLink(one)) },
       { separator: true },

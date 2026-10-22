@@ -4,11 +4,12 @@
 
 import { api } from './api'
 import { clipOpenUrl } from './clipVideo'
+import { BeatSaverMark, GeniusMark, YoutubeMark } from './components/ServiceIcons'
 
 export const TRACK_SEARCH_SITES = [
-  { key: 'youtube', label: 'Search on YouTube', url: 'https://www.youtube.com/results?search_query=%s' },
-  { key: 'genius', label: 'Search on Genius', url: 'https://genius.com/search?q=%s' },
-  { key: 'beatsaver', label: 'Search on BeatSaver', url: 'https://beatsaver.com/?q=%s' },
+  { key: 'youtube', label: 'Search on YouTube', icon: YoutubeMark, url: 'https://www.youtube.com/results?search_query=%s' },
+  { key: 'genius', label: 'Search on Genius', icon: GeniusMark, url: 'https://genius.com/search?q=%s' },
+  { key: 'beatsaver', label: 'Search on BeatSaver', icon: BeatSaverMark, url: 'https://beatsaver.com/?q=%s' },
 ]
 
 /** "Artist - Title", or whichever of the two the song has. */

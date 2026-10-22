@@ -56,7 +56,16 @@ function writeFileComment(filePath, text) {
   return clean
 }
 
-module.exports = { writeFileComment }
+/** Sets (or, with empty text, removes) the ordinary comment on an open taglib file; saving is the caller's. */
+function setOpenFileComment(T, file, filePath, text) {
+  if (!/\.mp3$/i.test(filePath)) { file.tag.comment = text || undefined; return }
+  writeId3(T, file, text)
+  // An ID3v1 tag the file has keeps its own comment.
+  const id3v1 = file.getTag(T.TagTypes.Id3v1, false)
+  if (id3v1) id3v1.comment = text || undefined
+}
+
+module.exports = { writeFileComment, setOpenFileComment }
 
 /**
  * The genre tag, one value per genre (ID3v2.4 TCON holds several; the tag
