@@ -223,6 +223,10 @@ export const api = {
   automixAnalyze: (track) => isE() && el()?.automixAnalyze ? el().automixAnalyze(track) : Promise.resolve(null),
   measureLoudness: (track) => isE() && el()?.measureLoudness ? el().measureLoudness(track) : Promise.resolve(null),
   estimateLoudness: (track) => isE() && el()?.estimateLoudness ? el().estimateLoudness(track) : Promise.resolve(null),
+  // Settings > Recalculate all: measures every song without its loudness yet (desktop; electron/loudnessBatch.js).
+  loudnessRecalcStart: () => isE() && el()?.loudnessRecalcStart ? el().loudnessRecalcStart() : Promise.resolve(null),
+  loudnessRecalcStatus: () => isE() && el()?.loudnessRecalcStatus ? el().loudnessRecalcStatus() : Promise.resolve(null),
+  loudnessRecalcCancel: () => isE() && el()?.loudnessRecalcCancel ? el().loudnessRecalcCancel() : Promise.resolve(null),
   // Flow's songs: the library with this user's likes and plays (electron/ipc/flow.js; the server's /tracks/flow-pool on the web).
   flowPool: (uid) => isE() && el()?.flowPool ? el().flowPool(uid || 'guest') : apiFetch(`/tracks/flow-pool?userId=${encodeURIComponent(uid || 'guest')}`),
   getLikedTracks: (uid) => isE() ? el().getLikedTracks(uid) : apiFetch(`/tracks/liked?userId=${uid||'guest'}`),

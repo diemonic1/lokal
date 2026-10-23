@@ -237,38 +237,82 @@ async function droppedFileName(source) {
   return path.basename(source)
 }
 
-/** Every genre the library has now (genreKey), so a dropped file brings no new ones. */
-function libraryGenreKeys(db) {
-  const { trackGenres, genreKey } = require('./genreList')
-  const keys = new Set()
-  try {
-    for (const row of db.prepare("SELECT genre, genres FROM tracks WHERE file_path NOT LIKE 'ghost://%'").iterate()) {
-      for (const name of trackGenres(row)) keys.add(genreKey(name))
-    }
-  } catch {}
-  return keys
+/**
+ * A downloaded file renamed "Artist - Title.ext" from its tags, like a dropped
+ * file (droppedFileName), in its own folder; its lyrics files go with it.
+ * -> the new path (the old one when the tags lack either or it can't be renamed).
+ */
+async function renameToTags(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return filePath
+  const dir = path.dirname(filePath)
+  const base = await droppedFileName(filePath)
+  if (base === path.basename(filePath)) return filePath
+  // Only the case differs: the same file on Windows, renamed in place.
+  const sameName = base.toLowerCase() === path.basename(filePath).toLowerCase()
+  const target = sameName ? path.join(dir, base) : freeName(dir, base)
+  try { await moveFile(filePath, target) } catch (e) {
+    console.warn(`[folderTracks] couldn't rename ${filePath}: ${e?.code || ''} ${e?.message || e}`)
+    return filePath
+  }
+  const oldStem = filePath.slice(0, -path.extname(filePath).length)
+  const newStem = target.slice(0, -path.extname(target).length)
+  for (const ext of SIDECARS) {
+    if (fs.existsSync(oldStem + ext) && (sameName || !fs.existsSync(newStem + ext))) { try { await moveFile(oldStem + ext, newStem + ext) } catch {} }
+  }
+  return target
 }
 
 /**
- * A dropped file's copy: its track number, only the genres the library
- * already has (new ones are taken out of the tag), and no comment. One save.
+ * A new song's tags on an open taglib file: the comment it came with isn't
+ * this library's (see fileComment.js), and "Music" isn't a genre (YouTube and
+ * stores put it there); its other genres stay. -> whether anything changed.
  */
-function prepareDroppedCopy(filePath, number, knownGenres) {
+function cleanOpenNewSong(T, file, filePath) {
+  const { splitGenres, genreKey } = require('./genreList')
+  let changed = false
+  const genres = Array.isArray(file.tag.genres) ? file.tag.genres : []
+  const parts = splitGenres(genres.join(';'))
+  const kept = parts.filter(name => genreKey(name) !== 'music')
+  if (kept.length !== parts.length) { file.tag.genres = kept; changed = true }
+  if (String(file.tag.comment || '').trim()) {
+    require('./fileComment').setOpenFileComment(T, file, filePath, '')
+    changed = true
+  }
+  return changed
+}
+
+/** The same for a file on disk (a download), saved only when something changed. */
+function cleanNewSongTags(filePath) {
   const T = lib()
   if (!T) throw new Error('Tag writer unavailable')
-  const { splitGenres, genreKey } = require('./genreList')
+  let file
+  try {
+    file = T.File.createFromPath(filePath)
+    const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
+    if (!cleanOpenNewSong(T, file, filePath)) return false
+    if (/\.mp3$/i.test(filePath) && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
+    aimpSafeSylt(T, file)
+    file.save()
+    return true
+  } finally {
+    try { file?.dispose() } catch {}
+  }
+}
+
+/**
+ * A dropped file's copy: its track number, no "Music" genre and no comment
+ * (cleanOpenNewSong). One save.
+ */
+function prepareDroppedCopy(filePath, number) {
+  const T = lib()
+  if (!T) throw new Error('Tag writer unavailable')
   let file
   try {
     file = T.File.createFromPath(filePath)
     const mp3 = /\.mp3$/i.test(filePath)
     const hadId3v1 = typeof file.tagTypesOnDisk === 'number' && (file.tagTypesOnDisk & T.TagTypes.Id3v1) !== 0
     file.tag.track = Math.max(0, Math.floor(Number(number) || 0))
-    const genres = Array.isArray(file.tag.genres) ? file.tag.genres : []
-    const parts = splitGenres(genres.join(';'))
-    const kept = parts.filter(name => knownGenres.has(genreKey(name)))
-    if (kept.length !== parts.length) file.tag.genres = kept
-    // The comment the file came with isn't this library's (see fileComment.js).
-    require('./fileComment').setOpenFileComment(T, file, filePath, '')
+    cleanOpenNewSong(T, file, filePath)
     if (mp3 && !hadId3v1) { try { file.removeTags(T.TagTypes.Id3v1) } catch {} }
     aimpSafeSylt(T, file)
     file.save()
@@ -282,16 +326,14 @@ function prepareDroppedCopy(filePath, number, knownGenres) {
 
 /**
  * Copies files into the folder, numbered on from its biggest number. A copy
- * is named "Artist - Title" when its tags hold both, keeps only the genres
- * the library already has, and loses its comment.
+ * is named "Artist - Title" when its tags hold both, loses a "Music" genre
+ * and its comment.
  */
 async function addFilesToFolder(db, filePaths, relativeFolder) {
   const dir = folderPath(db, relativeFolder)
   if (!dir) return { ok: false, error: 'That folder is not in the music folder', added: [], failed: [] }
   await fs.ensureDir(dir)
   let next = maxTrackNumber(db, relativeFolder) + 1
-  // Taken before any copy, so files dropped together don't vouch for each other's genres.
-  const knownGenres = libraryGenreKeys(db)
   const added = []
   const failed = []
   for (const source of Array.isArray(filePaths) ? filePaths : []) {
@@ -300,9 +342,16 @@ async function addFilesToFolder(db, filePaths, relativeFolder) {
       if (!AUDIO_EXTS.has(path.extname(source).toLowerCase())) throw new Error('Not an audio file')
       const target = freeName(dir, await droppedFileName(source))
       await fs.copy(source, target)
-      try { prepareDroppedCopy(target, next, knownGenres) } catch (e) { await fs.remove(target).catch(() => {}); throw e }
+      try { prepareDroppedCopy(target, next) } catch (e) { await fs.remove(target).catch(() => {}); throw e }
       // It joins the library now (LOKAL_ADDED, see addedDate.js).
       require('./addedDate').stampNewFile(db, target)
+      // And its own id (LOKAL_ID, trackId.js) and loudness (ReplayGain,
+      // loudness.js) go into it at once, not when it's first scanned or played.
+      try { require('./trackId').stampFile(target) } catch (e) { console.warn(`[addFilesToFolder] Song id skipped for ${target}:`, e.message) }
+      if (/\.mp3$/i.test(target)) {
+        await require('./loudness').measureIntoFile({ db, file: target })
+          .catch(e => console.warn(`[addFilesToFolder] Loudness skipped for ${target}:`, e.message))
+      }
       added.push({ filePath: target, trackNum: next })
       next++
     } catch (e) { failed.push({ filePath: source, error: e.message }) }
@@ -368,4 +417,4 @@ function placeDownload(db, filePath, relativeFolder) {
   return target
 }
 
-module.exports = { placeDownload, maxTrackNumber, writeTrackNumber, setTrackNumbers, moveTrackToFolder, previewMove, addFilesToFolder, previewFilesForFolder, folderPath }
+module.exports = { placeDownload, cleanNewSongTags, renameToTags, maxTrackNumber, writeTrackNumber, setTrackNumbers, moveTrackToFolder, previewMove, addFilesToFolder, previewFilesForFolder, folderPath }

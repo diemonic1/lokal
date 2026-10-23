@@ -131,6 +131,8 @@ function writeTags(file, entry) {
   return 'written'
 }
 
+const isBusy = error => /EBUSY|EPERM|EACCES/i.test(String(error?.code || error?.message || ''))
+
 function tryWrite(file, entry) {
   try {
     const outcome = writeTags(file, entry)
@@ -140,8 +142,7 @@ function tryWrite(file, entry) {
     }
     pendingWrites.delete(file)
   } catch (error) {
-    const busy = /EBUSY|EPERM|EACCES/i.test(String(error?.code || error?.message || ''))
-    if (!busy || ++entry.tries >= WRITE_TRIES) {
+    if (!isBusy(error) || ++entry.tries >= WRITE_TRIES) {
       pendingWrites.delete(file)
       entry.log(`loudness: couldn't write ReplayGain into ${file}: ${error.message}`)
       return
@@ -200,6 +201,59 @@ function loudnessFor({ db, key, file, ffmpeg, log = () => {}, onWritten }) {
   return job
 }
 
+/** The database key of a library song's measurement: its id and the file's size and time. */
+function keyFor(trackId, file) {
+  let stamp = ''
+  try { const st = fs.statSync(file); stamp = `${st.size}:${Math.round(st.mtimeMs)}` } catch {}
+  return `${trackId}|${stamp}`
+}
+
+/** Whether the database holds the song's measurement under this key. */
+function isKnown(db, key) {
+  ensureTable(db)
+  return !!db.prepare('SELECT 1 FROM track_loudness WHERE key = ? AND version = ?').get(key, VERSION)
+}
+
+/**
+ * The song measured now and the result written into the file (MP3), whatever
+ * the database holds: Recalculate all (./loudnessBatch.js) and a file dropped
+ * into a folder. In the same queue as playback's measurements. `key`: kept in
+ * the database too (none for a file the library doesn't know yet).
+ * -> 'tagged' (the file has a track gain already), 'written', 'kept'
+ * (measured but not written: not an MP3, silence, or the file is busy and is
+ * tried again later), null (no ffmpeg for a non-MP3); throws when it can't be
+ * measured or written.
+ */
+function measureIntoFile({ db, key, file, ffmpeg = () => null, log = () => {}, onWritten }) {
+  if (key) ensureTable(db)
+  const save = result => { if (key) db.prepare('INSERT OR REPLACE INTO track_loudness (key, version, lufs, peak_db) VALUES (?, ?, ?, ?)').run(key, VERSION, result.lufs, result.peakDb) }
+  const job = queue.then(async () => {
+    const tagged = fromTags(file)
+    if (tagged) { save(tagged); return 'tagged' }
+    const before = fs.statSync(file)
+    const result = await measure(file, MAX_SECONDS, ffmpeg)
+    if (!result) return null
+    save(result)
+    if (result.lufsTenths == null) return 'kept'
+    const entry = {
+      measured: { lufsTenths: result.lufsTenths, peakMicro: result.peakMicro },
+      size: before.size, mtimeMs: before.mtimeMs, tries: 0, onWritten, log,
+    }
+    try {
+      if (writeTags(file, entry) !== 'written') return 'kept'
+    } catch (error) {
+      if (!isBusy(error)) throw error
+      tryWrite(file, entry)
+      return 'kept'
+    }
+    onWritten?.(file)
+    log(`loudness: wrote ReplayGain into ${file}`)
+    return 'written'
+  })
+  queue = job.catch(() => {})
+  return job
+}
+
 // A quick estimate while a new song's full measurement runs: its first five
 // seconds read in a moment, so the song starts near its level instead of at
 // full volume; the full measurement (done a moment later) then takes over.
@@ -237,4 +291,4 @@ function quickLoudnessFor({ db, key, file, ffmpeg, log = () => {} }) {
   return job
 }
 
-module.exports = { loudnessFor, quickLoudnessFor, parseSummary, VERSION }
+module.exports = { loudnessFor, quickLoudnessFor, measureIntoFile, keyFor, isKnown, isMp3, parseSummary, VERSION }

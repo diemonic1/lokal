@@ -21,6 +21,7 @@ import { DEFAULT_DISCORD_CLIENT_ID } from '../discord'
 import PlaybackSourceSettings from '../components/PlaybackSourceSettings'
 import { useAppStore, usePlayerStore } from '../store/player'
 import Modal from '../components/Modal'
+import LoudnessRecalcModal from '../components/LoudnessRecalcModal'
 import SplitWordsSettings from '../components/SplitWordsSettings'
 import PerformersConfigSetup from '../components/PerformersConfigSetup'
 import LyricsSourcesSettings from '../components/LyricsSourcesSettings'
@@ -295,6 +296,7 @@ export default function Settings() {
   const { t, language, setLanguage } = useTranslation()
   const replayGainMode = usePlayerStore(s => s.replayGainMode)
   const loudnessSettings = usePlayerStore(s => s.loudness)
+  const [loudnessRecalcOpen, setLoudnessRecalcOpen] = useState(false)
   // Seeded from the settings already read (and the version / tools found on
   // the last visit), so the first frame already has the real values: rows
   // used to appear, change text and push everything below them down.
@@ -1556,6 +1558,15 @@ activeCategory === 'data' ? usersTried
             <option value="album">{t('Album gain')}</option>
           </select>
         </Row>
+        {api.isElectron && (
+          <Row label="Recalculate All" desc="Measures the loudness of every song that doesn't have it yet and writes it into the files (MP3 ReplayGain tags), as playing a song for the first time does. Shows the progress; can be cancelled at any time and picks up where it stopped.">
+            <button onClick={() => setLoudnessRecalcOpen(true)}
+              className="px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted hover:text-white transition-colors inline-flex items-center gap-1.5">
+              <RefreshCw size={12} /> {t('Recalculate')}
+            </button>
+            <LoudnessRecalcModal open={loudnessRecalcOpen} onClose={() => setLoudnessRecalcOpen(false)} />
+          </Row>
+        )}
       </Section>
       )}
 

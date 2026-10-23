@@ -37,11 +37,9 @@ function registerAutomixHandlers(ipcMain) {
     if (!track?.id) return null
     const file = String(track.file_path || '')
     if (!file || /^(ghost|https?):/i.test(file) || !fs.existsSync(file)) return null
-    let stamp = ''
-    try { const st = fs.statSync(file); stamp = `${st.size}:${Math.round(st.mtimeMs)}` } catch {}
     const db = getDB()
     return {
-      db, key: `${track.id}|${stamp}`, file, log, ffmpeg: () => require('./tools').findFfmpeg(),
+      db, key: require('../loudness').keyFor(track.id, file), file, log, ffmpeg: () => require('./tools').findFfmpeg(),
       // The ReplayGain tags went into the file: the watcher needn't read it again.
       onWritten: written => require('../fileStamp').noteFileWritten(db, written),
     }
@@ -50,6 +48,16 @@ function registerAutomixHandlers(ipcMain) {
     const job = loudnessJob(track)
     return job ? require('../loudness').loudnessFor(job) : null
   })
+  // Settings > Recalculate all: every song without its loudness yet (electron/loudnessBatch.js).
+  ipcMain.handle('loudness:recalcStart', () => {
+    const db = getDB()
+    return require('../loudnessBatch').start({
+      db, log, ffmpeg: () => require('./tools').findFfmpeg(),
+      onWritten: written => require('../fileStamp').noteFileWritten(db, written),
+    })
+  })
+  ipcMain.handle('loudness:recalcStatus', () => require('../loudnessBatch').getStatus())
+  ipcMain.handle('loudness:recalcCancel', () => require('../loudnessBatch').cancel())
   // A quick estimate for a song starting before it's been measured.
   ipcMain.handle('loudness:estimate', async (_, track) => {
     const job = loudnessJob(track)

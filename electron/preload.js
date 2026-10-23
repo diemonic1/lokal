@@ -241,6 +241,9 @@ contextBridge.exposeInMainWorld('electron', {
   automixAnalyze: (track) => invoke('automix:analyze', track),
   measureLoudness: (track) => invoke('loudness:measure', track),
   estimateLoudness: (track) => invoke('loudness:estimate', track),
+  loudnessRecalcStart: () => invoke('loudness:recalcStart'),
+  loudnessRecalcStatus: () => invoke('loudness:recalcStatus'),
+  loudnessRecalcCancel: () => invoke('loudness:recalcCancel'),
   // Flow's songs (electron/ipc/flow.js)
   flowPool: (userId) => invoke('flow:pool', userId),
   // Casting (electron/ipc/cast.js)

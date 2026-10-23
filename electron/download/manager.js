@@ -1176,10 +1176,37 @@ class DownloadManager {
             done.filePath = placed
           }
         }
+        // Named "Artist - Title" from its finished tags, like a file dropped
+        // onto a folder (../folderTracks.js). A lossless copy replacing a
+        // song's file takes that file's name instead.
+        if (!job.opts?.upgradeTrackId) {
+          const renamed = await require('../folderTracks').renameToTags(finalPath)
+          if (renamed !== finalPath) {
+            const fileIndex = job.filepaths.indexOf(finalPath)
+            if (fileIndex >= 0) job.filepaths[fileIndex] = renamed
+            job.outputLines.push(`[Lokal] Renamed to ${path.basename(renamed)}`)
+            finalPath = renamed
+            done.filePath = renamed
+          }
+        }
         // When it joined the library goes into the file (LOKAL_ADDED, see
         // ../addedDate.js): now, whatever the file came with. A lossless copy
         // replacing a song keeps the song's date (quality/upgrade.js).
         if (!job.opts?.upgradeTrackId) require('../addedDate').stampNewFile(this.db(), finalPath)
+        // No comment (yt-dlp puts the video's description there) and no
+        // "Music" genre; the other genres stay (../folderTracks.js).
+        try { require('../folderTracks').cleanNewSongTags(finalPath) } catch (e) { console.warn(`[download] Tag cleanup skipped for ${finalPath}:`, e.message) }
+        // Its own id (LOKAL_ID, ../trackId.js; a lossless copy gets the old
+        // song's) and loudness (ReplayGain, ../loudness.js) at once, not when
+        // it's first scanned or played.
+        if (!job.opts?.upgradeTrackId) {
+          try { require('../trackId').stampFile(finalPath) } catch (e) { console.warn(`[download] Song id skipped for ${finalPath}:`, e.message) }
+        }
+        if (/\.mp3$/i.test(finalPath)) {
+          if (!job.stop) this.update(job, { message: `Measuring loudness: ${path.basename(finalPath)}` })
+          await require('../loudness').measureIntoFile({ db: this.db(), file: finalPath, ffmpeg: () => this.deps.findTools?.()?.ffmpeg || null })
+            .catch(e => console.warn(`[download] Loudness skipped for ${finalPath}:`, e.message))
+        }
         const name = path.basename(finalPath)
         if (!job.downloadedTracks.includes(name)) job.downloadedTracks.push(name)
         if (done.lyrics) job.lyricsCount = (job.lyricsCount || 0) + 1

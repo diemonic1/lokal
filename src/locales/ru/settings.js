@@ -18,6 +18,19 @@ export default {
   'Loud': 'Громко',
   "ReplayGain is a loudness correction written into the song's file by a tagger (foobar2000, MusicBrainz Picard, mp3gain...). Track gain levels each song on its own; album gain keeps the loudness differences between songs of one album as the artist made them (a quiet intro stays quiet), and uses track gain where there's no album gain. Songs with these tags use them instead of being measured; with normalization on they're brought to the same target level. Off: the tags are ignored.": 'ReplayGain — поправка громкости, которую записывает в файл трека программа для тегов (foobar2000, MusicBrainz Picard, mp3gain…). «Усиление трека» выравнивает каждый трек отдельно; «Усиление альбома» сохраняет разницу громкости между треками одного альбома, как задумал исполнитель (тихое интро остаётся тихим), а где его нет — берёт усиление трека. Для треков с такими тегами используются теги, а не измерение; при включённой нормализации они приводятся к тому же целевому уровню. «Выкл»: теги не учитываются.',
 
+  'Recalculate All': 'Пересчитать всё',
+  "Measures the loudness of every song that doesn't have it yet and writes it into the files (MP3 ReplayGain tags), as playing a song for the first time does. Shows the progress; can be cancelled at any time and picks up where it stopped.": 'Измеряет громкость всех треков, у которых её ещё нет, и записывает в файлы (теги ReplayGain у MP3) — так же, как при первом воспроизведении трека. Показывает прогресс; можно отменить в любой момент, следующий запуск продолжит с того же места.',
+  'Recalculate': 'Пересчитать',
+  'Recalculate loudness': 'Пересчёт громкости',
+  "Measures every song whose loudness isn't known yet; MP3s get it written into their ReplayGain tags. Cancelled, the next run goes on with the songs still left.": 'Измеряет все треки, громкость которых ещё не известна; у MP3 она записывается в теги ReplayGain. После отмены следующий запуск продолжит с оставшихся треков.',
+  'Counting songs without loudness… {n} so far': 'Считаю треки без громкости… найдено {n}',
+  '{done} of {total} processed · {left} left': 'Обработано {done} из {total} · осталось {left}',
+  'Every song already has its loudness.': 'У всех треков громкость уже указана.',
+  'Cancelled: {done} of {total} processed, {left} left for the next run.': 'Отменено: обработано {done} из {total}, осталось {left} на следующий запуск.',
+  'Done: {done} songs processed.': 'Готово: обработано треков — {done}.',
+  'Written into files: {written}': 'Записано в файлы: {written}',
+  'Failed: {n}': 'Ошибок: {n}',
+
   // Library > All Tracks
   'All Tracks': 'Все треки',
   'Show the All Tracks section': 'Показывать раздел со всеми треками',
