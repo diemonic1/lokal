@@ -86,6 +86,7 @@ import { useAppearanceFlag, useFavoritesEnabled } from './appearanceFlags'
 import { continueFlow, flowNeedsMore } from './flow/session'
 import { playbackSpeed, usePlaybackSpeed } from './playbackSpeed'
 import { useCastPlayback, takeResumePosition, setResumePosition } from './cast/useCastPlayback'
+import { startSyncOffsetTracking } from './syncOffset'
 
 async function addonStreamTrackHash(id) {
   try {
@@ -790,6 +791,9 @@ export default function App() {
     if (!audioOutputReady) return
     applyAudioOutput(outputDeviceId).catch(() => {})
   }, [audioOutputReady, outputDeviceId, applyAudioOutput])
+
+  // Which output plays now, for its sync offset (lyrics, videos, visualizations).
+  useEffect(() => { startSyncOffsetTracking() }, [])
 
   const isEventFromActive = useCallback((e) => {
     const activeSide = usePlayerStore.getState().activeAudioElement
