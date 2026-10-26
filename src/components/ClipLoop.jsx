@@ -23,6 +23,10 @@ const DRIFT = 1
 // A drifting video is put back at most this often (ms), so a slow stream
 // isn't sent seeking over and over.
 const DRIFT_FIX_MS = 1500
+// Closer than NUDGE_MAX (seconds) it's not seeked but sped up or slowed a
+// little (by up to 6%) until it's within NUDGE_MIN.
+const NUDGE_MIN = 0.04
+const NUDGE_MAX = 0.3
 
 /**
  * The video this song shows, if any: the one being tried in Edit Track, else
@@ -131,13 +135,22 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
       if (target == null) return
       const part = clipRange(start, end, v.duration)
       const length = part.end - part.start
-      const gap = Math.abs(v.currentTime - target) % length
-      const off = Math.min(gap, length - gap)
-      if (seeked ? off < 0.3 : off < DRIFT) return
+      // How far ahead (+) or behind (-) of the song, the short way round the part.
+      const drift = ((((v.currentTime - target) % length) + length * 1.5) % length) - length / 2
+      const off = Math.abs(drift)
+      // Paused, a nudge would never get there: put it in place.
+      if (seeked ? off < (playingRef.current ? NUDGE_MAX : NUDGE_MIN) : off < DRIFT) {
+        // Close: at the song's speed, nudged to close a small drift (so a
+        // sync offset of a few hundredths shows), as music videos do.
+        const speed = playbackSpeed()
+        try { v.playbackRate = off > NUDGE_MIN ? speed * (1 - Math.max(-0.06, Math.min(0.06, drift))) : speed } catch {}
+        return
+      }
       const now = performance.now()
       if (!seeked && (v.seeking || v.readyState < 3 || now - lastFix < DRIFT_FIX_MS)) return
       lastFix = now
       v.currentTime = target
+      try { v.playbackRate = playbackSpeed() } catch {}
     }
     let last = { progress: usePlayerStore.getState().progress, at: performance.now() }
     const stopSong = usePlayerStore.subscribe((state, prev) => {
