@@ -1,4 +1,5 @@
 import OutputPrecisionSettings from '../components/OutputPrecisionSettings'
+import SyncOffsetSettings from '../components/SyncOffsetSettings'
 import { APP_LANGUAGES, useTranslation } from '../i18n'
 import { restoreLocalPrefs } from '../localPrefsBackup'
 import { exportAllAppData, triggerDownload } from '../appBackup'
@@ -1633,6 +1634,12 @@ activeCategory === 'data' ? usersTried
         <Row stacked label="Play From" desc="When a song isn't in your library, Lokal looks for it in these, top first. Addons you turn on are added here.">
           <PlaybackSourceSettings value={settings.playback_search_order} onChange={value => set('playback_search_order', value)} />
         </Row>
+      </Section>
+      )}
+
+      {inCategory('playback') && (
+      <Section title="Sync Offset">
+        <SyncOffsetSettings />
       </Section>
       )}
 
