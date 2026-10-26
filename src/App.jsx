@@ -86,7 +86,8 @@ import { useAppearanceFlag, useFavoritesEnabled } from './appearanceFlags'
 import { continueFlow, flowNeedsMore } from './flow/session'
 import { playbackSpeed, usePlaybackSpeed } from './playbackSpeed'
 import { useCastPlayback, takeResumePosition, setResumePosition } from './cast/useCastPlayback'
-import { startSyncOffsetTracking } from './syncOffset'
+import { currentSyncOffset, startSyncOffsetTracking, useSyncOffsets } from './syncOffset'
+import { SYNC_OFFSET_MAX } from './syncOffsetCore'
 
 async function addonStreamTrackHash(id) {
   try {
@@ -1090,11 +1091,24 @@ export default function App() {
     const limiter = ctx.createDynamicsCompressor()
     limiterRef.current = limiter
     configureLimiter(limiter, usePlayerStore.getState().loudness?.enabled)
+    // What goes out to the speakers (or to native output).
+    const output = ctx.createGain()
 
+    // The analyser listens on a branch of its own, held back by the output's
+    // sync offset (Bluetooth plays late: the visualizations wait for it), and
+    // silenced, so the sound itself is never delayed. It can't run ahead of
+    // the sound: a negative offset leaves it as it is.
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 256
     analyser.smoothingTimeConstant = 0.8
     analyserRef.current = analyser
+    const visualDelay = ctx.createDelay(SYNC_OFFSET_MAX)
+    const analyserSink = ctx.createGain()
+    analyserSink.gain.value = 0
+    const applyVisualDelay = () => { visualDelay.delayTime.value = Math.max(0, currentSyncOffset()) }
+    applyVisualDelay()
+    useSyncOffsets.subscribe(applyVisualDelay)
+    usePlayerStore.subscribe((state, prev) => { if (state.castActive !== prev.castActive) applyVisualDelay() })
     window.__lokalAnalyser = analyser
     window.dispatchEvent(new CustomEvent('lokal:analyser-ready'))
 
@@ -1111,8 +1125,12 @@ export default function App() {
       primaryGain.connect(primaryFade)
       primaryFade.connect(primaryMix)
       primaryMix.connect(limiter)
-      limiter.connect(analyser)
-      analyser.connect(ctx.destination)
+      limiter.connect(output)
+      output.connect(ctx.destination)
+      limiter.connect(visualDelay)
+      visualDelay.connect(analyser)
+      analyser.connect(analyserSink)
+      analyserSink.connect(ctx.destination)
 
       let cfPrev = cfSource
       for (const n of cfNodes) { cfPrev.connect(n); cfPrev = n }
@@ -1142,7 +1160,7 @@ export default function App() {
     }
 
     if (window.electron?.nativeAudio && !isIOS) {
-      nativeAudioRef.current = new NativeAudioBridge(ctx, analyser, window.electron.nativeAudio, status => {
+      nativeAudioRef.current = new NativeAudioBridge(ctx, output, window.electron.nativeAudio, status => {
         window.__lokalOutputStatus = status
         window.dispatchEvent(new CustomEvent('lokal:output-status', { detail: status }))
         api.log('info', `[audio-output] ${JSON.stringify({
