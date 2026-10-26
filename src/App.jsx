@@ -51,6 +51,7 @@ import Stats from './pages/Stats'
 import Quality from './pages/Quality'
 import LyricsAnalysis from './pages/LyricsAnalysis'
 import LyricsSearch from './pages/LyricsSearch'
+import ClipSearch from './pages/ClipSearch'
 import CacheAnalysis from './pages/CacheAnalysis'
 import Radio from './pages/Radio'
 import LosslessModal from './components/LosslessModal'
@@ -357,6 +358,7 @@ function AnimatedRoutes() {
         <Route path="/quality" element={<PageTransition gated><Quality /></PageTransition>} />
         <Route path="/lyrics-analysis" element={<PageTransition gated><LyricsAnalysis /></PageTransition>} />
         <Route path="/lyrics-search" element={<PageTransition gated><LyricsSearch /></PageTransition>} />
+        <Route path="/clip-search" element={<PageTransition gated><ClipSearch /></PageTransition>} />
         <Route path="/cache-analysis" element={<PageTransition gated><CacheAnalysis /></PageTransition>} />
         <Route path="/radio" element={<PageTransition gated><Radio /></PageTransition>} />
         <Route path="/recap" element={<PageTransition gated><Recap /></PageTransition>} />

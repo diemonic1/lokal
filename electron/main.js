@@ -28,6 +28,8 @@ let earlyInstanceLock = null
 
 const { registerNativeOutput, closeNativeOutput } = require('./audio/output')
 const { app, BrowserWindow, ipcMain, shell, globalShortcut, screen, protocol, net, powerSaveBlocker } = require('electron')
+// Settings > Integrations > Block All Network Access: in place before anything connects.
+const offlineMode = require('./offlineMode')
 const path = require('path')
 // Keep the renderer at normal priority on Windows while minimized so the
 // AudioWorklet/native output path is not starved by backgrounding.
@@ -527,6 +529,8 @@ app.whenReady().then(() => {
     app.setAppUserModelId('com.lokal.music');
   }
   try { initDB() } catch (e) { console.error('DB:', e.message) }
+  offlineMode.install(app)
+  try { offlineMode.setEnabled(getDB().prepare("SELECT value FROM settings WHERE key = 'offline_mode'").get()?.value) } catch (e) { console.error('Network block:', e.message) }
   // Plays shared with other devices through the music folder (listeningHistory.js).
   try { require('./listeningHistory').start() } catch (e) { console.error('History:', e.message) }
   // Playlists shared the same way, as M3U8 files (playlistFiles.js).
@@ -908,6 +912,7 @@ ipcMain.handle('updater:install', () => {
 });
   ipcMain.handle('updater:check', () => {
     if (IS_NIGHTLY) return { nightly: true, version: app.getVersion() }
+    if (offlineMode.isEnabled()) return { offline: true, version: app.getVersion() }
     autoUpdater.checkForUpdates()
     return { checking: true }
   })
@@ -929,6 +934,8 @@ ipcMain.handle('updater:install', () => {
     console.log('[updater] skipping in dev mode')
   } else if (IS_NIGHTLY) {
     console.log(`[updater] nightly build (${app.getVersion()}): not checking for stable updates`)
+  } else if (offlineMode.isEnabled()) {
+    console.log('[updater] network access is blocked: not checking for updates')
   } else {
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch(err => {

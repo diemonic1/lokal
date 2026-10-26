@@ -8,5 +8,6 @@ import library from './library'
 import online from './online'
 import pages from './pages'
 import radio from './radio'
+import topbarsClips from './topbars-clips'
 
-export default { ...core, ...settings, ...settingsParts, ...player, ...library, ...online, ...pages, ...radio }
+export default { ...core, ...settings, ...settingsParts, ...player, ...library, ...online, ...pages, ...radio, ...topbarsClips }

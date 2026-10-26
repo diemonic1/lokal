@@ -10,9 +10,9 @@ import HeaderPopover, { createPopoverStore } from './HeaderPopover'
 const useEqualizerPopup = createPopoverStore()
 
 // Three sliders with filled knobs at different heights.
-function EqualizerIcon({ size = 15 }) {
+export function EqualizerIcon({ size = 15, className }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M5 3v18M12 3v18M19 3v18" />
       <circle cx="5" cy="9" r="3" fill="currentColor" stroke="none" />
       <circle cx="12" cy="15" r="3" fill="currentColor" stroke="none" />

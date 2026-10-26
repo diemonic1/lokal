@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Scaling, Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat, Repeat1, Mic2, ListMusic, ListPlus, Search, Maximize2, Expand, Minimize, Volume2, Film, Clapperboard, Image as ImageIcon } from 'lucide-react'
+import { X, Scaling, Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat, Repeat1, Mic2, ListMusic, ListPlus, Search, Maximize2, Expand, Minimize, Volume2, Film, Clapperboard, Image as ImageIcon, SquareArrowOutUpRight, Square, RectangleHorizontal } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -9,6 +9,9 @@ import { cacheLyrics, hasLyricLines, peekLyrics } from '../lyrics/lyricsCache'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
 import MotionCover, { loadMotionCover } from './MotionCover'
 import ClipLoop, { useTrackClip } from './ClipLoop'
+import { clipOpenUrl } from '../clipVideo'
+import { openLink } from '../trackLinks'
+import { previewAppearanceValue, useAppearanceText } from '../appearanceFlags'
 import LikeBurst from './LikeBurst'
 import { useMotionCoverOff } from '../motionCoverPrefs'
 import MixCovers from './MixCovers'
@@ -35,6 +38,8 @@ import { useFavoritesEnabled } from '../appearanceFlags'
 const PANEL_WIDTH = 'min(52vw, 780px)'
 const coverSize = (scale, panel) => `min(calc(min(34rem, 54vh) * ${scale}), calc(100vh - 17rem), calc(100vw - ${panel ? PANEL_WIDTH : '0px'} - 6rem))`
 const canvasHeight = scale => `min(calc(min(38rem, 62vh) * ${scale}), calc(100vh - 16rem))`
+// The widest the song's own video gets, shown whole (beside the panel when it's open).
+const clipMaxWidth = panel => `calc(100vw - ${panel ? PANEL_WIDTH : '0px'} - 6rem)`
 
 /** The small button over the card's top right: a slider for the card's size. */
 function CoverSizeButton({ hidden }) {
@@ -77,6 +82,8 @@ const FULLSCREEN_LYRICS_WAIT_MS = 1500 // lyrics found after this don't open the
 // The header and the cover's controls hide (and the cursor too) after this
 // long without the mouse moving.
 const IDLE_MS = 3000
+// The clip on the whole screen: its controls go almost as soon as the mouse stops.
+const CLIP_IDLE_MS = 1200
 
 // Glass (backdrop-blur) has to fade by itself, never inside a parent that
 // fades: while an ancestor's opacity is below 1, Chromium blurs that
@@ -87,9 +94,10 @@ const COVER_FADE = 'transition-[opacity,color,background-color,border-color] dur
 
 /** A glassy bubble on the cover (like, playlist, queue, lyrics). */
 function CoverButton({ onClick, label, active = false, children }) {
+  // Small and see-through, so they cover little of the picture (a video too).
   return (
     <button onClick={onClick} title={label} aria-label={label} aria-pressed={active}
-      className={`relative w-12 h-12 flex items-center justify-center rounded-full border backdrop-blur-[2px] ${COVER_FADE} shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${active ? 'border-white/30 bg-white/[0.16] text-white' : 'border-white/[0.14] bg-white/[0.05] text-white/90 hover:bg-white/[0.12] hover:text-white'}`}>
+      className={`relative w-9 h-9 flex items-center justify-center rounded-full border backdrop-blur-[2px] ${COVER_FADE} shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${active ? 'border-white/25 bg-white/[0.12] text-white/90 hover:text-white' : 'border-white/[0.10] bg-white/[0.03] text-white/60 hover:bg-white/[0.12] hover:text-white'}`}>
       {children}
     </button>
   )
@@ -318,6 +326,19 @@ export default function FullscreenPlayer() {
   // The song's own video (Edit Track) plays in the card ahead of its Canvas /
   // moving cover, following the song's seeks (see ClipLoop).
   const { loop: songClip, loopKey: songClipKey, fail: failSongClip } = useTrackClip(currentTrack)
+  // The song's own video in the cover card: in the square (cropped), or whole
+  // in its own shape (Settings: fullscreen_clip_fit, square | original). Its
+  // shape is known once it's loaded.
+  const clipShown = !!songClip && !coverOff
+  const clipUrl = songClip ? clipOpenUrl(songClip.link) : null
+  const clipOriginal = useAppearanceText('fullscreen_clip_fit', 'square') === 'original'
+  const [clipShape, setClipShape] = useState(null) // { key, ratio }
+  const clipRatio = clipShown && clipShape?.key === songClipKey ? clipShape.ratio : null
+  const toggleClipFit = () => {
+    const value = clipOriginal ? 'square' : 'original'
+    previewAppearanceValue('fullscreen_clip_fit', value)
+    Promise.resolve(api.saveSettings({ fullscreen_clip_fit: value })).catch(() => {})
+  }
   const clipNow = !songClip && coverClip.id === currentTrack?.id ? coverClip.clip : null
   const { video: musicVideo } = useMusicVideo(currentTrack, showFullscreen || showLyricsFullscreen)
   const showMusicVideo = useMusicVideoView(s => s.show)
@@ -587,19 +608,22 @@ export default function FullscreenPlayer() {
   // The lyrics layout (LyricsFullscreen) hides its own the same way.
   const [idle, setIdle] = useState(false)
   const overChromeRef = useRef(false)
+  // The song's own video on the whole screen (the monitor's, the app with it):
+  // only the video, its controls showing while the mouse moves.
+  const [clipFull, setClipFull] = useState(false)
   useEffect(() => {
     if (!showFullscreen) { setIdle(false); return undefined }
     let timer = null
     const wake = () => {
       setIdle(false)
       clearTimeout(timer)
-      timer = setTimeout(() => { if (!overChromeRef.current) setIdle(true) }, IDLE_MS)
+      timer = setTimeout(() => { if (!overChromeRef.current || clipFull) setIdle(true) }, clipFull ? CLIP_IDLE_MS : IDLE_MS)
     }
     wake()
     const events = ['mousemove', 'mousedown', 'wheel', 'keydown', 'touchstart']
     events.forEach(type => window.addEventListener(type, wake, { passive: true }))
     return () => { clearTimeout(timer); events.forEach(type => window.removeEventListener(type, wake)) }
-  }, [showFullscreen])
+  }, [showFullscreen, clipFull])
   const chromeHidden = idle && !showSearch
   const setOverChrome = useCallback((over) => { overChromeRef.current = over }, [])
   // Each piece of the header fades by itself (glass inside a fading parent flashes grey; see COVER_FADE).
@@ -652,12 +676,24 @@ export default function FullscreenPlayer() {
   }
   useEffect(() => {
     if (!open && document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    if (!open) setClipFull(false)
   }, [open])
+  const enterClipFull = () => {
+    setClipFull(true)
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {})
+  }
+  const exitClipFull = () => {
+    setClipFull(false)
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+  }
+  // Left the whole screen some other way (Escape), or the video went (another
+  // song without one, the cover picked instead): back to the card.
+  useEffect(() => { if (clipFull && !screenFull) setClipFull(false) }, [screenFull]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (clipFull && !clipShown) exitClipFull() }, [clipShown]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Seeking: click or drag along the bar.
-  const barRef = useRef(null)
-  const seekTo = (clientX) => {
-    const bar = barRef.current
+  // Seeking: click or drag along a bar (the one under the card, or the
+  // video's own on the whole screen).
+  const seekTo = (clientX, bar) => {
     const { duration: length } = usePlayerStore.getState()
     if (!bar || !length) return
     const r = bar.getBoundingClientRect()
@@ -667,8 +703,9 @@ export default function FullscreenPlayer() {
   }
   const startScrub = (event) => {
     event.preventDefault()
-    seekTo(event.clientX)
-    const move = e => seekTo(e.clientX)
+    const bar = event.currentTarget
+    seekTo(event.clientX, bar)
+    const move = e => seekTo(e.clientX, bar)
     const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -677,6 +714,10 @@ export default function FullscreenPlayer() {
   // On unless switched off (Settings > Lyrics > Time Plain Lyrics).
   const isAutoSynced = settings.unsynced_auto_sync !== '0'
   const isPanelVisible = currentTrack && fullscreenPanel !== 'none'
+  // The whole video's width; the seek bar and the names under the card follow it.
+  const clipWide = clipOriginal && !!clipRatio && !fsCanvas
+  const clipWidth = clipRatio ? `min(calc(${canvasHeight(coverScale)} * ${clipRatio}), ${clipMaxWidth(isPanelVisible)})` : null
+  const belowWidth = clipWide ? clipWidth : coverSize(coverScale, isPanelVisible)
   // The two layout-affecting transitions below (main content re-centering,
   // panel width collapsing) only need to animate while this view is
   // actually staying open -- while it's closing, the whole overlay is
@@ -704,7 +745,10 @@ export default function FullscreenPlayer() {
           // animation never completes -- see that effect's comment.
           data-fullscreen-player-overlay=""
         >
-          <div className="absolute inset-0 bg-black">
+          {/* The video on the whole screen covers all of it: not drawn then
+              (its blur, the lyrics' animation), so every video frame
+              composites only the video and its controls. */}
+          <div className={`absolute inset-0 bg-black ${clipFull ? 'invisible' : ''}`}>
             {/* Colours taken from the cover (see ArtworkBackdrop), or -- with
                 that switched off in Settings -- the plain blurred cover. */}
             {/* Eco mode: just the dark background, no blurred cover either. */}
@@ -754,7 +798,7 @@ export default function FullscreenPlayer() {
           {/* The header: lyrics view, what's playing from, full screen, close.
               It fades out (and the cursor hides) after a few seconds without
               the mouse moving, and comes back as soon as it moves. */}
-          <div className={`absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-start gap-4 px-5 pt-5 ${chromeHidden ? 'pointer-events-none' : ''}`}
+          <div className={`absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_minmax(0,2fr)_1fr] items-start gap-4 px-5 pt-5 ${chromeHidden ? 'pointer-events-none' : ''} ${clipFull ? 'invisible' : ''}`}
             onMouseEnter={() => { overChromeRef.current = true }} onMouseLeave={() => { overChromeRef.current = false }}>
             <div />
             {playbackContext?.name && (
@@ -809,7 +853,8 @@ export default function FullscreenPlayer() {
           {/* The cover, with the controls over it (shown while the pointer is
               on it), then the progress, the title and the artist. Clear of
               the header, so a tall canvas doesn't run into "Playing from". */}
-          <div className={`relative z-10 flex flex-col items-center justify-center flex-1 min-w-0 px-12 pt-24 pb-12 ${showFullscreen ? 'transition-all duration-500' : ''}`}
+          {/* Above the header and the panel while the video fills the whole screen. */}
+          <div className={`relative ${clipFull ? 'z-30' : 'z-10'} flex flex-col items-center justify-center flex-1 min-w-0 px-12 pt-24 pb-12 ${showFullscreen ? 'transition-all duration-500' : ''}`}
             onMouseEnter={() => setSideHover(true)} onMouseLeave={() => setSideHover(false)}>
             {/* One card for every song (never swapped, so never waiting on an
                 exit while the window is minimized): the artwork changes inside
@@ -849,21 +894,34 @@ export default function FullscreenPlayer() {
                 onMouseEnter={() => setCoverHover(true)}
                 onMouseLeave={() => setCoverHover(false)}
                 onDoubleClick={doubleClickLike}
-                className="group/cover relative select-none rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.8)] border border-white/10 flex-shrink-0 bg-white/5 flex items-center justify-center"
+                className={clipFull
+                  ? 'group/cover fixed inset-0 z-40 select-none overflow-hidden bg-black flex items-center justify-center'
+                  : 'group/cover relative select-none rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.8)] border border-white/10 flex-shrink-0 bg-white/5 flex items-center justify-center'}
                 // A tall (9:16) canvas plays in the card itself, which grows to
                 // its shape. (It used to fill the whole screen behind the
                 // lyrics panel, whose blur then had to be redone every video
                 // frame -- slow, especially while the panel slid open.)
-                style={fsCanvas
+                style={clipFull
+                  ? { width: '100vw', height: '100vh' }
+                  : fsCanvas
                   ? { height: canvasHeight(coverScale), aspectRatio: '9 / 16', transition: 'height 420ms ease' }
-                  : { width: coverSize(coverScale, isPanelVisible), height: coverSize(coverScale, isPanelVisible) }}
+                  : clipOriginal && clipRatio
+                    // The whole video in its own shape, as big as it fits: as
+                    // tall as a tall canvas may be, as wide as the cover's side
+                    // of the screen allows.
+                    ? {
+                        width: clipWidth,
+                        aspectRatio: String(clipRatio),
+                        transition: 'width 420ms ease',
+                      }
+                    : { width: coverSize(coverScale, isPanelVisible), height: coverSize(coverScale, isPanelVisible), transition: 'width 420ms ease, height 420ms ease' }}
               >
                 {artSrc
                   ? <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
-                        <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                        {!clipFull && <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />}
                         {songClip && String(track?.id) === String(currentTrack?.id) ? (
-                          !coverOff && <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} />
+                          !coverOff && <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} onRatio={ratio => setClipShape({ key: songClipKey, ratio })} fit={clipFull ? 'contain' : 'cover'} />
                         ) : (
                           <>
                             <MotionCover trackId={track?.id} only="square" off={coverOff} />
@@ -876,25 +934,37 @@ export default function FullscreenPlayer() {
                 }
 
                 {currentTrack && (
-                  <div data-shown={controlsShown} className="group/controls absolute inset-0 z-10 flex flex-col justify-between">
+                  // Over the video on the whole screen, no glass: a blur behind
+                  // a button is redone for every video frame.
+                  <div data-shown={controlsShown} className={`group/controls absolute inset-0 z-10 flex flex-col justify-between ${clipFull ? '[&_*]:![backdrop-filter:none]' : ''}`}>
                     <div className={`absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40 pointer-events-none ${COVER_FADE}`} />
                     <div className="relative flex items-center justify-center gap-3 pt-5">
                       {favorites && <CoverButton onClick={toggleLike} label={isLiked ? t('Remove from Liked Songs') : t('Add to Liked Songs')} active={isLiked}>
-                        <Heart size={19} fill={isLiked ? 'currentColor' : 'none'} />
+                        <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
                         <AnimatePresence>
                           {likeAnim && (
                             <motion.span initial={{ scale: 0.5, opacity: 1 }} animate={{ scale: 2.5, opacity: 0 }} exit={{}}
                               transition={{ duration: 0.5 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <Heart size={19} className="text-accent" fill="currentColor" />
+                              <Heart size={16} className="text-accent" fill="currentColor" />
                             </motion.span>
                           )}
                         </AnimatePresence>
                       </CoverButton>}
-                      <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label={t('Add to a playlist')}><ListPlus size={19} /></CoverButton>
-                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? t('Hide the queue') : t('Show the queue')} active={fullscreenPanel === 'queue'}><ListMusic size={19} /></CoverButton>
-                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? t('Hide the lyrics') : t('Show the lyrics')} active={fullscreenPanel === 'lyrics'}><Mic2 size={19} /></CoverButton>
+                      <CoverButton onClick={() => openAddToPlaylist(currentTrack)} label={t('Add to a playlist')}><ListPlus size={16} /></CoverButton>
+                      {!clipFull && <>
+                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'queue' ? 'none' : 'queue')} label={fullscreenPanel === 'queue' ? t('Hide the queue') : t('Show the queue')} active={fullscreenPanel === 'queue'}><ListMusic size={16} /></CoverButton>
+                      <CoverButton onClick={() => setFullscreenPanel(p => p === 'lyrics' ? 'none' : 'lyrics')} label={fullscreenPanel === 'lyrics' ? t('Hide the lyrics') : t('Show the lyrics')} active={fullscreenPanel === 'lyrics'}><Mic2 size={16} /></CoverButton>
+                      </>}
+                      {/* The song's own video showing: open it in the browser, and fit it in the square or show it whole. */}
+                      {clipShown && clipUrl && <CoverButton onClick={() => openLink(clipUrl)} label={t('Open the video in the browser')}><SquareArrowOutUpRight size={16} /></CoverButton>}
+                      {clipShown && !clipFull && (
+                        <CoverButton onClick={toggleClipFit} label={clipOriginal ? t('Fit the video in the square') : t('Show the whole video, in its own shape')}>
+                          {clipOriginal ? <Square size={16} /> : <RectangleHorizontal size={16} />}
+                        </CoverButton>
+                      )}
                     </div>
-                    <div className={`relative flex items-center justify-center gap-8 pb-7 ${COVER_FADE}`}>
+                    {/* On the whole screen, at the bottom, right over the seek bar. */}
+                    <div className={`relative flex items-center justify-center gap-8 ${clipFull ? 'mt-auto pb-3' : 'pb-7'} ${COVER_FADE}`}>
                       <CoverIcon onClick={toggleShuffle} label={t('Shuffle')} pressed={shuffle} dim={!shuffle}>
                         <Shuffle size={22} className={shuffle ? 'text-accent' : ''} />
                       </CoverIcon>
@@ -910,11 +980,31 @@ export default function FullscreenPlayer() {
                       <CoverIcon onClick={toggleRepeat} label={t('Repeat')} pressed={repeat !== 'none'} dim={repeat === 'none'}>
                         <RepeatIcon size={22} className={repeat !== 'none' ? 'text-accent' : ''} />
                       </CoverIcon>
+                      {/* The video on the whole screen: level with play, right
+                          under the volume (as wide as it); back from it, at the
+                          end of the seek bar. */}
+                      {clipShown && !clipFull && (
+                        <div className="absolute right-4 top-0 bottom-7 flex w-7 items-center justify-center">
+                          <CoverButton onClick={enterClipFull} label={t('Video on the whole screen')}><Expand size={16} /></CoverButton>
+                        </div>
+                      )}
                     </div>
+                    {/* The video on the whole screen: its own seek bar, with the controls. */}
+                    {clipFull && (
+                      <div className={`relative flex items-center gap-3 px-8 pb-6 ${COVER_FADE}`}>
+                        <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
+                        <div className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-white/25 drop-shadow-[0_1px_4px_rgba(0,0,0,0.35)] before:absolute before:-inset-y-2 before:inset-x-0"
+                          onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
+                          <div className="absolute inset-y-0 left-0 rounded-full bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
+                        </div>
+                        <span className="w-11 text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
+                        <CoverButton onClick={exitClipFull} label={t('Exit full screen')}><Minimize size={16} /></CoverButton>
+                      </div>
+                    )}
                     {/* The music video, mid left edge (opposite the volume). */}
                     {musicVideo && (
                       <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                        <CoverButton onClick={showMusicVideo} label={t('Play the music video')}><Clapperboard size={19} /></CoverButton>
+                        <CoverButton onClick={showMusicVideo} label={t('Play the music video')}><Clapperboard size={16} /></CoverButton>
                       </div>
                     )}
                     {/* Volume, up the right edge. */}
@@ -927,10 +1017,10 @@ export default function FullscreenPlayer() {
               </motion.div>
             </div>
 
-            <div className="relative mt-6 flex items-center gap-3" style={{ width: coverSize(coverScale, isPanelVisible) }}>
+            <div className={`relative mt-6 flex items-center gap-3 ${clipFull ? 'invisible' : ''}`} style={{ width: belowWidth }}>
               <MixingMark className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none !text-white/80" />
               <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
-              <div ref={barRef} className="group/bar relative h-3.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-white/20 backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
+              <div className="group/bar relative h-3.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-white/20 backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
                 onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                 <div className="absolute inset-y-0 left-0 bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
               </div>
@@ -939,7 +1029,7 @@ export default function FullscreenPlayer() {
 
             {/* In at once, fading: never waiting on the old title's way out (see PlayerBar). */}
             <motion.div key={currentTrack?.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="mt-5 text-center" style={{ width: coverSize(coverScale, isPanelVisible) }}>
+              className={`mt-5 text-center ${clipFull ? 'invisible' : ''}`} style={{ width: belowWidth }}>
               <h2 className="text-3xl font-bold text-white leading-tight truncate">{currentTrack?.title || '—'}</h2>
               <p className="mt-1.5 text-lg text-white/70 truncate"><ArtistNames track={currentTrack} disabled={isStationTrack(currentTrack)} onNavigate={toggleFullscreen} linkClassName="hover:text-white hover:underline" /></p>
               {currentTrack?.album && <p className="mt-0.5 text-sm text-white/40 truncate">{currentTrack.album}</p>}
@@ -952,7 +1042,7 @@ export default function FullscreenPlayer() {
               // happen to exist; with lyrics missing, the panel shows its own
               // "no lyrics" state and search, same as windowed mode.
               <div
-                className={`relative z-10 flex flex-col overflow-hidden pt-24 pb-10 ${showFullscreen ? 'transition-all duration-500' : ''} ${isPanelVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`relative z-10 flex flex-col overflow-hidden pt-24 pb-10 ${showFullscreen ? 'transition-all duration-500' : ''} ${isPanelVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${clipFull ? 'invisible' : ''}`}
                 style={{ width: isPanelVisible ? PANEL_WIDTH : '0px' }}
               >
                 {(fullscreenPanel !== 'none' ? fullscreenPanel : lastPanelRef.current) === 'queue' ? (

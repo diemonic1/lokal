@@ -183,6 +183,8 @@ function registerOnlineHandlers(ipcMain) {
   const musicVideoProgress = (event, trackId) => update => {
     try { if (!event.sender.isDestroyed()) event.sender.send('musicVideo:progress', { trackId, ...update }) } catch {}
   }
+  // Entries kept from before tracks with a video in their tags were left out.
+  setTimeout(() => forgetTaggedMusicVideos(), 30000)
   ipcMain.handle('musicVideo:find', (event, trackId) => musicVideoFor(trackId, {
     onProgress: musicVideoProgress(event, trackId),
   }).catch(() => null))
@@ -270,6 +272,19 @@ function registerOnlineHandlers(ipcMain) {
     require('../online/videoPreview').animatedPreview(String(videoId || ''), String(query || ''), { force: force === true }).catch(() => null))
   ipcMain.handle('musicVideo:cancelIndex', () => { if (videoIndexJob) videoIndexJob.cancelled = true })
   ipcMain.handle('musicVideo:indexStatus', () => videoIndexStatus)
+  // The Clip Search tab: music videos found for many songs at once, kept
+  // apart (../online/clipSearch.js) until the user saves the ones ticked.
+  const clips = require('../online/clipSearch')
+  const clipCall = work => async (...args) => { try { return await work(...args) } catch (e) { return { ok: false, error: e.message } } }
+  ipcMain.handle('clipSearch:get', clipCall(() => clips.get(getDB())))
+  ipcMain.handle('clipSearch:start', clipCall(() => clips.start(getDB())))
+  ipcMain.handle('clipSearch:resume', clipCall(() => clips.resume(getDB())))
+  ipcMain.handle('clipSearch:stop', clipCall(() => clips.stop()))
+  ipcMain.handle('clipSearch:cancel', clipCall(() => clips.cancel()))
+  ipcMain.handle('clipSearch:setChecked', clipCall((_, ids, checked) => clips.setChecked(ids, !!checked)))
+  ipcMain.handle('clipSearch:setTimes', clipCall((_, trackId, start, end, zoom) => clips.setTimes(trackId, start, end, zoom)))
+  ipcMain.handle('clipSearch:reject', clipCall((_, trackId) => clips.reject(getDB(), trackId)))
+  ipcMain.handle('clipSearch:save', clipCall(() => clips.save(getDB())))
   // Every step is logged ([playback] in the terminal under npm run dev), so
   // a song that "just doesn't start" shows where it stopped.
   ipcMain.handle('online:prepare', async (_, provider, id, force = false) => {
@@ -316,22 +331,35 @@ function songAudioFor(track, canStream, options = {}) {
   return null
 }
 
-/** The official music video for a track (see online/musicVideo.js), or null. */
-async function musicVideoFor(trackId, { onProgress } = {}) {
-  const track = getDB().prepare('SELECT id, title, artist, duration, file_path FROM tracks WHERE id = ?').get(trackId)
+/**
+ * The official music video for a track (see online/musicVideo.js), or null.
+ * `exclude`: video ids never to return (Clip Search's "wrong video" marks).
+ * A track with a video in its tags (Edit Track, Clip Search) isn't looked
+ * up, nor kept in music-videos.json: only a video already downloaded or
+ * saved to the Videos library for it is still returned.
+ */
+async function musicVideoFor(trackId, { onProgress, exclude = [] } = {}) {
+  // All columns: clip_url isn't in every database (an older or a test one).
+  const track = getDB().prepare('SELECT * FROM tracks WHERE id = ?').get(trackId)
   if (!track) return null
+  const tagged = !!String(track.clip_url || '').trim()
   const cacheFile = musicVideoMetadataFile()
   const matcher = require('../online/musicVideo')
+  const excluded = new Set(exclude)
+  const allowed = video => !!video && !excluded.has(video.videoId)
   ensureVideoLibrary()
-  const known = matcher.knownMusicVideos([track], { cacheFile, findFile: musicVideoFile })[0]?.video
-  if (known) return known
+  if (!tagged) {
+    const known = matcher.knownMusicVideos([track], { cacheFile, findFile: musicVideoFile })[0]?.video
+    if (allowed(known)) return known
+  }
   for (const row of getDB().prepare('SELECT video_json FROM downloaded_music_videos').all()) {
-    try { const video = JSON.parse(row.video_json); if (video.trackId === trackId && (video.motion === 'verified' || musicVideoFile(video, track))) return video } catch {}
+    try { const video = JSON.parse(row.video_json); if (video.trackId === trackId && allowed(video) && (video.motion === 'verified' || musicVideoFile(video, track))) return video } catch {}
   }
   try {
     const saved = JSON.parse(getDB().prepare('SELECT video_json FROM saved_music_videos WHERE track_id = ?').get(trackId)?.video_json || 'null')
-    if (/^[\w-]{11}$/.test(String(saved?.videoId || '')) && (saved.motion === 'verified' || musicVideoFile(saved, track))) return saved
+    if (/^[\w-]{11}$/.test(String(saved?.videoId || '')) && allowed(saved) && (saved.motion === 'verified' || musicVideoFile(saved, track))) return saved
   } catch {}
+  if (tagged) return null
   if (accountSession) await accountSession.credentials().catch(() => {})
   const { findFfmpeg } = require('./tools')
   const options = streamOptions()
@@ -384,9 +412,21 @@ async function musicVideoFor(trackId, { onProgress } = {}) {
     }, item.duration || track.duration),
     youtubeSearch: options.fast ? fastSearch : options.ytdlp ? ytdlpSearch : null,
     cacheFile,
+    exclude: [...excluded],
     log: message => require('electron-log').info(message),
   })
   return video
+}
+
+/**
+ * Takes tracks with a video in their tags out of music-videos.json: these
+ * (all of them when none are given). -> how many entries went.
+ */
+function forgetTaggedMusicVideos(trackIds) {
+  try {
+    const ids = trackIds || getDB().prepare("SELECT id FROM tracks WHERE TRIM(COALESCE(clip_url, '')) <> ''").all().map(row => row.id)
+    return require('../online/musicVideo').forgetMusicVideos(musicVideoMetadataFile(), ids)
+  } catch { return 0 }
 }
 
 function musicVideoMetadataFile() {
@@ -853,4 +893,4 @@ function musicVideoStream(id, range) {
   return videoStream(id, range, (u, init) => require('electron').net.fetch(u, init))
 }
 
-module.exports = { registerOnlineHandlers, registerStreamScheme, registerStreamProtocol, search, streamOptions, providers, songAudioFor, resolvedSourceAudio, listMusicVideos, prepareMusicVideoFor, musicVideoStream }
+module.exports = { registerOnlineHandlers, registerStreamScheme, registerStreamProtocol, search, streamOptions, providers, songAudioFor, resolvedSourceAudio, listMusicVideos, prepareMusicVideoFor, musicVideoStream, musicVideoFor, forgetTaggedMusicVideos }

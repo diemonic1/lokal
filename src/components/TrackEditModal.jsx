@@ -83,6 +83,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     clip_start: '',
     clip_end: '',
     clip_zoom: 0,
+    highlight_time: '',
     danceability: '',
     energy: '',
     track_key: '',
@@ -155,6 +156,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         clip_start: formatClipTime(track.clip_start),
         clip_end: formatClipTime(track.clip_end),
         clip_zoom: clipZoomPercent(track.clip_zoom),
+        highlight_time: formatClipTime(track.highlight_time),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
         track_key: asInput(track.track_key),
@@ -287,6 +289,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (clipEnd !== (track.clip_end ?? null)) updateData.clip_end = clipEnd
       const clipZoom = clipZoomPercent(formData.clip_zoom)
       if (clipZoom !== clipZoomPercent(track.clip_zoom)) updateData.clip_zoom = clipZoom || null
+      // The important moment: typed like the loop times; marked on the seek bar.
+      const highlight = parseClipTime(formData.highlight_time)
+      if (Number.isNaN(highlight)) {
+        setStatus({ type: 'error', message: t('The important moment is seconds, minutes:seconds or hours:minutes:seconds, like 75, 1:15 or 0:11.5') })
+        setSaving(false)
+        return
+      }
+      if (highlight !== (track.highlight_time ?? null)) updateData.highlight_time = highlight
       if (String(formData.danceability) !== String(track.danceability ?? '')) updateData.danceability = parseNumberField(formData.danceability)
       if (String(formData.energy) !== String(track.energy ?? '')) updateData.energy = parseNumberField(formData.energy)
       if (String(formData.track_key) !== String(track.track_key ?? '')) updateData.track_key = parseIntegerField(formData.track_key)
@@ -441,7 +451,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
           <div className="min-h-0 space-y-2.5 overflow-y-auto pr-1">
             <div className="flex gap-3">
               <div className="flex-shrink-0">
-                <div {...coverDrop.dropProps} className={`group relative h-24 w-24 overflow-hidden rounded-lg border bg-card ${coverDrop.over ? 'border-accent ring-2 ring-accent' : 'border-border'}`}>
+                <div {...coverDrop.dropProps} className={`group relative h-28 w-28 overflow-hidden rounded-lg border bg-card ${coverDrop.over ? 'border-accent ring-2 ring-accent' : 'border-border'}`}>
                   {artworkPreview ? (
                     <img src={artworkPreview} alt={t('Artwork')} className="h-full w-full object-cover" />
                   ) : (
@@ -457,16 +467,17 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                     </div>
                   )}
                 </div>
-                <button onClick={searchCover} disabled={!(formData.title || formData.artist)} title={t('Search for the cover on Yandex Images')}
-                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-50">
-                  <Search size={11} />
-                  {t('Find cover')}
-                </button>
-                <button onClick={downloadCover} disabled={!artworkPreview} title={t('Save the cover to Downloads')}
-                  className="mt-1.5 flex w-24 items-center justify-center gap-1 rounded-lg border border-border bg-card py-1 text-[11px] text-muted transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-50">
-                  <Download size={11} />
-                  {t('Download cover')}
-                </button>
+                {/* The cover's buttons: the icon over its name, centred. */}
+                {[
+                  { onClick: searchCover, disabled: !(formData.title || formData.artist), title: t('Search for the cover on Yandex Images'), Icon: Search, text: t('Find cover') },
+                  { onClick: downloadCover, disabled: !artworkPreview, title: t('Save the cover to Downloads'), Icon: Download, text: t('Download cover') },
+                ].map(({ onClick, disabled, title, Icon, text }) => (
+                  <button key={text} type="button" onClick={onClick} disabled={disabled} title={title}
+                    className="mt-1.5 flex w-28 flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-center text-[11px] leading-tight text-muted transition-colors hover:border-accent/30 hover:text-accent disabled:opacity-50">
+                    <Icon size={13} className="flex-shrink-0" />
+                    <span>{text}</span>
+                  </button>
+                ))}
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
@@ -477,17 +488,10 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   <label className={label}>{t('Artist')}</label>
                   <input value={formData.artist} onChange={(e) => handleChange('artist', e.target.value)} className={field} placeholder={t('Artist name')} />
                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className={label}>{t('Album')}</label>
-                <input value={formData.album} onChange={(e) => handleChange('album', e.target.value)} className={field} placeholder={t('Album name')} />
-              </div>
-              <div>
-                <label className={label}>{t('Album Artist')}</label>
-                <input value={formData.album_artist} onChange={(e) => handleChange('album_artist', e.target.value)} className={field} placeholder={t('Album artist (if different)')} />
+                <div>
+                  <label className={label}>{t('Album')}</label>
+                  <input value={formData.album} onChange={(e) => handleChange('album', e.target.value)} className={field} placeholder={t('Album name')} />
+                </div>
               </div>
             </div>
 
@@ -501,8 +505,11 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                 <input type="number" min="1900" max="2100" value={formData.year} onChange={(e) => handleChange('year', e.target.value)} className={field} placeholder="2024" />
               </div>
               <div>
-                <label className={label}>{t('Record Label')}</label>
-                <input value={formData.record_label} onChange={(e) => handleChange('record_label', e.target.value)} className={field} placeholder={t('Label')} />
+                <span className={label} aria-hidden>&nbsp;</span>
+                <label className={`${field} flex cursor-pointer items-center gap-2.5`} title={t('Show the track with the explicit badge.')}>
+                  <input type="checkbox" checked={formData.explicit} onChange={(e) => handleChange('explicit', e.target.checked)} />
+                  <span className="text-sm text-white">{t('Explicit')}</span>
+                </label>
               </div>
             </div>
 
@@ -516,10 +523,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               <textarea value={formData.comment} onChange={(e) => handleChange('comment', e.target.value)} rows={2} className={`${field} resize-y`} />
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2" title={t('Show the track with the explicit badge.')}>
-              <input type="checkbox" checked={formData.explicit} onChange={(e) => handleChange('explicit', e.target.checked)} className="rounded border-border bg-card text-accent focus:ring-accent/40" />
-              <span className="text-sm text-white">{t('Explicit')}</span>
-            </label>
+            {/* A moment of the song worth finding: a small mark on the player bar's seek bar. */}
+            <div className="flex items-center gap-3">
+              <label htmlFor="track-edit-highlight" className={`${label} mb-0 whitespace-nowrap`}>{t('Important moment of the track')}</label>
+              {/* As wide as the music video's Start and End fields. */}
+              <input id="track-edit-highlight" inputMode="decimal" value={formData.highlight_time} onChange={(e) => handleChange('highlight_time', clipTimeInput(e.target.value))}
+                className={`${field.replace('w-full', 'w-[5.5rem]')} flex-shrink-0 ${Number.isNaN(parseClipTime(formData.highlight_time)) ? 'border-red-400/70' : ''}`} placeholder="1:15"
+                title={`${t('Shown as a small mark on the seek bar.')} ${t('Seconds, minutes:seconds or hours:minutes:seconds; a dot for fractions of a second')}`} />
+            </div>
 
             <div>
               <div className="flex items-center justify-between gap-2">
@@ -549,6 +560,18 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                 </div>
               </div>
               <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the whole video when neither is.')}</p>
+            </div>
+
+            {/* Less often changed: the album artist and the record label, last. */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className={label}>{t('Album Artist')}</label>
+                <input value={formData.album_artist} onChange={(e) => handleChange('album_artist', e.target.value)} className={field} placeholder={t('Album artist (if different)')} />
+              </div>
+              <div>
+                <label className={label}>{t('Record Label')}</label>
+                <input value={formData.record_label} onChange={(e) => handleChange('record_label', e.target.value)} className={field} placeholder={t('Label')} />
+              </div>
             </div>
 
             <details className="rounded-lg border border-border bg-card/70 px-3 py-2">

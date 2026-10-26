@@ -23,6 +23,7 @@ import { ago, useReleaseCheck } from './ReleasesPanel'
 import { cancelVideoIndex, startVideoIndex, useVideoIndex } from '../videoIndex'
 import { useDiscoveryArtists, loadDiscoveryArtists } from '../discoveryArtists'
 import { useTranslation } from '../i18n'
+import { HEADER_MORE } from './HeaderPopover'
 
 // ------------------------------------------------------------------ ring
 
@@ -456,7 +457,8 @@ export function DownloadManagerPanel() {
   useLayoutEffect(() => {
     if (!panelOpen) return undefined
     const place = () => {
-      const rect = document.querySelector(OPENERS)?.getBoundingClientRect()
+      // Its button in the header's ⋯ group: it drops from ⋯.
+      const rect = (document.querySelector(OPENERS) || document.querySelector(HEADER_MORE))?.getBoundingClientRect()
       if (!rect) return
       // Narrower than the panel (the web app on a phone): it narrows to fit.
       const width = Math.min(PANEL_WIDTH, window.innerWidth - 24)

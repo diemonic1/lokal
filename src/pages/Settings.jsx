@@ -6,7 +6,7 @@ import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive } from 'lucide-react'
+import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
@@ -30,6 +30,7 @@ import { THEMES, ACCENT_COLORS, applyTheme } from '../theme'
 import { useTheme } from '../themeHooks'
 import { previewAppearanceValue } from '../appearanceFlags'
 import AppTabsSettings from '../components/AppTabsSettings'
+import HeaderLayoutSettings from '../components/HeaderLayoutSettings'
 import FolderAppsSettings from '../components/FolderAppsSettings'
 import RadioCatalogSetup from '../components/RadioCatalogSetup'
 import { RADIO_BUFFER_MAX, radioBufferSeconds } from '../store/radio'
@@ -51,6 +52,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'addons', label: 'Addons', icon: Blocks },
   { key: 'appearance', label: 'Appearance', icon: Palette },
   { key: 'visualizations', label: 'Visualizations', icon: AudioWaveform },
+  { key: 'topbars', label: 'App Top Bars', icon: PanelTop },
   { key: 'data', label: 'Data', icon: Download },
   { key: 'about', label: 'About', icon: Info },
 ]
@@ -425,8 +427,6 @@ export default function Settings() {
   const [appVersion, setAppVersionState] = useState(() => peekCache('settings:version') || '')
   const setAppVersion = (version) => { writeCache('settings:version', version); setAppVersionState(version) }
   usePageReady(settingsLoaded && (!api.isElectron || (!!appVersion && !!toolsStatus)))
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
-  const [updateCheckResult, setUpdateCheckResult] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   // Index Lyrics runs in the background (src/libraryJobs.js).
   const [missingRepairJob, setMissingRepairJob] = useState(null)
@@ -606,30 +606,6 @@ export default function Settings() {
       setBgImage(null)
     }
   }, [themeOverrides])
-
-  const checkForUpdates = async () => {
-    if (!api.isElectron) return
-    setCheckingUpdate(true)
-    setUpdateCheckResult('')
-    try {
-      const result = await api.updaterCheck()
-      if (result?.nightly) {
-        // Nightlies aren't offered the stable release; they update by hand.
-        setUpdateCheckResult('')
-        setCheckingUpdate(false)
-        api.openExternal('https://github.com/sipbuu/lokal/releases')
-        return
-      }
-      setUpdateCheckResult(t('Checking for updates...'))
-      setTimeout(() => {
-        setUpdateCheckResult('')
-        setCheckingUpdate(false)
-      }, 5000)
-    } catch (e) {
-      setUpdateCheckResult(t('Error checking for updates'))
-      setCheckingUpdate(false)
-    }
-  }
 
   // Saves one performance field. On failure only that field (and its error)
   // changes, so overlapping saves of the two fields can't undo each other.
@@ -1238,21 +1214,6 @@ activeCategory === 'data' ? usersTried
               <span className="text-[11px] text-muted/70 font-mono">{t('Build {n}', { n: typeof __BUILD_NUMBER__ !== 'undefined' ? __BUILD_NUMBER__ : 0 })}</span>
             </span>
           </Row>
-          <Row label="Check for Updates" desc={/-nightly\./i.test(appVersion || '') ? 'Nightly builds update from GitHub Releases, not from here.' : 'Look for a newer version now.'}>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={checkForUpdates}
-                disabled={checkingUpdate}
-                className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm text-muted hover:text-white hover:border-accent/30 disabled:opacity-40 transition-colors"
-              >
-                <RefreshCcw size={13} className={checkingUpdate ? 'animate-spin' : ''} />
-                {t(checkingUpdate ? 'Checking...' : /-nightly\./i.test(appVersion || '') ? 'Open Releases' : 'Check for updates')}
-              </button>
-              {updateCheckResult && (
-                <span className="text-xs text-muted">{updateCheckResult}</span>
-              )}
-            </div>
-          </Row>
           <Row label="Debug Logs" desc="Open the folder with Lokal's logs, to attach to a bug report.">
             <button 
               onClick={() => api.openLogs?.()}
@@ -1302,6 +1263,14 @@ activeCategory === 'data' ? usersTried
       <Section title="Open Folders In">
         <Row label="Programs" desc="Right-click a folder in the left sidebar to open it in one of these programs: the folder's full path is passed to the program. Give each a name for the menu and the program's full path." stacked>
           <FolderAppsSettings value={settings.folder_apps || ''} onChange={value => { previewAppearanceValue('folder_apps', value); set('folder_apps', value) }} />
+        </Row>
+      </Section>
+      )}
+
+      {inCategory('library') && api.isElectron && (
+      <Section title="Top Bar Programs">
+        <Row label="Programs" desc="The arrow button in the top bar opens a menu with these: a program starts as it is, without arguments; a web link opens in the default browser. Give each a name for the menu and the program's full path or the link." stacked>
+          <FolderAppsSettings links value={settings.top_apps || ''} onChange={value => { previewAppearanceValue('top_apps', value); set('top_apps', value) }} />
         </Row>
       </Section>
       )}
@@ -1720,6 +1689,18 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
 
+      {api.isElectron && inCategory('integrations') && (
+      <Section title="Full Network Block">
+        <Row label="Block All Network Access" desc="Lokal sends nothing to the internet: no online search or streaming, lyrics, covers, scrobbling or updates. Your library, playback and devices on your home network keep working.">
+          <button aria-pressed={settings.offline_mode === '1'}
+            onClick={() => set('offline_mode', settings.offline_mode === '1' ? '0' : '1')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${settings.offline_mode === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+            {t(settings.offline_mode === '1' ? 'On' : 'Off')}
+          </button>
+        </Row>
+      </Section>
+      )}
+
       {inCategory('integrations') && (
       <Section title="Account Connections">
         <ProviderConnections settingsOverride={settings} onSettingsChanged={patch => setSettings(previous => ({ ...previous, ...patch }))} onListenBrainzChanged={setLbStatus} />
@@ -1931,7 +1912,14 @@ activeCategory === 'data' ? usersTried
         </Row>
       </Section>
       )}
-      {inCategory('appearance') && (
+      {inCategory('topbars') && (
+      <Section title="Top Bar Buttons">
+        <Row label="Button order" desc="Drag the buttons to reorder them. The lines split the top bar into its left part (next to the app name), middle and right part (before the window buttons); the search box moves like a button. Buttons in the ⋯ group are hidden in the ⋯ button's menu, shown there with their names." stacked>
+          <HeaderLayoutSettings value={settings.header_layout} onChange={value => { previewAppearanceValue('header_layout', value); set('header_layout', value) }} />
+        </Row>
+      </Section>
+      )}
+      {inCategory('topbars') && (
       <Section title="App Tabs">
         <Row label="Tab order" desc="Drag the tabs to reorder them. Tabs below the line are hidden in the ⋯ menu after the last tab." stacked>
           <AppTabsSettings value={settings.app_tabs} onChange={value => { previewAppearanceValue('app_tabs', value); set('app_tabs', value) }} />
@@ -2360,6 +2348,7 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('appearance') && (
       <Section title="Player Bar">
+        {visualColor('highlight_marker_color', 'Important Moment Mark', "The colour of the small mark on the seek bar where the song's important moment is (set in Edit Track).", '#ef4444')}
         <Row label="Glass" desc="The player bar and the song list's header are see-through and blur what's behind them. Turn off for solid ones, which is lighter if playback stutters.">
           <button
             onClick={() => set('glass_player_bar', settings.glass_player_bar === '0' ? '1' : '0')}

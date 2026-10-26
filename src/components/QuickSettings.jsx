@@ -22,9 +22,9 @@ const SIDE_KINDS = [['off', 'Off'], ['character', 'Round character'], ['anomaly'
 const PLAYER_KINDS = [['off', 'Off'], ['waveform', 'Beside the volume'], ['spectrum', 'Spectrum'], ['spectrumCenter', 'Spectrum from the center'], ['waves', 'Waves'], ['lightning', 'Lightning']]
 
 // Three horizontal sliders with filled knobs at different places.
-function QuickSettingsIcon({ size = 15 }) {
+export function QuickSettingsIcon({ size = 15, className }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M3 5h18M3 12h18M3 19h18" />
       <circle cx="15" cy="5" r="3" fill="currentColor" stroke="none" />
       <circle cx="8" cy="12" r="3" fill="currentColor" stroke="none" />

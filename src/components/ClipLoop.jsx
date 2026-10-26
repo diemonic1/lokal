@@ -41,7 +41,11 @@ export function useTrackClip(track) {
 }
 
 /** The song's own video looping, muted: between its two times, or the part clipRange picks. */
-export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive, onFail }) {
+/**
+ * `onRatio(width / height)`: the video's shape, once it's loaded. `fit`:
+ * cover (fills the box, cropped) or contain (whole, in the box).
+ */
+export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive, onFail, onRatio, fit = 'cover' }) {
   const ref = useRef(null)
   const [src, setSrc] = useState(null)
   const [ready, setReady] = useState(false)
@@ -188,12 +192,16 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
       controls={false}
       tabIndex={-1}
       aria-hidden="true"
-      onLoadedMetadata={e => { e.currentTarget.currentTime = startAt(e.currentTarget) }}
+      onLoadedMetadata={e => {
+        const v = e.currentTarget
+        v.currentTime = startAt(v)
+        if (v.videoWidth > 0 && v.videoHeight > 0) onRatio?.(v.videoWidth / v.videoHeight)
+      }}
       onSeeked={show}
       onPlaying={show}
       onError={failed}
       onContextMenu={e => e.preventDefault()}
-      className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+      className={`pointer-events-none absolute inset-0 h-full w-full select-none ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
       // Zoomed in from its centre by the song's Edit Track setting (0-50 %).
       style={{ opacity: ready ? 1 : 0, transition: 'opacity 320ms ease', transform: zoom > 0 ? `scale(${1 + zoom / 100})` : undefined }}
     />

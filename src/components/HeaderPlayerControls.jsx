@@ -12,7 +12,7 @@ export const HEADER_ICON = 'flex h-7 w-7 flex-shrink-0 items-center justify-cent
 export const headerIconTone = active => active ? 'text-accent' : 'text-text/90 hover:text-text'
 
 /** Sleep timer: the moon (with the time left) and its picker. */
-function SleepTimerButton() {
+export function SleepTimerButton() {
   const { t } = useTranslation()
   const { sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer } = usePlayerStore(useShallow(
     ({ sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer }) => ({ sleepTimerMinutes, sleepTimerEndTime, setSleepTimer, cancelSleepTimer })))
@@ -106,29 +106,30 @@ function SleepTimerButton() {
   </>
 }
 
-/** Audio output, mini player and sleep timer, in the header next to Cast. */
-export default function HeaderPlayerControls() {
+/** The audio output picker, as a header button. */
+export function AudioOutputButton() {
+  const castActive = usePlayerStore(s => s.castActive)
+  const castDevice = useCastStore(s => s.status?.device)
+  // Casting: the TV plays the sound, there's no output to pick here.
+  if (castActive && castDevice) return null
+  return <div className={HEADER_ICON}><AudioOutputPicker placement="down" /></div>
+}
+
+/** Opens the mini player. */
+export function MiniPlayerButton() {
   const { t } = useTranslation()
   const currentTrack = usePlayerStore(s => s.currentTrack)
   const toggleMiniPlayer = usePlayerStore(s => s.toggleMiniPlayer)
-  const castActive = usePlayerStore(s => s.castActive)
-  const castDevice = useCastStore(s => s.status?.device)
   return (
-    <div className="flex flex-shrink-0 items-center gap-0.5">
-      {!(castActive && castDevice) && (
-        <div className={HEADER_ICON}><AudioOutputPicker placement="down" /></div>
-      )}
-      <button
-        type="button"
-        onClick={toggleMiniPlayer}
-        disabled={!currentTrack}
-        className={`${HEADER_ICON} ${headerIconTone(false)} disabled:opacity-30`}
-        title={t("Mini Player")}
-        aria-label={t("Mini Player")}
-      >
-        <Radio size={15} />
-      </button>
-      <SleepTimerButton />
-    </div>
+    <button
+      type="button"
+      onClick={toggleMiniPlayer}
+      disabled={!currentTrack}
+      className={`${HEADER_ICON} ${headerIconTone(false)} disabled:opacity-30`}
+      title={t("Mini Player")}
+      aria-label={t("Mini Player")}
+    >
+      <Radio size={15} />
+    </button>
   )
 }

@@ -2,6 +2,9 @@
 // the program's full path, kept as JSON in the folder_apps setting). Right-
 // clicking a folder in the left sidebar offers them; the picked one starts
 // with the folder's full path as its only argument.
+// Settings > Library > Top Bar Programs (the top_apps setting, the same
+// shape): the header's arrow button lists them; a program starts without
+// arguments, a web link opens in the default browser.
 
 const path = require('path')
 const fs = require('fs')
@@ -97,7 +100,37 @@ function launchFolderApp(appPath, relativeFolder) {
   if (!known) return { ok: false, error: 'This program is not in Settings > Library' }
   const folder = folderPath(db, relativeFolder)
   if (!folder) return { ok: false, error: 'The folder is not available' }
+  return startProgram(wanted, [folder])
+}
 
+// A web address in the top bar's list: opened in the default browser.
+// "www.site.com" counts too (as https). A Windows path ("C:\...") is not one.
+function webLink(value) {
+  const text = String(value || '').trim()
+  if (/^www\./i.test(text)) return `https://${text}`
+  // Two letters at least before the colon: "C:" is a drive.
+  if (/^[a-z][a-z0-9+.-]+:/i.test(text) && !/^file:/i.test(text)) return text
+  return null
+}
+
+/**
+ * Settings > Library > Top Bar Programs: the program (started without
+ * arguments) or the link (opened in the browser) at `target`, one from the
+ * top_apps setting: { ok } or { ok: false, error }.
+ */
+async function launchTopApp(target) {
+  const wanted = String(target || '').trim()
+  const known = parseFolderApps(readSetting(getDB(), 'top_apps')).some(item => item.path === wanted)
+  if (!known) return { ok: false, error: 'This program is not in Settings > Library' }
+  const link = webLink(wanted)
+  if (link) {
+    try { await shell.openExternal(link); return { ok: true } } catch (error) { return { ok: false, error: 'Could not open the link', detail: error.message } }
+  }
+  return startProgram(wanted, [])
+}
+
+/** Starts a program (a shortcut, script or batch file too) with `extraArgs` after its own: { ok } or { ok: false, error }. */
+function startProgram(wanted, extraArgs) {
   let program = wanted
   let args = []
   let cwd
@@ -116,7 +149,7 @@ function launchFolderApp(appPath, relativeFolder) {
 
   try {
     const ext = path.extname(program).toLowerCase()
-    // Python and VBScript files: their interpreter, the script, then the folder.
+    // Python and VBScript files: their interpreter, the script, then the rest.
     if (SCRIPT_RUNNERS[ext]) {
       const runner = findOnPath(SCRIPT_RUNNERS[ext])
       if (!runner) return { ok: false, error: ext === '.vbs' ? 'Windows Script Host was not found' : 'Python was not found' }
@@ -125,10 +158,10 @@ function launchFolderApp(appPath, relativeFolder) {
       program = runner
     }
     // Batch files run through cmd; everything else is started directly, so
-    // the folder's path reaches the program as one argument, as it is.
+    // each argument (the folder's path) reaches the program as it is.
     const child = process.platform === 'win32' && (ext === '.bat' || ext === '.cmd')
-      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${[program, ...args, folder].map(arg => `"${arg}"`).join(' ')}"`], { cwd: cwd || path.dirname(program), detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true })
-      : spawn(program, [...args, folder], { cwd: cwd || path.dirname(program), detached: true, stdio: 'ignore' })
+      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${[program, ...args, ...extraArgs].map(arg => `"${arg}"`).join(' ')}"`], { cwd: cwd || path.dirname(program), detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true })
+      : spawn(program, [...args, ...extraArgs], { cwd: cwd || path.dirname(program), detached: true, stdio: 'ignore' })
     child.on('error', error => console.warn('[folderApps] Could not start', program, error.message))
     child.unref()
     return { ok: true }
@@ -139,6 +172,7 @@ function launchFolderApp(appPath, relativeFolder) {
 
 function registerFolderAppsHandlers(ipcMain) {
   ipcMain.handle('folderApps:launch', (_, appPath, relativeFolder) => launchFolderApp(appPath, relativeFolder))
+  ipcMain.handle('topApps:launch', (_, target) => launchTopApp(target))
 }
 
-module.exports = { parseFolderApps, launchFolderApp, registerFolderAppsHandlers }
+module.exports = { parseFolderApps, launchFolderApp, launchTopApp, webLink, registerFolderAppsHandlers }

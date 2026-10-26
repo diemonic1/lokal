@@ -1,11 +1,15 @@
 // A popup dropping down from a header button (the equalizer, quick settings):
 // under the button, growing inwards from the window edge it's nearer to.
-// Esc or a press outside it (other than on its button) closes it.
+// Esc or a press outside it (other than on its button) closes it. A button
+// kept in the header's ⋯ group isn't on screen: it drops from ⋯ instead.
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { create } from 'zustand'
+
+/** The header's ⋯ button (TitleBar.jsx), where a popup opens when its own button is in the ⋯ group. */
+export const HEADER_MORE = '[data-header-more]'
 
 /** A store for one popup's open state. */
 export const createPopoverStore = () => create(set => ({
@@ -21,7 +25,7 @@ export default function HeaderPopover({ open, onClose, opener, width = 380, labe
   useLayoutEffect(() => {
     if (!open) return undefined
     const place = () => {
-      const rect = document.querySelector(opener)?.getBoundingClientRect()
+      const rect = (document.querySelector(opener) || document.querySelector(HEADER_MORE))?.getBoundingClientRect()
       if (!rect) return
       const w = Math.min(width, window.innerWidth - 24)
       const fromLeft = rect.left + rect.width / 2 < window.innerWidth / 2

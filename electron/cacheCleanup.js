@@ -80,6 +80,22 @@ async function clean({ mode, userData, dataDir, db, electron, activePartition, c
     return { removed: removed ? 1 : 0 }
   })
 
+  // The same for the music videos the Clip Search tab found.
+  await step('clipSearch', () => {
+    const removed = fs.existsSync(path.join(dataDir || '', require('./online/clipSearch').DIR_NAME))
+    require('./online/clipSearch').cancel()
+    return { removed: removed ? 1 : 0 }
+  })
+
+  // The index of music videos found (music-videos.json): only tracks without
+  // a video in their tags, looked up again when needed.
+  await step('musicVideoIndex', () => {
+    const file = path.join(userData, 'music-videos.json')
+    const removed = fs.existsSync(file)
+    try { fs.rmSync(file, { force: true }) } catch {}
+    return { removed: removed ? 1 : 0 }
+  })
+
   // Chromium's caches in the app's own session and in every saved web profile.
   const partitionsDir = path.join(userData, 'Partitions')
   const partitions = await children(partitionsDir)

@@ -34,6 +34,9 @@ import { trackFolderItems } from '../trackFolderItem'
 
 function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
 
+// The important moment's mark on the seek bar, unless Settings say otherwise.
+const HIGHLIGHT_COLOR = '#ef4444'
+
 export default function PlayerBar() {
   const { t } = useTranslation()
   const glass = useAppearanceFlag('glass_player_bar')
@@ -216,6 +219,14 @@ export default function PlayerBar() {
     showVolumeTip()
   }
   // The wheel anywhere on the bar: volume in steps of Settings > Appearance >
+  // The song's important moment, as a share of the seek bar (%), and its mark's
+  // colour (Settings > Appearance > Player Bar; red unless changed).
+  const highlightTime = Number(currentTrack?.highlight_time)
+  const highlightAt = currentTrack?.highlight_time != null && currentTrack.highlight_time !== '' && Number.isFinite(highlightTime) && duration > 0 && highlightTime <= duration
+    ? (highlightTime / duration) * 100 : null
+  const highlightSetting = useAppearanceText('highlight_marker_color', '')
+  const highlightColor = /^#[0-9a-f]{6}$/i.test(highlightSetting) ? highlightSetting : highlightSetting === 'accent' ? 'var(--accent)' : HIGHLIGHT_COLOR
+
   // Player Bar > Volume wheel step (%); over the seek bar: 1 s steps.
   const wheelStep = Math.max(1, Math.min(5, Math.round(useAppearanceValue('volume_wheel_step', 5))))
   const onBarWheel = (e) => {
@@ -419,6 +430,11 @@ export default function PlayerBar() {
             <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
               {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
             </div>
+            {/* The song's important moment (Edit Track): a notch as tall as the bar. */}
+            {!station && highlightAt != null && (
+              <div aria-hidden className="pointer-events-none absolute inset-y-0 w-[2px] -translate-x-1/2"
+                style={{ left: `${highlightAt}%`, backgroundColor: highlightColor }} />
+            )}
             {isBuffering && (streamed || station) && (
               <div role="progressbar" aria-label={t("Loading track")} className="absolute inset-0 overflow-hidden rounded-full bg-elevated">
                 <div className="queue-loading-seekbar h-full w-1/3 rounded-full bg-accent" />

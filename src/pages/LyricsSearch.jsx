@@ -38,7 +38,7 @@ function KindLabel({ kind }) {
   return <span className={`font-display text-xs ${tone}`}>{kind ? kind : t('no lyrics')}</span>
 }
 
-function Checkbox({ checked, disabled, onChange, label }) {
+export function Checkbox({ checked, disabled, onChange, label }) {
   return (
     <button type="button" role="checkbox" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange?.(!checked)}
       className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border transition-colors ${checked ? 'border-accent bg-accent text-black' : 'border-white/25 bg-transparent hover:border-white/50'} ${disabled ? 'cursor-default opacity-60' : ''}`}>
@@ -72,7 +72,7 @@ function moment(at) {
 }
 
 /** When the search started and finished, and how long it took (the pauses left out too, if there were any). */
-function Timing({ progress }) {
+export function Timing({ progress }) {
   const { t } = useTranslation()
   const duration = useDuration()
   const { startedAt, finishedAt, runMs } = progress
@@ -88,8 +88,11 @@ function Timing({ progress }) {
   )
 }
 
-/** Progress while searching (or stopped): done / total, percent, time left. */
-function Progress({ progress }) {
+/**
+ * Progress while searching (or stopped): done / total, percent, time left.
+ * `found` says how many were found (Clip Search counts videos).
+ */
+export function Progress({ progress, found }) {
   const { t } = useTranslation()
   const duration = useDuration()
   const total = progress.total || 0
@@ -101,7 +104,7 @@ function Progress({ progress }) {
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="font-display text-4xl tabular-nums text-white">{pct}%</span>
         <span className="text-xs tabular-nums text-muted">{t('{done} of {total} files', { done: done.toLocaleString(), total: total.toLocaleString() })}</span>
-        <span className="text-xs tabular-nums text-muted">{t('Lyrics found: {n}', { n: (progress.found || 0).toLocaleString() })}</span>
+        <span className="text-xs tabular-nums text-muted">{found ? found(progress.found || 0) : t('Lyrics found: {n}', { n: (progress.found || 0).toLocaleString() })}</span>
         {progress.startedAt && <span className="text-xs tabular-nums text-muted">{t('Started: {time}', { time: moment(progress.startedAt) })}</span>}
         <span className="text-xs tabular-nums text-muted">
           {left ? t('About {time} left', { time: left }) : t('Time left is shown after the first 10 files')}
@@ -180,7 +183,7 @@ function CompareModal({ item, onClose, onApplied }) {
   )
 }
 
-function Confirm({ open, title, text, confirmLabel, danger, busy, onConfirm, onClose }) {
+export function Confirm({ open, title, text, confirmLabel, danger, busy, onConfirm, onClose }) {
   const { t } = useTranslation()
   return (
     <Modal open={open} onClose={busy ? undefined : onClose} title={title} width="max-w-md">

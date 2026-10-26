@@ -206,6 +206,9 @@ export default {
   'Clear': 'Очистить',
 
   // Integrations
+  'Full Network Block': 'Полная блокировка выхода в сеть',
+  'Block All Network Access': 'Блокировать доступ в интернет',
+  'Lokal sends nothing to the internet: no online search or streaming, lyrics, covers, scrobbling or updates. Your library, playback and devices on your home network keep working.': 'Lokal ничего не отправляет в интернет: не работают онлайн-поиск и стриминг, тексты, обложки, скробблинг и обновления. Ваша библиотека, воспроизведение и устройства в домашней сети продолжают работать.',
   'Account Connections': 'Подключённые аккаунты',
   'Scrobbling': 'Скробблинг',
   'Sign in to Last.fm in Account Connections first.': 'Сначала войдите в Last.fm в разделе «Подключённые аккаунты».',

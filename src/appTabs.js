@@ -7,7 +7,7 @@ import { TABS } from './libraryNav'
 import { useAppearanceText } from './appearanceFlags'
 
 export const HIDDEN_MARK = '|'
-export const DEFAULT_TAB_ORDER = ['/', '/library', '/playlists', '/new', '/flow', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/stats', '/history', '/quality', '/lyrics-analysis', '/lyrics-search', '/cache-analysis']
+export const DEFAULT_TAB_ORDER = ['/', '/library', '/playlists', '/new', '/flow', '/albums', '/artists', '/genres', '/stations', '/videos', HIDDEN_MARK, '/recap', '/stats', '/history', '/quality', '/lyrics-analysis', '/lyrics-search', '/clip-search', '/cache-analysis']
 
 // A newer tab that belongs right after a given one, not before its default follower.
 const ANCHORED_AFTER = { '/playlists': '/library', '/new': '/playlists', '/flow': '/new' }

@@ -187,7 +187,7 @@ export default function AudioOutputPicker({ placement = 'up' }) {
       <button type="button" onClick={() => setOpen(value => !value)} aria-label={t('Native audio output')} aria-expanded={open} className="text-accent">
         <Volume2 size={14} />
       </button>
-      {open && <div className={`absolute right-0 z-50 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl ${placement === 'down' ? 'top-full mt-2 max-h-[70vh] overflow-y-auto' : 'bottom-full mb-2'}`}>
+      {open && <div role="dialog" aria-label={t('Native audio output')} className={`absolute right-0 z-50 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-elevated p-2 shadow-2xl ${placement === 'down' ? 'top-full mt-2 max-h-[70vh] overflow-y-auto' : 'bottom-full mb-2'}`}>
         <OutputPrecisionSettings compact />
       </div>}
     </div>

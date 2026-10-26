@@ -1,17 +1,18 @@
-// A song's explicit mark and its music video (link, start, end, zoom) live in
+// A song's explicit mark, its music video (link, start, end, zoom) and its
+// important moment (seconds into the song, marked on the seek bar) live in
 // the file itself, in Lokal's own LOKAL_TRACK tag -- the way the word-timed
 // lyrics live in LOKAL_LYRICS (see ./lyrics/embedded.js): ID3v2 TXXX, a
 // Vorbis field, an iTunes freeform atom. Other players ignore it; a rescan
 // (or a fresh library) reads them back from the file.
 //
-// The tag is JSON: { lokal: 1, explicit?: 1, clip?: { url, start?, end?, zoom? } }.
-// A song with neither has no tag.
+// The tag is JSON: { lokal: 1, explicit?: 1, clip?: { url, start?, end?, zoom? }, highlight?: seconds }.
+// A song with none of them has no tag.
 
 const fs = require('fs')
 
 const TAG = 'LOKAL_TRACK'
 const FORMAT_VERSION = 1
-const FIELDS = ['explicit', 'clip_url', 'clip_start', 'clip_end', 'clip_zoom']
+const FIELDS = ['explicit', 'clip_url', 'clip_start', 'clip_end', 'clip_zoom', 'highlight_time']
 const IDS = new Set([`TXXX:${TAG}`, TAG, `----:com.apple.iTunes:${TAG}`])
 
 const num = (value) => (value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value))
@@ -29,7 +30,9 @@ function toTag(track = {}) {
     }
     data.clip = clip
   }
-  return data.explicit || data.clip ? JSON.stringify(data) : null
+  const highlight = num(track.highlight_time)
+  if (highlight != null && highlight >= 0) data.highlight = highlight
+  return data.explicit || data.clip || data.highlight != null ? JSON.stringify(data) : null
 }
 
 function parse(text) {
@@ -44,7 +47,7 @@ const tagText = (value) => (typeof value === 'string' ? value : value && typeof 
 
 /**
  * The tag in a music-metadata result as library columns
- * ({ explicit, clip_url, clip_start, clip_end, clip_zoom }), or null when the
+ * ({ explicit, clip_url, clip_start, clip_end, clip_zoom, highlight_time }), or null when the
  * file has none.
  */
 function fromMeta(meta) {
@@ -63,6 +66,7 @@ function fromMeta(meta) {
     clip_start: clip ? num(clip.start) : null,
     clip_end: clip ? num(clip.end) : null,
     clip_zoom: clip ? num(clip.zoom) : null,
+    highlight_time: num(data.highlight),
   }
 }
 
@@ -97,8 +101,8 @@ function writeTrackExtras(filePath, track) {
 /** Puts the tag's values into the library row of a just-read file. */
 function applyToRow(db, trackId, extras) {
   if (!extras) return
-  db.prepare('UPDATE tracks SET explicit = ?, clip_url = ?, clip_start = ?, clip_end = ?, clip_zoom = ? WHERE id = ?')
-    .run(extras.explicit, extras.clip_url, extras.clip_start, extras.clip_end, extras.clip_zoom, trackId)
+  db.prepare('UPDATE tracks SET explicit = ?, clip_url = ?, clip_start = ?, clip_end = ?, clip_zoom = ?, highlight_time = ? WHERE id = ?')
+    .run(extras.explicit, extras.clip_url, extras.clip_start, extras.clip_end, extras.clip_zoom, extras.highlight_time ?? null, trackId)
 }
 
 /**
@@ -108,7 +112,7 @@ function applyToRow(db, trackId, extras) {
 function backfillTrackExtras(db, { log = console } = {}) {
   const DONE_KEY = 'track_extras_tags_v1'
   if (db.prepare('SELECT 1 FROM settings WHERE key = ?').get(DONE_KEY)) return 0
-  const rows = db.prepare(`SELECT id, file_path, explicit, clip_url, clip_start, clip_end, clip_zoom FROM tracks
+  const rows = db.prepare(`SELECT * FROM tracks
     WHERE (explicit = 1 OR TRIM(COALESCE(clip_url, '')) <> '') AND file_path NOT LIKE 'ghost://%'`).all()
   const { noteFileWritten } = require('./fileStamp')
   let written = 0

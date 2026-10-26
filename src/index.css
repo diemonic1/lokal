@@ -379,3 +379,55 @@ html[data-eco] .flow-orb-glow { display: none; }
 /* The ones whose last frame isn't their resting look: as for reduced motion. */
 html[data-eco] .hover-scroll-title-text, html[data-eco] .mixing-ring { animation: none !important; }
 html[data-eco] .queue-loading-seekbar { animation: none !important; width: 100%; opacity: 0.5; }
+
+/* A header button kept in the ⋯ group (TitleBar.jsx): mounted out of sight
+   at the ⋯ button so its own menu opens there; only that menu shows. */
+.header-ghost {
+  position: absolute;
+  top: 0;
+  right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.header-ghost [role="menu"],
+.header-ghost [role="dialog"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* One look for every checkbox in the app (the Lyrics Search list's own, see
+   pages/LyricsSearch.jsx Checkbox): a rounded box, filled with the accent
+   colour and ticked when checked. Hidden ones (.sr-only) are left alone. */
+input[type="checkbox"]:not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1px solid rgb(var(--text-rgb) / 0.3);
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+input[type="checkbox"]:not(.sr-only):hover:not(:disabled) { border-color: rgb(var(--text-rgb) / 0.55); }
+input[type="checkbox"]:not(.sr-only):checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+input[type="checkbox"]:not(.sr-only)::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  background-color: #000;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transform: scale(0);
+  transition: transform 120ms ease;
+}
+input[type="checkbox"]:not(.sr-only):checked::before { transform: scale(1); }
+input[type="checkbox"]:not(.sr-only):focus-visible { outline: 2px solid rgb(var(--accent-rgb) / 0.6); outline-offset: 2px; }
+input[type="checkbox"]:not(.sr-only):disabled { cursor: default; opacity: 0.5; }

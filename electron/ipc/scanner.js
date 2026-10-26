@@ -1827,6 +1827,7 @@ function registerScannerHandlers(ipcMain) {
     if (data.clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(data.clip_url || '').trim() || null) }
     if (data.clip_start !== undefined) { updates.push('clip_start = ?'); params.push(Number.isFinite(Number(data.clip_start)) && data.clip_start !== null && data.clip_start !== '' ? Number(data.clip_start) : null) }
     if (data.clip_zoom !== undefined) { updates.push('clip_zoom = ?'); params.push(clipZoomValue(data.clip_zoom)) }
+    if (data.highlight_time !== undefined) { const n = Number(data.highlight_time); updates.push('highlight_time = ?'); params.push(data.highlight_time !== null && data.highlight_time !== '' && Number.isFinite(n) && n >= 0 ? n : null) }
     if (data.clip_end !== undefined) { updates.push('clip_end = ?'); params.push(Number.isFinite(Number(data.clip_end)) && data.clip_end !== null && data.clip_end !== '' ? Number(data.clip_end) : null) }
     if (data.danceability !== undefined) { updates.push('danceability = ?'); params.push(data.danceability) }
     if (data.energy !== undefined) { updates.push('energy = ?'); params.push(data.energy) }
@@ -1877,6 +1878,8 @@ function registerScannerHandlers(ipcMain) {
     params.push(trackId)
     const sql = `UPDATE tracks SET ${updates.join(', ')} WHERE id = ?`
     const result = db.prepare(sql).run(...params)
+    // A video in the tags now: the music video lookup's record of the track goes.
+    if (String(data.clip_url || '').trim()) require('./online').forgetTaggedMusicVideos([trackId])
     if (wroteFile) require('../fileStamp').noteFileWritten(db, currentTrack.file_path)
     if (data.artist !== undefined) {
       updateTrackArtistLinks(db, trackId, data.artist)
@@ -1913,6 +1916,7 @@ function registerScannerHandlers(ipcMain) {
   ipcMain.handle('settings:save', (_, s) => {
     const stmt = getDB().prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
     for (const [k, v] of Object.entries(s)) { if (SECRET_SETTING_KEYS.has(k) && String(v) === SECRET_SETTING_PLACEHOLDER) continue; stmt.run(k, String(v)) }
+    if ('offline_mode' in s) require('../offlineMode').setEnabled(String(s.offline_mode))
     // Write, or remove, the file made from a pasted YouTube cookie.
     require('./ytCookies').syncPastedCookie(Object.fromEntries(getDB().prepare('SELECT key, value FROM settings').all().map(r => [r.key, r.value])))
     // The favourites turned on or off, the music folder changed: the playlist files read again.

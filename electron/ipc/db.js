@@ -258,6 +258,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_end REAL`,
     // How far the video is zoomed in there: 0-50 (%).
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
+    // The song's important moment, in seconds: a mark on the seek bar.
+    `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
     // Downloaded songs: where from ('yt', 'sc', an addon 'a-<key>', 'soulseek',
     // 'web') and which online song ("yt:<id>", "a-<key>:<id>"...), so the same
     // song isn't downloaded twice and versions from different places can be
@@ -317,6 +319,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_end REAL`,
     // How far the video is zoomed in there: 0-50 (%).
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
+    // The song's important moment, in seconds: a mark on the seek bar.
+    `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_by TEXT DEFAULT 'guest'`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_at INTEGER`,
     
@@ -534,7 +538,7 @@ function importAppData(payload = {}) {
       )
     }
 
-    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, clip_url, clip_start, clip_end, clip_zoom, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, clip_url, clip_start, clip_end, clip_zoom, highlight_time, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     for (const track of tracks) {
       insertTrack.run(
         track.id,
@@ -554,6 +558,7 @@ function importAppData(payload = {}) {
         track.clip_start ?? null,
         track.clip_end ?? null,
         track.clip_zoom ?? null,
+        track.highlight_time ?? null,
         track.danceability ?? null,
         track.energy ?? null,
         track.track_key ?? null,

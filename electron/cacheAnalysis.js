@@ -20,7 +20,7 @@ const APP_STATE = new Set(['Local Storage', 'Session Storage', 'WebStorage', 'In
 const DATA_DIRS = {
   'motion-covers': 'motionCovers', 'playback-cache': 'playbackCache', 'music-video-cache': 'musicVideoCache',
   'cast-cache': 'castCache', spotiflac: 'addonCache', lyrics: 'lyricsFiles', avatars: 'avatars', plugins: 'plugins',
-  'lyrics-search': 'lyricsSearchCache',
+  'lyrics-search': 'lyricsSearchCache', 'clip-search': 'clipSearchCache',
 }
 
 const onDisk = size => Math.ceil(size / CLUSTER) * CLUSTER
@@ -181,7 +181,7 @@ async function artwork(dir, db) {
 // from the files just counted. Mirrors what clean() removes.
 const ENGINE_CACHE = new Set(['Cache', 'Code Cache', 'GPUCache', 'GrShaderCache', 'ShaderCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'GPUPersistentCache'])
 const SITE_DATA = new Set(['Network', 'IndexedDB', 'Service Worker', 'blob_storage', 'Shared Dictionary'])
-const SAFE_DATA = new Set(['motion-covers', 'playback-cache', 'cast-cache', 'lyrics-search'])
+const SAFE_DATA = new Set(['motion-covers', 'playback-cache', 'cast-cache', 'lyrics-search', 'clip-search'])
 // A full-size cover turned into a thumbnail frees all but the thumbnail (a few KB).
 const THUMB_ESTIMATE = 4 * 1024
 function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], shrinkableFiles = [], activePartition, currentLog, freeBytes = 0, ghosts }) {
@@ -200,7 +200,7 @@ function cleanupEstimate({ files, userData, dataDir, unusedFiles = [], shrinkabl
       return null
     }
     const parts = path.relative(userData, file).split(path.sep)
-    if (ENGINE_CACHE.has(parts[0])) return 'safe'
+    if (ENGINE_CACHE.has(parts[0]) || (parts.length === 1 && parts[0] === 'music-videos.json')) return 'safe'
     if (parts[0] === 'logs') return parts.length === 2 && parts[1] !== 'main.log' && lower(file) !== keepLog ? 'safe' : null
     if (parts[0] === 'Partitions' && parts.length > 2) {
       if (/^lokal-ytmusic-[\da-f-]+$/i.test(parts[1]) && parts[1].toLowerCase() !== active) return 'safe'

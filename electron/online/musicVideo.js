@@ -42,8 +42,12 @@ const LEAD_S = 4
 const MAX_EXTRA_S = 240
 const SAME_LENGTH_S = 3
 const DECODE_TIMEOUT_MS = 120000
+// music-videos.json: a video found is remembered this long, "none" this
+// long; the newest entries are kept, at most CACHE_MAX_ENTRIES. Tracks with a
+// video in their tags aren't kept (see forgetMusicVideos).
 const FOUND_TTL_MS = 60 * 24 * 60 * 60 * 1000
 const MISSING_TTL_MS = 3 * 24 * 60 * 60 * 1000
+const CACHE_MAX_ENTRIES = 2500
 // Bumped when matching changes: a "no video" remembered by an older matcher
 // is looked up again (found videos stay).
 const MATCHER = 4
@@ -548,9 +552,23 @@ function readCache(file) {
 function writeCache(file, cache) {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true })
-    const entries = Object.entries(cache).sort((a, b) => b[1].at - a[1].at).slice(0, 2000)
+    const entries = Object.entries(cache).sort((a, b) => b[1].at - a[1].at).slice(0, CACHE_MAX_ENTRIES)
     fs.writeFileSync(file, JSON.stringify(Object.fromEntries(entries)))
   } catch {}
+}
+
+/** Takes these tracks' entries out of the file (their video is in their tags now). -> how many went. */
+function forgetMusicVideos(cacheFile, trackIds) {
+  if (!cacheFile || !fs.existsSync(cacheFile)) return 0
+  const ids = new Set([...(trackIds || [])].map(String))
+  if (!ids.size) return 0
+  const cache = readCache(cacheFile)
+  let removed = 0
+  for (const key of Object.keys(cache)) {
+    if (ids.has(key.split('|')[1])) { delete cache[key]; removed++ }
+  }
+  if (removed) writeCache(cacheFile, cache)
+  return removed
 }
 
 function cacheKey(track) {
@@ -591,25 +609,29 @@ const pending = new Map()
  * { input, headers } (a file or a URL); a second attempt gets a fresh URL.
  * `onProgress({ stage, index, total })` hears about each step: 'searching',
  * 'checking' (with index/total), 'fallback' (the vanity-free title's turn).
+ * `exclude`: video ids that are never the answer (marked wrong for the track).
  */
-async function findMusicVideo(track, { ffmpeg, songAudio, videoAudio, fetchImpl = fetch, cacheFile, now = Date.now, audioDbSearch = audioDb.searchTracks, youtubeSearch, onProgress, visualMotion, log = () => {} } = {}) {
+async function findMusicVideo(track, { ffmpeg, songAudio, videoAudio, fetchImpl = fetch, cacheFile, now = Date.now, audioDbSearch = audioDb.searchTracks, youtubeSearch, onProgress, visualMotion, exclude = [], log = () => {} } = {}) {
   if (!track?.title || !track?.artist || !(Number(track.duration) > 30)) return null
   const progress = (update) => { try { onProgress?.(update) } catch {} }
   const name = `${track.artist} - ${track.title} (${Math.round(Number(track.duration))}s)`
   const note = message => { try { log(`Music video, ${name}: ${message}`) } catch {} }
+  const excluded = new Set(exclude)
   const key = cacheKey(track)
   const cache = cacheFile ? readCache(cacheFile) : {}
   const hit = cache[key]
-  if (hit && (hit.video ? now() - hit.at < FOUND_TTL_MS : hit.matcher === MATCHER && now() - hit.at < MISSING_TTL_MS)) {
+  if (hit && !(hit.video && excluded.has(hit.video.videoId)) && (hit.video ? now() - hit.at < FOUND_TTL_MS : hit.matcher === MATCHER && now() - hit.at < MISSING_TTL_MS)) {
     if (!hit.video) note(`none, remembered from ${new Date(hit.at).toISOString().slice(0, 10)} (looked up again after ${MISSING_TTL_MS / 86400000} days)`)
     return hit.video
   }
-  if (pending.has(key)) return pending.get(key)
+  // A lookup with other videos left out is another lookup.
+  const pendingKey = excluded.size ? `${key}|${[...excluded].sort().join(',')}` : key
+  if (pending.has(pendingKey)) return pending.get(pendingKey)
   const job = (async () => {
     const tryTrack = async (wanted, { acceptByTitle = false, stage = 'searching' } = {}) => {
       progress({ stage })
       const discovered = await discoveredVideos(wanted, { fetchImpl, audioDbSearch, youtubeSearch, lenient: acceptByTitle })
-      const candidates = discovered.candidates
+      const candidates = discovered.candidates.filter(item => !excluded.has(item.videoId))
       note(`${stage === 'fallback' ? `as "${wanted.title}": ` : ''}${candidates.length ? `checking ${candidates.map(item => `${item.videoId} "${item.title}" by ${item.artist}`).join(', ')}` : 'no official video by this artist with this title and a fitting length'}${discovered.inconclusive ? ' (a search failed)' : ''}`)
       let songEnv = null
       let video = null
@@ -663,8 +685,8 @@ async function findMusicVideo(track, { ffmpeg, songAudio, videoAudio, fetchImpl 
     }
     progress({ stage: 'done', found: !!video, ...(inconclusive && !video ? { message: 'Video validation could not finish. Continuing with the song and artwork.' } : {}) })
     return video
-  })().finally(() => pending.delete(key))
-  pending.set(key, job)
+  })().finally(() => pending.delete(pendingKey))
+  pending.set(pendingKey, job)
   return job
 }
 
@@ -683,8 +705,10 @@ async function decodeFrom(ffmpeg, source) {
   throw error
 }
 
+// channel: the YouTube channel the video is on, only as YouTube's own search
+// gave it (TheAudioDB's and YouTube Music's results name the artist instead).
 function describe(item, segments, check, motionVerified = false) {
-  return { videoId: item.videoId, title: item.title, artist: item.artist, duration: item.duration, thumbnail: item.thumbnail || null, segments, check, motion: motionVerified ? 'verified' : 'unverified' }
+  return { videoId: item.videoId, title: item.title, artist: item.artist, channel: item.channel || item.uploader || '', duration: item.duration, thumbnail: item.thumbnail || null, segments, check, motion: motionVerified ? 'verified' : 'unverified' }
 }
 
 /** Video time for a song time (seconds), from the segments; null where the video has no such moment. */
@@ -694,6 +718,6 @@ function videoTimeFor(segments, time) {
 }
 
 module.exports = {
-  findMusicVideo, knownMusicVideos, discoveredVideos, databaseVideos, isMusicVideoFor, baseTitle, plainTitle, artistNames, audioFeatures, alignAudio, matchAudio, decodeMono, videoTimeFor,
+  findMusicVideo, knownMusicVideos, forgetMusicVideos, CACHE_MAX_ENTRIES, discoveredVideos, databaseVideos, isMusicVideoFor, baseTitle, plainTitle, artistNames, audioFeatures, alignAudio, matchAudio, decodeMono, videoTimeFor,
   VIDEOS_PARAMS, FPS, visualMotionOf, hasVisualMotion, decodeVisualFrames, validateVisualMotion,
 }

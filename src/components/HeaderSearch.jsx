@@ -1,8 +1,7 @@
-// Spotify-style search in the window header: a Home button and the Equalizer
-// button (EqualizerPopup.jsx), then the search
-// box with a Flow button (shuffle icon) where Spotify has Browse, then the
-// Cast button (CastButton.jsx). The Flow button starts Flow with the mood and
-// tuner last set on Home → Flow.
+// Spotify-style search in the window header: the search box with a Flow
+// button (shuffle icon) where Spotify has Browse; the Home and Rescan buttons
+// are here too (TitleBar.jsx places them all, see ../headerLayout.js). The
+// Flow button starts Flow with the mood and tuner last set on Home → Flow.
 //
 // - Focusing the box opens the Search page; its results follow the text live.
 // - While the box is focused, past searches drop down under it: all of them
@@ -17,7 +16,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Clock, Home, RefreshCw, Search as SearchIcon, Shuffle, X } from 'lucide-react'
 import { rescanLibrary, useScanProgress } from '../scanProgress'
-import HeaderPlayerControls, { HEADER_ICON, headerIconTone } from './HeaderPlayerControls'
+import { HEADER_ICON, headerIconTone } from './HeaderPlayerControls'
 import { useSearchStore } from '../store/search'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { readFlowSettings, saveFlowSettings, startFlow } from '../flow/session'
@@ -30,8 +29,6 @@ import {
   HISTORY_EVENT, clearRecentSearches, getRecentSearches, matchRecentSearches, removeRecentSearch, saveRecentSearch,
 } from '../searchHistory'
 import { asLink } from '../downloadLinks'
-import CastButton from './CastButton'
-import { EqualizerButton, EqualizerPanel } from './EqualizerPopup'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
 
@@ -80,10 +77,12 @@ function ScanProgressBar() {
 }
 
 /** Rescan the whole music folder; spins while any scan runs. Styled like Home. */
-function RescanButton() {
+export function RescanButton() {
   const { t } = useTranslation()
   const { scanning } = useScanProgress()
   return (
+    <span className="relative flex flex-shrink-0 items-center">
+    <ScanProgressBar />
     <button
       type="button"
       onClick={() => { if (!scanning) rescanLibrary() }}
@@ -94,10 +93,28 @@ function RescanButton() {
     >
       <RefreshCw size={15} className={scanning ? 'animate-spin text-accent' : ''} />
     </button>
+    </span>
   )
 }
 
-/** The header's Home button, search box, history dropdown and Flow button. */
+/** The header's Home button. */
+export function HomeButton() {
+  const { t } = useTranslation()
+  const nav = useNavigate()
+  const onHome = useLocation().pathname === '/'
+  return (
+    <button
+      onClick={() => nav('/')}
+      title={t("Home")}
+      aria-label={t("Home")}
+      className={`${HEADER_ICON} ${headerIconTone(false)}`}
+    >
+      <Home size={15} strokeWidth={onHome ? 2.4 : 2} />
+    </button>
+  )
+}
+
+/** The header's search box, history dropdown and Flow button. */
 export default function HeaderSearch() {
   const { t } = useTranslation()
   const nav = useNavigate()
@@ -118,7 +135,6 @@ export default function HeaderSearch() {
   const [randomLoading, setRandomLoading] = useState(false)
 
   const onSearchPage = loc.pathname === '/search'
-  const onHome = loc.pathname === '/'
 
   // History can change from the Search page (a result opened) or elsewhere.
   useEffect(() => {
@@ -252,23 +268,6 @@ export default function HeaderSearch() {
   const moodMenu = useContextMenu()
 
   return (
-    // Only the controls are no-drag: the gaps between them drag the window.
-    <div className="flex items-center gap-1.5 min-w-0 w-full justify-center">
-      <div className="relative flex flex-shrink-0 items-center gap-1.5" data-no-drag>
-        <ScanProgressBar />
-        <RescanButton />
-        <button
-          onClick={() => nav('/')}
-          title={t("Home")}
-          aria-label={t("Home")}
-          className={`${HEADER_ICON} ${headerIconTone(false)}`}
-        >
-          <Home size={15} strokeWidth={onHome ? 2.4 : 2} />
-        </button>
-        <EqualizerButton />
-        <EqualizerPanel />
-      </div>
-
       <div className="relative min-w-0" style={{ flex: '0 1 474px' }} data-tour="search" data-no-drag>
         <div
           className={`group h-7 flex items-center rounded-full bg-elevated border transition-colors ${focused ? 'border-accent/60' : 'border-transparent hover:border-border2 hover:bg-card'}`}
@@ -377,11 +376,5 @@ export default function HeaderSearch() {
           )}
         </AnimatePresence>
       </div>
-
-      <div className="flex flex-shrink-0 items-center gap-0.5" data-no-drag>
-        <CastButton />
-        <HeaderPlayerControls />
-      </div>
-    </div>
   )
 }
