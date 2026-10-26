@@ -9,6 +9,7 @@ import { trackArtURL } from '../onlineTracks'
 import { useMusicVideo, useMusicVideoView, videoTimeFor, songTime, useVideoOffsets, withOffset } from '../musicVideo'
 import VideoOffsetControl from './VideoOffsetControl'
 import { syncVideo, seekVideo } from '../musicVideoPlayback'
+import { currentSyncOffset, visualTime } from '../syncOffset'
 import { useLyricLines } from '../lyricLine'
 import { useLyricSubline } from '../lyrics/useLyricSubline'
 import LyricSubtitles from './LyricSubtitles'
@@ -154,12 +155,13 @@ export default function MusicVideoPlayer({ compact = false }) {
     return () => { window.removeEventListener('keydown', onKey, true); clearTimeout(idleTimer.current) }
   }, [open, compact, hide, wake])
 
-  // The automatic sync, moved by the person's correction for this video.
+  // The automatic sync, moved by the person's correction for this video. The
+  // picture follows the song held back by the output's sync offset.
   const videoOffset = useVideoOffsets(state => state.offsets[video?.videoId] || 0)
   const segments = useMemo(() => withOffset(video?.segments, videoOffset), [video?.segments, videoOffset])
   const sync = useCallback(() => {
     const result = syncVideo(videoRef.current, {
-      time: songTime(), segments, duration: video?.duration,
+      time: visualTime(songTime()), segments, duration: video?.duration,
       isPlaying: usePlayerStore.getState().isPlaying, hidden: document.hidden,
     })
     if (result) setOutside(result.outside)
@@ -183,7 +185,7 @@ export default function MusicVideoPlayer({ compact = false }) {
       try {
         el.load()
         el.addEventListener('loadeddata', () => {
-          const target = videoTimeFor(segments, songTime())
+          const target = videoTimeFor(segments, visualTime(songTime()))
           if (target != null && target >= 0) el.currentTime = target
           if (usePlayerStore.getState().isPlaying && !document.hidden) el.play().catch(() => {})
         }, { once: true })
@@ -248,7 +250,7 @@ export default function MusicVideoPlayer({ compact = false }) {
   const seek = (e) => {
     const r = e.currentTarget.getBoundingClientRect()
     if (duration > 0) seekVideo(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * duration, {
-      state: usePlayerStore.getState(), element: videoRef.current, segments,
+      state: usePlayerStore.getState(), element: videoRef.current, segments, lag: currentSyncOffset(),
     })
   }
 

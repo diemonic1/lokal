@@ -43,13 +43,23 @@ export const useSyncOffsets = create((set, get) => ({
 
 /** Seconds lyrics, videos and visualizations are held back for the output playing now. */
 export function currentSyncOffset() {
+  // Casting: the TV plays it, by its own clock.
+  if (usePlayerStore.getState().castActive) return 0
   const { devices, activeKey } = useSyncOffsets.getState()
   return devices[activeKey]?.offset || 0
 }
 
 /** The same, as a hook: re-renders when the output or its offset changes. */
 export function useSyncOffset() {
-  return useSyncOffsets(state => state.devices[state.activeKey]?.offset || 0)
+  const offset = useSyncOffsets(state => state.devices[state.activeKey]?.offset || 0)
+  return usePlayerStore(state => state.castActive) ? 0 : offset
+}
+
+/** The output playing now and its offset, also while casting (for Settings). */
+export function useActiveSyncDevice() {
+  const activeKey = useSyncOffsets(state => state.activeKey)
+  const entry = useSyncOffsets(state => state.devices[state.activeKey])
+  return { key: activeKey, name: entry?.name || '', offset: entry?.offset || 0 }
 }
 
 /** A visual time for a player position: the position, held back by the offset. */

@@ -13,6 +13,8 @@ import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { clipPreview, clipRange, clipSongTime, onClipPreview, trackClipLoop } from '../clipVideo'
 import { playbackSpeed, usePlaybackSpeed } from '../playbackSpeed'
 import { useEcoMode } from '../ecoMode'
+import { songTime } from '../musicVideo'
+import { useSyncOffsets, visualTime } from '../syncOffset'
 
 // The song's time is reported a few times a second: this far off (seconds)
 // is a seek, or the video drifting.
@@ -80,11 +82,12 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
   useEffect(() => () => onActiveRef.current?.(false), [])
 
   // Where the video should be now to follow the song, or null (a short part,
-  // another song playing, the video's length not known yet).
+  // another song playing, the video's length not known yet). Read from the
+  // audio element, held back by the output's sync offset.
   const songTarget = (v) => {
-    const { currentTrack, progress } = usePlayerStore.getState()
+    const { currentTrack } = usePlayerStore.getState()
     if (trackId != null && String(currentTrack?.id) !== String(trackId)) return null
-    return clipSongTime(clipRange(start, end, v.duration), progress)
+    return clipSongTime(clipRange(start, end, v.duration), visualTime(songTime()))
   }
   const startAt = (v) => songTarget(v) ?? clipRange(start, end, v.duration).start
 
@@ -137,13 +140,18 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
       v.currentTime = target
     }
     let last = { progress: usePlayerStore.getState().progress, at: performance.now() }
-    return usePlayerStore.subscribe((state, prev) => {
+    const stopSong = usePlayerStore.subscribe((state, prev) => {
       if (state.progress === prev.progress) return
       const now = performance.now()
       const expected = last.progress + (prev.isPlaying ? (now - last.at) / 1000 * playbackSpeed() : 0)
       last = { progress: state.progress, at: now }
       follow(Math.abs(state.progress - expected) > SEEK_JUMP)
     })
+    // A new sync offset (or another output) moves the video like a seek.
+    const stopOffset = useSyncOffsets.subscribe((state, prev) => {
+      if (state.activeKey !== prev.activeKey || state.devices !== prev.devices) follow(true)
+    })
+    return () => { stopSong(); stopOffset() }
   }, [src, start, end, trackId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // At the song's playback speed (set above the equalizer).

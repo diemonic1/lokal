@@ -12,6 +12,7 @@ import { useMusicVideo, useMusicVideoView } from '../musicVideo'
 import MusicVideoPlayer from './MusicVideoPlayer'
 import VideoOffsetControl from './VideoOffsetControl'
 import { useTranslation } from '../i18n'
+import { useSyncOffset } from '../syncOffset'
 
 function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
 
@@ -151,6 +152,7 @@ export default function MiniPlayer({ windowed = false }) {
     return () => { active = false }
   }, [currentTrack?.id])
 
+  const syncOffset = useSyncOffset()
   useEffect(() => {
     if (!lyricsLines.length) {
       setLyricsCurrent('')
@@ -162,9 +164,11 @@ export default function MiniPlayer({ windowed = false }) {
     }
 
     if (lyricsType === 'synced') {
+      // Held back by the output's sync offset: the line shows when it's heard.
+      const lyricTime = progress - syncOffset
       let idx = 0
       for (let i = 0; i < lyricsLines.length; i++) {
-        if ((lyricsLines[i].time ?? 0) <= progress) idx = i
+        if ((lyricsLines[i].time ?? 0) <= lyricTime) idx = i
         else break
       }
       const line = lyricsLines[idx] || {}
@@ -185,15 +189,15 @@ export default function MiniPlayer({ windowed = false }) {
       for (let i = 0; i < words.length; i++) {
         const start = words[i].time ?? 0
         const end = words[i].end ?? start
-        if (progress >= start || progress >= end) wIdx = i
-        if (progress < start) break
+        if (lyricTime >= start || lyricTime >= end) wIdx = i
+        if (lyricTime < start) break
       }
       setActiveWordIdx(wIdx)
       const aw = words[wIdx]
       const start = aw?.time ?? 0
       const end = aw?.end ?? start
       const denom = Math.max(0.01, end - start)
-      const ratio = Math.max(0, Math.min(1, (progress - start) / denom))
+      const ratio = Math.max(0, Math.min(1, (lyricTime - start) / denom))
       const count = Math.max(0, Math.min(aw?.word?.length || 0, Math.ceil((aw?.word?.length || 0) * ratio)))
       setActiveCharCount(count)
       return
@@ -205,7 +209,7 @@ export default function MiniPlayer({ windowed = false }) {
     setLyricsWords([])
     setActiveWordIdx(-1)
     setActiveCharCount(0)
-  }, [lyricsLines, lyricsType, progress])
+  }, [lyricsLines, lyricsType, progress, syncOffset])
 
   useEffect(() => {
     const syncBgVars = () => {

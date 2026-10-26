@@ -52,11 +52,15 @@ function isBuffered(element, time) {
   return false
 }
 
-/** A seek preserves play/pause intent and lets both media elements resume. */
-export function seekVideo(time, { state, element, segments }) {
+/**
+ * A seek preserves play/pause intent and lets both media elements resume.
+ * `lag`: the output's sync offset, the picture held back that much behind the song.
+ */
+export function seekVideo(time, { state, element, segments, lag = 0 }) {
   state.setProgressWithAudioUpdate(time)
-  const segment = (segments || []).find(s => time >= s.start && (s.end == null || time < s.end))
-  const target = segment ? time + segment.offset : null
+  const at = time - lag
+  const segment = (segments || []).find(s => at >= s.start && (s.end == null || at < s.end))
+  const target = segment ? at + segment.offset : null
   if (element?.readyState >= 1 && target != null && target >= 0) {
     element.currentTime = target
     element.playbackRate = playbackSpeed()

@@ -12,6 +12,7 @@ import { useLyricSubline } from '../lyrics/useLyricSubline'
 import { announceLyricsChanged, announceLyricsFileChanged } from '../lyricLine'
 import { announceTrackChanged } from '../trackChanged'
 import { usePlayerStore } from '../store/player'
+import { useSyncOffset, visualTime } from '../syncOffset'
 import { isStationTrack, lyricsTrackFor, stationPlainLyrics, stationSongTime } from '../radio/stations'
 import { useTranslation } from '../i18n'
 import { markAutoScroll } from '../menuScroll'
@@ -49,7 +50,8 @@ const SUNG = 'rgba(255,255,255,1)'
 
 
 // Where the player actually is, read from the audio element every frame when
-// possible (the store's `progress` only updates a few times a second).
+// possible (the store's `progress` only updates a few times a second), held
+// back by the output's sync offset (lyrics show when they're heard).
 export function useLyricClock(progress) {
   const anchor = useRef({ t: progress, at: performance.now() })
   useEffect(() => { anchor.current = { t: progress, at: performance.now() } }, [progress])
@@ -57,10 +59,10 @@ export function useLyricClock(progress) {
     const s = usePlayerStore.getState()
     const el = s.activeAudioElement === 'cf' ? s.cfAudioRef?.current : s.audioRef?.current
     // Online radio: time from when the song started on the station.
-    if (isStationTrack(s.currentTrack)) return el ? (stationSongTime(s.currentTrack, el.currentTime) ?? 0) : 0
-    if (el && Number.isFinite(el.currentTime) && el.currentTime > 0) return el.currentTime
+    if (isStationTrack(s.currentTrack)) return el ? visualTime(stationSongTime(s.currentTrack, el.currentTime) ?? 0) : 0
+    if (el && Number.isFinite(el.currentTime) && el.currentTime > 0) return visualTime(el.currentTime)
     const { t, at } = anchor.current
-    return t + (s.isPlaying ? Math.min((performance.now() - at) / 1000, 0.6) : 0)
+    return visualTime(t + (s.isPlaying ? Math.min((performance.now() - at) / 1000, 0.6) : 0))
   }, [])
 }
 
@@ -613,6 +615,8 @@ export default function LyricsPanel({
   const setProgressWithAudioUpdate = usePlayerStore(s => s.setProgressWithAudioUpdate)
   const syncTrack = usePlayerStore(s => s.syncTrack)
   const now = useLyricClock(progress)
+  // A new sync offset refocuses at once, also while paused.
+  const syncOffset = useSyncOffset()
   const [loadedResult, setResult] = useState(() => (track?.id && hasCachedLyrics(track.id) ? peekLyrics(track.id) : null))
   // Lyrics Search's Check: the lyrics found for this song, shown in place of
   // its own while it's being checked (nothing is saved).
@@ -846,7 +850,7 @@ export default function LyricsPanel({
     } else {
       setFocusIdx(-1)
     }
-  }, [progress, lines, synced, isAutoSynced, track?.duration, now])
+  }, [progress, lines, synced, isAutoSynced, track?.duration, now, syncOffset])
 
   // ---- per-frame painting of what is actually being sung
   const registerRow = useCallback((index, refs) => {
@@ -898,7 +902,7 @@ export default function LyricsPanel({
       paintVoice(refs.leadEl, line.words, t, false)
       paintVoice(refs.bgEl, line.bgWords, t, false)
     })
-  }, [lines, synced, wordSync, focusIdx, subLines, now])
+  }, [lines, synced, wordSync, focusIdx, subLines, now, syncOffset])
 
   // ---- scrolling: native scroll for browsing, a staggered glide for following
   const anchorFraction = fullscreen ? 0.22 : 0.26
