@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Check, Copy, Info, ListChecks, Loader2, MonitorPlay, Music, Play, Scaling, SquareArrowOutUpRight, Square, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, ImagePlay, Info, ListChecks, Loader2, MonitorPlay, Music, Play, Scaling, SquareArrowOutUpRight, Square, Trash2, X } from 'lucide-react'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
 import { usePageReady } from '../pageCache'
@@ -23,6 +23,8 @@ import { announceTrackChanged } from '../trackChanged'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipZoomPercent, parseClipTime, previewClip } from '../clipVideo'
 import { showToast } from '../components/Toaster'
 import MotionCoverMarks from '../components/MotionCoverMarks'
+import SpotifyIcon from '../components/SpotifyIcon'
+import Modal from '../components/Modal'
 import { Checkbox, Confirm, Progress, Timing } from './LyricsSearch'
 
 // The song whose video is being checked now (kept across visits to the tab):
@@ -137,6 +139,90 @@ function ZoomButton({ zoom, onChange, className }) {
   </>
 }
 
+/** A count out of the library's songs, with its share as a bar and a percent. */
+function StatRow({ icon, label, n, total, tone = 'bg-accent', sub }) {
+  const share = total ? n / total : 0
+  const percent = total ? (share * 100).toLocaleString(undefined, { maximumFractionDigits: share < 0.1 && n ? 1 : 0 }) : '0'
+  return (
+    <tr className="border-b border-border/60 last:border-0">
+      <td className={`py-2 pr-3 ${sub ? 'pl-9 text-muted' : 'pl-4 text-white'}`}>
+        <span className="flex items-center gap-2">{icon}{label}</span>
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-white">{n.toLocaleString()}</td>
+      <td className="w-40 py-2 pl-3 pr-4">
+        <span className="flex items-center gap-2">
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+            <span className={`block h-full rounded-full ${tone}`} style={{ width: `${share * 100}%` }} />
+          </span>
+          <span className="w-12 text-right text-xs tabular-nums text-muted">{percent}%</span>
+        </span>
+      </td>
+    </tr>
+  )
+}
+
+/** The library before a search: music videos there and not, and the moving covers by where they're from. */
+function LibraryStats({ counts }) {
+  const { t } = useTranslation()
+  const total = counts?.total
+  if (total == null) {
+    return <div className="rounded-xl border border-border bg-card/50 p-4 text-sm text-muted">{t('Tracks without a music video')}: {counts?.missing == null ? '…' : counts.missing.toLocaleString()}</div>
+  }
+  const motion = counts.motion || {}
+  const head = 'px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted'
+  const group = text => (
+    <tr className="border-b border-border/60 bg-white/[0.03]">
+      <td colSpan={3} className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted">{text}</td>
+    </tr>
+  )
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card/50">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th className={`${head} pl-4 text-left`}>{t('Tracks in the library: {n}', { n: total.toLocaleString() })}</th>
+            <th className={`${head} text-right`}>{t('Number of tracks')}</th>
+            <th className={`${head} pr-4 text-right`}>{t('Share of the library')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {group(t('Music videos'))}
+          <StatRow icon={<MonitorPlay size={14} className="text-accent" />} label={t('With a music video')} n={counts.withClip || 0} total={total} />
+          <StatRow icon={<X size={14} className="text-red-300" />} label={t('Without a music video (the search looks for these)')} n={counts.missing || 0} total={total} tone="bg-red-400/70" />
+          {group(t('Moving covers'))}
+          <StatRow icon={<ImagePlay size={14} className="text-accent" />} label={t('With a moving cover')} n={motion.any || 0} total={total} />
+          <StatRow sub icon={<SpotifyIcon size={13} />} label="Spotify Canvas" n={motion.spotify || 0} total={total} tone="bg-[#1db954]" />
+          <StatRow sub label="Apple Music" n={motion.apple || 0} total={total} tone="bg-pink-400" />
+          <StatRow sub label="Tidal" n={motion.tidal || 0} total={total} tone="bg-sky-400" />
+          <StatRow sub label={t('Community list')} n={motion.community || 0} total={total} tone="bg-violet-400" />
+          <StatRow sub label={t('Not checked on Spotify yet')} n={motion.unknown || 0} total={total} tone="bg-white/30" />
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** "Check for moving covers" running (or just over): its progress, and Stop / Close. */
+function CoverCheckModal({ open, progress, onStop, onClose }) {
+  const { t } = useTranslation()
+  const running = progress.status === 'running'
+  return (
+    <Modal open={open} onClose={running ? undefined : onClose} title={t('Check for moving covers')} width="max-w-lg">
+      <p className="mb-4 text-xs leading-relaxed text-muted">
+        {t('Every track is asked of the moving-cover sources switched on in Settings; nothing is downloaded. What is found shows up in the table at once.')}
+      </p>
+      <Progress progress={progress} found={n => t('Moving covers found: {n}', { n: n.toLocaleString() })} />
+      {progress.status === 'stopped' && <p className="mt-3 text-xs text-muted">{t('Stopped. The next check starts over from the first track.')}</p>}
+      {progress.status === 'done' && <p className="mt-3 text-xs text-muted">{t('All the tracks are checked.')}</p>}
+      <div className="mt-5 flex justify-end gap-2">
+        {running
+          ? <button onClick={onStop} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs text-muted hover:text-white"><Square size={11} /> {t('Stop')}</button>
+          : <button onClick={onClose} className="rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-black hover:bg-accent/90">{t('Close')}</button>}
+      </div>
+    </Modal>
+  )
+}
+
 /** One video found: the song, the video, Check, the loop times and the link's buttons. */
 function ReportRow({ item, index, digits, checking, onChecked, onCheck, onTimes, onReject }) {
   const { t } = useTranslation()
@@ -222,6 +308,9 @@ export default function ClipSearch() {
   // The report of a stopped search, opened with "Go to report".
   const [report, setReport] = useState(false)
   const checkingId = usePreviewing()
+  // "Check for moving covers": its progress, and whether its popup is open.
+  const [coverCheck, setCoverCheck] = useState({ status: 'idle' })
+  const [coverCheckOpen, setCoverCheckOpen] = useState(false)
   const statusRef = useRef('idle')
   const timers = useRef(new Map())
   usePageReady(loaded)
@@ -245,6 +334,17 @@ export default function ClipSearch() {
       if (changed && (p.status === 'done' || p.status === 'idle' || p.status === 'stopped')) refresh()
     })
   }, [refresh])
+
+  // The check's progress, the table's counts with it (a check still running opens its popup again).
+  useEffect(() => {
+    const apply = p => {
+      if (!p) return
+      setCoverCheck(p)
+      if (p.counts) setData(prev => prev && ({ ...prev, counts: p.counts }))
+    }
+    api.motionCoverCheckStatus().then(p => { apply(p); if (p?.status === 'running') setCoverCheckOpen(true) }).catch(() => {})
+    return api.onMotionCoverCheckProgress(apply)
+  }, [])
 
   // Times typed and not sent yet go now (leaving the tab).
   useEffect(() => () => { for (const [, send] of timers.current) send() }, [])
@@ -278,6 +378,11 @@ export default function ClipSearch() {
     return r
   })
   const stop = () => call(() => api.clipSearchStop())
+  const startCoverCheck = () => call(async () => {
+    const r = await api.motionCoverCheckStart()
+    if (r?.ok) { if (r.progress) setCoverCheck(r.progress); setCoverCheckOpen(true) }
+    return r
+  })
 
   const setChecked = (ids, checked) => {
     setData(prev => prev && ({ ...prev, items: prev.items.map(item => (ids.includes(item.trackId) ? { ...item, checked } : item)) }))
@@ -384,11 +489,16 @@ export default function ClipSearch() {
             <p className="text-sm leading-relaxed text-muted">
               {t('Looks up the official music video of every track that has none yet, the same way the Videos tab does. Nothing is written into the files until you tick the tracks and save; until then the videos found are only kept here.')}
             </p>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card/50 p-4 text-sm text-white">
-              <span className="flex-1">{t('Tracks without a music video')}</span>
-              <span className="tabular-nums text-muted">{missing == null ? '…' : missing.toLocaleString()}</span>
+            <LibraryStats counts={data?.counts} />
+            <p className="text-xs text-muted">{t('Moving covers are counted as the tracks have them written down: a track gets checked when it plays, shows up in the report or by “Check for moving covers”.')}</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={start} disabled={!missing} className={accentBtn}><Play size={12} fill="currentColor" /> {t('Start the search')}</button>
+              <button onClick={coverCheck.status === 'running' ? () => setCoverCheckOpen(true) : startCoverCheck} disabled={!data?.counts?.total}
+                title={t('Asks every track whether it has a moving cover (Spotify Canvas, Apple Music…), without downloading them')}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-white/85 disabled:cursor-default disabled:opacity-40">
+                {coverCheck.status === 'running' ? <Loader2 size={12} className="animate-spin" /> : <ImagePlay size={12} />} {t('Check for moving covers')}
+              </button>
             </div>
-            <button onClick={start} disabled={!missing} className={accentBtn}><Play size={12} fill="currentColor" /> {t('Start the search')}</button>
           </div>
         )}
 
@@ -462,6 +572,8 @@ export default function ClipSearch() {
         </section>
       )}
 
+      <CoverCheckModal open={coverCheckOpen} progress={coverCheck} onClose={() => setCoverCheckOpen(false)}
+        onStop={() => api.motionCoverCheckStop().catch(() => {})} />
       <Confirm open={confirm === 'save'} busy={busy} onClose={() => setConfirm(null)} onConfirm={saveChecked}
         title={t('Save music videos')} confirmLabel={t('Save')}
         text={t('Music video links will be written into the tags of {tracks}, with the loop times where they are filled in and the zoom where it isn’t 0. The tracks left unticked stay in the list.', { tracks: plural(checkedCount, 'track') })} />

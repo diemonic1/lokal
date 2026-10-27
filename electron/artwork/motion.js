@@ -394,6 +394,39 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
   if (settings.motion_covers === '0') return null
   const sources = enabledSources(settings)
   if (!sources.length) return null
+  const found = await lookUp(db, track, sources)
+  if (!found) { noteMotionCoverSource(db, track.id, null); return null }
+  const file = await cachedClip(found, { cacheDir, ffmpeg })
+  if (file) {
+    noteMotionCoverSource(db, track.id, found.source)
+    if (found.source === 'spotify') noteSpotifyCanvas(db, track.id, true)
+  }
+  return file ? { file, source: found.source, tall: !!found.tall } : null
+}
+
+/**
+ * Whether the song has a moving cover, only asked of the sources (Clip
+ * Search's "Check for moving covers"): nothing is downloaded. Written on the
+ * song's row like a played one (motion_cover_source, spotify_canvas -- Spotify
+ * is also asked when another source had the cover). The source's id, or null.
+ */
+async function checkMotionCover(db, track, settings = {}) {
+  if (!track?.title || !track?.artist) return null
+  if (NO_ALBUM.test(track.album || '')) track = { ...track, album: '' }
+  const sources = enabledSources(settings)
+  if (!sources.length) return null
+  const found = await lookUp(db, track, sources)
+  noteMotionCoverSource(db, track.id, found?.source || null)
+  if (found?.source === 'spotify') noteSpotifyCanvas(db, track.id, true)
+  else if (sources.includes('spotify')) {
+    const row = db.prepare('SELECT spotify_canvas FROM tracks WHERE id = ?').get(track.id)
+    if (row && row.spotify_canvas == null) await hasSpotifyCanvas(db, track, settings)
+  }
+  return found?.source || null
+}
+
+/** The sources asked in order (or the remembered answer): what was found, or null. */
+async function lookUp(db, track, sources) {
   ensureTable(db)
   // "|s3": Spotify lookups from before the canvas-query switch are ignored.
   // "|v2": lookups from before the provider-call fix above are ignored (they
@@ -421,13 +454,7 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
     }
     if (found || !unsure) db.prepare('INSERT OR REPLACE INTO motion_covers (key, data, fetched_at) VALUES (?, ?, ?)').run(key, found ? JSON.stringify(found) : null, Date.now())
   }
-  if (!found) { noteMotionCoverSource(db, track.id, null); return null }
-  const file = await cachedClip(found, { cacheDir, ffmpeg })
-  if (file) {
-    noteMotionCoverSource(db, track.id, found.source)
-    if (found.source === 'spotify') noteSpotifyCanvas(db, track.id, true)
-  }
-  return file ? { file, source: found.source, tall: !!found.tall } : null
+  return found || null
 }
 
 /** Writes down on the song's row where its moving cover came from (tracks.motion_cover_source; null: none). */
@@ -459,4 +486,4 @@ async function hasSpotifyCanvas(db, track, settings = {}) {
   return !!found
 }
 
-module.exports = { motionCoverFor, hasSpotifyCanvas, noteSpotifyCanvas, noteMotionCoverSource, fromApple, fromTidal, fromCommunity, artistsMatch, artistsMatchCount, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }
+module.exports = { motionCoverFor, checkMotionCover, enabledSources, hasSpotifyCanvas, noteSpotifyCanvas, noteMotionCoverSource, fromApple, fromTidal, fromCommunity, artistsMatch, artistsMatchCount, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }

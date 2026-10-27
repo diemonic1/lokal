@@ -263,7 +263,8 @@ function initDB() {
     // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
     // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
     `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
-    // Where the moving cover the song last played with came from: 'apple',
+    // Where the song's moving cover came from (the one it last played with, or
+    // found by Clip Search's check): 'apple',
     // 'tidal', 'community', 'spotify'; NULL: none, or not looked up yet.
     `ALTER TABLE tracks ADD COLUMN motion_cover_source TEXT`,
     // Downloaded songs: where from ('yt', 'sc', an addon 'a-<key>', 'soulseek',
@@ -330,7 +331,8 @@ function initDB() {
     // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
     // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
     `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
-    // Where the moving cover the song last played with came from: 'apple',
+    // Where the song's moving cover came from (the one it last played with, or
+    // found by Clip Search's check): 'apple',
     // 'tidal', 'community', 'spotify'; NULL: none, or not looked up yet.
     `ALTER TABLE tracks ADD COLUMN motion_cover_source TEXT`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_by TEXT DEFAULT 'guest'`,

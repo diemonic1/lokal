@@ -233,12 +233,33 @@ async function run(db, state) {
 
 // ---------------------------------------------------------------- the tab's calls
 
-const MISSING_SQL = `file_path NOT LIKE 'ghost://%' AND title IS NOT NULL AND artist IS NOT NULL
-  AND duration > ${MIN_DURATION_S} AND TRIM(COALESCE(clip_url, '')) = ''`
+const SONG_SQL = `file_path NOT LIKE 'ghost://%' AND title IS NOT NULL AND artist IS NOT NULL
+  AND duration > ${MIN_DURATION_S}`
+const MISSING_SQL = `${SONG_SQL} AND TRIM(COALESCE(clip_url, '')) = ''`
 
-/** How many library songs have no music video in their tags (the ones a search looks at). */
+/**
+ * The library songs a search could look at: how many have a music video in
+ * their tags and how many don't (missing: the ones a search looks at), and how
+ * many have a moving cover, by where it's from (as written on their rows by
+ * artwork/motion.js; canvasUnknown: not asked of Spotify yet).
+ */
 function counts(db) {
-  try { return { missing: db.prepare(`SELECT COUNT(*) AS n FROM tracks WHERE ${MISSING_SQL}`).get().n || 0 } } catch { return { missing: 0 } }
+  try {
+    const row = db.prepare(`SELECT COUNT(*) AS total,
+        SUM(TRIM(COALESCE(clip_url, '')) = '') AS missing,
+        SUM(spotify_canvas = 1 OR motion_cover_source IS NOT NULL) AS motion,
+        SUM(spotify_canvas = 1 OR motion_cover_source = 'spotify') AS spotify,
+        SUM(motion_cover_source = 'apple') AS apple,
+        SUM(motion_cover_source = 'tidal') AS tidal,
+        SUM(motion_cover_source = 'community') AS community,
+        SUM(spotify_canvas IS NULL) AS canvasUnknown
+      FROM tracks WHERE ${SONG_SQL}`).get()
+    const n = key => row[key] || 0
+    return {
+      total: n('total'), missing: n('missing'), withClip: n('total') - n('missing'),
+      motion: { any: n('motion'), spotify: n('spotify'), apple: n('apple'), tidal: n('tidal'), community: n('community'), unknown: n('canvasUnknown') },
+    }
+  } catch { return { missing: 0 } }
 }
 
 function tracksByIds(db, ids) {
@@ -433,4 +454,4 @@ function save(db) {
   return { ok: true, saved, failed, reset }
 }
 
-module.exports = { get, start, resume, stop, cancel, setChecked, setTimes, reject, save, parseClipTime, rejectedFor, DIR_NAME, REJECTED_KEY }
+module.exports = { get, start, resume, stop, cancel, counts, SONG_SQL, setChecked, setTimes, reject, save, parseClipTime, rejectedFor, DIR_NAME, REJECTED_KEY }

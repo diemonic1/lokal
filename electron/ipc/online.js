@@ -285,6 +285,12 @@ function registerOnlineHandlers(ipcMain) {
   ipcMain.handle('clipSearch:setTimes', clipCall((_, trackId, start, end, zoom) => clips.setTimes(trackId, start, end, zoom)))
   ipcMain.handle('clipSearch:reject', clipCall((_, trackId) => clips.reject(getDB(), trackId)))
   ipcMain.handle('clipSearch:save', clipCall(() => clips.save(getDB())))
+  // Its "Check for moving covers": every song asked of the moving-cover
+  // sources, nothing downloaded (../online/motionCoverCheck.js).
+  const coverCheck = require('../online/motionCoverCheck')
+  ipcMain.handle('motionCoverCheck:start', clipCall(() => coverCheck.start(getDB())))
+  ipcMain.handle('motionCoverCheck:stop', clipCall(() => coverCheck.stop()))
+  ipcMain.handle('motionCoverCheck:status', clipCall(() => coverCheck.status()))
   // Every step is logged ([playback] in the terminal under npm run dev), so
   // a song that "just doesn't start" shows where it stopped.
   ipcMain.handle('online:prepare', async (_, provider, id, force = false) => {
