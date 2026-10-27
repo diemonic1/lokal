@@ -413,14 +413,50 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
     found = null
     let unsure = false // a source failed on its end: don't remember this as "none"
     for (const id of sources) {
-      try { found = await PROVIDERS[id](track, settings) } catch (e) { found = null; if (e?.transient) unsure = true }
+      let failed = false
+      try { found = await PROVIDERS[id](track, settings) } catch (e) { found = null; failed = true; if (e?.transient) unsure = true }
+      // Spotify answered for this song: whether it has a Canvas is known now.
+      if (id === 'spotify' && !failed) noteSpotifyCanvas(db, track.id, !!found)
       if (found) break
     }
     if (found || !unsure) db.prepare('INSERT OR REPLACE INTO motion_covers (key, data, fetched_at) VALUES (?, ?, ?)').run(key, found ? JSON.stringify(found) : null, Date.now())
   }
-  if (!found) return null
+  if (!found) { noteMotionCoverSource(db, track.id, null); return null }
   const file = await cachedClip(found, { cacheDir, ffmpeg })
+  if (file) {
+    noteMotionCoverSource(db, track.id, found.source)
+    if (found.source === 'spotify') noteSpotifyCanvas(db, track.id, true)
+  }
   return file ? { file, source: found.source, tall: !!found.tall } : null
 }
 
-module.exports = { motionCoverFor, fromApple, fromTidal, fromCommunity, artistsMatch, artistsMatchCount, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }
+/** Writes down on the song's row where its moving cover came from (tracks.motion_cover_source; null: none). */
+function noteMotionCoverSource(db, trackId, source) {
+  if (!trackId) return
+  try { db.prepare('UPDATE tracks SET motion_cover_source = ? WHERE id = ? AND motion_cover_source IS NOT ?').run(source || null, trackId, source || null) } catch {}
+}
+
+// ---------------------------------------------------------------- Spotify Canvas, known or not
+
+/** Writes down on the song's row whether Spotify has a Canvas for it (tracks.spotify_canvas). */
+function noteSpotifyCanvas(db, trackId, has) {
+  if (!trackId) return
+  try { db.prepare('UPDATE tracks SET spotify_canvas = ? WHERE id = ? AND spotify_canvas IS NOT ?').run(has ? 1 : 0, trackId, has ? 1 : 0) } catch {}
+}
+
+/**
+ * Whether Spotify has a Canvas for the song, only asked -- the clip isn't
+ * downloaded. Written on the song's row. true / false, or null when it can't
+ * be told (no Spotify cookie, not in Electron, Spotify failed on its end).
+ */
+async function hasSpotifyCanvas(db, track, settings = {}) {
+  if (!track?.title || !track?.artist) return null
+  if (!settings.spotify_sp_dc || !process.versions.electron) return null
+  if (NO_ALBUM.test(track.album || '')) track = { ...track, album: '' }
+  let found
+  try { found = await fromSpotifyCanvas(track, settings) } catch { return null }
+  noteSpotifyCanvas(db, track.id, !!found)
+  return !!found
+}
+
+module.exports = { motionCoverFor, hasSpotifyCanvas, noteSpotifyCanvas, noteMotionCoverSource, fromApple, fromTidal, fromCommunity, artistsMatch, artistsMatchCount, cleanTitle, norm, chooseVariant, SOURCES, DEFAULT_SOURCES }

@@ -11,6 +11,7 @@ import { announceLyricsFileChanged } from '../lyricLine'
 import { announceTrackChanged } from '../trackChanged'
 import { useCoverDrop, coverError } from './CoverDrop'
 import ClipAvailability from './ClipAvailability'
+import MotionCoverMarks from './MotionCoverMarks'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClip } from '../clipVideo'
 
 function asInput(value) {
@@ -122,6 +123,18 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     }).catch((e) => { if (active) setLyrics({ ...emptyLyrics, state: 'error', error: e?.message || null }) })
     return () => { active = false }
   }, [open, track?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Whether the song has a Spotify Canvas, and where the moving cover it played
+  // with came from, as its row has them now (written when it played, or by
+  // Clip Search); not known: no mark.
+  const [coverInfo, setCoverInfo] = useState(null)
+  useEffect(() => {
+    setCoverInfo(null)
+    if (!open || !track?.id) return undefined
+    let active = true
+    api.motionCoverInfo(track.id).then((info) => { if (active) setCoverInfo(info || null) })
+    return () => { active = false }
+  }, [open, track?.id])
 
   useEffect(() => {
     if (!open) return
@@ -534,7 +547,11 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
 
             <div>
               <div className="flex items-center justify-between gap-2">
-                <label className={label}>{t('Music video')}</label>
+                <div className="flex items-center gap-1.5">
+                  <label className={label}>{t('Music video')}</label>
+                  {/* Its Spotify Canvas and moving cover, as written on its row (nothing is looked up here). */}
+                  <MotionCoverMarks spotify={coverInfo?.spotify === true} source={coverInfo?.source} size={12} className="mb-1" />
+                </div>
                 <ClipAvailability link={formData.clip_url} />
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] gap-2">

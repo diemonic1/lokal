@@ -6,7 +6,7 @@ const path = require('path')
 const fs = require('fs')
 const { getDB, getStorageDir } = require('./db')
 const { meshFromImage } = require('../artwork/mesh')
-const { motionCoverFor } = require('../artwork/motion')
+const { motionCoverFor, hasSpotifyCanvas } = require('../artwork/motion')
 const { httpsImageURL } = require('../playlists/remoteCover')
 
 const MAX_REMOTE_ARTWORK_BYTES = 10 * 1024 * 1024
@@ -84,6 +84,23 @@ async function motionForTrack(trackId, ffmpeg) {
   return motionCoverFor(getDB(), track, { settings: settingsMap(), cacheDir: motionCacheDir(), ffmpeg })
 }
 
+/**
+ * What the song's row knows of its moving covers: { spotify, source }.
+ *   spotify  whether it has a Spotify Canvas: true / false, null while not
+ *            known; `check`: asked of Spotify when not known yet (only asked,
+ *            nothing downloaded)
+ *   source   where the moving cover it last played with came from ('apple',
+ *            'tidal', 'community', 'spotify'), or null
+ */
+async function motionCoverInfoForTrack(trackId, check = false) {
+  const db = getDB()
+  const track = db.prepare('SELECT id, title, artist, album, spotify_canvas, motion_cover_source FROM tracks WHERE id = ?').get(trackId)
+  if (!track) return null
+  const source = track.motion_cover_source || null
+  if (track.spotify_canvas != null) return { spotify: !!track.spotify_canvas, source }
+  return { spotify: check ? await hasSpotifyCanvas(db, track, settingsMap()) : null, source }
+}
+
 /** Settings' Spotify "Save & Test", with the cookie as saved. */
 function spotifyCheck() {
   const { checkSpotify } = require('../artwork/spotify')
@@ -109,7 +126,8 @@ function registerArtworkFxHandlers(ipcMain) {
   ipcMain.handle('artwork:meshFromUrl', (_, url) => meshFromRemoteURL(httpsImageURL(url)).catch(() => null))
   ipcMain.handle('artwork:motion', (_, trackId) => motionForTrack(trackId, findFfmpeg()).catch(() => null))
   ipcMain.handle('artwork:spotifyCheck', () => spotifyCheck())
+  ipcMain.handle('artwork:coverInfo', (_, trackId, check) => motionCoverInfoForTrack(trackId, !!check).catch(() => null))
   ipcMain.handle('artwork:full', (_, trackId) => fullCoverForTrack(trackId).catch(() => null))
 }
 
-module.exports = { registerArtworkFxHandlers, fullCoverForTrack, meshForTrack, meshFromRemoteURL, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck }
+module.exports = { registerArtworkFxHandlers, fullCoverForTrack, meshForTrack, meshFromRemoteURL, remoteArtworkURL, motionForTrack, motionCacheDir, spotifyCheck, motionCoverInfoForTrack }

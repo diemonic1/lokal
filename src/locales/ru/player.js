@@ -195,6 +195,7 @@ export default {
   'Moving cover from Apple Music': 'Анимированная обложка из Apple Music',
   'Moving cover from Tidal': 'Анимированная обложка из Tidal',
   'Moving cover': 'Анимированная обложка',
+  'Moving cover from the community list': 'Анимированная обложка из списка сообщества',
   'Picture': 'Изображение',
   'this song': 'этот трек',
   "Couldn't play \"{title}\" on {device}: {message}": 'Не удалось воспроизвести «{title}» на {device}: {message}',

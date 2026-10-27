@@ -260,6 +260,12 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
+    // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
+    `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
+    // Where the moving cover the song last played with came from: 'apple',
+    // 'tidal', 'community', 'spotify'; NULL: none, or not looked up yet.
+    `ALTER TABLE tracks ADD COLUMN motion_cover_source TEXT`,
     // Downloaded songs: where from ('yt', 'sc', an addon 'a-<key>', 'soulseek',
     // 'web') and which online song ("yt:<id>", "a-<key>:<id>"...), so the same
     // song isn't downloaded twice and versions from different places can be
@@ -321,6 +327,12 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
+    // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
+    `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
+    // Where the moving cover the song last played with came from: 'apple',
+    // 'tidal', 'community', 'spotify'; NULL: none, or not looked up yet.
+    `ALTER TABLE tracks ADD COLUMN motion_cover_source TEXT`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_by TEXT DEFAULT 'guest'`,
     `ALTER TABLE playlist_tracks ADD COLUMN added_at INTEGER`,
     

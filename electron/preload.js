@@ -311,6 +311,7 @@ contextBridge.exposeInMainWorld('electron', {
   clipSearchSave: () => invoke('clipSearch:save'),
   onClipSearchProgress: (fn) => on('clipSearch:progress', fn),
   spotifyCanvasCheck: () => invoke('artwork:spotifyCheck'),
+  motionCoverInfo: (trackId, check) => invoke('artwork:coverInfo', trackId, !!check),
   linkedFollowedArtists: (service) => invoke('artists:linkedFollows', service),
   soulseekStatus: () => invoke('soulseek:status'),
   soulseekSearch: (text) => invoke('soulseek:search', text),

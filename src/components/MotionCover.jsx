@@ -72,7 +72,7 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
       setClip(found)
     })
     return () => { cancelled = true }
-  }, [trackId, only, revision, off]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trackId, only, revision, off, eco]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Unmounting (e.g. the next track has no artwork, so the parent stops
   // rendering this) must also clear the parent's "clip showing" state -- the

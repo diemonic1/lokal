@@ -522,6 +522,9 @@ export const api = {
   radioNowPlaying: (stationApi) => isE() ? el().radioNowPlaying(stationApi) : apiFetch('/radio/now-playing', { method: 'POST', body: { api: stationApi } }).catch(() => null),
   // { src, source } -- src is something a <video> can play in this mode.
   spotifyCanvasCheck: () => isE() ? el().spotifyCanvasCheck() : apiFetch('/artwork-fx/spotify-check', { method: 'POST' }),
+  // What the song's row knows of its moving covers: { spotify: has a Spotify Canvas (true / false, null: not
+  // known), source: where its moving cover came from, or null }; `check` asks Spotify when not known yet.
+  motionCoverInfo: (trackId, check = false) => isE() && el().motionCoverInfo ? el().motionCoverInfo(trackId, check).catch(() => null) : Promise.resolve(null),
   // Home → Releases → Followed artists: those followed on Spotify or in the Apple Music library (desktop app).
   linkedFollowedArtists: (service) => isE() && el().linkedFollowedArtists ? el().linkedFollowedArtists(service) : Promise.resolve({ error: 'Linking accounts needs the desktop app.' }),
   motionCover: (trackId) => isE()

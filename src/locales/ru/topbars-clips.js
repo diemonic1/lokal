@@ -45,6 +45,7 @@ export default {
   'Its sound lines up with the song': 'Звук совпадает с треком',
   'Its length matches the song': 'Длительность совпадает с треком',
   'Found by the song’s title': 'Найден по названию трека',
+  'This track has a Spotify Canvas': 'У этого трека есть Spotify Canvas',
 
   // Edit Track: the important moment, and its mark on the seek bar
   'Important moment of the track': 'Важный момент трека',

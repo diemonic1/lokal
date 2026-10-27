@@ -16,6 +16,9 @@
 // video is zoomed in, 0-100 % (0, the default, isn't written). The safe cache
 // cleanup (Cache Analysis) removes the folder.
 //
+// Each song a video is found for is also asked whether it has a Spotify
+// Canvas (tracks.spotify_canvas; nothing downloaded), shown in the report.
+//
 // "Wrong video" marks are kept in the settings table (so the app export
 // carries them) as [{ trackId, title, artist, videoId }]: a marked video is
 // never offered for that song again. A song also matches by its title and
@@ -160,6 +163,9 @@ async function searchOne(db, trackId, rejected) {
   const { musicVideoFor } = require('../ipc/online')
   const video = await musicVideoFor(trackId, { exclude: rejectedFor(rejected, row) })
   if (!video || !/^[\w-]{11}$/.test(String(video.videoId || ''))) return null
+  // Whether it has a Spotify Canvas too, for the report (only asked, not
+  // downloaded; written on the song's row, see artwork/motion.js).
+  await require('../ipc/artworkFx').motionCoverInfoForTrack(trackId, true).catch(() => null)
   return {
     trackId,
     videoId: video.videoId,

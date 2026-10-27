@@ -40,6 +40,7 @@ import { readTrailsSettings } from '../visualizers/trailsSettings'
 import { pickColor } from '../visualizers/audio'
 import { useSidePanelWidth, useSideLyricsScale, setSidePanelWidth } from '../sidePanelPrefs'
 import { trackFolderItems } from '../trackFolderItem'
+import { useEcoMode } from '../ecoMode'
 
 // "Music" is a placeholder some files carry, not a genre.
 const isPlaceholderGenre = genre => !String(genre || '').trim() || String(genre).trim().toLowerCase() === 'music'
@@ -265,6 +266,8 @@ export default function RightSidebar() {
   // (motionCoverPrefs.js). Whether it has one is asked even while it's off,
   // so the button stays to turn it back on.
   const [coverOff, setCoverOff] = useMotionCoverOff(currentTrack)
+  // Eco mode: no moving covers, so no switch for them either.
+  const eco = useEcoMode()
   const [coverClip, setCoverClip] = useState({ id: null, clip: null })
   useEffect(() => {
     const id = currentTrack?.id
@@ -525,7 +528,7 @@ export default function RightSidebar() {
                       { key: 'full', label: t('Full screen'), icon: Disc3, onClick: toggleFullscreen },
                       { key: 'lyrics', label: t('Lyrics, full screen'), icon: Mic2, onClick: toggleLyricsFullscreen },
                       musicVideo && { key: 'video', label: t('Music video'), title: t('Play the official music video, in time with the song'), icon: Clapperboard, onClick: showMusicVideo },
-                      clipNow && {
+                      clipNow && !eco && {
                         key: 'clip', pressed: coverOff, icon: coverOff ? ImageOff : ImagePlay, onClick: () => setCoverOff(!coverOff),
                         label: clipName === 'Canvas'
                           ? (coverOff ? t('Show Canvas') : t('Hide Canvas'))

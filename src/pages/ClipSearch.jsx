@@ -22,6 +22,7 @@ import { usePlayerStore } from '../store/player'
 import { announceTrackChanged } from '../trackChanged'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipZoomPercent, parseClipTime, previewClip } from '../clipVideo'
 import { showToast } from '../components/Toaster'
+import MotionCoverMarks from '../components/MotionCoverMarks'
 import { Checkbox, Confirm, Progress, Timing } from './LyricsSearch'
 
 // The song whose video is being checked now (kept across visits to the tab):
@@ -47,6 +48,22 @@ function usePreviewing() {
 
 const thumbnailOf = item => item.thumbnail || `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`
 const badTime = text => Number.isNaN(parseClipTime(text))
+
+/**
+ * Whether the song has a Spotify Canvas: as written on its row, else asked of
+ * Spotify now (only asked, nothing downloaded). true / false, null while not known.
+ */
+function useSpotifyCanvas(track) {
+  const known = track?.spotify_canvas == null ? null : !!track.spotify_canvas
+  const [asked, setAsked] = useState({ id: null, has: null })
+  useEffect(() => {
+    if (!track?.id || known != null) return undefined
+    let current = true
+    api.motionCoverInfo(track.id, true).then(info => { if (current) setAsked({ id: track.id, has: info?.spotify ?? null }) })
+    return () => { current = false }
+  }, [track?.id, known])
+  return known ?? (asked.id === track?.id ? asked.has : null)
+}
 
 /** How the video was matched to the song, for its tooltip. */
 function useCheckText() {
@@ -146,6 +163,7 @@ function ReportRow({ item, index, digits, checking, onChecked, onCheck, onTimes,
     try { await navigator.clipboard.writeText(item.url); showToast(t('Link copied')) } catch { showToast(t('Couldn’t copy the link')) }
   }
   const matched = checkText(item.check)
+  const canvas = useSpotifyCanvas(item.track)
   return (
     <div className={`flex items-center gap-3 border-b border-border/60 px-3 py-2 last:border-0 hover:bg-card ${checking ? 'bg-accent/[0.06]' : ''}`}>
       <span className="min-w-[2ch] flex-shrink-0 text-right text-xs tabular-nums text-muted" style={{ width: `${digits}ch` }}>{index + 1}</span>
@@ -161,10 +179,15 @@ function ReportRow({ item, index, digits, checking, onChecked, onCheck, onTimes,
         <img src={thumbnailOf(item)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
       </div>
       <p className="min-w-0 w-56 flex-shrink truncate text-xs text-white/80" title={item.title}>{item.title || item.url}</p>
-      {/* How the video was matched to the song, on hover. */}
-      <span className={`flex w-4 flex-shrink-0 items-center ${matched ? 'cursor-help text-muted hover:text-white' : 'invisible'}`} title={matched || undefined} aria-label={matched || undefined}>
-        <Info size={13} />
-      </span>
+      {/* How the video was matched to the song, on hover; under it, Spotify's
+          logo when the song has a Spotify Canvas, and where its moving cover
+          came from when that's elsewhere (MotionCoverMarks). */}
+      <div className="flex min-w-[1rem] flex-shrink-0 flex-col items-center gap-1">
+        <span className={`flex items-center ${matched ? 'cursor-help text-muted hover:text-white' : 'invisible'}`} title={matched || undefined} aria-label={matched || undefined}>
+          <Info size={13} />
+        </span>
+        <MotionCoverMarks spotify={canvas} source={item.track.motion_cover_source} />
+      </div>
       <button onClick={() => onCheck(item, { start, end, zoom })} className={`${btn} ${checking ? 'border-accent/50 text-accent' : ''}`} title={t('Play the track with this video in the side panel (only a preview: nothing is saved)')}>
         <Play size={11} /> {t('Check video')}
       </button>
