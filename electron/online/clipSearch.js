@@ -10,7 +10,7 @@
 // song later:
 //   state.json        where the search is, the times it took, what's ticked
 //   queue.json        the songs to look at, in order (written once)
-//   found/<hash>.json one song's video: { trackId, videoId, url, title, youtubeChannel, duration, thumbnail, check, start, end, zoom }
+//   found/<hash>.json one song's video: { trackId, videoId, url, title, duration, thumbnail, check, start, end, zoom }
 // start / end are the loop times typed in the report (text, as in Edit
 // Track's Music video fields); empty ones aren't written. zoom is how far the
 // video is zoomed in, 0-100 % (0, the default, isn't written). The safe cache
@@ -165,10 +165,6 @@ async function searchOne(db, trackId, rejected) {
     videoId: video.videoId,
     url: youtubeUrl(video.videoId),
     title: video.title || '',
-    // Only the channel YouTube itself named (musicVideo.js describe), never
-    // the artist: unknown, it isn't shown. (Searches before this kept the
-    // artist as `channel`, which is no longer read.)
-    youtubeChannel: video.channel || '',
     duration: Number(video.duration) || null,
     thumbnail: video.thumbnail || null,
     check: video.check || null,

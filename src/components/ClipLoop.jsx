@@ -27,6 +27,11 @@ const DRIFT_FIX_MS = 1500
 // little (by up to 6%) until it's within NUDGE_MIN.
 const NUDGE_MIN = 0.04
 const NUDGE_MAX = 0.3
+// A seek while it plays aims this far ahead at most (seconds): the time the
+// last seeks took, for the song plays on meanwhile.
+const SEEK_LEAD_MAX = 1
+// After a `resync` change, the video is put back in step at these times (ms).
+const RESYNC_AFTER_MS = [0, 300, 900]
 
 /**
  * The video this song shows, if any: the one being tried in Edit Track, else
@@ -49,15 +54,19 @@ export function useTrackClip(track) {
 /** The song's own video looping, muted: between its two times, or the part clipRange picks. */
 /**
  * `onRatio(width / height)`: the video's shape, once it's loaded. `fit`:
- * cover (fills the box, cropped) or contain (whole, in the box).
+ * cover (fills the box, cropped) or contain (whole, in the box). A change of
+ * `resync` (the full-screen player's video going on the whole screen and
+ * back) puts the video back in step with the song straight away: resizing it
+ * can stall it for a moment.
  */
-export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive, onFail, onRatio, fit = 'cover' }) {
+export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive, onFail, onRatio, fit = 'cover', resync }) {
   const ref = useRef(null)
   const [src, setSrc] = useState(null)
   const [ready, setReady] = useState(false)
   // A YouTube video the stream can't play (age-restricted...) is tried once
   // more through yt-dlp's own link.
   const triedFallback = useRef(false)
+  const followRef = useRef(null)
   const isPlaying = usePlayerStore(s => s.isPlaying)
   const playingRef = useRef(isPlaying)
   playingRef.current = isPlaying
@@ -129,7 +138,31 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
     const v = ref.current
     if (!v || !src) return undefined
     let lastFix = 0
-    const follow = (seeked) => {
+    // One seek at a time: asked for while one is under way (a drag along the
+    // seek bar asks many times a second), the video goes to where the song is
+    // once it's done, instead of every seek queuing up behind the last.
+    let pending = false
+    let seekStarted = 0
+    let seekCost = 0
+    const seekTo = (target, part) => {
+      if (v.seeking) { pending = true; return }
+      const ahead = playingRef.current ? Math.min(seekCost, SEEK_LEAD_MAX) * playbackSpeed() : 0
+      let to = target + ahead
+      if (to >= part.end) to -= part.end - part.start
+      seekStarted = performance.now()
+      v.currentTime = to
+      try { v.playbackRate = playbackSpeed() } catch {}
+    }
+    const onSeeked = () => {
+      if (seekStarted) {
+        const took = (performance.now() - seekStarted) / 1000
+        seekCost = seekCost ? (seekCost + took) / 2 : took
+        seekStarted = 0
+      }
+      if (pending) { pending = false; follow(true) }
+    }
+    v.addEventListener('seeked', onSeeked)
+    const follow = followRef.current = (seeked) => {
       if (v.readyState < 1) return
       const target = songTarget(v)
       if (target == null) return
@@ -149,8 +182,7 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
       const now = performance.now()
       if (!seeked && (v.seeking || v.readyState < 3 || now - lastFix < DRIFT_FIX_MS)) return
       lastFix = now
-      v.currentTime = target
-      try { v.playbackRate = playbackSpeed() } catch {}
+      seekTo(target, part)
     }
     let last = { progress: usePlayerStore.getState().progress, at: performance.now() }
     const stopSong = usePlayerStore.subscribe((state, prev) => {
@@ -164,8 +196,18 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
     const stopOffset = useSyncOffsets.subscribe((state, prev) => {
       if (state.activeKey !== prev.activeKey || state.devices !== prev.devices) follow(true)
     })
-    return () => { stopSong(); stopOffset() }
+    return () => { stopSong(); stopOffset(); v.removeEventListener('seeked', onSeeked); followRef.current = null }
   }, [src, start, end, trackId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Back in step after `resync` changes: at once, and again as the resize
+  // settles (the full screen takes a few frames, the video may stall).
+  const resyncRef = useRef(resync)
+  useEffect(() => {
+    if (resyncRef.current === resync) return undefined
+    resyncRef.current = resync
+    const timers = RESYNC_AFTER_MS.map(ms => setTimeout(() => followRef.current?.(true), ms))
+    return () => timers.forEach(clearTimeout)
+  }, [resync])
 
   // At the song's playback speed (set above the equalizer).
   const speed = usePlaybackSpeed(state => state.speed)
@@ -182,6 +224,12 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
     if (isPlaying && !isWindowHidden()) v.play().catch(() => {})
     else v.pause()
   }, [src, isPlaying])
+  // Hidden (React's Activity: the side panel behind the video on the whole
+  // screen): it stops, instead of decoding a second copy of the video unseen.
+  useEffect(() => {
+    const v = ref.current
+    return () => { try { v?.pause() } catch {} }
+  }, [src])
   useEffect(() => onWindowVisibility((hidden) => {
     const v = ref.current
     if (!v) return
@@ -222,7 +270,9 @@ export default function ClipLoop({ trackId, link, start, end, zoom = 0, onActive
       onPlaying={show}
       onError={failed}
       onContextMenu={e => e.preventDefault()}
-      className={`pointer-events-none absolute inset-0 h-full w-full select-none ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
+      // Cropped to its box, it reaches a pixel past each edge: nothing under
+      // it shows through where the box's rounded, antialiased edge cuts it.
+      className={`pointer-events-none absolute select-none ${fit === 'contain' ? 'inset-0 h-full w-full object-contain' : '-inset-px h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover'}`}
       // Zoomed in from its centre by the song's Edit Track setting (0-50 %).
       style={{ opacity: ready ? 1 : 0, transition: 'opacity 320ms ease', transform: zoom > 0 ? `scale(${1 + zoom / 100})` : undefined }}
     />

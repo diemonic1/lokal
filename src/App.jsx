@@ -652,6 +652,7 @@ export default function App() {
     showMiniPlayer, likedIds, exclusiveSidePanels, hydrateExclusiveSidePanels,
   })))
   const miniSwitching = usePlayerStore(s => s.miniSwitching)
+  const clipFullscreen = usePlayerStore(s => s.clipFullscreen)
   // Casting: the TV plays, and this computer's audio is parked (src/cast).
   const castActive = usePlayerStore(s => s.castActive)
   const replayGainMode = usePlayerStore(s => s.replayGainMode)
@@ -3006,6 +3007,13 @@ export default function App() {
               style={{ opacity: 'var(--bg-overlay)' }} 
             />
 
+            {/* The song's video on the whole screen covers all of this:
+                not drawn meanwhile (invisible), and the side panels and the
+                player bar -- their visualizations, a second copy of the video,
+                the lyrics -- stopped (Activity), so every frame of the video
+                and every seek of it is all there is to do. The page itself
+                stays running (a scan, a download list). */}
+            <div className={clipFullscreen ? 'invisible contents' : 'contents'}>
             <TitleBar />
             <TabBar />
             <ReleaseRefreshBanner />
@@ -3014,11 +3022,16 @@ export default function App() {
               <main ref={pageWidthRef} className="min-w-0 flex-1 overflow-y-auto bg-transparent pb-[var(--player-space,0px)] [scrollbar-gutter:stable]">
                 <AnimatedRoutes />
               </main>
-              <RightSidebar />
-              {!exclusiveSidePanels && <QueuePanel />}
-              {!exclusiveSidePanels && <LyricsSidePanel />}
+              <Activity mode={clipFullscreen ? 'hidden' : 'visible'}>
+                <RightSidebar />
+                {!exclusiveSidePanels && <QueuePanel />}
+                {!exclusiveSidePanels && <LyricsSidePanel />}
+              </Activity>
             </div>
-            <PlayerBar />
+            <Activity mode={clipFullscreen ? 'hidden' : 'visible'}>
+              <PlayerBar />
+            </Activity>
+            </div>
             {/* Also full-screen lyrics: one overlay, two layouts. */}
             <FullscreenPlayer />
             <MusicVideoPlayer />

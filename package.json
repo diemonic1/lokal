@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dev:web": "concurrently \"vite\" \"node server/start.js\"",
-    "build": "node scripts/bump-build.js && vite build && npm run native:prepare && electron-builder && node scripts/write-build-info.js",
+    "build": "node scripts/bump-build.js && vite build && npm run native:prepare && node scripts/package-app.js",
     "server": "node server/start.js",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "rebuild:electron": "electron-rebuild",

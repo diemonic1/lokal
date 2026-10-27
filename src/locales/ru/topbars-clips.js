@@ -45,10 +45,10 @@ export default {
   'Its sound lines up with the song': 'Звук совпадает с треком',
   'Its length matches the song': 'Длительность совпадает с треком',
   'Found by the song’s title': 'Найден по названию трека',
-  'YouTube channel: {name}': 'YouTube-канал: {name}',
 
   // Edit Track: the important moment, and its mark on the seek bar
   'Important moment of the track': 'Важный момент трека',
+  'Go to the important moment ({time})': 'Перейти к важному моменту ({time})',
   'Seconds, minutes:seconds or hours:minutes:seconds; a dot for fractions of a second': 'Секунды, минуты:секунды или часы:минуты:секунды; точка — для долей секунды',
   'Shown as a small mark on the seek bar.': 'Показывается маленькой засечкой на полосе прокрутки трека.',
   'The important moment is seconds, minutes:seconds or hours:minutes:seconds, like 75, 1:15 or 0:11.5': 'Важный момент — это секунды, минуты:секунды или часы:минуты:секунды, например 75, 1:15 или 0:11.5',

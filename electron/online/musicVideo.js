@@ -705,10 +705,8 @@ async function decodeFrom(ffmpeg, source) {
   throw error
 }
 
-// channel: the YouTube channel the video is on, only as YouTube's own search
-// gave it (TheAudioDB's and YouTube Music's results name the artist instead).
 function describe(item, segments, check, motionVerified = false) {
-  return { videoId: item.videoId, title: item.title, artist: item.artist, channel: item.channel || item.uploader || '', duration: item.duration, thumbnail: item.thumbnail || null, segments, check, motion: motionVerified ? 'verified' : 'unverified' }
+  return { videoId: item.videoId, title: item.title, artist: item.artist, duration: item.duration, thumbnail: item.thumbnail || null, segments, check, motion: motionVerified ? 'verified' : 'unverified' }
 }
 
 /** Video time for a song time (seconds), from the segments; null where the video has no such moment. */

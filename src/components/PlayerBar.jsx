@@ -37,6 +37,16 @@ function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toStr
 // The important moment's mark on the seek bar, unless Settings say otherwise.
 const HIGHLIGHT_COLOR = '#ef4444'
 
+// "Go to the important moment": an arrow out of a rounded box, to the right.
+function JumpToIcon({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 8.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2.5" />
+      <path d="M9 12h12M17 8l4 4-4 4" />
+    </svg>
+  )
+}
+
 export default function PlayerBar() {
   const { t } = useTranslation()
   const glass = useAppearanceFlag('glass_player_bar')
@@ -422,6 +432,8 @@ export default function PlayerBar() {
           )}
           <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted w-8 text-right font-display">{station && !duration ? '' : fmt(display)}</span>
           {/* The unplayed part in the theme's text colour, toned down to grey. */}
+          {/* The bar, and over it (not clipped by its rounded ends) the important moment's notch. */}
+          <div className="relative flex-1 flex items-center">
           <div className={`flex-1 h-1 bg-text/25 rounded-full group relative overflow-hidden ${station ? '' : 'cursor-pointer'}`}
             onWheel={station ? undefined : onSeekWheel}
             onMouseMove={handleScrub}
@@ -430,16 +442,29 @@ export default function PlayerBar() {
             <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
               {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
             </div>
-            {/* The song's important moment (Edit Track): a notch as tall as the bar. */}
-            {!station && highlightAt != null && (
-              <div aria-hidden className="pointer-events-none absolute inset-y-0 w-[2px] -translate-x-1/2"
-                style={{ left: `${highlightAt}%`, backgroundColor: highlightColor }} />
-            )}
             {isBuffering && (streamed || station) && (
               <div role="progressbar" aria-label={t("Loading track")} className="absolute inset-0 overflow-hidden rounded-full bg-elevated">
                 <div className="queue-loading-seekbar h-full w-1/3 rounded-full bg-accent" />
               </div>
             )}
+          </div>
+          {/* The song's important moment (Edit Track): a notch as tall as the
+              bar. Pointed at (the notch itself, not the bar), a small button
+              over it goes there; the button's padding bridges the gap so the
+              mouse can reach it. */}
+          {!station && highlightAt != null && (
+            <div className="group/moment absolute z-10 top-1/2 h-3.5 w-2.5 -translate-x-1/2 -translate-y-1/2 flex justify-center"
+              style={{ left: `${highlightAt}%` }}>
+              <div aria-hidden className="pointer-events-none h-1 w-[2px] self-center" style={{ backgroundColor: highlightColor }} />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1 hidden group-hover/moment:block">
+                <button onClick={() => usePlayerStore.getState().setProgressWithAudioUpdate(highlightTime)}
+                  title={t('Go to the important moment ({time})', { time: fmt(highlightTime) })} aria-label={t('Go to the important moment ({time})', { time: fmt(highlightTime) })}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white shadow-lg ring-1 ring-white/15 hover:bg-black/90">
+                  <JumpToIcon />
+                </button>
+              </div>
+            </div>
+          )}
           </div>
           {station && !duration
             ? <span className="relative text-[10px] text-accent w-8 font-display uppercase tracking-wider">{t('On air')}</span>

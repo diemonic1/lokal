@@ -156,8 +156,6 @@ function ReportRow({ item, index, digits, checking, onChecked, onCheck, onTimes,
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-white" title={item.track.title}>{item.track.title}</p>
         <p className="truncate text-xs text-muted" title={item.track.artist}>{item.track.artist}</p>
-        {/* The YouTube channel the video is from, when known. */}
-        {item.youtubeChannel && <p className="truncate text-[11px] text-muted/70" title={t('YouTube channel: {name}', { name: item.youtubeChannel })}>{t('YouTube channel: {name}', { name: item.youtubeChannel })}</p>}
       </div>
       <div className="aspect-video h-10 flex-shrink-0 overflow-hidden rounded-md bg-card">
         <img src={thumbnailOf(item)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />

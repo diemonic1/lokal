@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { Activity, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, Scaling, Play, Pause, SkipBack, SkipForward, Heart, Shuffle, Repeat, Repeat1, Mic2, ListMusic, ListPlus, Search, Maximize2, Expand, Minimize, Volume2, Film, Clapperboard, Image as ImageIcon, SquareArrowOutUpRight, Square, RectangleHorizontal } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -334,6 +334,18 @@ export default function FullscreenPlayer() {
   const clipOriginal = useAppearanceText('fullscreen_clip_fit', 'square') === 'original'
   const [clipShape, setClipShape] = useState(null) // { key, ratio }
   const clipRatio = clipShown && clipShape?.key === songClipKey ? clipShape.ratio : null
+  // The video playing (faded in): the still cover under it goes, so none of
+  // it shows round the video's edges.
+  const [clipActiveKey, setClipActiveKey] = useState(null)
+  const clipCoversArt = clipShown && clipActiveKey === songClipKey
+  const clipActiveTimer = useRef(0)
+  useEffect(() => () => clearTimeout(clipActiveTimer.current), [])
+  const onSongClipActive = useCallback((active) => {
+    clearTimeout(clipActiveTimer.current)
+    // Once the video's fade-in (ClipLoop, 320 ms) is over.
+    if (active) clipActiveTimer.current = setTimeout(() => setClipActiveKey(songClipKey), 400)
+    else setClipActiveKey(null)
+  }, [songClipKey])
   const toggleClipFit = () => {
     const value = clipOriginal ? 'square' : 'original'
     previewAppearanceValue('fullscreen_clip_fit', value)
@@ -690,6 +702,11 @@ export default function FullscreenPlayer() {
   // song without one, the cover picked instead): back to the card.
   useEffect(() => { if (clipFull && !screenFull) setClipFull(false) }, [screenFull]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (clipFull && !clipShown) exitClipFull() }, [clipShown]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The app under it stops drawing meanwhile (App.jsx).
+  useEffect(() => {
+    usePlayerStore.setState({ clipFullscreen: clipFull })
+    return () => usePlayerStore.setState({ clipFullscreen: false })
+  }, [clipFull])
 
   // Seeking: click or drag along a bar (the one under the card, or the
   // video's own on the whole screen).
@@ -748,7 +765,8 @@ export default function FullscreenPlayer() {
           {/* The video on the whole screen covers all of it: not drawn then
               (its blur, the lyrics' animation), so every video frame
               composites only the video and its controls. */}
-          <div className={`absolute inset-0 bg-black ${clipFull ? 'invisible' : ''}`}>
+          <Activity mode={clipFull ? 'hidden' : 'visible'}>
+          <div className="absolute inset-0 bg-black">
             {/* Colours taken from the cover (see ArtworkBackdrop), or -- with
                 that switched off in Settings -- the plain blurred cover. */}
             {/* Eco mode: just the dark background, no blurred cover either. */}
@@ -783,6 +801,7 @@ export default function FullscreenPlayer() {
             <motion.div className="absolute inset-0 bg-black" initial={false}
               animate={{ opacity: lyricsMode ? 0.35 : 0 }} transition={FULLSCREEN_SWITCH} />
           </div>
+          </Activity>
 
           {/* The player's own controls, which step aside for full-screen
               lyrics (and come back when it closes) instead of a second
@@ -919,9 +938,9 @@ export default function FullscreenPlayer() {
                 {artSrc
                   ? <MixCovers track={currentTrack} render={(track, { top }) => (
                       <>
-                        {!clipFull && <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />}
+                        {!clipFull && !(clipCoversArt && String(track?.id) === String(currentTrack?.id)) && <FullCoverImage track={track} enabled={open} className="absolute inset-0 w-full h-full object-cover" alt="" />}
                         {songClip && String(track?.id) === String(currentTrack?.id) ? (
-                          !coverOff && <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} onRatio={ratio => setClipShape({ key: songClipKey, ratio })} fit={clipFull ? 'contain' : 'cover'} />
+                          !coverOff && <ClipLoop key={songClipKey} trackId={track.id} link={songClip.link} start={songClip.start} end={songClip.end} zoom={songClip.zoom} onFail={failSongClip} onActive={onSongClipActive} onRatio={ratio => setClipShape({ key: songClipKey, ratio })} fit={clipFull ? 'contain' : 'cover'} resync={clipFull} />
                         ) : (
                           <>
                             <MotionCover trackId={track?.id} only="square" off={coverOff} />
@@ -1036,13 +1055,16 @@ export default function FullscreenPlayer() {
             </motion.div>
           </div>
 
+          {/* Behind the video on the whole screen: kept (no reload of the
+              lyrics on the way back) but stopped, not following the song. */}
+          <Activity mode={clipFull ? 'hidden' : 'visible'}>
           {currentTrack && (
               // Panel visibility (and which panel) is driven entirely by the
               // Queue/Lyrics buttons on the cover, not by whether lyrics
               // happen to exist; with lyrics missing, the panel shows its own
               // "no lyrics" state and search, same as windowed mode.
               <div
-                className={`relative z-10 flex flex-col overflow-hidden pt-24 pb-10 ${showFullscreen ? 'transition-all duration-500' : ''} ${isPanelVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${clipFull ? 'invisible' : ''}`}
+                className={`relative z-10 flex flex-col overflow-hidden pt-24 pb-10 ${showFullscreen ? 'transition-all duration-500' : ''} ${isPanelVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 style={{ width: isPanelVisible ? PANEL_WIDTH : '0px' }}
               >
                 {(fullscreenPanel !== 'none' ? fullscreenPanel : lastPanelRef.current) === 'queue' ? (
@@ -1070,6 +1092,7 @@ export default function FullscreenPlayer() {
                 )}
               </div>
             )}
+          </Activity>
 
           <AnimatePresence>
             {showSearch && currentTrack && (

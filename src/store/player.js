@@ -278,6 +278,9 @@ export const usePlayerStore = create((set, get) => ({
   shuffle: false, repeat: 'none',
   showLyrics: false, showLyricsFullscreen: false,
   showRightSidebar: false, showFullscreen: false, showQueue: false, showLyricsPanel: false,
+  // The song's own video fills the whole screen (FullscreenPlayer): the app
+  // under it is hidden then, so nothing there is drawn (App.jsx).
+  clipFullscreen: false,
   // Which content the right-hand panel shows. Only meaningful in merged
   // mode -- independent mode's Queue lives in its own separate panel and
   // never touches this.
