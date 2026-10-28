@@ -24,6 +24,7 @@ import { CLIP_ZOOM_MAX, clipTimeInput, clipZoomPercent, parseClipTime, previewCl
 import { showToast } from '../components/Toaster'
 import MotionCoverMarks from '../components/MotionCoverMarks'
 import SpotifyIcon from '../components/SpotifyIcon'
+import { AppleMusicIcon, TidalIcon } from '../components/ServiceIcons'
 import Modal from '../components/Modal'
 import { Checkbox, Confirm, Progress, Timing } from './LyricsSearch'
 
@@ -139,12 +140,16 @@ function ZoomButton({ zoom, onChange, className }) {
   </>
 }
 
-/** A count out of the library's songs, with its share as a bar and a percent. */
-function StatRow({ icon, label, n, total, tone = 'bg-accent', sub }) {
+/**
+ * A count out of the library's songs, with its share as a bar and a percent.
+ * @param sample  the first few of those songs, listed on hover
+ */
+function StatRow({ icon, label, n, total, tone = 'bg-accent', sub, sample }) {
   const share = total ? n / total : 0
   const percent = total ? (share * 100).toLocaleString(undefined, { maximumFractionDigits: share < 0.1 && n ? 1 : 0 }) : '0'
+  const hint = sample?.length ? sample.join(', ') + (n > sample.length ? '…' : '') : undefined
   return (
-    <tr className="border-b border-border/60 last:border-0">
+    <tr className={`border-b border-border/60 last:border-0 ${hint ? 'cursor-help hover:bg-white/[0.03]' : ''}`} title={hint}>
       <td className={`py-2 pr-3 ${sub ? 'pl-9 text-muted' : 'pl-4 text-white'}`}>
         <span className="flex items-center gap-2">{icon}{label}</span>
       </td>
@@ -169,6 +174,7 @@ function LibraryStats({ counts }) {
     return <div className="rounded-xl border border-border bg-card/50 p-4 text-sm text-muted">{t('Tracks without a music video')}: {counts?.missing == null ? '…' : counts.missing.toLocaleString()}</div>
   }
   const motion = counts.motion || {}
+  const samples = counts.samples || {}
   const head = 'px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted'
   const group = text => (
     <tr className="border-b border-border/60 bg-white/[0.03]">
@@ -190,11 +196,11 @@ function LibraryStats({ counts }) {
           <StatRow icon={<MonitorPlay size={14} className="text-accent" />} label={t('With a music video')} n={counts.withClip || 0} total={total} />
           <StatRow icon={<X size={14} className="text-red-300" />} label={t('Without a music video (the search looks for these)')} n={counts.missing || 0} total={total} tone="bg-red-400/70" />
           {group(t('Moving covers'))}
-          <StatRow icon={<ImagePlay size={14} className="text-accent" />} label={t('With a moving cover')} n={motion.any || 0} total={total} />
-          <StatRow sub icon={<SpotifyIcon size={13} />} label="Spotify Canvas" n={motion.spotify || 0} total={total} tone="bg-[#1db954]" />
-          <StatRow sub label="Apple Music" n={motion.apple || 0} total={total} tone="bg-pink-400" />
-          <StatRow sub label="Tidal" n={motion.tidal || 0} total={total} tone="bg-sky-400" />
-          <StatRow sub label={t('Community list')} n={motion.community || 0} total={total} tone="bg-violet-400" />
+          <StatRow icon={<ImagePlay size={14} className="text-accent" />} label={t('With a moving cover')} n={motion.any || 0} total={total} sample={samples.any} />
+          <StatRow sub icon={<SpotifyIcon size={13} />} label="Spotify Canvas" n={motion.spotify || 0} total={total} sample={samples.spotify} tone="bg-[#1db954]" />
+          <StatRow sub icon={<AppleMusicIcon size={13} />} label="Apple Music" n={motion.apple || 0} total={total} sample={samples.apple} tone="bg-pink-400" />
+          <StatRow sub icon={<TidalIcon size={13} />} label="Tidal" n={motion.tidal || 0} total={total} sample={samples.tidal} tone="bg-sky-400" />
+          <StatRow sub icon={<ImagePlay size={13} className="text-accent" />} label={t('Community list')} n={motion.community || 0} total={total} sample={samples.community} tone="bg-violet-400" />
           <StatRow sub label={t('Not checked on Spotify yet')} n={motion.unknown || 0} total={total} tone="bg-white/30" />
         </tbody>
       </table>

@@ -25,6 +25,7 @@ import { savedTrackColumns, useTrackColumnsStore } from '../store/trackColumns'
 import { TRACK_CHANGED, readTrack, announceTrackChanged } from '../trackChanged'
 import TrackColumnPicker from './TrackColumnPicker'
 import { TrackSourceIcon } from './SourceIcon'
+import MotionCoverMarks from './MotionCoverMarks'
 import { openRadio } from '../radioActions'
 import DiscoveryImage from './DiscoveryImage'
 import { playRecommendationPool } from '../recommendationPlayback'
@@ -1132,7 +1133,10 @@ export default function TrackList({ tracks = [], showQuality = false, onRemove =
                 case 'clip': return clipLink(track)
                   ? <button key={key} type="button" data-track-column="clip" onClick={e => { e.stopPropagation(); openLink(clipLink(track)) }} onDoubleClick={e => e.stopPropagation()}
                       title={clipText(track)} className="min-w-0 truncate text-left text-xs text-muted hover:text-accent hover:underline">{clipText(track)}</button>
-                  : <span key={key} data-track-column="clip" />
+                  // No video: the moving cover it's known to have (Spotify Canvas, Apple Music...), nothing while not known.
+                  : <span key={key} data-track-column="clip" className="flex min-w-0 items-center">
+                      <MotionCoverMarks spotify={track.spotify_canvas === 1 || track.motion_cover_source === 'spotify'} source={track.motion_cover_source} />
+                    </span>
                 case 'added': return <React.Fragment key={key}><p data-track-column="added" className="truncate text-right text-xs text-muted/60" title={track.added_at ? addedDate(track.added_at).toLocaleString() : undefined}>{fmtAddedAt(track.added_at)}</p></React.Fragment>
                 case 'time': return <React.Fragment key={key}><span data-track-column="time" className="text-xs text-muted text-right font-display">{fmt(track.duration)}</span></React.Fragment>
                 default: return null

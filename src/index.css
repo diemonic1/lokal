@@ -431,3 +431,38 @@ input[type="checkbox"]:not(.sr-only)::before {
 input[type="checkbox"]:not(.sr-only):checked::before { transform: scale(1); }
 input[type="checkbox"]:not(.sr-only):focus-visible { outline: 2px solid rgb(var(--accent-rgb) / 0.6); outline-offset: 2px; }
 input[type="checkbox"]:not(.sr-only):disabled { cursor: default; opacity: 0.5; }
+
+/* Side panel, Visualization + Lyrics: where the lyrics run up over the
+   picture and fade out into it (SideVisualLyrics + LyricsPanel's topBlur).
+   Safe to tweak live in DevTools on the .side-lyrics-edge element:
+     --side-lyrics-edge-overlap  how far up over the picture the lyrics reach
+                                 (where they end: fully gone there)
+     --side-lyrics-edge-room     the room before the first line, from that
+                                 top: with the overlap, how close to the
+                                 picture the lyrics start
+     --side-lyrics-edge-fade     how tall the fade is, from that top down
+                                 (about one line)
+     --side-lyrics-edge-ramp     how far the list scrolls before the fade and
+                                 blur are at full strength: at the start
+                                 (not scrolled) the lines show clear
+     --side-lyrics-edge-blur     the blur at the very top, less further down
+     --side-lyrics-edge-curve    how fast the blur falls off downwards
+                                 (1: evenly, higher: only near the top)
+   --side-lyrics-edge-on (0-1) is set on the list as it scrolls: don't set it.
+   The blur is applied as the list scrolls: scroll a bit after changing it. */
+.side-lyrics-edge {
+  --side-lyrics-edge-overlap: 10px;
+  --side-lyrics-edge-room: 5px;
+  --side-lyrics-edge-fade: 32px;
+  --side-lyrics-edge-ramp: 40px;
+  --side-lyrics-edge-blur: 3px;
+  --side-lyrics-edge-curve: 1.5;
+}
+.side-lyrics-edge-list {
+  --side-lyrics-edge-on: 0;
+  -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on))) 0, rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on) * 0.7)) calc(var(--side-lyrics-edge-fade) * 0.4), rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on) * 0.25)) calc(var(--side-lyrics-edge-fade) * 0.75), black var(--side-lyrics-edge-fade));
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on))) 0, rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on) * 0.7)) calc(var(--side-lyrics-edge-fade) * 0.4), rgb(0 0 0 / calc(1 - var(--side-lyrics-edge-on) * 0.25)) calc(var(--side-lyrics-edge-fade) * 0.75), black var(--side-lyrics-edge-fade));
+}
+.side-lyrics-edge-room {
+  height: var(--side-lyrics-edge-room);
+}

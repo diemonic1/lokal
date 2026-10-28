@@ -243,6 +243,8 @@ const MISSING_SQL = `${SONG_SQL} AND TRIM(COALESCE(clip_url, '')) = ''`
  * many have a moving cover, by where it's from (as written on their rows by
  * artwork/motion.js; canvasUnknown: not asked of Spotify yet).
  */
+const SAMPLE_SIZE = 15
+
 function counts(db) {
   try {
     const row = db.prepare(`SELECT COUNT(*) AS total,
@@ -255,9 +257,19 @@ function counts(db) {
         SUM(spotify_canvas IS NULL) AS canvasUnknown
       FROM tracks WHERE ${SONG_SQL}`).get()
     const n = key => row[key] || 0
+    // The first few songs of each kind, shown on hover in the table.
+    const sample = cond => db.prepare(`SELECT artist, title FROM tracks WHERE ${SONG_SQL} AND (${cond})
+      ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE LIMIT ${SAMPLE_SIZE}`).all().map(r => `${r.artist} — ${r.title}`)
     return {
       total: n('total'), missing: n('missing'), withClip: n('total') - n('missing'),
       motion: { any: n('motion'), spotify: n('spotify'), apple: n('apple'), tidal: n('tidal'), community: n('community'), unknown: n('canvasUnknown') },
+      samples: {
+        any: sample('spotify_canvas = 1 OR motion_cover_source IS NOT NULL'),
+        spotify: sample("spotify_canvas = 1 OR motion_cover_source = 'spotify'"),
+        apple: sample("motion_cover_source = 'apple'"),
+        tidal: sample("motion_cover_source = 'tidal'"),
+        community: sample("motion_cover_source = 'community'"),
+      },
     }
   } catch { return { missing: 0 } }
 }

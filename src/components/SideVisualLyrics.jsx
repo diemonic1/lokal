@@ -3,7 +3,8 @@
 // its info. The picture is, first that the song has:
 //   1. its video, set by hand in Edit Track (any link or video file), looping
 //      over the part its times give (see clipRange in ../clipVideo.js),
-//   2. its Spotify Canvas (MotionCover's tall clip),
+//   2. its moving cover, from any source (MotionCover: a Spotify Canvas,
+//      Apple Music, Tidal...),
 //   3. the side panel's own visualization.
 // Both videos are muted, have no controls, can't be clicked, and stop with
 // the song. While there are no lines to show (an instrumental, lyrics that
@@ -41,6 +42,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
   const useLoop = !!loop
   const [loopOn, setLoopOn] = useState(false)
   const [canvasOn, setCanvasOn] = useState(false)
+  const [canvasSource, setCanvasSource] = useState(null)
   const [idle, setIdle] = useState(false)
   const videoOn = (useLoop && loopOn) || (!useLoop && canvasOn)
   const fx = useArtworkBackdropEnabled()
@@ -52,7 +54,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
   const fadeOn = videoOn || keepFade
 
   return (
-    <div className="absolute inset-0" style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
+    <div className="side-lyrics-edge absolute inset-0" style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
       {fx && strength > 0 && (
         <div className="pointer-events-none absolute inset-0" style={{ opacity: strength }}>
           <ArtworkBackdrop trackId={meshKeyFor(track)} />
@@ -71,7 +73,7 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
           <ClipLoop key={loopKey} trackId={track?.id} link={loop.link} start={loop.start} end={loop.end} zoom={zoom}
             onActive={setLoopOn} onFail={() => { setLoopOn(false); failLoop() }} />
         ) : (
-          <MotionCover trackId={track?.id} only="tall" onActive={setCanvasOn} off={coverOff} className="pointer-events-none" />
+          <MotionCover trackId={track?.id} onActive={(on, source) => { setCanvasOn(on); setCanvasSource(on ? source || null : null) }} off={coverOff} className="pointer-events-none" />
         )}
       </motion.div>
       {/* A long fade from the picture into the colours under the lyrics: no
@@ -84,11 +86,15 @@ export default function SideVisualLyrics({ track, progress, visual, visualBg, fu
         transition={PICTURE_MOTION}
         style={{ background: FADE }}
       />}
-      {/* The lyrics start under the picture (none of them over it), moved by the setting. */}
-      <div className={`absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)] ${idle ? 'pointer-events-none' : ''}`} style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px))` }}>
-        <div className="relative h-full min-h-0 overflow-hidden">
+      {/* The lyrics start under the picture, moved by the setting; the list
+          reaches --side-lyrics-edge-overlap further up, over it, where the lines scrolled
+          up fade and blur into it (LyricsPanel's topBlur). */}
+      <div className={`absolute inset-x-0 bottom-0 pb-[var(--player-space,0px)] ${idle ? 'pointer-events-none' : ''}`} style={{ top: `max(0px, calc(${PICTURE_SHARE}% + ${lyricsOffset}px - var(--side-lyrics-edge-overlap)))` }}>
+        {/* Not clipped: the list runs on under the player bar (underBar). */}
+        <div className="relative h-full min-h-0">
           <LyricsPanel track={track} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={textScale} isAutoSynced={isAutoSynced}
-            idleVisual onIdleChange={setIdle} toolbarAtBottom sizeControl />
+            idleVisual onIdleChange={setIdle} toolbarAtBottom sizeControl underBar topBlur
+            media={useLoop && loopOn ? { clip: loop.link } : !useLoop && canvasOn ? { cover: canvasSource } : null} />
         </div>
       </div>
     </div>

@@ -1,13 +1,14 @@
 // A song's moving-cover marks, as its row has them (tracks.spotify_canvas and
 // tracks.motion_cover_source, see electron/artwork/motion.js): Spotify's logo
-// when it has a Spotify Canvas, and a moving-cover icon when the moving cover
-// it played with came from elsewhere (Apple Music, Tidal, the community
-// list), each saying so on hover.
+// when it has a Spotify Canvas, and Apple Music's or Tidal's icon (a
+// moving-cover icon for the community list) when the moving cover it played
+// with came from there, each saying so on hover.
 
 import React from 'react'
 import { ImagePlay } from 'lucide-react'
 import { useTranslation } from '../i18n'
 import SpotifyIcon from './SpotifyIcon'
+import { serviceIconFor } from './ServiceIcons'
 
 export default function MotionCoverMarks({ spotify, source, size = 13, className = '' }) {
   const { t } = useTranslation()
@@ -24,7 +25,7 @@ export default function MotionCoverMarks({ spotify, source, size = 13, className
       )}
       {other && (
         <span className="flex cursor-help items-center text-accent" title={other} aria-label={other}>
-          <ImagePlay size={size} />
+          {serviceIconFor(source, size) || <ImagePlay size={size} />}
         </span>
       )}
     </span>

@@ -35,6 +35,7 @@ export default {
   'Full screen': 'Во весь экран',
   'Lyrics, full screen': 'Текст во весь экран',
   'Music video': 'Клип',
+  'Music video from YouTube': 'Клип с YouTube',
   'Play the official music video, in time with the song': 'Включить официальный клип синхронно с треком',
   'Show Canvas': 'Показать Canvas',
   'Hide Canvas': 'Скрыть Canvas',

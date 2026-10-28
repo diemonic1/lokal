@@ -34,8 +34,10 @@ const SORT = /^(id|added_at|title|artist|album|album_artist|play_count|duration|
 // "lyrics": songs without lyrics in the file first, then unfound, instrumental,
 // plain, line synced, syllable synced (LYRICS_RANK in src/trackChanged.js).
 const LYRICS_SORT = "CASE lyrics_kind WHEN 'syllable' THEN 5 WHEN 'sync' THEN 4 WHEN 'plain' THEN 3 WHEN 'instrumental' THEN 2 WHEN 'unfound' THEN 1 ELSE 0 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
-// "clip": songs with a music video set (Edit Track > Clip) first, then the rest.
-const CLIP_SORT = "CASE WHEN TRIM(COALESCE(clip_url, '')) <> '' THEN 0 ELSE 1 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
+// "clip": songs with a music video set (Edit Track > Clip) first, then those
+// with a moving cover, by where it's from (Spotify Canvas, Apple Music, Tidal,
+// the community list), then the rest (CLIP_RANK in src/trackChanged.js).
+const CLIP_SORT = "CASE WHEN TRIM(COALESCE(clip_url, '')) <> '' THEN 0 WHEN spotify_canvas = 1 OR motion_cover_source = 'spotify' THEN 1 WHEN motion_cover_source = 'apple' THEN 2 WHEN motion_cover_source = 'tidal' THEN 3 WHEN motion_cover_source IS NOT NULL AND motion_cover_source <> '' THEN 4 ELSE 5 END ASC, artist COLLATE NOCASE ASC, title COLLATE NOCASE ASC"
 const safeSort = value => {
   const v = String(value || '').trim()
   if (/^lyrics(\s+ASC)?$/i.test(v)) return LYRICS_SORT

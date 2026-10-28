@@ -1,4 +1,6 @@
 import React from 'react'
+import appleMusic from '../assets/services/apple-music.png'
+import tidal from '../assets/services/tidal.png'
 
 // Coloured marks for the "Search on ..." items of a song's right-click menu
 // (see ../trackLinks). They take a lucide icon's size / className, but stay at
@@ -37,4 +39,26 @@ export function BeatSaverMark(props) {
       <path d="M12.9 12.7 18.7 11.5 11.5 18.9Z" fill="white" stroke="white" strokeWidth="0.9" strokeLinejoin="round" />
     </Mark>
   )
+}
+
+// Apple Music's and Tidal's app icons, for marking where a song's moving cover
+// comes from (tracks.motion_cover_source, see electron/artwork/motion.js).
+
+function AppIcon({ src, size = 14, className = '' }) {
+  return <img src={src} width={size} height={size} alt="" aria-hidden="true" draggable={false} className={`shrink-0 ${className}`} />
+}
+
+export function AppleMusicIcon(props) {
+  return <AppIcon src={appleMusic} {...props} />
+}
+
+export function TidalIcon(props) {
+  return <AppIcon src={tidal} {...props} />
+}
+
+/** A moving cover's source icon (apple, tidal), or null for one that has none. */
+export function serviceIconFor(source, size) {
+  if (source === 'apple') return <AppleMusicIcon size={size} />
+  if (source === 'tidal') return <TidalIcon size={size} />
+  return null
 }

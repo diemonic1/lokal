@@ -41,7 +41,7 @@ if (typeof window !== 'undefined') {
  * Renders only the clip layer; put it over the still <img>.
  * @param only      'square' (album-style clips, for the cover spot) or 'tall'
  *                  (9:16 canvases, for a full-panel background); both if unset
- * @param onActive  called with true while a clip is showing
+ * @param onActive  called with true while a clip is showing (and where it's from: 'spotify', 'apple'...)
  * @param off       turned off for this song (motionCoverPrefs.js): the still cover only
  */
 export default function MotionCover({ trackId, className = '', onActive, only, style, off = false }) {
@@ -88,34 +88,33 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
   const canvas = !!clip && (clip.tall || clip.source === 'spotify')
   const firstRef = useRef(null)
   const secondRef = useRef(null)
-  const activeRef = useRef(null)
   useEffect(() => {
-    activeRef.current = firstRef.current
     if (!clip || canvas || !firstRef.current || !secondRef.current) return undefined
-    return seamlessLoop([firstRef.current, secondRef.current], { fade: COVER_FADE, onSwap: video => { activeRef.current = video } })
+    return seamlessLoop([firstRef.current, secondRef.current], { fade: COVER_FADE })
   }, [clip, canvas])
 
-  // A canvas stops with the song (paused, it holds its frame) and goes on
-  // with it; a moving album cover keeps looping.
+  // Every moving cover stops with the song (paused, it holds its frame) and
+  // goes on with it. A moving album cover plays whichever of its two copies
+  // is showing (both, mid-crossfade; see seamlessLoop.js).
   const isPlaying = usePlayerStore(s => s.isPlaying)
   const runsRef = useRef(true)
-  runsRef.current = !canvas || isPlaying
+  runsRef.current = isPlaying
+  const shown = () => [firstRef.current, secondRef.current].filter(v => v && v.style.visibility !== 'hidden')
   useEffect(() => {
-    const v = firstRef.current
-    if (!canvas || !v) return
-    if (isPlaying && !isWindowHidden()) v.play().catch(() => {})
-    else v.pause()
-  }, [canvas, clip, isPlaying])
+    if (!clip) return
+    const videos = [firstRef.current, secondRef.current].filter(Boolean)
+    if (isPlaying && !isWindowHidden()) shown().forEach(v => v.play().catch(() => {}))
+    else videos.forEach(v => v.pause())
+  }, [clip, isPlaying])
 
   // Don't spend the GPU on a clip nobody can see.
   // (Minimized counts too: see windowVisibility.js.) A clip that arrives
   // while nobody can see it (loaded or changed while minimized) doesn't
   // autoplay; it starts when the window is back.
   useEffect(() => onWindowVisibility((hidden) => {
-    const v = activeRef.current
-    if (!v) return
-    if (hidden || !runsRef.current) v.pause()
-    else v.play().catch(() => {})
+    const videos = [firstRef.current, secondRef.current].filter(Boolean)
+    if (hidden || !runsRef.current) videos.forEach(v => v.pause())
+    else shown().forEach(v => v.play().catch(() => {}))
   }), [])
 
   if (!clip) return null
@@ -133,8 +132,8 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
         preload="auto"
         disablePictureInPicture
         // Shown from its first frame, also while the song is paused.
-        onLoadedData={() => { if (!ready) { setReady(true); onActive?.(true) } }}
-        onPlaying={() => { if (!ready) { setReady(true); onActive?.(true) } }}
+        onLoadedData={() => { if (!ready) { setReady(true); onActive?.(true, clip.source) } }}
+        onPlaying={() => { if (!ready) { setReady(true); onActive?.(true, clip.source) } }}
         onError={() => { setClip(null); onActive?.(false) }}
         className={`absolute inset-0 h-full w-full object-cover ${className}`}
         style={{ ...style, opacity: ready ? 1 : 0, transition: 'opacity 320ms ease' }}
@@ -161,8 +160,10 @@ export default function MotionCover({ trackId, className = '', onActive, only, s
       <video
         {...videoProps}
         ref={firstRef}
-        autoPlay={!isWindowHidden()}
-        onPlaying={() => { if (!ready) { setReady(true); onActive?.(true) } }}
+        autoPlay={!isWindowHidden() && isPlaying}
+        // Shown from its first frame, also while the song is paused.
+        onLoadedData={() => { if (!ready) { setReady(true); onActive?.(true, clip.source) } }}
+        onPlaying={() => { if (!ready) { setReady(true); onActive?.(true, clip.source) } }}
       />
       <video {...videoProps} ref={secondRef} aria-hidden="true" style={{ visibility: 'hidden' }} />
     </div>

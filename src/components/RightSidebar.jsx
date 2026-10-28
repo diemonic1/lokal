@@ -613,7 +613,7 @@ export default function RightSidebar() {
                   <div className={`relative flex-1 overflow-hidden min-h-0 pb-[var(--player-space,0px)] ${lyricsIdle && currentTrack ? 'pointer-events-none' : ''}`}>
                     {currentTrack ? (
                       <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} textScale={lyricsScale} isAutoSynced={isAutoSynced} toolbarAtBottom sizeControl
-                        idleVisual onIdleChange={setLyricsIdle} edgeFade={false} />
+                        idleVisual onIdleChange={setLyricsIdle} edgeFade={false} underBar />
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted text-xs">{t('No track playing')}</div>
                     )}

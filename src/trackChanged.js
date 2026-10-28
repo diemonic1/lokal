@@ -35,6 +35,15 @@ function byValue(a, b, desc) {
 }
 // Same order as LYRICS_SORT in electron/trackErrors.js.
 const LYRICS_RANK = { syllable: 5, sync: 4, plain: 3, instrumental: 2, unfound: 1 }
+// Same order as CLIP_SORT there: a music video, then a moving cover by where
+// it's from, then nothing.
+const CLIP_RANK = track => {
+  if (String(track?.clip_url ?? '').trim()) return 0
+  if (track?.spotify_canvas === 1 || track?.motion_cover_source === 'spotify') return 1
+  if (track?.motion_cover_source === 'apple') return 2
+  if (track?.motion_cover_source === 'tidal') return 3
+  return track?.motion_cover_source ? 4 : 5
+}
 
 export function libraryComparator(sort) {
   const value = String(sort || '').trim()
@@ -44,8 +53,7 @@ export function libraryComparator(sort) {
       || binary(nocase(a.title), nocase(b.title))
   }
   if (/^clip/i.test(value)) {
-    const noClip = track => (String(track?.clip_url ?? '').trim() ? 0 : 1)
-    return (a, b) => (noClip(a) - noClip(b))
+    return (a, b) => (CLIP_RANK(a) - CLIP_RANK(b))
       || binary(nocase(a.artist), nocase(b.artist))
       || binary(nocase(a.title), nocase(b.title))
   }

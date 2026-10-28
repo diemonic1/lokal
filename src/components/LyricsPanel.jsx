@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall, ScanSearch } from 'lucide-react'
+import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall, ScanSearch, MonitorPlay, ImagePlay } from 'lucide-react'
+import { YoutubeMark, serviceIconFor } from './ServiceIcons'
+import SpotifyIcon from './SpotifyIcon'
+import { clipOpenUrl } from '../clipVideo'
 import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT } from '../sidePanelPrefs'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import Modal from './Modal'
@@ -156,7 +159,26 @@ export function paintVoice(voiceEl, units, t, live) {
   })
 }
 
+// The side panel's room after the last line: one empty line (a row at the
+// side panel's size is about 2rem tall), times the lyrics size.
+const EMPTY_LINES_REM = 2
+// Visualization + Lyrics (topBlur): the list starts a little way up over
+// the picture's bottom and its lines fade out and blur into it, the more the
+// higher. How far, how tall and how strong are CSS variables on
+// .side-lyrics-edge (index.css), so they can be tried out live in DevTools.
+/** One of those variables as a number (px, or plain), read where the list is. */
+function edgeVar(el, name, fallback) {
+  const value = parseFloat(getComputedStyle(el).getPropertyValue(name))
+  return Number.isFinite(value) ? value : fallback
+}
+
 // ---------------------------------------------------------------- rows
+
+/** topBlur: a line in a wrapper whose blur the list sets as it scrolls (on: else just the line). */
+function EdgeWrap({ on, index, rowsRef, children }) {
+  if (!on) return children
+  return <div ref={el => { rowsRef.current[index] = el }}>{children}</div>
+}
 
 const Row = React.memo(function Row({
   line, index, until, clock, distance, isFocused, isNext, isLive, synced, browsing, wordSync, fullscreen, textScale, duet, sub, onSeek, registerRow,
@@ -516,6 +538,43 @@ function Pill({ active, onClick, children, title, disabled }) {
   )
 }
 
+/** The song's own music video, else the moving cover it's known to have (its row), or null. */
+function trackMedia(track) {
+  if (String(track?.clip_url || '').trim()) return { clip: String(track.clip_url).trim() }
+  if (track?.spotify_canvas === 1 || track?.motion_cover_source === 'spotify') return { cover: 'spotify' }
+  if (track?.motion_cover_source) return { cover: track.motion_cover_source }
+  return null
+}
+
+/**
+ * Visualization + Lyrics: what plays in the picture above (the Lyrics tab:
+ * what the song has, trackMedia), as one small round
+ * button (left of Size), saying so on hover. media: { clip: link } -- YouTube's
+ * logo for a YouTube video, else a screen; opens it in the browser -- or
+ * { cover: source } -- Spotify's logo for a Spotify Canvas, else a moving cover.
+ */
+function MediaPill({ media }) {
+  const { t } = useTranslation()
+  const large = useContext(ToolbarLarge)
+  if (!media) return null
+  let icon, title, url = null
+  if (media.clip) {
+    url = clipOpenUrl(media.clip)
+    const youtube = /(?:^|\.|\/\/)(?:youtube\.com|youtu\.be)\//i.test(String(media.clip))
+    icon = youtube ? <YoutubeMark size={large ? 18 : 16} /> : <MonitorPlay size={large ? 16 : 14} />
+    title = `${youtube ? t('Music video from YouTube') : t('Music video')}: ${media.clip}`
+  } else {
+    icon = media.cover === 'spotify' ? <SpotifyIcon size={large ? 18 : 16} /> : (serviceIconFor(media.cover, large ? 16 : 14) || <ImagePlay size={large ? 16 : 14} />)
+    title = { spotify: t('This track has a Spotify Canvas'), apple: t('Moving cover from Apple Music'), tidal: t('Moving cover from Tidal'), community: t('Moving cover from the community list') }[media.cover] || t('Moving cover')
+  }
+  return (
+    <button type="button" onClick={url ? () => api.openExternal(url) : undefined} title={title} aria-label={title}
+      className={`flex items-center justify-center ${large ? 'h-9 w-9' : 'h-6 w-6'} flex-shrink-0 rounded-full ${TOOLBAR_FADE} text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${url ? '' : 'cursor-default'}`}>
+      {icon}
+    </button>
+  )
+}
+
 // The side panel's "Size" button: a small slider right above it for the lyrics
 // size (the same setting as Settings > Appearance > Side Panel Lyrics Size).
 function SizePill({ onOpenChange, openUp = true }) {
@@ -603,6 +662,15 @@ export default function LyricsPanel({
   sizeControl = false,
   // The list fades out at its top and bottom edges (the side panel's Lyrics tab goes without).
   edgeFade = true,
+  // The side panel: the list runs on under the floating player bar (the
+  // --player-space its parent leaves), down to the bar itself.
+  underBar = false,
+  // Visualization + Lyrics: what plays in the picture above (MediaPill).
+  media = null,
+  // Visualization + Lyrics: the list reaches up over the picture's bottom
+  // (--side-lyrics-edge-overlap, its parent places it so), where the lines leaving at
+  // the top fade out and blur, the more the higher, instead of a hard edge.
+  topBlur = false,
   // The full screen player: the buttons go into its header row (this element)
   // instead of over the lyrics; toolbarConcealed fades them out there (until
   // the mouse comes near) without closing the source menu, and
@@ -660,6 +728,8 @@ export default function LyricsPanel({
   const [browsing, setBrowsing] = useState(false)
 
   const containerRef = useRef(null)
+  // topBlur: each line's wrapper, blurred by how far into the top strip it is.
+  const edgeRowsRef = useRef([])
   const rowsRef = useRef(new Map())
   const browseTimer = useRef(null)
   const lastScrollIdx = useRef(-1)
@@ -853,6 +923,39 @@ export default function LyricsPanel({
   }, [progress, lines, synced, isAutoSynced, track?.duration, now, syncOffset])
 
   // ---- per-frame painting of what is actually being sung
+  // topBlur: the lines in the top strip blur the more the higher they are
+  // (their fade is the list's mask), kept up as the list scrolls or resizes.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!topBlur || !container) return undefined
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const top = container.getBoundingClientRect().top
+      const fade = edgeVar(container, '--side-lyrics-edge-fade', 32)
+      const max = edgeVar(container, '--side-lyrics-edge-blur', 3)
+      const curve = edgeVar(container, '--side-lyrics-edge-curve', 1.5)
+      // Not scrolled: no fade or blur yet; full once scrolled the ramp's length.
+      const on = Math.max(0, Math.min(1, container.scrollTop / Math.max(1, edgeVar(container, '--side-lyrics-edge-ramp', 40))))
+      container.style.setProperty('--side-lyrics-edge-on', on.toFixed(3))
+      for (const el of edgeRowsRef.current) {
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        // How far into the strip the line's middle is: 0 below it, 1 at the top.
+        const k = Math.max(0, Math.min(1, 1 - (r.top + r.height / 2 - top) / fade))
+        const px = on * max * Math.pow(k, curve)
+        const filter = px > 0.05 ? `blur(${px.toFixed(2)}px)` : ''
+        if (el.style.filter !== filter) el.style.filter = filter
+      }
+    }
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(update) }
+    schedule()
+    container.addEventListener('scroll', schedule, { passive: true })
+    const observer = new ResizeObserver(schedule)
+    observer.observe(container)
+    return () => { container.removeEventListener('scroll', schedule); observer.disconnect(); if (raf) cancelAnimationFrame(raf) }
+  }, [topBlur, lines])
+
   const registerRow = useCallback((index, refs) => {
     if (refs) rowsRef.current.set(index, refs)
     else rowsRef.current.delete(index)
@@ -919,7 +1022,8 @@ export default function LyricsPanel({
     // clamp to how far it can actually go. The last lines then simply light up
     // lower down the panel instead of the list trying to move.
     const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
-    const target = Math.min(maxScroll, Math.max(0, refs.rowEl.offsetTop - container.clientHeight * anchorFraction))
+    const inset = topBlur ? edgeVar(container, '--side-lyrics-edge-fade', 32) : 0
+    const target = Math.min(maxScroll, Math.max(0, refs.rowEl.offsetTop - inset - (container.clientHeight - inset) * anchorFraction))
     const before = container.scrollTop
     if (Math.abs(target - before) < 1) return
     markAutoScroll(container)
@@ -950,7 +1054,7 @@ export default function LyricsPanel({
       rowEl.style.transition = `transform ${SCROLL_MS}ms ${EASE} ${Math.round(steps * STAGGER_FRACTION * SCROLL_MS)}ms`
       rowEl.style.transform = ''
     })
-  }, [focusIdx, anchorFraction])
+  }, [focusIdx, anchorFraction, topBlur])
 
   // Another song (or a refreshed result): start from the top right away. The
   // list otherwise kept the previous song's scroll position until this one's
@@ -1184,6 +1288,7 @@ export default function LyricsPanel({
         <ToolbarLarge.Provider value>
           <div data-hidden={toolbarHidden || toolbarConcealed} className="group/toolbar flex items-center gap-2">
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : toolbarTarget ? 'hidden' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {toolbarAtBottom && <MediaPill media={media || trackMedia(track)} />}
             {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
               {translationBusy ? <Loader2 size={toolbarTarget ? 13 : 11} className="animate-spin" /> : <Languages size={toolbarTarget ? 13 : 11} />}
@@ -1272,13 +1377,15 @@ export default function LyricsPanel({
           onFocus={toolbarAtBottom ? () => setToolbarHover(true) : undefined}
           onBlur={toolbarAtBottom ? (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setToolbarHover(false) } : undefined}
           className={toolbarAtBottom
-            ? 'group/toolbar absolute bottom-0 inset-x-0 z-20 flex items-center gap-1.5 px-4 pt-4 pb-3'
+            // Only the buttons take the mouse: the row's empty room lets it through to the lyrics.
+            ? 'group/toolbar pointer-events-none absolute bottom-0 inset-x-0 z-20 flex items-center gap-1.5 px-4 pt-4 pb-1.5'
             : `group/toolbar absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 pl-4 ${toolbarEndGap ? 'pr-12' : 'pr-4'} pt-3 pointer-events-none ${fullscreen ? '' : 'pb-6'}`}
           // The sidebar keeps its soft shade behind the buttons; the fullscreen
           // views already have their own header there, so they go without.
           style={fullscreen || toolbarAtBottom ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
         >
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {toolbarAtBottom && <MediaPill media={media || trackMedia(track)} />}
             {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
               {translationBusy ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
@@ -1294,9 +1401,10 @@ export default function LyricsPanel({
           <div className="flex-1" />
           <div className={`flex min-w-0 items-center justify-end gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'}`} inert={toolbarHidden}>
             {previewResult && (
-              // Lyrics Search's Check: says what this is, beside the source menu.
+              // Lyrics Search's Check: says what this is, beside the source menu
+              // -- along the bottom, a line above the buttons, out of their way.
               <span
-                className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE}`}
+                className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE} ${toolbarAtBottom ? 'absolute bottom-full right-4 -mb-2' : ''}`}
                 title={t('Lyrics found by Lyrics Search, not saved anywhere yet')}
               >
                 <ScanSearch size={11} className="flex-shrink-0" />
@@ -1374,10 +1482,11 @@ export default function LyricsPanel({
         onWheel={startBrowsing}
         onTouchMove={startBrowsing}
         onKeyDown={(e) => { if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key)) startBrowsing() }}
-        className="w-full h-full overflow-y-auto overflow-x-hidden"
+        className={`w-full h-full overflow-y-auto overflow-x-hidden ${topBlur ? 'side-lyrics-edge-list' : ''}`}
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
+          height: underBar ? 'calc(100% + var(--player-space, 0px))' : undefined,
           // Only full screen fades its edges: in the side panels the fade hid
           // the lines near the bottom (and top) edge.
           maskImage: edgeFade && fullscreen ? 'linear-gradient(to bottom, transparent 0, black 9%, black 82%, transparent 100%)' : undefined,
@@ -1415,14 +1524,15 @@ export default function LyricsPanel({
 
           {!loading && lines.length > 0 && (
             <motion.div initial={idleVisual ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
+              {topBlur && <div className="side-lyrics-edge-room" />}
               <div style={fullscreen ? FULLSCREEN_TOP : { height: synced || isAutoSynced ? '20px' : '1rem', minHeight: synced || isAutoSynced ? '1rem' : undefined }} />
               {/* The side panel goes without these notes (full screen keeps them). */}
               {!synced && fullscreen && (
                 <p className="px-3 pb-3 text-[11px] text-white/35">{isAutoSynced ? t("These lyrics aren't time-synced — following along roughly.") : t("These lyrics aren't time-synced.")}</p>
               )}
               {lines.map((line, i) => (
+                <EdgeWrap key={i} on={topBlur} index={i} rowsRef={edgeRowsRef}>
                 <Row
-                  key={i}
                   line={line}
                   index={i}
                   until={nextTimes[i]}
@@ -1441,8 +1551,10 @@ export default function LyricsPanel({
                   onSeek={seek}
                   registerRow={registerRow}
                 />
+                </EdgeWrap>
               ))}
-              <div style={{ height: fullscreen ? '55vh' : 0 }} />
+              {/* The side panel: one empty line's room after the last one (and the player bar's, when the list runs under it). */}
+              <div style={{ height: fullscreen ? '55vh' : `calc(${underBar ? 'var(--player-space, 0px)' : '0px'} + ${(EMPTY_LINES_REM * textScale).toFixed(3)}rem)` }} />
               {sourceLabel && fullscreen && (
                 <p className="px-3 pb-10 text-[11px] text-white/30">
                   {t('Lyrics via {source}', { source: sourceLabel })}{result?.sync ? ` · ${SYNC_LABEL[result.sync] ? t(SYNC_LABEL[result.sync]) : ''}` : ''}
