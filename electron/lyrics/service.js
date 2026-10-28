@@ -386,6 +386,16 @@ function importLyrics(db, trackId, content, type) {
   return result
 }
 
+/**
+ * Text (LRC, enhanced LRC, TTML, word-timed JSON, plain) -> lyrics, read the
+ * way an import is but kept nowhere: Edit Track's "Check lyrics" shows them
+ * in the side panel without saving them.
+ */
+function parseLyricsText(content) {
+  const text = typeof content === 'string' ? content : String(content ?? '')
+  return parseImported(text.replace(/\r\n?/g, '\n')) || null
+}
+
 // ---------------------------------------------------------------- the file's own tags
 
 function fileOf(db, trackId) {
@@ -418,17 +428,23 @@ async function readFileLyrics(db, trackId) {
  *                  the syllable text. Empty removes, unless syllable lyrics stay.
  * @param syllable  the edited word timings (enhanced LRC; empty removes them),
  *                  or null/undefined to keep the file's LOKAL_LYRICS as it is
+ * Word-timed JSON (lyrics/wordsJson.js) in either is read as the word timings,
+ * and the standard tags are then made from them.
+ * Returns what was written: text (the standard tags) and syllable (enhanced LRC).
  */
 async function writeFileLyrics(db, trackId, text, syllable) {
   const filePath = fileOf(db, trackId)
   const current = await fileLyrics.readPrivateTag(filePath)
+  const wordsJson = require('./wordsJson')
+  if (wordsJson.isWordsJson(text)) { syllable = text; text = null }
+  if (wordsJson.isWordsJson(syllable)) { syllable = wordsJson.wordsJsonToEnhanced(syllable); text = null }
   let privateTag = null
   if (typeof syllable === 'string') privateTag = embedded.enhancedToPrivate(syllable, current)
   else if (embedded.hasSyllables(current)) privateTag = current
   if (!String(text ?? '').trim()) text = privateTag ? (embedded.portableFromPrivate(privateTag) || '') : ''
   const done = fileLyrics.writeFileLyrics(filePath, text, privateTag)
   afterFileWrite(db, trackId, filePath, done, text, privateTag)
-  return { ...done, sidecar: fileLyrics.sidecarFor(filePath) }
+  return { ...done, text: done.empty ? '' : String(text || '').replace(/\r\n?/g, '\n').trim(), syllable: embedded.privateToEnhanced(privateTag), sidecar: fileLyrics.sidecarFor(filePath) }
 }
 
 /** "Insert into track": one source's lyrics written into the file's tags. */
@@ -512,4 +528,4 @@ async function romanize(db, trackId, lines) {
   return translation.romanize(db, trackId, lines)
 }
 
-module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, markRejected, importLyrics, readFileLyrics, writeFileLyrics, writeFoundLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }
+module.exports = { getLyrics, getLyricsFrom, rejectSource, rejectedSources, markRejected, importLyrics, parseLyricsText, readFileLyrics, writeFileLyrics, writeFoundLyrics, embedFrom, clearCache, sources, translate, romanize, readSettings, upgradeLegacy }

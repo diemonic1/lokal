@@ -147,14 +147,14 @@ function readSidePanels() {
     // Nothing saved yet: open, on Visualization + Lyrics.
     const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null') || { showRightSidebar: true, sidePanelView: 'visualLyrics' }
     if (typeof saved !== 'object') return {}
-    const view = ['info', 'lyrics', 'visual', 'visualLyrics', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
+    const view = ['info', 'lyrics', 'visual', 'visualLyrics', 'clip', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
     if (readExclusiveSidePanelsSetting()) {
       return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
     }
     return {
       showRightSidebar: !!saved.showRightSidebar,
-      // Visualization (and Visualization + Lyrics) is a tab of this panel in both modes.
-      sidePanelView: view === 'visual' || view === 'visualLyrics' ? view : 'info',
+      // Visualization (and Visualization + Lyrics, Clip / Visualization) is a tab of this panel in both modes.
+      sidePanelView: view === 'visual' || view === 'visualLyrics' || view === 'clip' ? view : 'info',
       showQueue: !!saved.showQueue,
       showLyricsPanel: !!saved.showLyricsPanel,
     }
@@ -285,6 +285,9 @@ export const usePlayerStore = create((set, get) => ({
   // mode -- independent mode's Queue lives in its own separate panel and
   // never touches this.
   sidePanelView: 'info',
+  // Edit Track is open: a song that ends stops there (no next song, no
+  // crossfade into one). See autoNext and App's triggerCrossfade.
+  holdAtEnd: false,
   // Settings > Appearance > Layout > Side Panels. Store state (not just a
   // localStorage read inside actions) so components can react live when
   // the setting changes, without needing a reload. Initialized from
@@ -583,6 +586,9 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   autoNext: () => {
+    // Edit Track open (holdAtEnd): the song just stops at its end -- Play
+    // starts it over -- and no other song comes on under the editor.
+    if (get().holdAtEnd) { set({ isPlaying: false }); return }
     const { shuffle, shuffleQueue, shuffleIndex, queue, queueIndex, repeat, playHistory } = get()
     
     if (shuffle && shuffleQueue.length > 0) {

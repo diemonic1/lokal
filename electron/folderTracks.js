@@ -103,7 +103,7 @@ function freeName(dir, base) {
 }
 
 // Lyrics and other files that sit next to a song under its name go with it.
-const SIDECARS = ['.lrc', '.elrc', '.ttml', '.txt']
+const SIDECARS = ['.lrc', '.elrc', '.ttml', '.json', '.txt']
 
 /** Moves the song's file into the folder; its number becomes the folder's biggest + 1. */
 const BUSY = /EBUSY|EPERM|EACCES/i

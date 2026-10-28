@@ -320,6 +320,8 @@ export const api = {
   translateLyrics: (tid, lines, targetLang = 'en') => (isE() && typeof el().translateLyrics === 'function')
     ? el().translateLyrics(tid, lines, targetLang)
     : apiFetch(`/lyrics/${tid}/translate`, { method:'POST', body:{ lines, targetLang } }),
+  // Edit Track's "Check lyrics": text -> lyrics, saved nowhere.
+  parseLyrics: (c) => isE() ? el().parseLyrics(c) : apiFetch('/lyrics/parse', { method:'POST', body:{ content: c } }),
   importLyrics: (tid, c, t, fp) => isE() ? el().importLyrics(tid, c, t, fp) : apiFetch(`/lyrics/${tid}/import`, { method:'POST', body:{content:c,type:t,filePath:fp} }),
   clearLyricsCache: (tid) => isE() ? el().clearLyricsCache(tid) : apiFetch(`/lyrics/${tid}`, { method:'DELETE' }),
   // The lyrics inside the track's own file (tags), read and written on request only.

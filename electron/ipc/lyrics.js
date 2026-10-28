@@ -24,6 +24,9 @@ function registerLyricsHandlers(ipcMain) {
   ipcMain.handle('lyrics:import', (_, trackId, content, type) =>
     service.importLyrics(db, trackId, content, type))
 
+  // Edit Track's "Check lyrics": parsed, not kept.
+  ipcMain.handle('lyrics:parse', (_, content) => service.parseLyricsText(content))
+
   ipcMain.handle('lyrics:clearCache', (_, trackId) => service.clearCache(db, trackId))
 
   // Writing into the song's file happens only from these, i.e. when the user asks.

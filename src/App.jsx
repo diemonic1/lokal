@@ -2048,6 +2048,8 @@ export default function App() {
 
   const triggerCrossfade = useCallback((nextTrack, plan = null) => {
     if (isCrossfadingRef.current) return
+    // Edit Track open: the song plays to its end and stops (autoNext).
+    if (usePlayerStore.getState().holdAtEnd) return
     if (!cfAudioRef.current || !audioRef.current || !nextTrack || !audioCtxRef.current) return
     if (!gainNodeRef.current || !cfGainNodeRef.current) return
     if (!fadeGainRef.current.primary || !fadeGainRef.current.cf) return

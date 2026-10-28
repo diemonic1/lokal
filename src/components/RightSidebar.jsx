@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AudioWaveform, Info, ListMusic, Music, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay } from 'lucide-react'
+import { AudioWaveform, Info, ListMusic, Music, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay, Film } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import LyricsPanel from './LyricsPanel'
+import SideClip from './SideClip'
 import SideVisualLyrics from './SideVisualLyrics'
 import { QueueContent } from './QueuePanel'
 import ArtworkBackdrop, { meshKeyFor, useArtworkBackdropEnabled } from './ArtworkBackdrop'
@@ -236,7 +237,10 @@ export default function RightSidebar() {
   // Visualization + Lyrics: the picture over the lyrics (SideVisualLyrics);
   // a tab whatever the settings (its picture is the visualization with lyrics).
   const showVisualLyrics = sidePanelView === 'visualLyrics'
-  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
+  // Clip / Visualization: the song's video or moving cover over the whole
+  // panel, else the visualization (SideClip).
+  const showClip = sidePanelView === 'clip'
+  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : showClip ? 'clip' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
 
   // Cosmetic case: when the panel is closed and Queue/Lyrics is clicked,
   // toggleQueueButton/toggleLyricsButton opens it straight to that
@@ -252,6 +256,7 @@ export default function RightSidebar() {
   const openedFreshToLyrics = !wasSidebarOpenRef.current && showRightSidebar && sidePanelView === 'lyrics'
   const openedFreshToVisual = !wasSidebarOpenRef.current && showRightSidebar && showVisual
   const openedFreshToVisualLyrics = !wasSidebarOpenRef.current && showRightSidebar && showVisualLyrics
+  const openedFreshToClip = !wasSidebarOpenRef.current && showRightSidebar && showClip
   useEffect(() => {
     wasSidebarOpenRef.current = showRightSidebar
   })
@@ -346,6 +351,7 @@ export default function RightSidebar() {
       { label: t('Lyrics'), icon: Mic2, checked: tab === 'lyrics', onSelect: pick('lyrics') },
       { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
       { label: t('Visualization + Lyrics'), icon: MonitorPlay, checked: tab === 'visualLyrics', onSelect: pick('visualLyrics') },
+      { label: t('Clip / Visualization'), icon: Film, checked: tab === 'clip', onSelect: pick('clip') },
       { label: t('Queue'), icon: ListMusic, checked: tab === 'queue', onSelect: pick('queue') },
       { separator: true },
       { label: t('Close the side panel'), icon: PanelRightClose, onSelect: toggleRightSidebar },
@@ -658,6 +664,25 @@ export default function RightSidebar() {
                   ) : (
                     <div className="flex flex-1 flex-col" style={{ backgroundColor: fullVisualBg }}>{fullVisual}</div>
                   )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Clip / Visualization: same overlay again, mounted only while it shows. */}
+            <AnimatePresence key={`clip-${reveal}`} initial={reveal === 0}>
+              {showClip && (
+                <motion.div
+                  key="clip-overlay"
+                  initial={openedFreshToClip ? false : { y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+                  className="absolute inset-0 flex flex-col"
+                  style={{ backgroundColor: fullVisualBg }}
+                >
+                  {currentTrack
+                    ? <SideClip track={currentTrack} visual={fullVisual} visualBg={fullVisualBg} coverOff={coverOff} />
+                    : fullVisual}
                 </motion.div>
               )}
             </AnimatePresence>

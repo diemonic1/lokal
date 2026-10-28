@@ -394,7 +394,7 @@ async function motionCoverFor(db, track, { settings = {}, cacheDir, ffmpeg } = {
   if (settings.motion_covers === '0') return null
   const sources = enabledSources(settings)
   if (!sources.length) return null
-  const found = await lookUp(db, track, sources)
+  const found = await lookUp(db, track, sources, settings)
   if (!found) { noteMotionCoverSource(db, track.id, null); return null }
   const file = await cachedClip(found, { cacheDir, ffmpeg })
   if (file) {
@@ -415,7 +415,7 @@ async function checkMotionCover(db, track, settings = {}) {
   if (NO_ALBUM.test(track.album || '')) track = { ...track, album: '' }
   const sources = enabledSources(settings)
   if (!sources.length) return null
-  const found = await lookUp(db, track, sources)
+  const found = await lookUp(db, track, sources, settings)
   noteMotionCoverSource(db, track.id, found?.source || null)
   if (found?.source === 'spotify') noteSpotifyCanvas(db, track.id, true)
   else if (sources.includes('spotify')) {
@@ -426,7 +426,7 @@ async function checkMotionCover(db, track, settings = {}) {
 }
 
 /** The sources asked in order (or the remembered answer): what was found, or null. */
-async function lookUp(db, track, sources) {
+async function lookUp(db, track, sources, settings = {}) {
   ensureTable(db)
   // "|s3": Spotify lookups from before the canvas-query switch are ignored.
   // "|v2": lookups from before the provider-call fix above are ignored (they
@@ -434,7 +434,9 @@ async function lookUp(db, track, sources) {
   // "|v3": lookups made before "Unknown Album" was ignored are looked up again.
   // "|v4": and those from before a credit like "A/B/C" or "A, B (C Remix)"
   // matched a source listing only some of them.
-  const key = keyFor(track) + `|${sources.join(',')}|v4` + (sources.includes('spotify') ? '|s3' : '')
+  // "|v5": and those from when no source was really asked (lookUp called them
+  // without the settings, and every one failed before a request).
+  const key = keyFor(track) + `|${sources.join(',')}|v5` + (sources.includes('spotify') ? '|s3' : '')
   const row = db.prepare('SELECT data, fetched_at FROM motion_covers WHERE key = ?').get(key)
   let found
   if (row) {
@@ -442,12 +444,20 @@ async function lookUp(db, track, sources) {
     const fresh = Date.now() - row.fetched_at < (data ? HIT_TTL : MISS_TTL)
     if (fresh) found = data
   }
+  // A clip found before "|v5" still stands (only its "none"s were wrong).
+  if (found === undefined) {
+    const old = db.prepare('SELECT data, fetched_at FROM motion_covers WHERE key = ?').get(key.replace('|v5', '|v4'))
+    if (old?.data && Date.now() - old.fetched_at < HIT_TTL) found = JSON.parse(old.data)
+  }
   if (found === undefined) {
     found = null
     let unsure = false // a source failed on its end: don't remember this as "none"
     for (const id of sources) {
       let failed = false
-      try { found = await PROVIDERS[id](track, settings) } catch (e) { found = null; failed = true; if (e?.transient) unsure = true }
+      // A source failing on its end, or Lokal's own code failing before it
+      // was even asked (a TypeError, a ReferenceError -- a fetch that never
+      // connected is a TypeError too): unknown, not "none".
+      try { found = await PROVIDERS[id](track, settings) } catch (e) { found = null; failed = true; if (e?.transient || e instanceof TypeError || e instanceof ReferenceError) unsure = true }
       // Spotify answered for this song: whether it has a Canvas is known now.
       if (id === 'spotify' && !failed) noteSpotifyCanvas(db, track.id, !!found)
       if (found) break

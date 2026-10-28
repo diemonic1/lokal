@@ -42,6 +42,11 @@ router.get('/:trackId/from/:providerId', async (req, res) => {
   }
 })
 
+// Edit Track's "Check lyrics": text -> lyrics, saved nowhere.
+router.post('/parse', (req, res) => {
+  try { res.json(service.parseLyricsText(req.body?.content)) } catch (e) { res.json(null) }
+})
+
 router.post('/:trackId/import', (req, res) => {
   res.json(service.importLyrics(getDB(), req.params.trackId, req.body?.content, req.body?.type))
 })

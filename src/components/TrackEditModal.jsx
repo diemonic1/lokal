@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy } from 'lucide-react'
+import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy, ScanSearch, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import GenreChips from './GenreChips'
@@ -8,9 +8,13 @@ import { trackGenreList, genreKey } from '../genres'
 import { usePlayerStore } from '../store/player'
 import { useTranslation } from '../i18n'
 import { announceLyricsFileChanged } from '../lyricLine'
+import { clearLyricsPreview, showLyricsPreview, useLyricsPreview } from '../lyricsPreview'
+import { setResumePosition } from '../cast/useCastPlayback'
+import { songTime } from '../musicVideo'
 import { announceTrackChanged } from '../trackChanged'
 import { useCoverDrop, coverError } from './CoverDrop'
 import ClipAvailability from './ClipAvailability'
+import LyricsTextArea from './LyricsTextArea'
 import MotionCoverMarks from './MotionCoverMarks'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClip } from '../clipVideo'
 
@@ -33,6 +37,52 @@ function parseNumberField(value) {
   if (!trimmed) return null
   const parsed = parseFloat(trimmed)
   return Number.isNaN(parsed) ? null : parsed
+}
+
+/**
+ * Beside "Check lyrics": the song's playing position as a lyrics time stamp
+ * (mm:ss.xxx), read from the audio element every frame; a click copies it,
+ * to paste into the lyrics. Shown while this song is the one playing.
+ */
+function PlayheadStamp({ trackId }) {
+  const { t } = useTranslation()
+  const current = usePlayerStore(s => trackId != null && s.currentTrack?.id === trackId)
+  const textRef = useRef(null)
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(0)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => {
+    if (!current) return undefined
+    let frame = 0
+    const tick = () => {
+      if (textRef.current) textRef.current.textContent = stampOf(songTime())
+      frame = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(frame)
+  }, [current])
+  if (!current) return null
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(stampOf(songTime())) } catch { return }
+    setCopied(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 1200)
+  }
+  return (
+    <button type="button" onClick={copy} title={t('Copy the playing time as a time stamp')} aria-label={t('Copy the playing time as a time stamp')}
+      className={`flex items-center gap-1.5 rounded-lg border px-2 py-0.5 font-mono text-[12px] tabular-nums transition-colors ${copied ? 'border-accent/50 text-accent' : 'border-border bg-card text-white hover:border-accent/30'}`}>
+      <span ref={textRef} />
+      {copied ? <Check size={11} /> : <Copy size={11} className="text-muted" />}
+    </button>
+  )
+}
+
+/** Seconds -> "mm:ss.xxx", like the lyrics' time stamps. */
+function stampOf(seconds) {
+  const ms = Math.max(0, Math.round((Number(seconds) || 0) * 1000))
+  const m = Math.floor(ms / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`
 }
 
 /**
@@ -64,6 +114,8 @@ function FileNameRow({ filePath }) {
     </div>
   )
 }
+
+const WIDE_KEY = 'lokal-edit-track-lyrics-wide'
 
 export default function TrackEditModal({ track, open, onClose, onSave }) {
   const { t } = useTranslation()
@@ -123,6 +175,49 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     }).catch((e) => { if (active) setLyrics({ ...emptyLyrics, state: 'error', error: e?.message || null }) })
     return () => { active = false }
   }, [open, track?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Check lyrics": the field's text, as it is now, shown in the side panel's
+  // lyrics while the song plays (from `at` seconds, a line's play button) --
+  // nothing is saved; Save writes it into the file.
+  const [checking, setChecking] = useState(false)
+  // Where this song is playing (seconds), for the lyrics field's red marks; null when another plays.
+  const playhead = usePlayerStore(s => (track?.id != null && s.currentTrack?.id === track.id ? s.progress : null))
+  // Lyrics across the whole dialog (the tags hidden): remembered for next time.
+  const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1' } catch { return false } })
+  const setWide = (on) => { setWideState(on); try { localStorage.setItem(WIDE_KEY, on ? '1' : '0') } catch {} }
+  const checkLyrics = async (at = null) => {
+    if (!track?.id || checking) return
+    const text = lyrics.mode === 'syllable' ? lyrics.syllable : lyrics.text
+    if (!text.trim()) { setStatus({ type: 'error', message: t('There are no lyrics to check') }); return }
+    setChecking(true)
+    try {
+      const parsed = await api.parseLyrics(text).catch(() => null)
+      if (!parsed?.lines?.length) { setStatus({ type: 'error', message: t("Couldn't read these lyrics") }); return }
+      showLyricsPreview(track.id, { ...parsed, source: 'edited', preview: true, editor: true })
+      const player = usePlayerStore.getState()
+      if (player.currentTrack?.id !== track.id) {
+        if (at != null) setResumePosition(track.id, at)
+        player.playTrack(track, [track])
+      } else {
+        if (at != null) player.setProgressWithAudioUpdate(at)
+        if (!player.isPlaying) player.togglePlay()
+      }
+      // Always the side panel's Lyrics tab.
+      usePlayerStore.setState({ showRightSidebar: true, sidePanelView: 'lyrics' })
+    } finally { setChecking(false) }
+  }
+  // Closed (or saved, below): the side panel goes back to the song's own lyrics.
+  const endCheck = () => {
+    const preview = useLyricsPreview.getState()
+    if (preview.result?.editor) clearLyricsPreview([preview.trackId])
+  }
+  useEffect(() => { if (!open) endCheck() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  // While it's open a song that ends just stops: no next song under the editor.
+  useEffect(() => {
+    if (!open) return undefined
+    usePlayerStore.setState({ holdAtEnd: true })
+    return () => usePlayerStore.setState({ holdAtEnd: false })
+  }, [open])
 
   // Whether the song has a Spotify Canvas, and where the moving cover it played
   // with came from, as its row has them now (written when it played, or by
@@ -328,11 +423,13 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       const lyricsChanged = textChanged || syllableChanged
       let lyricsKind = null
       if (lyricsChanged) {
-        // Edited syllables with the standard text untouched: the server
-        // rewrites that text from them, the way "Insert into track" does.
+        // Edited syllables: the server rewrites the standard text from them
+        // (one stamp a line), the way "Insert into track" does -- unless they
+        // were cleared, when the standard text is kept as it stands.
+        const fromSyllables = syllableChanged && lyrics.syllable.trim()
         const written = await api.writeFileLyrics(
           track.id,
-          textChanged || !syllableChanged ? lyrics.text : null,
+          fromSyllables ? null : lyrics.text,
           syllableChanged ? lyrics.syllable : undefined,
         )
         if (!written || written.ok === false) {
@@ -340,7 +437,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
           setSaving(false)
           return
         }
-        setLyrics(prev => ({ ...prev, original: prev.text, syllableOriginal: prev.syllable }))
+        // What went into the file: the standard text rebuilt from the
+        // syllables, pasted JSON turned into syllable lines.
+        setLyrics(prev => {
+          const text = typeof written.text === 'string' ? written.text : prev.text
+          const syllable = typeof written.syllable === 'string' ? written.syllable : prev.syllable
+          return { ...prev, text, original: text, syllable, syllableOriginal: syllable }
+        })
+        endCheck()
         announceLyricsFileChanged(track.id)
         lyricsKind = written.lyricsKind ?? null
       }
@@ -404,6 +508,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   const small = 'w-full bg-surface border border-border rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-accent/50'
   const label = 'text-[10px] font-display text-muted uppercase tracking-widest block mb-1'
   const showLyrics = lyrics.state !== 'none'
+  // The lyrics across the whole dialog, the tags hidden (kept mounted).
+  const lyricsWide = showLyrics && wide
   const audioFields = [
     ['danceability', 'Danceability', '0.522'], ['energy', 'Energy', '0.992'], ['track_key', 'Key', '0'], ['loudness', 'Loudness', '-3.076'],
     ['mode', 'Mode', '1'], ['speechiness', 'Speechiness', '0.173'], ['acousticness', 'Acousticness', '0.0631'], ['instrumentalness', 'Instrumentalness', '0.743'],
@@ -413,26 +519,48 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   // Lyrics on the left, tags on the right; Close and Save stay at the bottom
   // whatever is scrolled.
   return (
-    <Modal open={open} onClose={onClose} title={t('Edit Track')} width={showLyrics ? 'max-w-6xl' : 'max-w-2xl'} clearBackdrop>
-      <div className="flex h-[min(calc(46rem+50px),calc(100vh-8rem))] flex-col gap-3">
-        <div className={`grid min-h-0 flex-1 gap-4 ${showLyrics ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
+    // Docked over the left menu and the page: the player bar's play/pause and
+    // seek bar, and the side panel's lyrics, stay usable while editing.
+    <Modal open={open} onClose={onClose} title={t('Edit Track')} dock>
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className={`grid min-h-0 flex-1 gap-4 ${showLyrics && !lyricsWide ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
           {showLyrics && (
             <div className="flex min-h-0 flex-col">
               <div className="mb-1 flex items-center justify-between">
-                <label className={`${label} mb-0`}>{t('Lyrics')}</label>
-                {lyrics.state === 'ready' && lyrics.syllableOriginal ? (
-                  <div className="flex rounded-lg border border-border bg-card p-0.5 text-[11px]">
-                    {[['syllable', t('By syllable')], ['plain', t('In the lyrics tag')]].map(([mode, name]) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setLyrics(prev => ({ ...prev, mode }))}
-                        className={`rounded-md px-2 py-0.5 transition-colors ${lyrics.mode === mode ? 'bg-accent/20 text-white' : 'text-muted hover:text-white'}`}
-                      >{name}</button>
-                    ))}
+                <div className="flex items-center gap-3">
+                  <label className={`${label} mb-0`}>{t('Lyrics')}</label>
+                  {lyrics.state === 'ready' && (
+                    <button type="button" onClick={() => checkLyrics()} disabled={checking}
+                      title={t('Plays the song with these lyrics in the side panel, without saving them')}
+                      className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-0.5 text-[11px] text-muted transition-colors hover:text-white disabled:opacity-50">
+                      {checking ? <RefreshCw size={11} className="animate-spin" /> : <ScanSearch size={11} />}
+                      {t('Check lyrics')}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setWide(!wide)} aria-pressed={wide}
+                    title={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')} aria-label={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')}
+                    className="flex h-[22px] w-[26px] items-center justify-center rounded-lg border border-border bg-card text-muted transition-colors hover:text-white">
+                    {wide ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                  </button>
+                  <PlayheadStamp trackId={track?.id} />
+                </div>
+                {/* Both tabs always: syllables can be added to a song that has none. */}
+                {lyrics.state === 'ready' && (
+                  <div className="flex items-center gap-2">
+                    {lyrics.mode === 'plain' && lyrics.text.trim() && (
+                      <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
+                    )}
+                    <div className="flex rounded-lg border border-border bg-card p-0.5 text-[11px]">
+                      {[['syllable', t('By syllable')], ['plain', t('In the lyrics tag')]].map(([mode, name]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setLyrics(prev => ({ ...prev, mode }))}
+                          className={`rounded-md px-2 py-0.5 transition-colors ${lyrics.mode === mode ? 'bg-accent/20 text-white' : 'text-muted hover:text-white'}`}
+                        >{name}</button>
+                      ))}
+                    </div>
                   </div>
-                ) : lyrics.state === 'ready' && lyrics.text.trim() && (
-                  <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
                 )}
               </div>
               {lyrics.state === 'loading' ? (
@@ -440,20 +568,21 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               ) : lyrics.state === 'error' ? (
                 <p className="text-xs text-red-400">{t("Couldn't read the lyrics from the file")}{lyrics.error ? `: ${lyrics.error}` : ''}</p>
               ) : (
-                <textarea
+                <LyricsTextArea
                   key={lyrics.mode}
                   value={lyrics.mode === 'syllable' ? lyrics.syllable : lyrics.text}
                   onChange={(e) => {
                     const value = e.target.value
                     setLyrics(prev => (prev.mode === 'syllable' ? { ...prev, syllable: value } : { ...prev, text: value }))
                   }}
-                  spellCheck={false}
-                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs leading-relaxed text-white outline-none focus:border-accent/50"
                   placeholder={lyrics.mode === 'syllable' ? '[00:12.300]<00:12.300>Сло<00:12.610>ва<00:13.020>' : t('[00:12.30] A synced line, or plain text')}
+                  onPlayLine={(time) => checkLyrics(time)}
+                  playhead={playhead}
+                  playLabel={t('Check the lyrics from this line')}
                 />
               )}
               <p className="mt-1 text-[11px] leading-snug text-muted">{lyrics.mode === 'syllable'
-                ? t("Lokal's own tag with word and syllable timings: <mm:ss.xxx> before each syllable, a space after a word. Edited here and left alone in the other mode, the lyrics tag is rewritten from these lines on save.")
+                ? t("Lokal's own tag with word and syllable timings: <mm:ss.xxx> before each syllable, a space after a word. Word-timed JSON (WhisperX: words with start and end) can be pasted too. When these change, the lyrics tag is rewritten from them on save.")
                 : t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
               {lyrics.sidecar && (
                 <p className="mt-1 text-[11px] text-orange-400">{t('A lyrics file next to the song ({file}) is shown instead of these.', { file: lyrics.sidecar.split(/[\\/]/).pop() })}</p>
@@ -461,7 +590,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
             </div>
           )}
 
-          <div className="min-h-0 space-y-2.5 overflow-y-auto pr-1">
+          <div className={`min-h-0 space-y-2.5 overflow-y-auto pr-1 ${lyricsWide ? 'hidden' : ''}`}>
             <div className="flex gap-3">
               <div className="flex-shrink-0">
                 <div {...coverDrop.dropProps} className={`group relative h-28 w-28 overflow-hidden rounded-lg border bg-card ${coverDrop.over ? 'border-accent ring-2 ring-accent' : 'border-border'}`}>
@@ -515,7 +644,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               </div>
               <div>
                 <label className={label}>{t('Year')}</label>
-                <input type="number" min="1900" max="2100" value={formData.year} onChange={(e) => handleChange('year', e.target.value)} className={field} placeholder="2024" />
+                <input type="number" min="1900" max="2100" value={formData.year} onChange={(e) => handleChange('year', e.target.value)} className={field} placeholder={t('Enter the year')} />
               </div>
               <div>
                 <span className={label} aria-hidden>&nbsp;</span>

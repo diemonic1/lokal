@@ -1,5 +1,6 @@
 // Lyrics that ship with the file itself:
-//   - a sidecar next to the audio: song.ttml, song.elrc, song.lrc, song.txt
+//   - a sidecar next to the audio: song.ttml, song.elrc, song.json (word
+//     timings, lyrics/wordsJson.js), song.lrc, song.txt
 //   - lyrics embedded in the tags (ID3 USLT/SYLT, Vorbis LYRICS/UNSYNCEDLYRICS,
 //     MP4 ©lyr...), which music-metadata surfaces as common.lyrics
 //   - Lokal's own LOKAL_LYRICS tag, written when Lokal downloaded the file,
@@ -11,6 +12,7 @@ const fs = require('fs')
 const path = require('path')
 const { fromPrivateTag, privateTagText } = require('../embedded')
 const { lyricsFromMeta } = require('../fileLyrics')
+const { isWordsJson } = require('../wordsJson')
 
 let mm = null
 function metadata() {
@@ -20,7 +22,7 @@ function metadata() {
   return mm || null
 }
 
-const SIDECARS = ['.ttml', '.elrc', '.lrc', '.txt']
+const SIDECARS = ['.ttml', '.elrc', '.json', '.lrc', '.txt']
 
 function readSidecar(filePath) {
   const dir = path.dirname(filePath)
@@ -30,6 +32,8 @@ function readSidecar(filePath) {
     try {
       if (fs.existsSync(candidate)) {
         const text = fs.readFileSync(candidate, 'utf8')
+        // A .json next to the song is only lyrics when it holds word timings.
+        if (ext === '.json' && !isWordsJson(text)) continue
         if (text.trim()) return text
       }
     } catch { /* unreadable, keep looking */ }

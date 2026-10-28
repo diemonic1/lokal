@@ -309,9 +309,13 @@ function fromResult(result) {
 function sidecarFor(filePath) {
   const dir = path.dirname(filePath)
   const base = path.basename(filePath, path.extname(filePath))
-  for (const ext of ['.ttml', '.elrc', '.lrc', '.txt']) {
+  for (const ext of ['.ttml', '.elrc', '.json', '.lrc', '.txt']) {
     const candidate = path.join(dir, base + ext)
-    try { if (fs.existsSync(candidate)) return candidate } catch {}
+    try {
+      if (!fs.existsSync(candidate)) continue
+      if (ext === '.json' && !require('./wordsJson').isWordsJson(fs.readFileSync(candidate, 'utf8'))) continue
+      return candidate
+    } catch {}
   }
   return null
 }

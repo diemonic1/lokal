@@ -416,14 +416,15 @@ export default function PlayerBar() {
           <MixingMark className="absolute left-full top-1/2 ml-4 -translate-y-1/2 whitespace-nowrap pointer-events-none" />
           <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={shuffle ? t("Shuffle on") : t("Shuffle off")}><Shuffle size={15} /></button>
           <button onClick={prev} className="text-text/90 hover:text-text transition-colors" title={t("Previous")}><SkipBack size={18} fill="currentColor" /></button>
-          <motion.button onClick={togglePlay} disabled={!currentTrack} whileTap={{ scale: 0.88 }}
+          {/* data-keep-dialog: Edit Track (a docked dialog) stays open for play/pause and seeking. */}
+          <motion.button data-keep-dialog onClick={togglePlay} disabled={!currentTrack} whileTap={{ scale: 0.88 }}
             className={`w-[45px] h-[45px] rounded-full flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-40 ${flowPlaying ? 'flow-play' : 'bg-accent text-base'}`}>
             {isPlaying ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
           </motion.button>
           <button onClick={next} className="text-text/90 hover:text-text transition-colors" title={t("Next")}><SkipForward size={18} fill="currentColor" /></button>
           <button onClick={toggleRepeat} className={`transition-colors ${repeat !== 'none' ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={t(repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all')}><RepeatIcon size={15} /></button>
         </div>
-        <div className="relative flex items-center gap-2 w-full max-w-[36rem]">
+        <div data-keep-dialog className="relative flex items-center gap-2 w-full max-w-[36rem]">
           {/* Glass: a soft, blurred shade under the times and the seek bar, so
               they stay readable over light pages behind the bar. */}
           {glass && shadeTransparency < 100 && (

@@ -87,12 +87,42 @@ function sweepStyle() {
   }
 }
 
+// Words in [square brackets] (an echo, an ad-lib written in the line) are
+// shown a little dimmer than the rest -- only just, so they stand apart.
+const BRACKETED_OPACITY = 0.6
+
+/** Plain text with its [bracketed] parts a little dimmer. */
+export function withBrackets(text) {
+  const value = String(text ?? '')
+  if (!value.includes('[')) return value
+  return value.split(/(\[[^\]]*\]?)/).map((part, i) => (
+    i % 2 ? <span key={i} style={{ opacity: BRACKETED_OPACITY }}>{part}</span> : part
+  ))
+}
+
+/** Which units are inside [brackets] (a bracket can open in one word and close words later). */
+function bracketedUnits(units) {
+  const inside = new Set()
+  let depth = 0
+  units.forEach((unit, i) => {
+    const word = String(unit.word || '')
+    if (depth > 0 || word.trimStart().startsWith('[')) inside.add(i)
+    for (const ch of word) {
+      if (ch === '[') depth++
+      else if (ch === ']') depth = Math.max(0, depth - 1)
+    }
+  })
+  return inside
+}
+
 /** One vocal (lead or background): units grouped into unbreakable words. */
 export function Voice({ units, text, wordSync, className, style, voiceRef }) {
   if (!wordSync || !units?.length) {
-    return <span ref={voiceRef} data-voice="plain" dir="auto" className={className} style={style}>{text}</span>
+    return <span ref={voiceRef} data-voice="plain" dir="auto" className={className} style={style}>{withBrackets(text)}</span>
   }
   const groups = groupUnits(units)
+  const dim = bracketedUnits(units)
+  const dimmed = index => (dim.has(index) ? { opacity: BRACKETED_OPACITY } : null)
   return (
     <span ref={voiceRef} data-voice="timed" dir="auto" className={className} style={style}>
       {groups.map((group, gi) => {
@@ -105,13 +135,13 @@ export function Voice({ units, text, wordSync, className, style, voiceRef }) {
             <span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
               {group.units.map(({ unit, index }) => (
                 grow ? (
-                  <span key={index} data-u={index} data-grow="1" style={{ display: 'inline-block', whiteSpace: 'pre' }}>
+                  <span key={index} data-u={index} data-grow="1" style={{ display: 'inline-block', whiteSpace: 'pre', ...dimmed(index) }}>
                     {Array.from(unit.word).map((ch, ci) => (
                       <span key={ci} data-l={ci} style={sweepStyle()}>{ch}</span>
                     ))}
                   </span>
                 ) : (
-                  <span key={index} data-u={index} style={sweepStyle()}>{unit.word}</span>
+                  <span key={index} data-u={index} style={{ ...sweepStyle(), ...dimmed(index) }}>{unit.word}</span>
                 )
               ))}
             </span>
@@ -241,7 +271,9 @@ const Row = React.memo(function Row({
 
   return (
     <div ref={rowRef} data-row={index} className="w-full" style={{ willChange: 'transform' }}>
+      {/* data-keep-dialog: Edit Track (a docked dialog) stays open while a line is clicked to seek. */}
       <div
+        data-keep-dialog
         role={seekable ? 'button' : undefined}
         tabIndex={seekable ? 0 : undefined}
         onClick={() => { if (!seekable) return; const sel = window.getSelection?.(); if (sel && !sel.isCollapsed && sel.toString().trim()) return; onSeek(line.time) }}
@@ -280,7 +312,7 @@ const Row = React.memo(function Row({
               data-voice="plain"
               style={{ color: !synced ? SUNG : isFocused ? SUNG : UNSUNG, transition: `color ${HANDOVER_MS}ms ${EASE}` }}
             >
-              {line.text || (line.blank ? '\u00a0' : '')}
+              {line.text ? withBrackets(line.text) : (line.blank ? '\u00a0' : '')}
             </span>
           )}
         </div>
@@ -697,6 +729,9 @@ export default function LyricsPanel({
   const [checkInserting, setCheckInserting] = useState(null)
   const picked = foundPreview && checkPick?.trackId === track?.id ? checkPick : null
   const previewResult = foundPreview ? (picked?.result || foundPreview) : null
+  // Edit Track's "Check lyrics" (the field's text, not saved): none of Lyrics
+  // Search's source menu, which works on its report.
+  const editorPreview = !!foundPreview?.editor
   // Online radio: always plain text (synced lyrics lose their time stamps).
   const station = isStationTrack(track)
   const shownResult = previewResult || loadedResult
@@ -1307,13 +1342,13 @@ export default function LyricsPanel({
               // Lyrics Search's Check: says what this is, beside the source menu.
               <span
                 className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE}`}
-                title={t('Lyrics found by Lyrics Search, not saved anywhere yet')}
+                title={editorPreview ? t('Lyrics from Edit Track, not saved yet') : t('Lyrics found by Lyrics Search, not saved anywhere yet')}
               >
                 <ScanSearch size={11} className="flex-shrink-0" />
                 <span className="whitespace-nowrap">{t('Checking lyrics')}</span>
               </span>
             )}
-            {previewResult ? (
+            {previewResult && !editorPreview ? (
               <SourceMenu
                 sources={[{ id: CHECK_ID, label: t('Found') }, ...sources.filter(s => s.id !== 'local')]}
                 enabled={enabledSources}
@@ -1340,7 +1375,7 @@ export default function LyricsPanel({
                 openUp={toolbarAtBottom}
                 onOpenChange={onToolbarMenuChange}
               />
-            ) : sources.length > 0 && (result?.source || searching) && (
+            ) : !previewResult && sources.length > 0 && (result?.source || searching) && (
               <SourceMenu
                 sources={sources}
                 enabled={enabledSources}
@@ -1405,13 +1440,13 @@ export default function LyricsPanel({
               // -- along the bottom, a line above the buttons, out of their way.
               <span
                 className={`flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] text-accent bg-white/[0.08] backdrop-blur-md ${TOOLBAR_FADE} ${toolbarAtBottom ? 'absolute bottom-full right-4 -mb-2' : ''}`}
-                title={t('Lyrics found by Lyrics Search, not saved anywhere yet')}
+                title={editorPreview ? t('Lyrics from Edit Track, not saved yet') : t('Lyrics found by Lyrics Search, not saved anywhere yet')}
               >
                 <ScanSearch size={11} className="flex-shrink-0" />
                 <span className="whitespace-nowrap">{t('Checking lyrics')}</span>
               </span>
             )}
-            {previewResult ? (
+            {previewResult && !editorPreview ? (
               <SourceMenu
                 sources={[{ id: CHECK_ID, label: t('Found') }, ...sources.filter(s => s.id !== 'local')]}
                 enabled={enabledSources}
@@ -1437,7 +1472,7 @@ export default function LyricsPanel({
                 hidden={toolbarHidden}
                 openUp={toolbarAtBottom}
               />
-            ) : sources.length > 0 && (result?.source || searching) && (
+            ) : !previewResult && sources.length > 0 && (result?.source || searching) && (
               <SourceMenu
                 sources={sources}
                 enabled={enabledSources}

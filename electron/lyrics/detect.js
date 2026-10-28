@@ -6,6 +6,7 @@
 
 const { parseTTML } = require('./ttml')
 const { parseLRC, parseEnhancedLRC, parseKaraokeLRC, parsePlain, isEnhanced, isKaraoke } = require('./lrc')
+const { parseWordsJson } = require('./wordsJson')
 
 const CONTENT_KEYS = ['ttml', 'ttmlContent', 'lyrics', 'lrc', 'content', 'text', 'plainLyrics', 'syncedLyrics', 'line', 'lines', 'lyric', 'data', 'result', 'response']
 
@@ -56,6 +57,9 @@ const NOT_FOUND = /\b(?:lyrics? (?:not found|unavailable)|no lyrics|not found)\b
  * transliterations, language, timing), or null when nothing usable came back.
  */
 function parseAny(raw) {
+  // Word-timed JSON (WhisperX...): words with start/end, no lyric string to unwrap.
+  const timed = parseWordsJson(raw)
+  if (timed.length) return { lines: timed, doc: null }
   const unwrapped = unwrap(raw)
   if (!unwrapped) return null
   const content = unescapeTtml(unwrapped)
