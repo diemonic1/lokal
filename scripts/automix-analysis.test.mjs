@@ -50,6 +50,24 @@ test('where the sound starts, where the outro fades, where it really ends', () =
   assert.ok(result.energy > 0 && result.energy <= 1)
 })
 
+test('highlight: where a quiet verse turns into a loud chorus', () => {
+  // 30 s soft (a chord, quiet kicks), then 30 s loud, then 20 s soft again.
+  const quiet = song({ lead: 0, length: 30, fade: 0, tail: 0 }).map(v => v * 0.15)
+  const loud = song({ lead: 0, length: 30, fade: 0, tail: 0 })
+  const outro = song({ lead: 0, length: 20, fade: 0, tail: 0 }).map(v => v * 0.15)
+  const pcm = new Float32Array(quiet.length + loud.length + outro.length)
+  pcm.set(quiet, 0)
+  pcm.set(loud, quiet.length)
+  pcm.set(outro, quiet.length + loud.length)
+  const result = analyze(pcm)
+  assert.ok(result.highlight != null, 'a highlight')
+  assert.ok(result.highlight > 28 && result.highlight <= 30.2, `highlight at ${result.highlight} (the chorus comes in at 30 s)`)
+  // The same level all through: nothing stands out.
+  assert.equal(analyze(song({ lead: 0, length: 80, fade: 0, tail: 0 })).highlight, null)
+  // Too short to have room for one.
+  assert.equal(analyze(song({ length: 20 })).highlight, null)
+})
+
 test('key: C major and A minor', () => {
   const major = analyze(song({ notes: [261.63, 329.63, 392.0, 130.81] }))
   assert.equal(major.key, 0)

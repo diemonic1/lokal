@@ -722,12 +722,12 @@ export const api = {
   onLibraryChanged: (fn) => { if (isE() && el().onLibraryChanged) return el().onLibraryChanged(fn); return () => {} },
   onDownloadProgress: (fn) => { if (isE()) return el().onDownloadProgress(fn); return () => {} },
   getAvatarSrc: (user) => {
-    if (!user) return 'fallback_nopfp.png';
+    if (!user) return 'lokal-icon.png';
     if (user.avatar_path) {
        const version = user.avatar_updated_at ? `?v=${user.avatar_updated_at}` : '';
        return isE() ? `file://${user.avatar_path}${version}` : `${BASE}/avatar/${user.id}${version}`;
     }
-    return 'fallback_nopfp.png';
+    return 'lokal-icon.png';
   },
   openLogs: () => isE() ? el().openLogs() : Promise.resolve(),
   log: (level, message) => isE() ? el().log(level, message) : console.log(`[${level}] ${message}`),

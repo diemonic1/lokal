@@ -1,7 +1,8 @@
 // What AutoMix needs to know about a song, from its decoded audio (mono,
 // RATE Hz): where the sound starts and really ends (silence and long fades
 // trimmed), where its fade-out begins, how loud it is, its tempo and where the
-// beats fall, and its key. Pure functions, so they run in a worker thread
+// beats fall, its key, and its big moment (the recap story starts songs
+// there). Pure functions, so they run in a worker thread
 // (worker.js) and in the tests.
 //
 // Tempo: an onset envelope (rises in short-time energy of the signal's first
@@ -12,7 +13,7 @@
 // minor profiles in all twelve keys.
 
 const RATE = 11025
-const VERSION = 1
+const VERSION = 2
 
 // ---------------------------------------------------------------- loudness
 
@@ -300,6 +301,48 @@ function key(chromagram) {
   }
 }
 
+// ---------------------------------------------------------------- highlight
+
+/**
+ * The song's big moment (the drop, the chorus coming in), in seconds, or null:
+ * where a loud stretch (the next 8 s) follows a quieter one (the 4 s before),
+ * a little early and on a beat. Searched from 8 s after the sound starts to
+ * 15 s before it ends, so a short preview has room to play.
+ */
+function highlight(env, bounds, beat, hop = 0.05) {
+  const AFTER = Math.round(8 / hop)
+  const BEFORE = Math.round(4 / hop)
+  const from = Math.round((bounds.leadIn + 8) / hop)
+  const to = Math.round((bounds.audibleEnd - 15) / hop)
+  if (to - from < Math.round(10 / hop)) return null
+  // Prefix sums of the power: any stretch's mean level in O(1).
+  const power = new Float64Array(env.length + 1)
+  for (let i = 0; i < env.length; i++) power[i + 1] = power[i] + env[i] * env[i]
+  const level = (a, b) => db(Math.sqrt((power[b] - power[a]) / Math.max(1, b - a)))
+  const step = Math.round(0.5 / hop)
+  let best = null
+  let bestScore = -Infinity
+  let bestRise = 0
+  for (let f = from; f <= to; f += step) {
+    const after = level(f, Math.min(env.length, f + AFTER))
+    const rise = Math.max(0, after - level(Math.max(0, f - BEFORE), f))
+    const score = after + 1.5 * rise
+    if (score > bestScore) { bestScore = score; best = f; bestRise = rise }
+  }
+  // No real lift anywhere (a song as loud all through): nothing stands out.
+  if (best == null || bestRise < 1.5) return null
+  // The rise sits up to half a step late: the second it clears the quiet part.
+  let at = best
+  const quiet = level(Math.max(0, best - BEFORE), best)
+  while (at > best - step && at > 0 && db(env[at - 1]) > quiet + 3) at--
+  let time = at * hop - 0.5
+  if (beat?.bpm && beat.confidence > 0.2) {
+    const period = 60 / beat.bpm
+    time = beat.beat + Math.round((time - beat.beat) / period) * period
+  }
+  return Math.max(0, time)
+}
+
 // ---------------------------------------------------------------- all of it
 
 /** Everything AutoMix uses, from a song's mono PCM at `rate`. */
@@ -309,6 +352,7 @@ function analyze(pcm, rate = RATE) {
   const kicks = onsets(pcm, 3)
   const beat = tempo(kicks, rate, kicks)
   const tonal = key(chroma(pcm, rate))
+  const peak = highlight(env, bounds, beat)
   const round = value => (value == null ? null : Math.round(value * 1000) / 1000)
   return {
     version: VERSION,
@@ -327,7 +371,8 @@ function analyze(pcm, rate = RATE) {
     mode: tonal.mode,
     camelot: tonal.camelot,
     keyConfidence: tonal.confidence,
+    highlight: round(peak),
   }
 }
 
-module.exports = { analyze, envelope, edges, onsets, tempo, chroma, key, fft, RATE, VERSION }
+module.exports = { analyze, envelope, edges, onsets, tempo, chroma, key, highlight, fft, RATE, VERSION }

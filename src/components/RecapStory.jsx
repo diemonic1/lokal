@@ -6,7 +6,9 @@
 //   container units (cqw), so every slide fits without scrolling.
 // - Slides advance by themselves; the bars show the time left. Hold the card,
 //   press Space or the pause button to stop; hidden windows pause too.
-// - Each slide can play one of its songs (the sound toggle is remembered).
+// - Each slide can play one of its songs (the sound toggle is remembered),
+//   from its big moment when AutoMix's analysis finds one (desktop).
+// - Closing it (X, Escape, Share) pauses the soundtrack.
 // - "Play this session" and "Play top N" start those songs and close the
 //   story, so the player bar shows them (the next slide's song would
 //   otherwise replace them, hidden behind the story).
@@ -16,6 +18,8 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Disc3, Moon, Pause, Play, Radio, Share2, Sun, Sunrise, Sunset, Volume2, VolumeX, X } from 'lucide-react'
 import { usePlayerStore } from '../store/player'
+import { api } from '../api'
+import { setResumePosition } from '../cast/useCastPlayback'
 import { plural } from '../plural'
 import { translate, useTranslation } from '../i18n'
 import { periodLabel, periodTitle } from '../recapPeriods'
@@ -24,6 +28,9 @@ import { isWindowHidden, onWindowVisibility } from '../windowVisibility'
 import { coversOf, openShareCard } from '../shareCard'
 
 const SOUND_KEY = 'lokal-recap-story-sound'
+// How long a slide's song waits for its analysis (to start at its highlight)
+// before it plays from the top anyway.
+const ANALYSIS_WAIT_MS = 2000
 // A press this long pauses (like holding a story) instead of turning the page.
 const HOLD_MS = 220
 // The card: 9:16, as tall as the window allows below the controls, and never
@@ -244,6 +251,12 @@ function StoryViewer({ onClose, recap, period }) {
   const [hidden, setHidden] = useState(isWindowHidden)
   const [sound, setSound] = useState(readSound)
   const playQueue = usePlayerStore(state => state.playQueue)
+  // Closed (not by a play button): the story's soundtrack stops with it.
+  const closeStory = useCallback(() => {
+    const player = usePlayerStore.getState()
+    if (sound && player.isPlaying) player.togglePlay()
+    onClose()
+  }, [sound, onClose])
   // A button's songs: played, and the story closes (see the top).
   const playAndClose = useCallback((tracks, name) => {
     if (!tracks?.length) return
@@ -300,7 +313,7 @@ function StoryViewer({ onClose, recap, period }) {
   useEffect(() => {
     const onKey = (event) => {
       const onButton = event.target?.closest?.('button')
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') closeStory()
       else if (event.key === 'ArrowRight') go(1)
       else if (event.key === 'ArrowLeft') go(-1)
       else if (event.key === ' ' && !onButton) setPaused(value => !value)
@@ -310,18 +323,39 @@ function StoryViewer({ onClose, recap, period }) {
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [go, onClose])
+  }, [go, closeStory])
 
-  // The slide's song, unless sound is off; the same song isn't restarted.
+  // Each slide song's analysis (its highlight), asked for up front so it's
+  // ready by the time its slide comes.
+  const analyses = useRef(new Map())
+  const analysisOf = useCallback((track) => {
+    if (!analyses.current.has(track.id)) analyses.current.set(track.id, Promise.resolve(api.automixAnalyze(track)).catch(() => null))
+    return analyses.current.get(track.id)
+  }, [])
   useEffect(() => {
-    if (!sound || !slide.track?.id) return
+    for (const item of slides) if (item.track?.id) analysisOf(item.track)
+  }, [slides, analysisOf])
+
+  // The slide's song, unless sound is off, from its highlight; the same song
+  // isn't restarted.
+  useEffect(() => {
+    if (!sound || !slide.track?.id) return undefined
+    const track = slide.track
     const { currentTrack, isPlaying, togglePlay } = usePlayerStore.getState()
-    if (currentTrack?.id === slide.track.id) {
+    if (currentTrack?.id === track.id) {
       if (!isPlaying) togglePlay()
-      return
+      return undefined
     }
-    playQueue([slide.track], 0)
-  }, [sound, slide.track?.id, playQueue])
+    let cancelled = false
+    const timeout = new Promise(resolve => setTimeout(resolve, ANALYSIS_WAIT_MS, null))
+    Promise.race([analysisOf(track), timeout]).then(analysis => {
+      if (cancelled) return
+      const at = Number(analysis?.highlight)
+      if (at > 0) setResumePosition(track.id, at)
+      playQueue([track], 0)
+    })
+    return () => { cancelled = true }
+  }, [sound, slide.track, playQueue, analysisOf])
 
   const toggleSound = () => {
     const next = !sound
@@ -410,7 +444,7 @@ function StoryViewer({ onClose, recap, period }) {
               {t('lokal recap')} · {period ? periodLabel(period) : ''}
             </p>
             {/* The share dialog lives in the app behind the story: the story closes for it. */}
-            <StoryButton onClick={() => { const spec = slideShareSpec(slide, recap, period); onClose(); openShareCard(spec) }} label={t('Share this slide as a picture')}>
+            <StoryButton onClick={() => { const spec = slideShareSpec(slide, recap, period); closeStory(); openShareCard(spec) }} label={t('Share this slide as a picture')}>
               <Share2 size={14} />
             </StoryButton>
             {slide.duration > 0 && (
@@ -421,7 +455,7 @@ function StoryViewer({ onClose, recap, period }) {
             <StoryButton onClick={toggleSound} label={sound ? t('Turn the soundtrack off') : t('Turn the soundtrack on')} pressed={sound}>
               {sound ? <Volume2 size={15} /> : <VolumeX size={15} />}
             </StoryButton>
-            <StoryButton onClick={onClose} label={t('Close story')}>
+            <StoryButton onClick={closeStory} label={t('Close story')}>
               <X size={16} />
             </StoryButton>
           </div>

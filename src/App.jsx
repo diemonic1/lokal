@@ -1421,7 +1421,7 @@ export default function App() {
     if (!currentTrack) return
 
     const updateMetadata = async () => {
-      let artworkSrc = 'fallback_nopfp.png'
+      let artworkSrc = 'lokal-icon.png'
       if (currentTrack.artwork_path) {
         const dataUrl = await getArtworkDataURL(currentTrack.artwork_path)
         if (dataUrl) {
