@@ -120,7 +120,14 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-m
               : `relative z-10 flex max-h-[calc(100vh-1.5rem)] w-full flex-col ${width} bg-elevated border border-border rounded-2xl shadow-2xl overflow-hidden sm:max-h-[calc(100vh-2rem)]`}
             onClick={(e) => e.stopPropagation()}
           >
-            {title && (
+            {/* Docked, the title isn't shown (the room is for the content): only a close cross in the corner. */}
+            {dock && onClose && (
+              <button onClick={onClose} aria-label={typeof title === 'string' ? title : undefined}
+                className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-card hover:text-white">
+                <X size={14} />
+              </button>
+            )}
+            {title && !dock && (
               <div className="flex items-center justify-between px-5 pt-4 pb-0 sm:px-6 sm:pt-5">
                 <h2 className="font-display text-sm uppercase tracking-widest text-white">{title}</h2>
                 {onClose && (
@@ -130,7 +137,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-m
                 )}
               </div>
             )}
-            <div className={dock ? 'flex min-h-0 flex-1 flex-col overflow-y-auto p-5 sm:p-6' : 'min-h-0 overflow-y-auto p-5 sm:p-6'}>
+            <div className={dock ? 'flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-4 pt-4' : 'min-h-0 overflow-y-auto p-5 sm:p-6'}>
               {children}
             </div>
           </motion.div>

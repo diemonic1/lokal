@@ -70,7 +70,7 @@ function playheadAt(lines, time) {
   return { row: line.row, syllable }
 }
 
-export default function LyricsTextArea({ value, onChange, placeholder, onPlayLine, playLabel = '', playhead = null }) {
+export default function LyricsTextArea({ value, onChange, placeholder, onPlayLine, playLabel = '', playhead = null, textareaRef = null }) {
   const copyRef = useRef(null)
   const gutterRef = useRef(null)
   const rowsRef = useRef(null)
@@ -130,6 +130,7 @@ export default function LyricsTextArea({ value, onChange, placeholder, onPlayLin
           {'\n'}
         </pre>
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={onChange}
           onScroll={syncScroll}

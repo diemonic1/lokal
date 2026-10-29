@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy, ScanSearch, Maximize2, Minimize2 } from 'lucide-react'
+import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy, ScanSearch, Maximize2, Minimize2, TextCursorInput } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import GenreChips from './GenreChips'
@@ -40,11 +40,14 @@ function parseNumberField(value) {
 }
 
 /**
- * Beside "Check lyrics": the song's playing position as a lyrics time stamp
- * (mm:ss.xxx), read from the audio element every frame; a click copies it,
- * to paste into the lyrics. Shown while this song is the one playing.
+ * Beside "Check lyrics": the song's playing position as a lyrics time stamp,
+ * read from the audio element every frame; a click copies it, to paste into
+ * the lyrics. Syllable lyrics time to the millisecond (mm:ss.xxx), the lyrics
+ * tag to the hundredth (mm:ss.xx). Beside it, a button puts the stamp in the
+ * lyrics where the text cursor is (onInsert): <mm:ss.xxx> for a syllable,
+ * [mm:ss.xx] for a line. Shown while this song is the one playing.
  */
-function PlayheadStamp({ trackId }) {
+function PlayheadStamp({ trackId, digits = 3, onInsert }) {
   const { t } = useTranslation()
   const current = usePlayerStore(s => trackId != null && s.currentTrack?.id === trackId)
   const textRef = useRef(null)
@@ -55,34 +58,50 @@ function PlayheadStamp({ trackId }) {
     if (!current) return undefined
     let frame = 0
     const tick = () => {
-      if (textRef.current) textRef.current.textContent = stampOf(songTime())
+      if (textRef.current) textRef.current.textContent = stampOf(songTime(), digits)
       frame = requestAnimationFrame(tick)
     }
     tick()
     return () => cancelAnimationFrame(frame)
-  }, [current])
+  }, [current, digits])
   if (!current) return null
   const copy = async () => {
-    try { await navigator.clipboard.writeText(stampOf(songTime())) } catch { return }
+    try { await navigator.clipboard.writeText(stampOf(songTime(), digits)) } catch { return }
     setCopied(true)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied(false), 1200)
   }
   return (
+    <>
     <button type="button" onClick={copy} title={t('Copy the playing time as a time stamp')} aria-label={t('Copy the playing time as a time stamp')}
-      className={`flex items-center gap-1.5 rounded-lg border px-2 py-0.5 font-mono text-[12px] tabular-nums transition-colors ${copied ? 'border-accent/50 text-accent' : 'border-border bg-card text-white hover:border-accent/30'}`}>
+      className={`flex h-7 items-center gap-1.5 rounded-lg border px-2.5 font-mono text-[12px] tabular-nums transition-colors ${copied ? 'border-accent/50 text-accent' : 'border-border bg-card text-white hover:border-accent/30'}`}>
       <span ref={textRef} />
       {copied ? <Check size={11} /> : <Copy size={11} className="text-muted" />}
     </button>
+    {onInsert && (
+      <button type="button" onClick={() => onInsert(stampOf(songTime(), digits))}
+        title={t('Insert the playing time at the text cursor')} aria-label={t('Insert the playing time at the text cursor')}
+        className={TOOL}>
+        <TextCursorInput size={13} /> {t('Insert time')}
+      </button>
+    )}
+    </>
   )
 }
 
-/** Seconds -> "mm:ss.xxx", like the lyrics' time stamps. */
-function stampOf(seconds) {
-  const ms = Math.max(0, Math.round((Number(seconds) || 0) * 1000))
-  const m = Math.floor(ms / 60000)
-  const s = Math.floor((ms % 60000) / 1000)
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`
+// A line's own time stamp at its start, [mm:ss.xx].
+const LINE_STAMP = /^\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/
+
+// The buttons over the lyrics: one height, never wrapping their words.
+const TOOL = 'flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-2.5 text-[12px] text-muted transition-colors hover:text-white disabled:opacity-50'
+
+/** Seconds -> "mm:ss.xxx" (or "mm:ss.xx" with digits 2), like the lyrics' time stamps. */
+function stampOf(seconds, digits = 3) {
+  const unit = 10 ** digits
+  const n = Math.max(0, Math.round((Number(seconds) || 0) * unit))
+  const m = Math.floor(n / (60 * unit))
+  const s = Math.floor((n % (60 * unit)) / unit)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(n % unit).padStart(digits, '0')}`
 }
 
 /**
@@ -180,6 +199,42 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   // lyrics while the song plays (from `at` seconds, a line's play button) --
   // nothing is saved; Save writes it into the file.
   const [checking, setChecking] = useState(false)
+  const lyricsInput = useRef(null)
+  // After a stamp is put in: where the text cursor goes and where the field
+  // was scrolled (a new value would otherwise send it back to the top).
+  const afterStamp = useRef(null)
+  // Puts a time stamp in the lyrics. Syllable lyrics: <stamp> where the text
+  // cursor is (over any selection). The lyrics tag: [stamp] at the start of
+  // the cursor's line, in place of the one already there.
+  const insertStamp = (stamp) => {
+    const area = lyricsInput.current
+    if (!area) return
+    const { selectionStart: from, selectionEnd: to, value, scrollTop, scrollLeft } = area
+    let next, caret
+    if (lyrics.mode === 'syllable') {
+      const piece = `<${stamp}>`
+      next = value.slice(0, from) + piece + value.slice(to)
+      caret = from + piece.length
+    } else {
+      const piece = `[${stamp}]`
+      const start = value.lastIndexOf('\n', from - 1) + 1
+      const old = LINE_STAMP.exec(value.slice(start))
+      next = value.slice(0, start) + piece + value.slice(start + (old ? old[0].length : 0))
+      caret = start + piece.length
+    }
+    afterStamp.current = { caret, scrollTop, scrollLeft }
+    setLyrics(prev => (prev.mode === 'syllable' ? { ...prev, syllable: next } : { ...prev, text: next }))
+  }
+  useLayoutEffect(() => {
+    const area = lyricsInput.current
+    const after = afterStamp.current
+    if (!area || !after) return
+    afterStamp.current = null
+    area.focus({ preventScroll: true })
+    area.setSelectionRange(after.caret, after.caret)
+    area.scrollTop = after.scrollTop
+    area.scrollLeft = after.scrollLeft
+  }, [lyrics])
   // Where this song is playing (seconds), for the lyrics field's red marks; null when another plays.
   const playhead = usePlayerStore(s => (track?.id != null && s.currentTrack?.id === track.id ? s.progress : null))
   // Lyrics across the whole dialog (the tags hidden): remembered for next time.
@@ -526,37 +581,34 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         <div className={`grid min-h-0 flex-1 gap-4 ${showLyrics && !lyricsWide ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
           {showLyrics && (
             <div className="flex min-h-0 flex-col">
-              <div className="mb-1 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <label className={`${label} mb-0`}>{t('Lyrics')}</label>
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button type="button" onClick={() => setWide(!wide)} aria-pressed={wide}
+                    title={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')} aria-label={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')}
+                    className={`${TOOL} w-7 justify-center px-0`}>
+                    {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  </button>
                   {lyrics.state === 'ready' && (
                     <button type="button" onClick={() => checkLyrics()} disabled={checking}
                       title={t('Plays the song with these lyrics in the side panel, without saving them')}
-                      className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-0.5 text-[11px] text-muted transition-colors hover:text-white disabled:opacity-50">
-                      {checking ? <RefreshCw size={11} className="animate-spin" /> : <ScanSearch size={11} />}
+                      className={TOOL}>
+                      {checking ? <RefreshCw size={13} className="animate-spin" /> : <ScanSearch size={13} />}
                       {t('Check lyrics')}
                     </button>
                   )}
-                  <button type="button" onClick={() => setWide(!wide)} aria-pressed={wide}
-                    title={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')} aria-label={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')}
-                    className="flex h-[22px] w-[26px] items-center justify-center rounded-lg border border-border bg-card text-muted transition-colors hover:text-white">
-                    {wide ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-                  </button>
-                  <PlayheadStamp trackId={track?.id} />
+                  <PlayheadStamp trackId={track?.id} digits={lyrics.mode === 'syllable' ? 3 : 2}
+                    onInsert={lyrics.state === 'ready' ? insertStamp : undefined} />
                 </div>
                 {/* Both tabs always: syllables can be added to a song that has none. */}
                 {lyrics.state === 'ready' && (
-                  <div className="flex items-center gap-2">
-                    {lyrics.mode === 'plain' && lyrics.text.trim() && (
-                      <span className="text-[11px] text-muted">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')}</span>
-                    )}
-                    <div className="flex rounded-lg border border-border bg-card p-0.5 text-[11px]">
+                  <div className="ml-auto flex items-center">
+                    <div className="flex h-7 rounded-lg border border-border bg-card p-0.5 text-[12px]">
                       {[['syllable', t('By syllable')], ['plain', t('In the lyrics tag')]].map(([mode, name]) => (
                         <button
                           key={mode}
                           type="button"
                           onClick={() => setLyrics(prev => ({ ...prev, mode }))}
-                          className={`rounded-md px-2 py-0.5 transition-colors ${lyrics.mode === mode ? 'bg-accent/20 text-white' : 'text-muted hover:text-white'}`}
+                          className={`whitespace-nowrap rounded-md px-2.5 transition-colors ${lyrics.mode === mode ? 'bg-accent/20 text-white' : 'text-muted hover:text-white'}`}
                         >{name}</button>
                       ))}
                     </div>
@@ -579,9 +631,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   onPlayLine={(time) => checkLyrics(time)}
                   playhead={playhead}
                   playLabel={t('Check the lyrics from this line')}
+                  textareaRef={lyricsInput}
                 />
               )}
-              <p className="mt-1 text-[11px] leading-snug text-muted">{lyrics.mode === 'syllable'
+              <p className="mt-1 text-[11px] leading-snug text-muted">
+                {lyrics.mode === 'plain' && lyrics.text.trim() && (
+                  <span className="mr-1.5 text-white/70">{LRC_STAMP.test(lyrics.text) ? t('Synced (LRC)') : t('Not synced')} ·</span>
+                )}
+                {lyrics.mode === 'syllable'
                 ? t("Lokal's own tag with word and syllable timings: <mm:ss.xxx> before each syllable, a space after a word. Word-timed JSON (WhisperX: words with start and end) can be pasted too. When these change, the lyrics tag is rewritten from them on save.")
                 : t('Saved into the file itself: text with [mm:ss.xx] time stamps goes into both lyrics tags (USLT and SYLT), plain text into the lyrics field.')}</p>
               {lyrics.sidecar && (
@@ -756,14 +813,14 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
           )}
         </AnimatePresence>
 
-        <div className="flex flex-shrink-0 gap-3">
+        <div className="flex flex-shrink-0 justify-end gap-2">
           <button onClick={onClose}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/40 bg-red-500/80 py-3 text-sm font-medium text-white transition-colors hover:bg-red-500">
-            <X size={16} /> {t('Close')}
+            className="flex w-36 items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/80 py-2 text-[13px] font-medium text-white transition-colors hover:bg-red-500">
+            <X size={14} /> {t('Close')}
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50">
-            {saving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+            className="flex w-36 items-center justify-center gap-1.5 rounded-lg bg-white py-2 text-[13px] font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50">
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
             {t('Save')}
           </button>
         </div>

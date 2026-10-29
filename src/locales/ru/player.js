@@ -228,6 +228,8 @@ export default {
   'Lyrics from Edit Track, not saved yet': 'Текст из редактора трека, ещё не сохранён',
   'Enter the year': 'Введите год',
   'Copy the playing time as a time stamp': 'Скопировать время воспроизведения как временную метку',
+  'Insert the playing time at the text cursor': 'Вставить время воспроизведения туда, где стоит курсор в тексте',
+  'Insert time': 'Вставить время',
   'Lyrics across the whole window': 'Текст на всё окно',
   'Show the tags beside the lyrics': 'Показать теги рядом с текстом',
   'Lyrics saved into the file': 'Текст сохранён в файл',
