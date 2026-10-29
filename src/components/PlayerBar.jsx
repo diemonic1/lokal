@@ -31,8 +31,9 @@ import { openRadio } from '../radioActions'
 import { useCastStore } from '../cast/castStore'
 import { useCoverDrop } from './CoverDrop'
 import { trackFolderItems } from '../trackFolderItem'
+import { clock } from '../clock'
 
-function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
+const fmt = clock
 
 // The important moment's mark on the seek bar, unless Settings say otherwise.
 const HIGHLIGHT_COLOR = '#ef4444'

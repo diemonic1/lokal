@@ -30,6 +30,7 @@ import ArtistNames from './ArtistNames'
 import { useEcoMode } from '../ecoMode'
 import { COVER_PERCENT, fullscreenCoverPercent, setFullscreenCoverPercent, useFullscreenCoverScale } from '../fullscreenCoverSize'
 import { useFavoritesEnabled } from '../appearanceFlags'
+import { clock } from '../clock'
 
 // The cover's size (square), and the lyrics/queue panel's width beside it.
 // The cover follows its size setting (fullscreenCoverSize), but never past
@@ -150,7 +151,7 @@ function VolumePill({ volume, onChange }) {
 
 function fmt(s) {
   if (!s || isNaN(s)) return '0:00'
-  return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
+  return clock(s)
 }
 
 function SearchDrawer({ track, onClose, onSelect }) {

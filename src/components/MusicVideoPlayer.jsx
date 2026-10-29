@@ -14,6 +14,7 @@ import { useLyricLines } from '../lyricLine'
 import { useLyricSubline } from '../lyrics/useLyricSubline'
 import LyricSubtitles from './LyricSubtitles'
 import { useTranslation } from '../i18n'
+import { clock } from '../clock'
 
 // Further apart than this and the video jumps to the song; closer, it catches
 // up by playing a touch faster or slower, which you can't see.
@@ -40,7 +41,7 @@ function ChromeButton({ active, onClick, label, children }) {
 
 function fmt(s) {
   if (!Number.isFinite(s) || s < 0) return '0:00'
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+  return clock(s)
 }
 
 /**

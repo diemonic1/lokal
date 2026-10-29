@@ -44,6 +44,7 @@ import GenrePopover from './GenrePopover'
 import { useAppearanceFlag, useAppearanceValue, useFavoritesEnabled } from '../appearanceFlags'
 import { TRACK_SEARCH_SITES, clipLink, clipText, commentLink, openLink, trackSearchText, trackSearchUrl } from '../trackLinks'
 import { trackFolderItems } from '../trackFolderItem'
+import { clock } from '../clock'
 
 const LARGE_LIST_STEP = 200
 // Large lists are windowed: only the rows near the viewport are mounted, with
@@ -94,7 +95,7 @@ function saveRecentTrack(track) {
   saveRecentItem(recentTrackItem(track))
 }
 
-function fmt(s) { return s ? `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}` : '' }
+function fmt(s) { return s ? clock(s) : '' }
 
 // Library timestamps are seconds; playlist membership timestamps are ms.
 function addedDate(ts) { return new Date(Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)) }

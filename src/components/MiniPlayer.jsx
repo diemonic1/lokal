@@ -13,8 +13,9 @@ import MusicVideoPlayer from './MusicVideoPlayer'
 import VideoOffsetControl from './VideoOffsetControl'
 import { useTranslation } from '../i18n'
 import { useSyncOffset } from '../syncOffset'
+import { clock } from '../clock'
 
-function fmt(s) { return `${Math.floor((s||0)/60)}:${Math.floor((s||0)%60).toString().padStart(2,'0')}` }
+const fmt = clock
 
 export default function MiniPlayer({ windowed = false }) {
   const { t } = useTranslation()
