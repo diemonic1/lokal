@@ -12,6 +12,7 @@ import ContextMenu, { useContextMenu } from './ContextMenu'
 import DiscoveryImage from './DiscoveryImage'
 import ImageZoom from './ImageZoom'
 import OnlineSongList from './OnlineSongList'
+import CopyTitle from './CopyTitle'
 import RefreshButton from './RefreshButton'
 import ReleaseTypeFilter from './ReleaseTypeFilter'
 import { groupReleases, releaseTypeCounts, useReleaseTypes } from '../releaseTypes'
@@ -288,7 +289,7 @@ export default function OnlineArtist({ id, name: givenName, anchor = null }) {
           <ImageZoom src={image} alt={name} open={zoom} onClose={() => setZoom(false)} />
           <div className="min-w-0">
             <p className="mb-1 text-xs font-display uppercase tracking-widest text-muted">{t('Artist · Online')}</p>
-            <h1 className="truncate text-3xl font-display text-white">{name}</h1>
+            <CopyTitle text={name} className="truncate text-3xl font-display text-white" />
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={() => play(songs.tracks[0])} disabled={!songs.tracks.length} className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-base transition-opacity hover:opacity-90 disabled:opacity-40"><Play size={15} fill="currentColor" /> {t('Play')}</button>
               <button onClick={() => openRadio(nav, { artist: name, type: 'artist' }, userId)} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm text-white backdrop-blur-sm transition-colors hover:border-accent/50"><Radio size={15} /> {t('Artist radio')}</button>

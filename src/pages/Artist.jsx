@@ -16,6 +16,7 @@ import { releaseKey, useReleaseActions } from '../releaseActions'
 import { openRadio } from '../radioActions'
 import ImageZoom from '../components/ImageZoom'
 import OnlineArtist, { OnlineArtistSections, OwnershipBadge, useOnlineArtist } from '../components/OnlineArtist'
+import CopyTitle from '../components/CopyTitle'
 import RefreshButton from '../components/RefreshButton'
 import { isConnected, releaseTitleKey, setConnected } from '../onlineBrowse'
 import ReleaseTypeFilter from '../components/ReleaseTypeFilter'
@@ -272,7 +273,7 @@ export default function Artist() {
           </div>
           <div>
             <p className="mb-1 text-xs font-display uppercase tracking-widest text-muted">{t('Artist')}</p>
-            <h1 className="text-3xl font-display text-white">{artist.name}</h1>
+            <CopyTitle text={artist.name} className="text-3xl font-display text-white" />
             <p className="mt-1 text-xs text-muted">{plural(artist.tracks?.length, 'track')}</p>
           </div>
         </div>

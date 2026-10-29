@@ -1093,13 +1093,19 @@ export default function LyricsPanel({
 
   // Another song (or a refreshed result): start from the top right away. The
   // list otherwise kept the previous song's scroll position until this one's
-  // first sung line came round to move it.
+  // first sung line came round to move it. The same song's lines replaced
+  // while a line is being sung (Edit Track's "Check lyrics", a picked source)
+  // go to that line instead (below), not to the top.
+  const scrolledTrackKey = useRef(trackKey)
   useLayoutEffect(() => {
+    const songChanged = scrolledTrackKey.current !== trackKey
+    scrolledTrackKey.current = trackKey
     const container = containerRef.current
     if (!container || lastScrollIdx.current >= 0 || container.scrollTop < 1) return
+    if (!songChanged && focusIdx >= 0) return
     markAutoScroll(container)
     container.scrollTop = 0
-  }, [trackKey, lines])
+  }, [trackKey, lines]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     if (focusIdx < 0 || browsing) return
@@ -1107,6 +1113,19 @@ export default function LyricsPanel({
     lastScrollIdx.current = focusIdx
     scrollToFocus(first)
   }, [focusIdx, browsing, scrollToFocus])
+
+  // New lines for the same song with the same line being sung (its index
+  // unchanged, so the effect above doesn't run): straight back to that line,
+  // once the new rows are in place (they register themselves after layout).
+  useEffect(() => {
+    if (focusIdx < 0 || browsing || lastScrollIdx.current >= 0) return undefined
+    const raf = requestAnimationFrame(() => {
+      if (lastScrollIdx.current >= 0) return
+      lastScrollIdx.current = focusIdx
+      scrollToFocus(true)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [lines, previewResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const startBrowsing = useCallback(() => {
     if (!synced && !isAutoSynced) return

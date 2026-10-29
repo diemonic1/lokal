@@ -70,6 +70,7 @@ export default {
   'No song called “{name}”': 'Трек «{name}» не найден',
   'File name': 'Имя файла',
   'Click to copy': 'Нажмите, чтобы скопировать',
+  'Couldn’t copy': 'Не удалось скопировать',
   'Show pronunciation in Latin letters': 'Показать произношение латиницей',
   'Romanize': 'Латиница',
   'Already in your language': 'Уже на вашем языке',
