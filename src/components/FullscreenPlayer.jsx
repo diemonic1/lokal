@@ -1012,12 +1012,12 @@ export default function FullscreenPlayer() {
                     {/* The video on the whole screen: its own seek bar, with the controls. */}
                     {clipFull && (
                       <div className={`relative flex items-center gap-3 px-8 pb-6 ${COVER_FADE}`}>
-                        <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
+                        <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
                         <div className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-white/25 drop-shadow-[0_1px_4px_rgba(0,0,0,0.35)] before:absolute before:-inset-y-2 before:inset-x-0"
                           onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                           <div className="absolute inset-y-0 left-0 rounded-full bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
                         </div>
-                        <span className="w-11 text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
+                        <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
                         <CoverButton onClick={exitClipFull} label={t('Exit full screen')}><Minimize size={16} /></CoverButton>
                       </div>
                     )}
@@ -1039,12 +1039,12 @@ export default function FullscreenPlayer() {
 
             <div className={`relative mt-6 flex items-center gap-3 ${clipFull ? 'invisible' : ''}`} style={{ width: belowWidth }}>
               <MixingMark className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none !text-white/80" />
-              <span className="w-11 text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
+              <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-right text-sm tabular-nums text-white/75">{fmt(progress)}</span>
               <div className="group/bar relative h-3.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-white/20 backdrop-blur-[2px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
                 onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                 <div className="absolute inset-y-0 left-0 bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
               </div>
-              <span className="w-11 text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
+              <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
             </div>
 
             {/* In at once, fading: never waiting on the old title's way out (see PlayerBar). */}

@@ -434,13 +434,13 @@ export default function MusicVideoPlayer({ compact = false }) {
                 </div>
               </div>
               <div className="flex items-center gap-3 text-[11px] tabular-nums text-white/60">
-                <span className="w-10 text-right">{fmt(progress)}</span>
+                <span className="min-w-[2.5rem] flex-shrink-0 whitespace-nowrap text-right">{fmt(progress)}</span>
                 <div onClick={seek} className="group relative flex-1 h-4 flex items-center cursor-pointer" role="slider" aria-label={t('Seek')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                   <div className="relative w-full h-1 group-hover:h-1.5 transition-[height] rounded-full bg-white/20 overflow-hidden">
                     <div className="absolute inset-y-0 left-0 bg-white/85 rounded-full" style={{ width: `${duration > 0 ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
                   </div>
                 </div>
-                <span className="w-10">{fmt(duration)}</span>
+                <span className="min-w-[2.5rem] flex-shrink-0 whitespace-nowrap">{fmt(duration)}</span>
               </div>
             </div>
           </motion.div>
