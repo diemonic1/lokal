@@ -1,0 +1,144 @@
+/* The quick player's window: dark, in the app's colours, without its stylesheet. */
+
+:root {
+  --bg: #0a0a0a;
+  --text: #e8e8e8;
+  --muted: #8a8a8a;
+  --line: rgba(255, 255, 255, 0.08);
+  --accent: #ffd6f0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; opacity: 0.3; }
+button:focus-visible, input:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+.quick { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+/* The cover, blurred and dark, behind everything. */
+.backdrop {
+  position: absolute; inset: -40px; z-index: 0;
+  background-size: cover; background-position: center;
+  filter: blur(40px) saturate(1.2) brightness(0.35);
+  pointer-events: none;
+}
+
+.titlebar {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; gap: 2px;
+  height: 34px; padding: 0 4px 0 12px; flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+.titlebar-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--muted); }
+.titlebar button { -webkit-app-region: no-drag; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px; color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:not(:disabled):hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.icon-btn.close:hover { background: #c42b1c; color: #fff; }
+.icon-btn[aria-pressed="true"] { color: var(--accent); }
+.icon-btn.big { width: 40px; height: 40px; color: var(--text); }
+
+.body {
+  position: relative; z-index: 1;
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 20px;
+  padding: 4px 20px 16px;
+}
+/* Left: cover and player; right: the details, scrolling on their own. */
+.player { min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+.details-pane { min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+/* A narrow window: one column, the details under the player. */
+@media (max-width: 620px) {
+  .body { display: block; overflow-y: auto; }
+  .details-pane { overflow: visible; }
+}
+
+.cover {
+  width: min(100%, calc(100vh - 250px)); min-width: 120px; aspect-ratio: 1; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.heading { margin: 14px 0 6px; text-align: center; }
+.title { font-size: 16px; font-weight: 600; color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.artist { margin-top: 2px; color: rgba(255, 255, 255, 0.7); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* The seek bar: a thin line, a tall invisible hit area. */
+.seek { margin-top: 6px; }
+.seek-bar { position: relative; height: 18px; cursor: pointer; touch-action: none; }
+.seek-track {
+  position: absolute; left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%);
+  border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden;
+  transition: height 0.12s;
+}
+.seek-bar:hover .seek-track, .seek-bar.is-dragging .seek-track { height: 4px; }
+.seek-fill { position: absolute; inset: 0; background: var(--accent); transform-origin: left; transform: scaleX(0); }
+.seek-thumb {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: #fff; opacity: 0; transition: opacity 0.12s; pointer-events: none;
+}
+.seek-bar:hover .seek-thumb, .seek-bar.is-dragging .seek-thumb { opacity: 1; }
+.seek-tip, .seek-speed {
+  position: absolute; bottom: 100%; margin-bottom: 4px; padding: 2px 6px;
+  border-radius: 6px; background: rgba(0, 0, 0, 0.85); border: 1px solid var(--line);
+  font: 11px/1.4 "Cascadia Mono", Consolas, monospace; white-space: nowrap; pointer-events: none;
+}
+.seek-tip { transform: translateX(-50%); }
+.seek-speed { left: 50%; transform: translateX(-50%); font-family: inherit; color: var(--accent); }
+.seek-times { display: flex; justify-content: space-between; margin-top: 2px; }
+.time { font: 11px/1.4 "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+.controls { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 8px; }
+.play {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 50%; background: #fff; color: #000;
+  transition: transform 0.12s;
+}
+.play:hover { transform: scale(1.05); }
+.play:active { transform: scale(0.97); }
+.nudge { margin-left: 3px; }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.volume { position: absolute; right: 0; display: flex; align-items: center; }
+.volume input { width: 64px; accent-color: var(--accent); }
+.volume:not(:hover):not(:focus-within) input { width: 0; opacity: 0; }
+.volume input { transition: width 0.15s, opacity 0.15s; }
+
+.position { margin-top: 6px; text-align: center; font-size: 11px; color: var(--muted); }
+
+.status { margin-top: 10px; padding: 6px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.06); font-size: 12px; text-align: center; }
+.status.error { background: rgba(196, 43, 28, 0.2); color: #ffb4ab; }
+
+.details {
+  padding: 4px 12px; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line);
+  user-select: text;
+}
+.details:empty { display: none; }
+.row { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row-label { width: 92px; flex-shrink: 0; font-size: 11px; color: var(--muted); padding-top: 1px; }
+.row-value { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; text-align: left; }
+.row-value.link:hover { color: var(--accent); text-decoration: underline; }
+.divider { height: 6px; }

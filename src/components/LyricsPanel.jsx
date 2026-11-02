@@ -703,6 +703,10 @@ export default function LyricsPanel({
   // (--side-lyrics-edge-overlap, its parent places it so), where the lines leaving at
   // the top fade out and blur, the more the higher, instead of a hard edge.
   topBlur = false,
+  // The side panel's Clip + Line of Lyrics tab: no list, only the line being
+  // sung, in a small bubble by the bottom edge (as "No lyrics found" is, over
+  // the picture). Goes with idleVisual.
+  singleLine = false,
   // The full screen player: the buttons go into its header row (this element)
   // instead of over the lyrics; toolbarConcealed fades them out there (until
   // the mouse comes near) without closing the source menu, and
@@ -1335,10 +1339,32 @@ export default function LyricsPanel({
 
   // Hidden over the visualization (no lines to show): the mouse goes through
   // to it (the splashes follow it), only the small notes and buttons take it.
-  const passThrough = idleVisual && idle && !searchOpen
+  const passThrough = idleVisual && (idle || singleLine) && !searchOpen
+  // singleLine: the line being sung; unsynced lyrics go roughly by the song's time.
+  const singleIdx = !singleLine || !lines.length ? -1
+    : focusIdx >= 0 ? focusIdx
+      : !synced && track?.duration ? Math.min(lines.length - 1, Math.floor((progress / track.duration) * lines.length)) : -1
+  const singleText = singleIdx >= 0 && !lines[singleIdx]?.gap ? String(lines[singleIdx]?.text || '').trim() : ''
   return (
     <div className={`relative w-full h-full ${passThrough ? 'pointer-events-none' : 'pointer-events-auto'}`}>
-      {showToolbar && toolbarTarget && createPortal(
+      {/* singleLine: the line being sung, in the same bubble as "No lyrics found" below. */}
+      <AnimatePresence>
+        {singleLine && !loading && lines.length > 0 && (
+          <motion.div
+            key="single-line"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="absolute inset-x-2.5 z-30 flex justify-center"
+            style={{ bottom: 'calc(0.625rem - max(0px, var(--player-space, 0px) - 104px))' }}
+          >
+            <div className="pointer-events-auto flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/80 opacity-80 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
+              style={{ backgroundColor: 'rgb(var(--surface-rgb))' }}>
+              <span className="truncate" title={singleText || undefined}>{singleText ? withBrackets(singleText) : '♪'}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {showToolbar && !singleLine && toolbarTarget && createPortal(
         <ToolbarLarge.Provider value>
           <div data-hidden={toolbarHidden || toolbarConcealed} className="group/toolbar flex items-center gap-2">
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : toolbarTarget ? 'hidden' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
@@ -1421,7 +1447,7 @@ export default function LyricsPanel({
         </ToolbarLarge.Provider>,
         toolbarTarget,
       )}
-      {showToolbar && !toolbarTarget && (
+      {showToolbar && !singleLine && !toolbarTarget && (
         <div
           // The pills fade by themselves (TOOLBAR_FADE), not this row: glass
           // inside a fading parent shows as flat grey until the fade ends.
@@ -1531,7 +1557,7 @@ export default function LyricsPanel({
         )}
       </AnimatePresence>
 
-      <div
+      {!singleLine && <div
         ref={containerRef}
         onWheel={startBrowsing}
         onTouchMove={startBrowsing}
@@ -1626,7 +1652,7 @@ export default function LyricsPanel({
             </motion.div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* An instrumental (or a song whose words can't be found), over the side
           panel's visualization: just a small

@@ -260,6 +260,9 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // The side panel view the song opens on while it plays (Edit Track; see
+    // src/sidePanelViews.js); NULL: the one picked by hand. Only here, not in the file.
+    `ALTER TABLE tracks ADD COLUMN side_panel_view TEXT`,
     // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
     // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
     `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
@@ -328,6 +331,9 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // The side panel view the song opens on while it plays (Edit Track; see
+    // src/sidePanelViews.js); NULL: the one picked by hand. Only here, not in the file.
+    `ALTER TABLE tracks ADD COLUMN side_panel_view TEXT`,
     // Whether Spotify has a Canvas for the song: 1 / 0, NULL while not known
     // (artwork/motion.js; only looked at, the clip isn't downloaded for this).
     `ALTER TABLE tracks ADD COLUMN spotify_canvas INTEGER`,
@@ -552,7 +558,7 @@ function importAppData(payload = {}) {
       )
     }
 
-    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, clip_url, clip_start, clip_end, clip_zoom, highlight_time, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    const insertTrack = db.prepare('INSERT INTO tracks (id, file_path, file_hash, title, artist, album, album_artist, track_num, year, genre, genres, record_label, explicit, clip_url, clip_start, clip_end, clip_zoom, highlight_time, side_panel_view, danceability, energy, track_key, loudness, mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, time_signature, duration, artwork_path, bitrate, last_modified, replaygain, play_count, liked, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     for (const track of tracks) {
       insertTrack.run(
         track.id,
@@ -573,6 +579,7 @@ function importAppData(payload = {}) {
         track.clip_end ?? null,
         track.clip_zoom ?? null,
         track.highlight_time ?? null,
+        track.side_panel_view || null,
         track.danceability ?? null,
         track.energy ?? null,
         track.track_key ?? null,

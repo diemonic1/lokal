@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AudioWaveform, Info, ListMusic, Music, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay, Film } from 'lucide-react'
+import { AudioWaveform, Info, ListMusic, Music, Mic2, Disc3, PanelLeftClose, PanelRightClose, Radio, Clapperboard, Gem, ImageOff, ImagePlay, MonitorPlay, Film, Captions } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore, useAppStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
@@ -152,7 +152,7 @@ export default function RightSidebar() {
   // pending) and overwriting the newer settings with stale ones.
   const settingsSeqRef = useRef(0)
   useEffect(() => {
-    if (sidePanelView !== 'lyrics' && sidePanelView !== 'visualLyrics') return
+    if (sidePanelView !== 'lyrics' && sidePanelView !== 'visualLyrics' && sidePanelView !== 'clipLine') return
     const loadSettings = () => {
       const seq = ++settingsSeqRef.current
       api.getSettings()
@@ -240,7 +240,10 @@ export default function RightSidebar() {
   // Clip / Visualization: the song's video or moving cover over the whole
   // panel, else the visualization (SideClip).
   const showClip = sidePanelView === 'clip'
-  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : showClip ? 'clip' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
+  // Clip + Line of Lyrics: the same picture, and the line being sung in a
+  // bubble by the bottom edge (LyricsPanel's singleLine).
+  const showClipLine = sidePanelView === 'clipLine'
+  const tab = sidePanelView === 'lyrics' ? 'lyrics' : showVisual ? 'visual' : showVisualLyrics ? 'visualLyrics' : showClip ? 'clip' : showClipLine ? 'clipLine' : exclusiveSidePanels && sidePanelView === 'queue' ? 'queue' : 'info'
 
   // Cosmetic case: when the panel is closed and Queue/Lyrics is clicked,
   // toggleQueueButton/toggleLyricsButton opens it straight to that
@@ -257,6 +260,7 @@ export default function RightSidebar() {
   const openedFreshToVisual = !wasSidebarOpenRef.current && showRightSidebar && showVisual
   const openedFreshToVisualLyrics = !wasSidebarOpenRef.current && showRightSidebar && showVisualLyrics
   const openedFreshToClip = !wasSidebarOpenRef.current && showRightSidebar && showClip
+  const openedFreshToClipLine = !wasSidebarOpenRef.current && showRightSidebar && showClipLine
   useEffect(() => {
     wasSidebarOpenRef.current = showRightSidebar
   })
@@ -352,6 +356,7 @@ export default function RightSidebar() {
       { label: t('Visualization'), icon: AudioWaveform, checked: tab === 'visual', onSelect: pick('visual') },
       { label: t('Visualization + Lyrics'), icon: MonitorPlay, checked: tab === 'visualLyrics', onSelect: pick('visualLyrics') },
       { label: t('Clip / Visualization'), icon: Film, checked: tab === 'clip', onSelect: pick('clip') },
+      { label: t('Clip / Visualization + Line of Lyrics'), icon: Captions, checked: tab === 'clipLine', onSelect: pick('clipLine') },
       { label: t('Queue'), icon: ListMusic, checked: tab === 'queue', onSelect: pick('queue') },
       { separator: true },
       { label: t('Close the side panel'), icon: PanelRightClose, onSelect: toggleRightSidebar },
@@ -683,6 +688,35 @@ export default function RightSidebar() {
                   {currentTrack
                     ? <SideClip track={currentTrack} visual={fullVisual} visualBg={fullVisualBg} coverOff={coverOff} />
                     : fullVisual}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Clip + Line of Lyrics: the Clip / Visualization overlay with one
+                line of the lyrics over it, mounted only while it shows. */}
+            <AnimatePresence key={`clip-line-${reveal}`} initial={reveal === 0}>
+              {showClipLine && (
+                <motion.div
+                  key="clip-line-overlay"
+                  initial={openedFreshToClipLine ? false : { y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+                  className="absolute inset-0 flex flex-col"
+                  style={{ backgroundColor: fullVisualBg }}
+                >
+                  {currentTrack ? (
+                    <>
+                      <SideClip track={currentTrack} visual={fullVisual} visualBg={fullVisualBg} coverOff={coverOff} />
+                      {/* Only the line's bubble takes the mouse: the rest goes through to the picture. */}
+                      <div className="pointer-events-none absolute inset-0 pb-[var(--player-space,0px)]">
+                        <div className="relative h-full min-h-0">
+                          <LyricsPanel track={currentTrack} progress={progress} darkMode wordSync={wordSync} fullscreen={false} isAutoSynced={isAutoSynced}
+                            idleVisual singleLine edgeFade={false} />
+                        </div>
+                      </div>
+                    </>
+                  ) : fullVisual}
                 </motion.div>
               )}
             </AnimatePresence>

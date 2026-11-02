@@ -252,4 +252,7 @@ export default {
   "These lyrics can't be found: the track's tag says so": 'Слова этого трека найти невозможно — так указано в теге трека',
   'Visualization + Lyrics': 'Визуализация + текст',
   'Clip / Visualization': 'Клип / визуализация',
+  'Clip / Visualization + Line of Lyrics': 'Клип / визуализация + строка текста',
+  'Use the standard side panel view': 'Использовать стандартный экран бокового меню',
+  'While this track plays, the side panel shows this view; the next track brings back the one you picked. Kept in the library, not in the file.': 'Пока играет этот трек, боковое меню показывает этот экран; со следующим треком вернётся выбранный вами. Хранится в библиотеке, а не в файле.',
 }

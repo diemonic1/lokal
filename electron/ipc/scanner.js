@@ -1828,6 +1828,8 @@ function registerScannerHandlers(ipcMain) {
     if (data.clip_start !== undefined) { updates.push('clip_start = ?'); params.push(Number.isFinite(Number(data.clip_start)) && data.clip_start !== null && data.clip_start !== '' ? Number(data.clip_start) : null) }
     if (data.clip_zoom !== undefined) { updates.push('clip_zoom = ?'); params.push(clipZoomValue(data.clip_zoom)) }
     if (data.highlight_time !== undefined) { const n = Number(data.highlight_time); updates.push('highlight_time = ?'); params.push(data.highlight_time !== null && data.highlight_time !== '' && Number.isFinite(n) && n >= 0 ? n : null) }
+    // The side panel view the song opens on (library only, not the file).
+    if (data.side_panel_view !== undefined) { updates.push('side_panel_view = ?'); params.push(require('../sidePanelView').sidePanelViewValue(data.side_panel_view)) }
     if (data.clip_end !== undefined) { updates.push('clip_end = ?'); params.push(Number.isFinite(Number(data.clip_end)) && data.clip_end !== null && data.clip_end !== '' ? Number(data.clip_end) : null) }
     if (data.danceability !== undefined) { updates.push('danceability = ?'); params.push(data.danceability) }
     if (data.energy !== undefined) { updates.push('energy = ?'); params.push(data.energy) }

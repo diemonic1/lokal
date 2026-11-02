@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.lokal.music",
     "productName": "Lokal",
+    "executableName": "Lokal Player",
     "electronDist": "node_modules/electron/dist",
     "icon": "public/lokal-icon.ico",
     "files": [
@@ -70,6 +71,14 @@
         }
       ],
       "extraResources": [
+        {
+          "from": "build/file-icons",
+          "to": "file-icons",
+          "filter": [
+            "*.ico",
+            "*.dll"
+          ]
+        },
         {
           "from": "build/webview2-signin",
           "to": "webview2-signin",

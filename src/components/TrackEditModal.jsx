@@ -16,6 +16,7 @@ import { useCoverDrop, coverError } from './CoverDrop'
 import ClipAvailability from './ClipAvailability'
 import LyricsTextArea from './LyricsTextArea'
 import MotionCoverMarks from './MotionCoverMarks'
+import { TRACK_SIDE_PANEL_VIEWS, trackSidePanelView } from '../sidePanelViews'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClip } from '../clipVideo'
 
 function asInput(value) {
@@ -155,6 +156,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     clip_start: '',
     clip_end: '',
     clip_zoom: 0,
+    side_panel_view: '',
     highlight_time: '',
     danceability: '',
     energy: '',
@@ -319,6 +321,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         clip_start: formatClipTime(track.clip_start),
         clip_end: formatClipTime(track.clip_end),
         clip_zoom: clipZoomPercent(track.clip_zoom),
+        side_panel_view: trackSidePanelView(track) || '',
         highlight_time: formatClipTime(track.highlight_time),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
@@ -452,6 +455,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (clipEnd !== (track.clip_end ?? null)) updateData.clip_end = clipEnd
       const clipZoom = clipZoomPercent(formData.clip_zoom)
       if (clipZoom !== clipZoomPercent(track.clip_zoom)) updateData.clip_zoom = clipZoom || null
+      // The side panel view while it plays: kept in the library, not the file.
+      if (formData.side_panel_view !== (trackSidePanelView(track) || '')) updateData.side_panel_view = formData.side_panel_view || null
       // The important moment: typed like the loop times; marked on the seek bar.
       const highlight = parseClipTime(formData.highlight_time)
       if (Number.isNaN(highlight)) {
@@ -763,6 +768,17 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                 </div>
               </div>
               <p className="mt-1 text-[11px] leading-snug text-muted">{t('A link to the video (YouTube or any site with videos) or the path of a video file. It loops, muted, in the side panel’s Visualization + Lyrics tab instead of the canvas: between the two times (75 or 1:15), 10 seconds from the start time when only that is set, or the whole video when neither is.')}</p>
+            </div>
+
+            {/* The side panel view while this song plays (src/sidePanelViews.js). */}
+            <div>
+              <label htmlFor="track-edit-side-panel" className={label}>{t('Side panel view')}</label>
+              <select id="track-edit-side-panel" value={formData.side_panel_view} onChange={(e) => handleChange('side_panel_view', e.target.value)}
+                className={`${field} cursor-pointer`}>
+                <option value="">{t('Use the standard side panel view')}</option>
+                {TRACK_SIDE_PANEL_VIEWS.map(view => <option key={view.id} value={view.id}>{t(view.label)}</option>)}
+              </select>
+              <p className="mt-1 text-[11px] leading-snug text-muted">{t('While this track plays, the side panel shows this view; the next track brings back the one you picked. Kept in the library, not in the file.')}</p>
             </div>
 
             {/* Less often changed: the album artist and the record label, last. */}

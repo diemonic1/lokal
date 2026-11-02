@@ -369,6 +369,11 @@ export const api = {
   updateThumbarState: (state) => (isE() && typeof el().updateThumbarState === 'function') ? el().updateThumbarState(state) : Promise.resolve(),
   // Settings > Library > Open Folders In: start one of those programs on a sidebar folder.
   launchFolderApp: (appPath, folder) => isE() ? el().launchFolderApp(appPath, folder) : Promise.resolve({ ok: false }),
+  // Settings > File Icons (electron/ipc/fileIcons.js).
+  fileIcons: () => isE() && el().fileIcons ? el().fileIcons() : Promise.resolve(null),
+  applyFileIcons: (packId, options) => isE() && el().applyFileIcons ? el().applyFileIcons(packId, options) : Promise.resolve({ ok: false }),
+  removeFileIcons: () => isE() && el().removeFileIcons ? el().removeFileIcons() : Promise.resolve({ ok: false }),
+  openFileIconsFolder: () => isE() && el().openFileIconsFolder ? el().openFileIconsFolder() : Promise.resolve(),
   launchTopApp: (target) => isE() && el().launchTopApp ? el().launchTopApp(target) : Promise.resolve({ ok: false, error: 'Works in the desktop app' }),
   setTaskbarProgress: (state) => (isE() && typeof el().setTaskbarProgress === 'function') ? el().setTaskbarProgress(state) : Promise.resolve(),
   onThumbarCommand: (fn) => { if (isE() && typeof el().onThumbarCommand === 'function') return el().onThumbarCommand(fn); return () => {} },

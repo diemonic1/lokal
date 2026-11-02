@@ -5,6 +5,7 @@ import { prefetchFullCover } from '../fullCover.js'
 import { isStationTrack } from '../radio/stations.js'
 import { songKey } from '../recommendations.js'
 import { CROSSFADE_DEFAULTS } from '../audio/crossfade.js'
+import { SIDE_PANEL_VIEW_IDS, trackSidePanelView } from '../sidePanelViews.js'
 
 // Only used by toggleMiniPlayer's setWindowSize/setAlwaysOnTop fallback path
 // below (when window.electron.setMiniMode isn't available), to remember the
@@ -140,21 +141,26 @@ function readAutoOpenSidePanelSetting() {
 // The side panels as they were left last session: open or closed, and which
 // view (Details / Lyrics / Visualization / Queue) the merged panel showed. A
 // view the current Side Panels mode can't show falls back as a mode switch would.
+// The view kept is the one picked by hand (sidePanelUserView), never a song's own.
 const SIDE_PANELS_KEY = 'lokal-side-panels'
-const SIDE_PANEL_KEYS = ['showRightSidebar', 'sidePanelView', 'showQueue', 'showLyricsPanel']
+const SIDE_PANEL_KEYS = ['showRightSidebar', 'sidePanelUserView', 'showQueue', 'showLyricsPanel']
 function readSidePanels() {
+  const panels = readSavedSidePanels()
+  return { ...panels, sidePanelUserView: panels.sidePanelView || 'info' }
+}
+function readSavedSidePanels() {
   try {
     // Nothing saved yet: open, on Visualization + Lyrics.
     const saved = JSON.parse(localStorage.getItem(SIDE_PANELS_KEY) || 'null') || { showRightSidebar: true, sidePanelView: 'visualLyrics' }
     if (typeof saved !== 'object') return {}
-    const view = ['info', 'lyrics', 'visual', 'visualLyrics', 'clip', 'queue'].includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
+    const view = SIDE_PANEL_VIEW_IDS.includes(saved.sidePanelView) ? saved.sidePanelView : 'info'
     if (readExclusiveSidePanelsSetting()) {
       return { showRightSidebar: !!saved.showRightSidebar, sidePanelView: view }
     }
     return {
       showRightSidebar: !!saved.showRightSidebar,
-      // Visualization (and Visualization + Lyrics, Clip / Visualization) is a tab of this panel in both modes.
-      sidePanelView: view === 'visual' || view === 'visualLyrics' || view === 'clip' ? view : 'info',
+      // Visualization (and Visualization + Lyrics, Clip / Visualization, with a Line of Lyrics) is a tab of this panel in both modes.
+      sidePanelView: view === 'visual' || view === 'visualLyrics' || view === 'clip' || view === 'clipLine' ? view : 'info',
       showQueue: !!saved.showQueue,
       showLyricsPanel: !!saved.showLyricsPanel,
     }
@@ -285,6 +291,11 @@ export const usePlayerStore = create((set, get) => ({
   // mode -- independent mode's Queue lives in its own separate panel and
   // never touches this.
   sidePanelView: 'info',
+  // The view picked by hand: sidePanelView unless the song playing has a view
+  // of its own (Edit Track; sidePanelForcedBy is then its id), which shows
+  // instead until another song plays (see followTrackSidePanel).
+  sidePanelUserView: 'info',
+  sidePanelForcedBy: null,
   // Edit Track is open: a song that ends stops there (no next song, no
   // crossfade into one). See autoNext and App's triggerCrossfade.
   holdAtEnd: false,
@@ -1253,12 +1264,43 @@ usePlayerStore.subscribe((state) => {
   lastSavedQueue = current
   if (!queueSaveTimer) queueSaveTimer = setTimeout(saveQueueNow, 800)
 })
+// A song with a side panel view of its own (Edit Track) opens the panel on
+// it, however it came to play; the next song without one brings back the view
+// picked by hand. A view picked while such a song plays is only for then: it
+// isn't the one brought back, and the song's own shows again when it's back.
+// A song's view changed in Edit Track while it plays shows at once.
+let sidePanelTrackKey = null
+function followTrackSidePanel(state) {
+  const track = state.currentTrack
+  const own = trackSidePanelView(track)
+  const key = `${track?.id ?? ''}|${own ?? ''}`
+  if (key !== sidePanelTrackKey) {
+    sidePanelTrackKey = key
+    if (own) {
+      usePlayerStore.setState({ sidePanelView: own, sidePanelForcedBy: track.id })
+      return
+    }
+    if (state.sidePanelForcedBy != null) {
+      const view = state.sidePanelUserView || 'info'
+      // Independent mode has Queue in its own panel.
+      usePlayerStore.setState({ sidePanelView: !state.exclusiveSidePanels && view === 'queue' ? 'info' : view, sidePanelForcedBy: null })
+      return
+    }
+  }
+  if (state.sidePanelForcedBy == null && state.sidePanelView !== state.sidePanelUserView) usePlayerStore.setState({ sidePanelUserView: state.sidePanelView })
+}
+followTrackSidePanel(usePlayerStore.getState())
+usePlayerStore.subscribe(followTrackSidePanel)
 let lastSavedSidePanels = null
-usePlayerStore.subscribe((state) => {
+usePlayerStore.subscribe(() => {
+  // Read afresh: followTrackSidePanel's own updates reach the listeners after
+  // it before the change that caused them does.
+  const state = usePlayerStore.getState()
   const current = SIDE_PANEL_KEYS.map(key => state[key])
   if (lastSavedSidePanels && current.every((value, i) => value === lastSavedSidePanels[i])) return
   lastSavedSidePanels = current
-  try { localStorage.setItem(SIDE_PANELS_KEY, JSON.stringify(Object.fromEntries(SIDE_PANEL_KEYS.map(key => [key, state[key]])))) } catch {}
+  const saved = { showRightSidebar: state.showRightSidebar, sidePanelView: state.sidePanelUserView, showQueue: state.showQueue, showLyricsPanel: state.showLyricsPanel }
+  try { localStorage.setItem(SIDE_PANELS_KEY, JSON.stringify(saved)) } catch {}
 })
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => { if (queueSaveTimer) saveQueueNow() })

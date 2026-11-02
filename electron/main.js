@@ -1,3 +1,13 @@
+// An audio file on the command line (double-clicked in Explorer, "Open with"
+// Lokal) opens the quick player: a small window of its own, in a light process
+// of its own, apart from the app (./quick/main.js). Nothing below loads for it.
+// --library sends the file to the app instead, as before.
+if (!process.argv.includes('--library') && require('./audioFormats').findQuickFileArg(process.argv.slice(1))) {
+  delete process.env.LOKAL_DETACHED
+  require('./quick/main')
+  return
+}
+
 // Lokal always runs as a process of its own. Started by another program (a
 // script, a console, a hidden WScript.Shell.Run "...", 0), it would otherwise
 // be that program's child: its window hidden along with it, and the caller
@@ -560,6 +570,7 @@ app.whenReady().then(() => {
   try { require('./ipc/scanner').watchLibraryAfterScans() } catch (e) { console.error('watchLibraryAfterScans:', e.message) }
   try { registerThumbarHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerThumbarHandlers:', e.message) }
   try { require('./ipc/folderApps').registerFolderAppsHandlers(ipcMain) } catch (e) { console.error('registerFolderAppsHandlers:', e.message) }
+  try { require('./ipc/fileIcons').registerFileIconsHandlers(ipcMain) } catch (e) { console.error('registerFileIconsHandlers:', e.message) }
   try { registerSmtcHandlers(ipcMain, () => mainWindow) } catch (e) { console.error('registerSmtcHandlers:', e.message) }
   try { registerArtworkFxHandlers(ipcMain) } catch (e) { console.error('registerArtworkFxHandlers:', e.message) }
   try { registerRadioHandlers(ipcMain) } catch (e) { console.error('registerRadioHandlers:', e.message) }
@@ -871,6 +882,18 @@ ipcMain.on('window:dragStart', () => {
 ipcMain.on('window:dragEnd', endManualDrag)
 
 createWindow()
+
+// The quick player (a process of its own) pauses the app as it starts playing.
+// A page still loading plays nothing: no command kept for it.
+require('./controlPipe').listenForControl((action) => { if (remoteReady) emitPlayerCommand(action) })
+
+// Lokal moved since its file types were registered (Settings > File Icons):
+// they're written again for this exe, once the app is up.
+setTimeout(() => {
+  require('./ipc/fileIcons').healFileIcons()
+    .then(result => { if (result) console.log('[fileIcons] Re-registered for', process.execPath, result.ok ? '' : result.error) })
+    .catch(e => console.warn('[fileIcons] heal skipped:', e.message))
+}, 8000)
 
 const bootProtocolUrl = process.argv.find(arg => typeof arg === 'string' && arg.startsWith(`${APP_PROTOCOL}://`))
 const bootToken = extractLastfmAuthToken(bootProtocolUrl || '')

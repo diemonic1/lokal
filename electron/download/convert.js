@@ -127,7 +127,9 @@ function trimCache(dir, keep) {
  */
 const probed = new Map() // path|size|mtime -> probe result (the stream route asks on every range request)
 
-async function playableCopy(filePath, { ffmpeg, cacheDir } = {}) {
+// force: converted whatever the codec (the quick player, for a file the player
+// couldn't open: AIFF, Musepack...); trim: false leaves the cache's size to the app.
+async function playableCopy(filePath, { ffmpeg, cacheDir, force = false, trim = true } = {}) {
   let stat
   try { stat = fs.statSync(filePath) } catch { return null }
   const memo = `${filePath}\u0000${stat.size}\u0000${stat.mtimeMs}`
@@ -137,9 +139,10 @@ async function playableCopy(filePath, { ffmpeg, cacheDir } = {}) {
     if (probed.size > 5000) probed.clear()
     probed.set(memo, info)
   }
-  if (!info?.unplayable) return null
+  if (!info?.unplayable && !force) return null
+  const lossless = info ? info.lossless : /\.(?:aiff?|aifc|wav|ape|wv|tta|dsf|dff|alac|flac)$/i.test(filePath)
   fs.mkdirSync(cacheDir, { recursive: true })
-  const dest = path.join(cacheDir, cacheKey(filePath, stat) + (info.lossless ? '.flac' : '.m4a'))
+  const dest = path.join(cacheDir, cacheKey(filePath, stat) + (lossless ? '.flac' : '.m4a'))
   if (fs.existsSync(dest)) {
     try { const now = new Date(); fs.utimesSync(dest, now, now) } catch {}
     return dest
@@ -148,9 +151,9 @@ async function playableCopy(filePath, { ffmpeg, cacheDir } = {}) {
   const job = (async () => {
     const temp = `${dest}.part${path.extname(dest)}`
     try {
-      await run(ffmpeg, convertArgs(filePath, temp, info.lossless))
+      await run(ffmpeg, convertArgs(filePath, temp, lossless))
       fs.renameSync(temp, dest)
-      trimCache(cacheDir, dest)
+      if (trim) trimCache(cacheDir, dest)
       return dest
     } catch {
       try { fs.unlinkSync(temp) } catch {}

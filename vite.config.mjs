@@ -48,7 +48,9 @@ export default defineConfig({
   build: { 
     outDir: 'dist',
     rollupOptions: {
-      external: ['better-sqlite3']
+      external: ['better-sqlite3'],
+      // quick.html: the quick player's window (electron/quick/main.js), a page of its own.
+      input: { main: path.resolve(dirname, 'index.html'), quick: path.resolve(dirname, 'quick.html') },
     }
   },
   server: {

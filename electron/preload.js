@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('electron', {
   updateThumbarState: (state) => invoke('thumbar:updateState', state),
   setTaskbarProgress: (state) => invoke('thumbar:progress', state),
   launchFolderApp: (appPath, folder) => invoke('folderApps:launch', appPath, folder),
+  fileIcons: () => invoke('fileIcons:list'),
+  applyFileIcons: (packId, options) => invoke('fileIcons:apply', packId, options),
+  removeFileIcons: () => invoke('fileIcons:remove'),
+  openFileIconsFolder: () => invoke('fileIcons:openFolder'),
   launchTopApp: (target) => invoke('topApps:launch', target),
   onThumbarCommand: (fn) => {
     const channels = {

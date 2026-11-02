@@ -27,3 +27,25 @@ for (const dir of [release, path.join(release, 'win-unpacked')]) {
   for (const name of names) if (isInfo(name)) fs.rmSync(path.join(dir, name), { force: true })
 }
 for (const name of ['builder-debug.yml', 'builder-effective-config.yaml']) fs.rmSync(path.join(release, name), { force: true })
+
+// The folder for AIMP icon packs (Settings > File Icons, electron/iconPacks.js),
+// next to the exe, ready to drop them in: electron-builder leaves no empty folders.
+const unpacked = path.join(release, 'win-unpacked')
+if (fs.existsSync(unpacked)) {
+  const icons = path.join(unpacked, 'icons')
+  fs.mkdirSync(icons, { recursive: true })
+  fs.writeFileSync(path.join(icons, 'README.txt'), [
+    'Папка для наборов иконок файлов AIMP (Настройки > Иконки файлов).',
+    '',
+    '1. Скачайте набор: https://aimp.ru/?do=catalog&os=desktop&id=1&sort=1',
+    '2. Достаньте из архива файл .dll и положите его сюда.',
+    '3. В Lokal: Настройки > Иконки файлов > Обновить, выберите набор и нажмите «Применить».',
+    '',
+    'Folder for AIMP file icon packs (Settings > File Icons).',
+    '',
+    '1. Download a pack: https://aimp.ru/?do=catalog&os=desktop&id=1&sort=1',
+    '2. Take the .dll out of the archive and put it here.',
+    '3. In Lokal: Settings > File Icons > Refresh, pick the pack and press Apply.',
+    '',
+  ].join('\r\n'), 'utf8')
+}

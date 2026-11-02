@@ -7,7 +7,7 @@ import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop } from 'lucide-react'
+import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop, FileAudio } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
@@ -33,6 +33,7 @@ import { previewAppearanceValue } from '../appearanceFlags'
 import AppTabsSettings from '../components/AppTabsSettings'
 import HeaderLayoutSettings from '../components/HeaderLayoutSettings'
 import FolderAppsSettings from '../components/FolderAppsSettings'
+import FileIconsSettings from '../components/FileIconsSettings'
 import RadioCatalogSetup from '../components/RadioCatalogSetup'
 import { RADIO_BUFFER_MAX, radioBufferSeconds } from '../store/radio'
 import { FOLDER_TRANSITIONS } from './Library'
@@ -52,6 +53,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'radio', label: 'Online Radio', icon: RadioIcon },
   { key: 'addons', label: 'Addons', icon: Blocks },
   { key: 'appearance', label: 'Appearance', icon: Palette },
+  { key: 'fileicons', label: 'File Icons', icon: FileAudio },
   { key: 'visualizations', label: 'Visualizations', icon: AudioWaveform },
   { key: 'topbars', label: 'App Top Bars', icon: PanelTop },
   { key: 'data', label: 'Data', icon: Download },
@@ -59,6 +61,9 @@ const SETTINGS_CATEGORIES = [
 ]
 // Tabs that were folded into others: a link to one opens where it went.
 const MOVED_CATEGORIES = { artists: 'library', plugins: 'addons' }
+// File Icons is about Windows Explorer: the desktop app on Windows only.
+const onWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+const shownCategory = (key) => (key !== 'about' || api.isElectron) && (key !== 'fileicons' || (api.isElectron && onWindows))
 
 const TRANSLATION_LANGUAGES = [
   ['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['de', 'Deutsch'], ['it', 'Italiano'], ['pt', 'Português'],
@@ -70,10 +75,10 @@ const TRANSLATION_LANGUAGES = [
 // Each section (heading + card) keeps a readable width and sits centred in
 // the page, so on a wide or full-screen window the cards don't stretch edge
 // to edge. The page header and category tabs above still span the width.
-function Section({ title, children }) {
+function Section({ title, children, wide = false }) {
   const { t } = useTranslation()
   return (
-    <div className="space-y-3 w-full max-w-2xl mx-auto">
+    <div className={`space-y-3 w-full ${wide ? 'max-w-5xl' : 'max-w-2xl'} mx-auto`}>
       <h2 className="text-xs font-display text-muted uppercase tracking-widest">{t(title)}</h2>
       <div className="bg-elevated border border-border rounded-xl p-5 space-y-5">{children}</div>
     </div>
@@ -486,6 +491,16 @@ export default function Settings() {
   // the next one. Start each category at the top; layout effect so the new
   // content never paints at the old offset first.
   const rootRef = useRef(null)
+  // The sticky bar's height, for what sticks under it (File Icons' controls).
+  const barRef = useRef(null)
+  useEffect(() => {
+    const bar = barRef.current
+    const root = rootRef.current
+    if (!bar || !root || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => root.style.setProperty('--settings-bar-height', `${bar.offsetHeight}px`))
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [])
   const firstCategoryRef = useRef(true)
   useLayoutEffect(() => {
     if (firstCategoryRef.current) { firstCategoryRef.current = false; return }
@@ -1148,7 +1163,7 @@ export default function Settings() {
       {/* The bar itself spans the page (so it still covers content scrolling
           under it). The title lines up with the cards' centred column (see
           Section); the category buttons use the full width, centred. */}
-      <div className="space-y-3 sticky top-0 z-10 bg-bg/80 backdrop-blur-sm py-2">
+      <div ref={barRef} className="space-y-3 sticky top-0 z-10 bg-bg/80 backdrop-blur-sm py-2">
         <div className="w-full max-w-2xl mx-auto flex items-center justify-between gap-3">
           <h1 className="font-display text-lg uppercase tracking-widest text-white">{t("Settings")}</h1>
           <div className="flex items-center gap-3">
@@ -1179,7 +1194,7 @@ export default function Settings() {
           </div>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          {SETTINGS_CATEGORIES.filter(item => item.key !== 'about' || api.isElectron).map((item) => {
+          {SETTINGS_CATEGORIES.filter(item => shownCategory(item.key)).map((item) => {
             const Icon = item.icon
             const active = activeCategory === item.key
             return (
@@ -1206,6 +1221,12 @@ export default function Settings() {
 activeCategory === 'data' ? usersTried
           : activeCategory !== 'addons'
       } />
+      {api.isElectron && onWindows && inCategory('fileicons') && (
+      <Section title="File Icons" wide>
+        <FileIconsSettings />
+      </Section>
+      )}
+
       {api.isElectron && inCategory('about') && (
         <Section title="About">
           <Row label="Version" desc="The version you're running.">

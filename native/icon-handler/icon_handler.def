@@ -1,0 +1,4 @@
+LIBRARY LokalIconHandler
+EXPORTS
+  DllGetClassObject PRIVATE
+  DllCanUnloadNow PRIVATE

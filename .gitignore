@@ -26,3 +26,9 @@ native/smtc-bridge/target/
 native/audio-output/build/
 build/webview2-signin/
 native/loudness/build/
+native/icon-handler/build/
+
+# AIMP icon packs dropped in while developing (Settings > File Icons)
+/icons/
+# Built by scripts/prepare-icon-handler.js
+/build/file-icons/*.dll

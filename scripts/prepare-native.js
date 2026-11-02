@@ -4,6 +4,7 @@ const { spawnSync } = require('child_process')
 
 require('./prepare-audio')
 require('./prepare-loudness')
+require('./prepare-icon-handler')
 
 if (process.platform !== 'win32') process.exit(0)
 
