@@ -713,6 +713,7 @@ router.put('/:id', (req, res) => {
   if (clip_url !== undefined) { updates.push('clip_url = ?'); params.push(String(clip_url || '').trim() || null) }
   if (clip_start !== undefined) { updates.push('clip_start = ?'); params.push(clip_start !== null && clip_start !== '' && Number.isFinite(Number(clip_start)) ? Number(clip_start) : null) }
   if (clip_zoom !== undefined) { const n = Number(clip_zoom); updates.push('clip_zoom = ?'); params.push(clip_zoom === null || clip_zoom === '' || !Number.isFinite(n) || n <= 0 ? null : Math.min(100, n)) }
+  if (req.body?.lokal_markers !== undefined) { updates.push('markers = ?'); params.push(require('../../electron/trackMarkers').normalize(req.body.lokal_markers)) }
   if (side_panel_view !== undefined) { updates.push('side_panel_view = ?'); params.push(require('../../electron/sidePanelView').sidePanelViewValue(side_panel_view)) }
   if (clip_end !== undefined) { updates.push('clip_end = ?'); params.push(clip_end !== null && clip_end !== '' && Number.isFinite(Number(clip_end)) ? Number(clip_end) : null) }
   if (danceability !== undefined) { updates.push('danceability = ?'); params.push(danceability) }

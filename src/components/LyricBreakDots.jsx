@@ -2,10 +2,12 @@ import React, { useEffect, useId, useRef } from 'react'
 import { createBreakDots, DOTS, R0, S0, PAD, WIDTH, HEIGHT } from '../lyrics/breakDots'
 import { useTranslation } from '../i18n'
 
-// Three droplets of liquid for an instrumental break. They run on the physics in
+// Eight droplets of liquid for an instrumental break. They run on the physics in
 // lyrics/breakDots.js and are drawn as one metaball: the droplets are blurred
 // and thresholded into a single silhouette (so they stretch, merge and part like
-// real liquid), and that silhouette is filled with each droplet's own light.
+// real liquid). The silhouette is a progress bar of the break: dim like the
+// sung line's [bracketed] words, filled left to right in the line's own colour
+// as the break goes by -- a droplet can be part filled.
 //
 //   start, end   the break, in seconds on the song clock (a gap line's time/end)
 //   getTime      () => seconds, read every frame while `active`
@@ -16,8 +18,13 @@ import { useTranslation } from '../i18n'
 
 const GOO_BLUR = 4.6
 const GOO_MATRIX = '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10'
-const FIELD_R = 26
 const EDGE = 24
+// The sung line's colours (LyricsPanel: SUNG, and its [bracketed] words at
+// BRACKETED_OPACITY) and the dots' size: CSS variables (index.css), so they can
+// be tried out from the developer tools.
+const FILLED = 'var(--lyric-break-dot-fill, #fff)'
+const UNFILLED = 'var(--lyric-break-dot-color, #676565)'
+const sized = (rem) => `calc(${rem}rem * var(--lyric-break-dot-scale, 1.4))`
 // The glow is drawn inside the SVG (a blurred copy of the droplets) with room
 // all round to fade out in, never as a CSS drop-shadow: that one was cut off
 // by the boxes around it and showed as a rectangle.
@@ -37,7 +44,7 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
   const glowBlurRef = useRef(null)
   const gooRefs = useRef([])
   const glowDotRefs = useRef([])
-  const fieldRefs = useRef([])
+  const fillRef = useRef(null)
 
   // SVG units in one rem: a droplet (R0 * 2 units) is `size` rem across.
   const unitsPerRem = (R0 * 2) / size
@@ -64,18 +71,19 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
         const d = frame.dots[i]
         const goo = gooRefs.current[i]
         const glowDot = glowDotRefs.current[i]
-        const field = fieldRefs.current[i]
         if (goo) { goo.setAttribute('cx', d.x.toFixed(2)); goo.setAttribute('cy', d.y.toFixed(2)); goo.setAttribute('r', d.r.toFixed(2)) }
         if (glowDot) { glowDot.setAttribute('cx', d.x.toFixed(2)); glowDot.setAttribute('cy', d.y.toFixed(2)); glowDot.setAttribute('r', d.r.toFixed(2)) }
-        if (field) { field.setAttribute('cx', d.x.toFixed(2)); field.setAttribute('cy', d.y.toFixed(2)); field.setAttribute('fill-opacity', d.b.toFixed(3)) }
       }
+      // The progress bar's filled part: from the box's left edge to the fill's.
+      const edge = Math.max(-EDGE, Math.min(WIDTH + EDGE, frame.edge))
+      fillRef.current?.setAttribute('width', (edge + EDGE).toFixed(2))
     }
     tick()
     return () => cancelAnimationFrame(raf)
   }, [active, start, end, getTime, pulses, unitsPerRem])
 
   const scale = size / (R0 * 2)
-  const trim = `${-(PAD - R0) * scale}rem`
+  const trim = -(PAD - R0) * scale
   const box = { x: -EDGE, y: -EDGE, width: WIDTH + EDGE * 2, height: HEIGHT + EDGE * 2 }
   const glowBox = { x: -GLOW_EDGE, y: -GLOW_EDGE, width: WIDTH + GLOW_EDGE * 2, height: HEIGHT + GLOW_EDGE * 2 }
   const rest = (i) => WIDTH / 2 + (i - (DOTS - 1) / 2) * S0
@@ -85,9 +93,7 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
       role="img"
       aria-label={t(label)}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      width={`${WIDTH * scale}rem`}
-      height={`${HEIGHT * scale}rem`}
-      style={{ display: 'block', flexShrink: 0, overflow: 'visible', [align === 'end' ? 'marginRight' : 'marginLeft']: trim }}
+      style={{ display: 'block', flexShrink: 0, overflow: 'visible', width: sized(WIDTH * scale), height: sized(HEIGHT * scale), [align === 'end' ? 'marginRight' : 'marginLeft']: sized(trim) }}
     >
       <defs>
         <filter id={`${id}-goo`} filterUnits="userSpaceOnUse" {...box} colorInterpolationFilters="sRGB">
@@ -97,11 +103,6 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
         <filter id={`${id}-glow`} filterUnits="userSpaceOnUse" {...glowBox} colorInterpolationFilters="sRGB">
           <feGaussianBlur ref={glowBlurRef} in="SourceGraphic" stdDeviation="8" />
         </filter>
-        <radialGradient id={`${id}-light`}>
-          <stop offset="0" stopColor="#fff" stopOpacity="1" />
-          <stop offset="0.6" stopColor="#fff" stopOpacity="1" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
         <mask id={`${id}-shape`} maskUnits="userSpaceOnUse" {...box}>
           <g filter={`url(#${id}-goo)`}>
             {Array.from({ length: DOTS }, (_, i) => (
@@ -116,9 +117,8 @@ export default function LyricBreakDots({ start, end, getTime, active = true, siz
         ))}
       </g>
       <g ref={groupRef} mask={`url(#${id}-shape)`} opacity="0">
-        {Array.from({ length: DOTS }, (_, i) => (
-          <circle key={i} ref={el => { fieldRefs.current[i] = el }} cx={rest(i)} cy={HEIGHT / 2} r={FIELD_R} fill={`url(#${id}-light)`} fillOpacity="0.3" />
-        ))}
+        <rect {...box} style={{ fill: UNFILLED }} />
+        <rect ref={fillRef} x={box.x} y={box.y} width="0" height={box.height} style={{ fill: FILLED }} />
       </g>
     </svg>
   )

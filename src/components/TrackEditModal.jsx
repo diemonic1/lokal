@@ -17,6 +17,7 @@ import ClipAvailability from './ClipAvailability'
 import LyricsTextArea from './LyricsTextArea'
 import MotionCoverMarks from './MotionCoverMarks'
 import { TRACK_SIDE_PANEL_VIEWS, trackSidePanelView } from '../sidePanelViews'
+import { hasStrayLines, parseMarkers } from '../trackMarkers'
 import { CLIP_ZOOM_MAX, clipTimeInput, clipVideoLink, clipZoomPercent, formatClipTime, parseClipTime, previewClip } from '../clipVideo'
 
 function asInput(value) {
@@ -157,6 +158,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
     clip_end: '',
     clip_zoom: 0,
     side_panel_view: '',
+    markers: '',
     highlight_time: '',
     danceability: '',
     energy: '',
@@ -208,6 +210,24 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   // Puts a time stamp in the lyrics. Syllable lyrics: <stamp> where the text
   // cursor is (over any selection). The lyrics tag: [stamp] at the start of
   // the cursor's line, in place of the one already there.
+  // "Insert time" over the markers: the line under the cursor gets the playing
+  // time as its stamp (its old one replaced), the cursor after it.
+  const markersInput = useRef(null)
+  const insertMarkerStamp = (stamp) => {
+    const area = markersInput.current
+    if (!area) return
+    const { selectionStart: from, value } = area
+    const start = value.lastIndexOf('\n', from - 1) + 1
+    const old = LINE_STAMP.exec(value.slice(start))
+    const rest = value.slice(start + (old ? old[0].length : 0))
+    const piece = `[${stamp}]${/^\s/.test(rest) ? '' : ' '}`
+    const next = value.slice(0, start) + piece + rest
+    handleChange('markers', next)
+    requestAnimationFrame(() => {
+      area.focus()
+      area.setSelectionRange(start + piece.length, start + piece.length)
+    })
+  }
   const insertStamp = (stamp) => {
     const area = lyricsInput.current
     if (!area) return
@@ -322,6 +342,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
         clip_end: formatClipTime(track.clip_end),
         clip_zoom: clipZoomPercent(track.clip_zoom),
         side_panel_view: trackSidePanelView(track) || '',
+        markers: track.markers || '',
         highlight_time: formatClipTime(track.highlight_time),
         danceability: asInput(track.danceability),
         energy: asInput(track.energy),
@@ -350,6 +371,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
   // at once (the link once it stops changing), before it's saved.
   const [clipTouched, setClipTouched] = useState(false)
   const previewedUrl = useRef(null)
+  const markerCount = parseMarkers(formData.markers).length
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (field.startsWith('clip_')) setClipTouched(true)
@@ -457,6 +480,8 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
       if (clipZoom !== clipZoomPercent(track.clip_zoom)) updateData.clip_zoom = clipZoom || null
       // The side panel view while it plays: kept in the library, not the file.
       if (formData.side_panel_view !== (trackSidePanelView(track) || '')) updateData.side_panel_view = formData.side_panel_view || null
+      // The time markers: kept in the file's LOKAL_MARKERS tag.
+      if (formData.markers.trim() !== String(track.markers || '').trim()) updateData.lokal_markers = formData.markers.trim() || null
       // The important moment: typed like the loop times; marked on the seek bar.
       const highlight = parseClipTime(formData.highlight_time)
       if (Number.isNaN(highlight)) {
@@ -780,6 +805,26 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
               </select>
               <p className="mt-1 text-[11px] leading-snug text-muted">{t('While this track plays, the side panel shows this view; the next track brings back the one you picked. Kept in the library, not in the file.')}</p>
             </div>
+
+            {/* Time markers: moments with a caption, jumped between from the player bar. */}
+            <details className="rounded-lg border border-border bg-card/70 px-3 py-2">
+              <summary className="cursor-pointer text-[10px] font-display uppercase tracking-widest text-muted">
+                {t('Time markers')}
+                {markerCount > 0 && <span className="ml-1.5 normal-case tracking-normal text-white/60">· {markerCount}</span>}
+              </summary>
+              <div className="mt-2 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <PlayheadStamp trackId={track?.id} digits={2} onInsert={insertMarkerStamp} />
+                </div>
+                <textarea ref={markersInput} value={formData.markers} onChange={(e) => handleChange('markers', e.target.value)} rows={6} spellCheck={false}
+                  className={`${field} resize-y font-mono text-[12px] leading-relaxed ${hasStrayLines(formData.markers) ? 'border-red-400/70' : ''}`}
+                  placeholder={'[00:00.00] Artist - Title\n[03:00.00] Artist - Title'} />
+                <p className="text-[11px] leading-snug text-muted">
+                  {hasStrayLines(formData.markers) && <span className="mr-1 text-red-400">{t('Lines without a [mm:ss.xx] time stamp are skipped.')}</span>}
+                  {t('One marker a line, like synced lyrics: [mm:ss.xx] and a caption. The player bar’s markers button lists them; a click jumps there. Saved into the file itself (Lokal’s LOKAL_MARKERS tag), not the lyrics.')}
+                </p>
+              </div>
+            </details>
 
             {/* Less often changed: the album artist and the record label, last. */}
             <div className="grid grid-cols-2 gap-2.5">

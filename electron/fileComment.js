@@ -138,7 +138,7 @@ function upgradeToId3v24(id3) {
 /** The fields of a tag editor save that live in the file (comment included). */
 function fileTagEdits(data = {}) {
   const edits = {}
-  for (const field of [...Object.keys(TAG_FIELDS), 'comment', 'lokal_track']) {
+  for (const field of [...Object.keys(TAG_FIELDS), 'comment', 'lokal_track', 'lokal_markers']) {
     if (data[field] !== undefined) edits[field] = data[field]
   }
   return edits
@@ -168,6 +168,9 @@ function writeFileTags(filePath, edits = {}) {
       if (field === 'lokal_track') {
         // Lokal's own tag: the explicit mark and the music video (see ./trackExtras).
         require('./lyrics/fileLyrics').setPrivateField(T, file, edits.lokal_track || null, 'LOKAL_TRACK')
+      } else if (field === 'lokal_markers') {
+        // The song's time markers (see ./trackMarkers).
+        require('./lyrics/fileLyrics').setPrivateField(T, file, require('./trackMarkers').normalize(edits.lokal_markers), 'LOKAL_MARKERS')
       } else if (field === 'comment') {
         const clean = String(edits.comment || '').replace(/\r\n?/g, '\n').trim()
         if (mp3) writeId3(T, file, clean)

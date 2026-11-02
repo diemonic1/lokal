@@ -26,6 +26,7 @@ import { isStationTrack } from '../radio/stations'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
 import MixingMark from './MixingMark'
+import TrackMarkersButton from './TrackMarkers'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import { openRadio } from '../radioActions'
 import { useCastStore } from '../cast/castStore'
@@ -413,8 +414,12 @@ export default function PlayerBar() {
           </div>
         )}
         <div ref={controlsRef} className="relative flex items-center gap-4">
-          {/* Beside the buttons (not over the seek bar), without moving them. */}
-          <MixingMark className="absolute left-full top-1/2 ml-4 -translate-y-1/2 whitespace-nowrap pointer-events-none" />
+          {/* Beside the buttons (not over the seek bar), without moving them:
+              the song's time markers, then the AutoMix mark. */}
+          <div className="absolute left-full top-1/2 ml-4 flex -translate-y-1/2 items-center gap-4">
+            {!station && <TrackMarkersButton className="flex" />}
+            <MixingMark className="whitespace-nowrap pointer-events-none" />
+          </div>
           <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? 'text-accent' : 'text-text/90 hover:text-text'}`} title={shuffle ? t("Shuffle on") : t("Shuffle off")}><Shuffle size={15} /></button>
           <button onClick={prev} className="text-text/90 hover:text-text transition-colors" title={t("Previous")}><SkipBack size={18} fill="currentColor" /></button>
           {/* data-keep-dialog: Edit Track (a docked dialog) stays open for play/pause and seeking. */}

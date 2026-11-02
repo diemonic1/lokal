@@ -255,4 +255,9 @@ export default {
   'Clip / Visualization + Line of Lyrics': 'Клип / визуализация + строка текста',
   'Use the standard side panel view': 'Использовать стандартный экран бокового меню',
   'While this track plays, the side panel shows this view; the next track brings back the one you picked. Kept in the library, not in the file.': 'Пока играет этот трек, боковое меню показывает этот экран; со следующим треком вернётся выбранный вами. Хранится в библиотеке, а не в файле.',
+  // Time markers (Edit Track, the player bar's markers button)
+  'Time markers': 'Временные метки',
+  'Untitled': 'Без названия',
+  'Lines without a [mm:ss.xx] time stamp are skipped.': 'Строки без метки времени [мм:сс.хх] пропускаются.',
+  'One marker a line, like synced lyrics: [mm:ss.xx] and a caption. The player bar’s markers button lists them; a click jumps there. Saved into the file itself (Lokal’s LOKAL_MARKERS tag), not the lyrics.': 'По одной метке в строке, как в синхронном тексте: [мм:сс.хх] и подпись. Кнопка меток в нижнем плеере показывает их списком; по нажатию трек перематывается туда. Сохраняется прямо в файл (собственный тег Lokal — LOKAL_MARKERS), отдельно от текста.',
 }

@@ -260,6 +260,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // The song's time markers, "[mm:ss.xx] caption" a line, from its LOKAL_MARKERS tag (electron/trackMarkers.js).
+    `ALTER TABLE tracks ADD COLUMN markers TEXT`,
     // The side panel view the song opens on while it plays (Edit Track; see
     // src/sidePanelViews.js); NULL: the one picked by hand. Only here, not in the file.
     `ALTER TABLE tracks ADD COLUMN side_panel_view TEXT`,
@@ -331,6 +333,8 @@ function initDB() {
     `ALTER TABLE tracks ADD COLUMN clip_zoom REAL`,
     // The song's important moment, in seconds: a mark on the seek bar.
     `ALTER TABLE tracks ADD COLUMN highlight_time REAL`,
+    // The song's time markers, "[mm:ss.xx] caption" a line, from its LOKAL_MARKERS tag (electron/trackMarkers.js).
+    `ALTER TABLE tracks ADD COLUMN markers TEXT`,
     // The side panel view the song opens on while it plays (Edit Track; see
     // src/sidePanelViews.js); NULL: the one picked by hand. Only here, not in the file.
     `ALTER TABLE tracks ADD COLUMN side_panel_view TEXT`,

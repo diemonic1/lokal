@@ -12,7 +12,7 @@ function play(opts = {}, { start = START, end = END, from = start - 0.02, to = e
   const frames = []
   for (let t = from; t <= to + 1e-9; t += dt) {
     const f = model.step(t, dt, { start, end, ...opts })
-    frames.push({ t, visible: f.visible, alpha: f.alpha, glow: f.glow, dots: f.dots.map(d => ({ ...d })) })
+    frames.push({ t, visible: f.visible, alpha: f.alpha, glow: f.glow, fill: f.fill, edge: f.edge, dots: f.dots.map(d => ({ ...d })) })
   }
   return frames
 }
@@ -26,9 +26,9 @@ test('every value stays finite and inside the drawing box for the whole break', 
       assert.ok(f.alpha >= 0 && f.alpha <= 1)
       assert.ok(f.glow >= 0 && f.glow <= 1)
       for (const d of f.dots) {
-        for (const v of [d.x, d.y, d.r, d.b]) assert.ok(Number.isFinite(v))
+        for (const v of [d.x, d.y, d.r, d.f]) assert.ok(Number.isFinite(v))
         assert.ok(d.r >= 0 && d.r <= R0 * 1.75)
-        assert.ok(d.b >= 0 && d.b <= 1)
+        assert.ok(d.f >= 0 && d.f <= 1)
         assert.ok(d.x > -10 && d.x < WIDTH + 10)
         assert.ok(d.y > 0 && d.y < HEIGHT)
       }
@@ -36,13 +36,22 @@ test('every value stays finite and inside the drawing box for the whole break', 
   }
 })
 
-test('the droplets light up one after another across the break', () => {
+test('the droplets fill left to right as a progress bar of the break', () => {
+  const model = createBreakDots()
+  const opts = { start: START, end: END }
+  // 2.5 droplets of the chain: two full, the third half filled.
+  const t = START + (END - START) * (2.5 / DOTS)
+  const f = model.step(t, 0.016, opts)
+  assert.ok(Math.abs(f.fill - 2.5 / DOTS) < 1e-9)
+  const fills = f.dots.map(d => d.f)
+  assert.ok(fills.every((v, i) => i === 0 || v <= fills[i - 1]), `filled left to right: ${fills}`)
+  assert.ok(fills[0] === 1 && fills[1] === 1 && Math.abs(fills[2] - 0.5) < 1e-9 && fills[3] === 0, `${fills}`)
+  const third = f.dots[2]
+  assert.ok(Math.abs(f.edge - third.x) < 1e-9, 'the fill ends in the middle of the half-filled droplet')
+  const begin = createBreakDots().step(START + 0.001, 0.016, opts)
+  assert.ok(begin.edge < begin.dots[0].x, 'nothing filled at the start')
   const frames = play()
-  const early = at(frames, START + 6).dots.map(d => d.b)
-  assert.ok(early[0] > early[1] && early[1] > early[2], `lit left to right: ${early}`)
-  const late = at(frames, END - 1.2).dots.map(d => d.b)
-  assert.ok(late.every(b => b > 0.9), `all lit before the end: ${late}`)
-  assert.ok(at(frames, START + 0.8).dots.every(d => d.b < 0.6))
+  for (let i = 1; i < frames.length; i++) if (frames[i].visible && frames[i - 1].visible) assert.ok(frames[i].fill >= frames[i - 1].fill)
 })
 
 test('the break is cut into whole waves that run left to right', () => {
@@ -75,8 +84,8 @@ test('the droplets merge into one drip, which swells and evaporates', () => {
   const merged = Math.min(...frames.filter(f => f.t > END - 0.9 && f.t < END - 0.2).map(spacing))
   assert.ok(merged < middle * 0.25, `merged ${merged} vs ${middle}`)
   const dripAt = frames.filter(f => f.t > END - 0.75 && f.t < END - 0.35)
-  assert.ok(dripAt.some(f => f.dots.every(d => d.b > 0.9 && d.r > R0)), 'one lit drip before it goes')
-  assert.ok(at(frames, END - 0.02).dots.every(d => d.r < 1.5 && d.b < 0.2))
+  assert.ok(dripAt.some(f => f.fill > 0.9 && f.dots.every(d => d.r > R0)), 'one filled drip before it goes')
+  assert.ok(at(frames, END - 0.02).dots.every(d => d.r < 1.5))
 })
 
 test('the whole sequence is over before the panel hands focus to the next line', () => {
@@ -113,10 +122,10 @@ test('seeking inside a break lands in the right state without a lurch', () => {
   jumped.dots.forEach((d, i) => {
     assert.ok(Math.abs(d.r - direct.dots[i].r) < 1e-9)
     assert.ok(Math.abs(d.x - direct.dots[i].x) < 1e-9)
-    assert.ok(Math.abs(d.b - direct.dots[i].b) < 1e-9)
+    assert.ok(Math.abs(d.f - direct.dots[i].f) < 1e-9)
   })
   const back = model.step(START + 1, 0.016, opts)
-  assert.ok(back.dots.every(d => d.b < 0.6))
+  assert.ok(back.fill < 0.1 && back.dots.slice(1).every(d => d.f === 0))
 })
 
 test('a stalled frame or a paused clock cannot blow the physics up', () => {
@@ -149,7 +158,7 @@ test('reduced motion keeps the progress but not the movement', () => {
   assert.ok(Math.max(...ys) - Math.min(...ys) < 0.5)
   const radii = frames.filter(f => f.t > START + 2 && f.t < END - 1).flatMap(f => f.dots.map(d => d.r))
   assert.ok(Math.max(...radii) < R0 * 1.15)
-  const lit = at(frames, START + 3.5).dots.map(d => d.b)
+  const lit = at(frames, START + 3.5).dots.map(d => d.f)
   assert.ok(lit[0] > lit[2])
 })
 

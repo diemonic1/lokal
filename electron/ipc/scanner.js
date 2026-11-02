@@ -10,6 +10,7 @@ const { setFileLyrics } = require('../searchIndex')
 const quality = require('../quality')
 const trackExtras = require('../trackExtras')
 const addedDate = require('../addedDate')
+const trackMarkers = require('../trackMarkers')
 const lokalIds = require('../trackId')
 const { findFolderArtwork, getLibraryFolders } = require('../libraryFolder')
 const { getDB, getStorageDir, importAppData, resetAppData } = require('./db')
@@ -542,7 +543,7 @@ async function readTrackFile(filePath, stat, ctx, existingId = null) {
   if (ctx.skipDrumKit && isDrumKit(title, c.album, c.genre?.[0])) return { skipped: 'Drumkit pattern detected' }
   const artwork = await extractArtwork(meta, versionId, ctx.folderArtwork(filePath))
   const replaygain = c.replaygain_track_gain || null
-  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || null, album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), added: addedDate.fromMeta(meta), lokal_id: lokalIds.fromMeta(meta) } }
+  return { item: { id: existingId || versionId, file_path: filePath, file_hash: versionId, title, artist, album: c.album?.trim() || null, album_artist: c.albumartist?.trim() || null, track_num: c.track?.no || null, year: c.year || null, genre: c.genre?.[0] || null, file_genres: c.genre || null, duration, artwork_path: artwork, bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : null, last_modified: stat.mtimeMs, replaygain, comment: commentText(c), lyrics_kind: lyricsKindOf(meta), lyrics_text: lyricsFromMeta(meta) || '', quality: quality.qualityFields(meta), extras: trackExtras.fromMeta(meta), markers: trackMarkers.fromMeta(meta), added: addedDate.fromMeta(meta), lokal_id: lokalIds.fromMeta(meta) } }
 }
 
 // Libraries from before the column existed get it on their first write.
@@ -599,6 +600,8 @@ async function storeTracks(db, items) {
       db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(item.comment ?? '', item.lyrics_kind ?? null, trackId)
       // The explicit mark and the music video, from the file's LOKAL_TRACK tag.
       trackExtras.applyToRow(db, trackId, item.extras)
+      // The time markers, from the file's LOKAL_MARKERS tag.
+      trackMarkers.applyToRow(db, trackId, item.markers)
       // When it joined the library, from the file's LOKAL_ADDED tag (without
       // one, the library's date stays and is written into the file after).
       addedDate.applyToRow(db, trackId, item.added)
@@ -1828,6 +1831,8 @@ function registerScannerHandlers(ipcMain) {
     if (data.clip_start !== undefined) { updates.push('clip_start = ?'); params.push(Number.isFinite(Number(data.clip_start)) && data.clip_start !== null && data.clip_start !== '' ? Number(data.clip_start) : null) }
     if (data.clip_zoom !== undefined) { updates.push('clip_zoom = ?'); params.push(clipZoomValue(data.clip_zoom)) }
     if (data.highlight_time !== undefined) { const n = Number(data.highlight_time); updates.push('highlight_time = ?'); params.push(data.highlight_time !== null && data.highlight_time !== '' && Number.isFinite(n) && n >= 0 ? n : null) }
+    // The time markers go into the file's LOKAL_MARKERS tag too (fileTagEdits).
+    if (data.lokal_markers !== undefined) { updates.push('markers = ?'); params.push(trackMarkers.normalize(data.lokal_markers)) }
     // The side panel view the song opens on (library only, not the file).
     if (data.side_panel_view !== undefined) { updates.push('side_panel_view = ?'); params.push(require('../sidePanelView').sidePanelViewValue(data.side_panel_view)) }
     if (data.clip_end !== undefined) { updates.push('clip_end = ?'); params.push(Number.isFinite(Number(data.clip_end)) && data.clip_end !== null && data.clip_end !== '' ? Number(data.clip_end) : null) }
@@ -2371,6 +2376,7 @@ async function indexSingleFile(filePath, opts = {}) {
     }
     db.prepare('UPDATE tracks SET comment = ?, lyrics_kind = ? WHERE id = ?').run(commentText(c), lyricsKindOf(meta), trackId)
     trackExtras.applyToRow(db, trackId, trackExtras.fromMeta(meta))
+    trackMarkers.applyToRow(db, trackId, trackMarkers.fromMeta(meta))
     addedDate.applyToRow(db, trackId, addedDate.fromMeta(meta))
     setFileLyrics(db, trackId, lyricsFromMeta(meta) || '')
     applyPendingImportedMetadataToTrack(db, trackId)

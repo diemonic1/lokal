@@ -71,7 +71,7 @@ test('the dots are gone by the time the next song takes over', () => {
   const end = gap.end - 0.05
   let frame
   for (let t = gap.time - 0.02; t <= gap.end - 0.02; t += 1 / 60) frame = model.step(t, 1 / 60, { start: gap.time, end })
-  assert.ok(frame.dots.every(d => d.r < 1.5 && d.b < 0.2), 'nothing left to see at the handover')
+  assert.ok(frame.dots.every(d => d.r < 1.5), 'nothing left to see at the handover')
   let early
   const mid = createBreakDots()
   for (let t = gap.time - 0.02; t <= gap.time + 30; t += 1 / 60) early = mid.step(t, 1 / 60, { start: gap.time, end })

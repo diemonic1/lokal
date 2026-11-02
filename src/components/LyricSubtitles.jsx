@@ -76,7 +76,7 @@ export default function LyricSubtitles({ lines, subLines = null, progress, wordS
             <div style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) drop-shadow(0 0 1px rgba(0,0,0,0.8))' }}>
             {line.gap ? (
               <div className="flex justify-center">
-                <LyricBreakDots start={line.time} end={(Number.isFinite(line.end) && line.end > line.time ? line.end : nextTime ?? line.time + 4) - 0.3} getTime={clock} active size={1.1} align="center" />
+                <LyricBreakDots start={line.time} end={(Number.isFinite(line.end) && line.end > line.time ? line.end : nextTime ?? line.time + 4) - 0.3} getTime={clock} active size={0.75} align="center" />
               </div>
             ) : (
               <>

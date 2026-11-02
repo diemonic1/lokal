@@ -221,6 +221,15 @@ input, button, select, textarea, [data-no-drag] { -webkit-app-region: no-drag; }
   50% { transform: scaleY(1); }
 }
 
+/* The dots of a lyric break (LyricBreakDots.jsx), a progress bar of the break:
+   the part not yet filled, the filled part, and the dots' size (a multiplier
+   of the size each lyrics view gives them; 1 = as designed). */
+:root {
+  --lyric-break-dot-color: #676565;
+  --lyric-break-dot-fill: #fff;
+  --lyric-break-dot-scale: 1.4;
+}
+
 /* The "mixing" mark (MixingMark.jsx): two rings drifting into each other. */
 .mixing-ring {
   position: absolute; top: 0; width: 10px; height: 10px; border-radius: 50%;

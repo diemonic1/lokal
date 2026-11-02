@@ -20,6 +20,7 @@ import { isStationTrack, lyricsTrackFor, stationPlainLyrics, stationSongTime } f
 import { useTranslation } from '../i18n'
 import { markAutoScroll } from '../menuScroll'
 import { cacheLyrics, hasCachedLyrics, peekLyrics } from '../lyrics/lyricsCache'
+import { markerAt, parseMarkers } from '../trackMarkers'
 import { clearLyricsPreview, showLyricsPreview, useLyricsPreviewFor } from '../lyricsPreview'
 import {
   canGrow, growLetters, unitProgress, unitLift, activeRows, focusRow, stillSinging, lineEndOf, groupUnits, withOutroBreak,
@@ -257,7 +258,7 @@ const Row = React.memo(function Row({
             paddingInline: '0.75rem',
           }}
         >
-          <LyricBreakDots start={line.time} end={breakEnd - exitLead} getTime={clock} active={open} size={baseSize * 0.5} align={alignEnd ? 'end' : 'start'} />
+          <LyricBreakDots start={line.time} end={breakEnd - exitLead} getTime={clock} active={open} size={baseSize * 0.34} align={alignEnd ? 'end' : 'start'} />
         </div>
       </div>
     )
@@ -1344,12 +1345,20 @@ export default function LyricsPanel({
   const singleIdx = !singleLine || !lines.length ? -1
     : focusIdx >= 0 ? focusIdx
       : !synced && track?.duration ? Math.min(lines.length - 1, Math.floor((progress / track.duration) * lines.length)) : -1
-  const singleText = singleIdx >= 0 && !lines[singleIdx]?.gap ? String(lines[singleIdx]?.text || '').trim() : ''
+  // The whole line: a closing "(...)" is read as a background vocal (bgText),
+  // and goes after the lead here, as it's written in the lyrics.
+  const singleLineOf = (line) => [line?.text, line?.bgText].map(part => String(part || '').trim()).filter(Boolean).join(' ')
+  // No synced lyrics but time markers (Edit Track): the line is the marker
+  // playing. Synced lyrics always come first.
+  const singleMarkers = singleLine && !synced ? parseMarkers(track?.markers) : NO_LINES
+  const markerLine = singleMarkers.length > 0
+  const singleText = markerLine ? (singleMarkers[markerAt(singleMarkers, progress)]?.label || '')
+    : singleIdx >= 0 && !lines[singleIdx]?.gap ? singleLineOf(lines[singleIdx]) : ''
   return (
     <div className={`relative w-full h-full ${passThrough ? 'pointer-events-none' : 'pointer-events-auto'}`}>
       {/* singleLine: the line being sung, in the same bubble as "No lyrics found" below. */}
       <AnimatePresence>
-        {singleLine && !loading && lines.length > 0 && (
+        {singleLine && !loading && (lines.length > 0 || markerLine) && (
           <motion.div
             key="single-line"
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
@@ -1661,7 +1670,7 @@ export default function LyricsPanel({
           floating player bar's top (92px high, 12px up: 104px of the 114px
           --player-space the side panel leaves for it). */}
       <AnimatePresence>
-        {idleVisual && idle && noLyricsNote && (
+        {idleVisual && idle && noLyricsNote && !markerLine && (
           <motion.div
             key="instrumental"
             initial={{ opacity: 0, y: 8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.9 }}
@@ -1685,7 +1694,7 @@ export default function LyricsPanel({
           bottom edge (as low as the instrumental note above), in the panel's
           grey, see-through until the mouse is over it. */}
       <AnimatePresence>
-        {idleVisual && !loading && !lines.length && !noLyricsNote && (
+        {idleVisual && !loading && !lines.length && !noLyricsNote && !markerLine && (
           <motion.div
             key="no-lyrics"
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}

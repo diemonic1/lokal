@@ -1,16 +1,19 @@
-// The three dots of a lyric break, as droplets of liquid.
+// The dots of a lyric break, as droplets of liquid.
 //
 // Pure maths, no DOM: `createBreakDots()` returns a model that is stepped with
 // the song clock and the break's own timing ({ start, end } in seconds, as the
 // lyrics post-processing gives every instrumental gap, from TTML, LRC or JSON).
-// It answers with where each droplet is, how big, how bright. The component
+// It answers with where each droplet is, how big, and how far the break's
+// progress has filled it. The component
 // (components/LyricBreakDots.jsx) only draws that.
 //
 // Every droplet is a damped spring on its radius, height and position, and
 // neighbours pull on each other (surface tension), so a push on one droplet
 // travels along the chain as a wave. Timing drives that physics:
 //   enter       the droplets leave one blob and part
-//   fill        they light left to right across the break
+//   fill        a progress bar: from start to end they fill left to right,
+//               exactly as much of the chain as of the break has gone by
+//               (a droplet can be part filled)
 //   wave        an energy wave runs through them, a whole number of times per
 //               break, stronger as the break goes on (and extra `pulses`, e.g.
 //               beat times, each send a ripple of their own)
@@ -21,7 +24,7 @@
 // lyrics panel hands focus to the next line a little before that (the row
 // collapses), so callers pass the break's end minus that lead.
 
-export const DOTS = 3
+export const DOTS = 8
 export const R0 = 10
 export const S0 = 30
 export const PAD = 22
@@ -74,17 +77,19 @@ export function targetsAt(t, start, end, { calm = false } = {}) {
   const release = calm ? 0 : clamp(1 - (rem - RELEASE_LEAD_S) / outro)
   const period = wavePeriod(dur)
 
-  const out = { alpha: smooth(u / 0.22), progress, grip, release, energy, s: [], y: [], x: [], b: [] }
+  // How much of the break has gone by: the progress bar the droplets fill.
+  const fill = clamp(u / dur)
+  const out = { alpha: smooth(u / 0.22), progress, fill, grip, release, energy, s: [], y: [], x: [], f: [] }
   for (let i = 0; i < DOTS; i++) {
-    const lit = smooth(progress * DOTS - i)
-    const leaving = calm ? 0 : smooth(clamp(release * 1.25 - i * 0.08))
+    const filled = clamp(fill * DOTS - i)
+    const lit = smooth(filled)
+    const leaving = calm ? 0 : smooth(clamp(release * 1.25 - (i / (DOTS - 1)) * 0.16))
     const pulse = calm ? 0 : waveAt(u, period, i) * energy * (1 - grip) * enter
     const spread = (0.15 + 0.85 * enter) * (1 - 0.92 * grip) * (1 + 0.6 * leaving)
     out.s.push((0.78 + 0.22 * lit + 0.42 * pulse) * (1 + 0.3 * grip) * (1 - leaving))
     out.y.push(-9 * pulse + 4 * grip - 13 * leaving)
     out.x.push((i - mid) * S0 * spread)
-    const glowing = 0.3 + 0.7 * lit
-    out.b.push((glowing + (1 - glowing) * grip) * (1 - leaving))
+    out.f.push(filled)
   }
   return out
 }
@@ -92,24 +97,24 @@ export function targetsAt(t, start, end, { calm = false } = {}) {
 /**
  * A droplet chain. Call `step(t, dt, { start, end, pulses?, calm? })` once per
  * frame with the song clock; it returns the same frame object each time:
- *   { visible, alpha, glow, dots: [{ x, y, r, b }] }   (x, y, r in a WIDTH x HEIGHT box)
+ *   { visible, alpha, glow, fill, edge, dots: [{ x, y, r, f }] }   (x, y, r in a WIDTH x HEIGHT box)
+ * f is how much of a droplet is filled (0..1, left to right); edge is where
+ * the fill ends, as an x in the same box (-Infinity: nothing, Infinity: all).
  */
 export function createBreakDots() {
   const state = {
     s: Array(DOTS).fill(0), sv: Array(DOTS).fill(0),
     y: Array(DOTS).fill(0), yv: Array(DOTS).fill(0),
     x: Array(DOTS).fill(0), xv: Array(DOTS).fill(0),
-    b: Array(DOTS).fill(0),
     t: null, popped: false,
   }
-  const frame = { visible: false, alpha: 0, glow: 0, dots: Array.from({ length: DOTS }, () => ({ x: 0, y: 0, r: 0, b: 0 })) }
+  const frame = { visible: false, alpha: 0, glow: 0, fill: 0, edge: -Infinity, dots: Array.from({ length: DOTS }, () => ({ x: 0, y: 0, r: 0, f: 0 })) }
 
   function snap(tg) {
     for (let i = 0; i < DOTS; i++) {
       state.s[i] = tg.s[i]; state.sv[i] = 0
       state.y[i] = tg.y[i]; state.yv[i] = 0
       state.x[i] = tg.x[i]; state.xv[i] = 0
-      state.b[i] = tg.b[i]
     }
   }
 
@@ -157,27 +162,29 @@ export function createBreakDots() {
         }
         if (!state.popped && rem <= popAt) {
           state.popped = true
-          for (let i = 0; i < DOTS; i++) { state.sv[i] += 5 + i * 1.2; state.yv[i] -= 90; state.xv[i] += (i - mid) * 60 }
+          for (let i = 0; i < DOTS; i++) { state.sv[i] += 5 + (i / mid) * 1.2; state.yv[i] -= 90; state.xv[i] += ((i - mid) / mid) * 60 }
         }
       }
       const span = clamp(dt, 0, 0.1)
       const steps = Math.max(1, Math.ceil(span / STEP_S))
       for (let k = 0; k < steps; k++) integrate(tg, span / steps || STEP_S)
-      const ease = 1 - Math.exp(-span * 16)
-      for (let i = 0; i < DOTS; i++) state.b[i] += (tg.b[i] - state.b[i]) * ease
     }
     state.t = t
 
     frame.visible = true
     frame.alpha = tg.alpha
     frame.glow = clamp(0.1 + 0.25 * tg.progress + 0.45 * tg.grip) * (1 - tg.release)
+    frame.fill = tg.fill
+    frame.edge = tg.fill >= 1 ? Infinity : -Infinity
     const cx = WIDTH / 2
     for (let i = 0; i < DOTS; i++) {
       const d = frame.dots[i]
       d.x = cx + state.x[i]
       d.y = CY + clamp(state.y[i], Y_MIN, Y_MAX)
       d.r = R0 * clamp(state.s[i], 0, MAX_SCALE)
-      d.b = clamp(state.b[i])
+      d.f = tg.f[i]
+      // The fill ends inside the first droplet that isn't full.
+      if (frame.edge === -Infinity && d.f < 1 && tg.fill < 1) frame.edge = d.x - d.r + 2 * d.r * d.f
     }
     return frame
   }
