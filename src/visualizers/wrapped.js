@@ -27,25 +27,40 @@ function looped(period, body) {
   }
 }
 
+// The dunes' soft shadow above each ridge, without a blur or thick lines (both slow on the phone):
+// three bands over the ridge, tall and faint to thin and darker ([height × H, alpha]), under its fill.
+const DUNE_SHADOW = [[0.025, 0.12], [0.015, 0.18], [0.006, 0.25]]
+
 /** "Dunes": wavy ridges stacked back to front. */
 export const drawDunes = looped(9, (ctx, W, H, p, c) => {
   const a = p * TAU
   const L = 13
+  // Few points a ridge (its waves are long): the phone works out every one of them.
+  const step = W / 60
   for (let i = 0; i < L; i++) {
     const base = H * (0.1 + i * 0.075)
     const amp = H * (0.03 + 0.02 * Math.sin(a + i * 0.7))
-    ctx.save()
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)'
-    ctx.shadowBlur = H * 0.03
-    ctx.shadowOffsetY = -H * 0.006
-    ctx.beginPath()
-    ctx.moveTo(0, H)
-    for (let x = 0; x <= W + 4; x += 4) {
-      ctx.lineTo(x, base
+    const ridge = []
+    for (let x = 0; x <= W + step; x += step) {
+      ridge.push([x, base
         + amp * Math.sin((x / W) * TAU * 1.5 + a * (i % 2 ? 1 : -1) + i)
-        + amp * 0.6 * Math.sin((x / W) * TAU * 3.2 - 2 * a + i * 1.3))
+        + amp * 0.6 * Math.sin((x / W) * TAU * 3.2 - 2 * a + i * 1.3)])
     }
-    ctx.lineTo(W, H)
+    const lift = H * 0.006
+    for (const [height, alpha] of DUNE_SHADOW) {
+      ctx.beginPath()
+      ridge.forEach(([x, y]) => ctx.lineTo(x, y - lift - H * height))
+      for (let k = ridge.length - 1; k >= 0; k--) ctx.lineTo(ridge[k][0], ridge[k][1])
+      ctx.closePath()
+      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`
+      ctx.fill()
+    }
+    // Down only as far as it shows: the next ridges cover the rest (the last ones reach the bottom).
+    const bottom = Math.min(H, base + H * 0.3)
+    ctx.beginPath()
+    ctx.moveTo(0, bottom)
+    ridge.forEach(([x, y]) => ctx.lineTo(x, y))
+    ctx.lineTo(W + step, bottom)
     ctx.closePath()
     const g = ctx.createLinearGradient(0, base - amp * 2, 0, base + H * 0.12)
     g.addColorStop(0, ramp(c, 0.55 + 0.45 * (i / (L - 1))))
@@ -53,7 +68,6 @@ export const drawDunes = looped(9, (ctx, W, H, p, c) => {
     g.addColorStop(1, css(c.lo))
     ctx.fillStyle = g
     ctx.fill()
-    ctx.restore()
   }
 })
 
@@ -118,12 +132,20 @@ export const drawCubes = looped(10, (ctx, W, H, p, c) => {
   ctx.lineJoin = 'round'
   ctx.lineWidth = Math.max(1, e * 0.02)
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)'
+  // Each face filled, then its four edges as separate lines (an outline is slow on the phone).
+  ctx.lineCap = 'round'
   const face = (points, color) => {
     ctx.fillStyle = color
     ctx.beginPath()
     points.forEach(([px, py]) => ctx.lineTo(px, py))
     ctx.closePath()
     ctx.fill()
+    ctx.beginPath()
+    points.forEach(([px, py], k) => {
+      const [qx, qy] = points[(k + 1) % points.length]
+      ctx.moveTo(px, py)
+      ctx.lineTo(qx, qy)
+    })
     ctx.stroke()
   }
   for (let sum = 0; sum <= 2 * M; sum++) {
@@ -133,6 +155,8 @@ export const drawCubes = looped(10, (ctx, W, H, p, c) => {
       const x = W / 2 + (i - j) * ex
       if (x < -ex || x > W + ex) continue
       const y = -e * 2 + ((i + j) * e) / 2
+      // Half the field lies below the screen (or above it): not drawn.
+      if (y + e / 2 < 0 || y - e * 1.75 > H) continue
       const v = 0.5 + 0.5 * Math.sin(a - (Math.hypot(x - W / 2, y - H / 2) / H) * TAU * 1.4)
       const yt = y - e * (0.15 + 1.1 * v)
       face([[x - ex, yt], [x, yt + e / 2], [x, y + e / 2], [x - ex, y]], ramp(c, 0.25 + 0.3 * v))
@@ -175,19 +199,23 @@ export const drawPulsar = looped(8, (ctx, W, H, p, c) => {
   const step = 4 * k
   for (let i = 0; i < N; i++) {
     const y0 = i * gap
-    ctx.beginPath()
-    ctx.moveTo(-2, y0)
+    const ridge = []
     for (let x = 0; x <= W + step; x += step) {
       const env = Math.exp(-(((x - W / 2) / (W * 0.27)) ** 2))
       const n = (Math.sin(x / k * 0.045 + i * 1.7 + a) + Math.sin(x / k * 0.083 - i * 0.9 - 2 * a) + Math.sin(x / k * 0.019 + i * 2.3 + a)) / 3
-      ctx.lineTo(x, y0 - env * H * 0.1 * (0.5 + 0.5 * n) ** 2)
+      ridge.push([x, y0 - env * H * 0.1 * (0.5 + 0.5 * n) ** 2])
     }
-    ctx.lineTo(W + step, y0)
-    ctx.lineTo(W + step, H + 4)
-    ctx.lineTo(-2, H + 4)
+    // Filled down to its own baseline only (the ridges above never reach below theirs; big fills are slow
+    // on the phone), then the ridge itself outlined.
+    ctx.beginPath()
+    ridge.forEach(([x, y]) => ctx.lineTo(x, y))
+    ctx.lineTo(ridge[ridge.length - 1][0], y0 + 1)
+    ctx.lineTo(0, y0 + 1)
     ctx.closePath()
     ctx.fillStyle = css(c.lo)
     ctx.fill()
+    ctx.beginPath()
+    ridge.forEach(([x, y]) => ctx.lineTo(x, y))
     ctx.strokeStyle = ramp(c, 0.55 + 0.45 * (i / (N - 1)))
     ctx.stroke()
   }
