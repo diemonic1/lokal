@@ -415,7 +415,8 @@ function StoryViewer({ onClose, recap, period }) {
     const time = sceneClock()
     return [...cardRef.current.querySelectorAll('[data-scene]')].map(element => {
       const rect = element.getBoundingClientRect()
-      return { kind: element.dataset.scene, time, x: rect.left - card.left, y: rect.top - card.top, w: rect.width, h: rect.height }
+      const colors = element.dataset.colors ? JSON.parse(element.dataset.colors) : undefined
+      return { kind: element.dataset.scene, time, colors, x: rect.left - card.left, y: rect.top - card.top, w: rect.width, h: rect.height }
     })
   }
   const splashSettings = useAppearanceSettings(readSplashSettings)
@@ -477,7 +478,7 @@ function StoryViewer({ onClose, recap, period }) {
               {cardScene && (
                 <motion.div key={cardScene} data-share-skip aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }} className="pointer-events-none absolute inset-0">
-                  <SlideScene kind={cardScene} className="h-full w-full" />
+                  <SlideScene kind={cardScene} track={slide.track} className="h-full w-full" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -516,13 +517,13 @@ function StoryViewer({ onClose, recap, period }) {
                   initial={{ opacity: 0, y: 16 * move }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.24, duration: 0.5 }}
-                  className={slotScene ? '-z-10 mt-[5cqw] flex min-h-0 flex-1 flex-col' : 'mt-auto pt-[4cqw]'}
+                  className={slotScene ? '-z-10 mt-[5cqw] flex min-h-0 flex-1 flex-col' : slide.key === 'track' ? 'mb-[8cqw] mt-auto pt-[4cqw]' : 'mt-auto pt-[4cqw]'}
                 >
                   <SlideVisual slide={slide} recap={recap} topTracks={topTracks} />
                   {/* With its picture, the slide's numbers go up under the title and the picture fills
                       the rest, edge to edge, down to the top of the player (behind the text if it ever
                       reaches it: this block is below the slide's others). */}
-                  {slotScene && <SlideScene kind={slotScene} className="-mx-[7cqw] -mb-[21cqw] mt-[1cqw] min-h-0 w-[calc(100%+14cqw)] flex-1" />}
+                  {slotScene && <SlideScene kind={slotScene} track={slide.track} className="-mx-[7cqw] -mb-[21cqw] mt-[1cqw] min-h-0 w-[calc(100%+14cqw)] flex-1" />}
                 </motion.div>
               </motion.div>
             </AnimatePresence>
@@ -744,12 +745,14 @@ function SlideVisual({ slide, recap, topTracks }) {
   }
   if (slide.key === 'track') {
     return (
-      <div className="space-y-[5cqw]">
-        <div className="relative mx-auto mb-[3cqw] w-[50cqw]">
+      // The cover about the card's middle, the play count well clear of it (and of the tilted card
+      // behind it) below.
+      <div>
+        <div className="relative mx-auto w-[50cqw]">
           <div aria-hidden className="absolute inset-0 translate-x-[3cqw] translate-y-[2cqw] rotate-6 rounded-[5cqw] bg-accent/40" />
           <BigCover track={slide.track} iconSize={30} className="relative aspect-square w-full -rotate-3 rounded-[5cqw] shadow-2xl" />
         </div>
-        <div className="flex justify-center">
+        <div className="mt-[10cqw] flex justify-center">
           <span className="rounded-full bg-accent px-[4cqw] py-[1.8cqw] text-[3.6cqw] font-semibold text-base">
             {t('played {times}', { times: plural(slide.track?.plays || 0, 'time') })}
           </span>
@@ -852,7 +855,8 @@ function SlideVisual({ slide, recap, topTracks }) {
         </div>
         <div className="grid grid-cols-2 gap-[2cqw]">
           {stats.map(([label, value]) => (
-            <div key={label} className="min-w-0 rounded-[3cqw] bg-white/[0.07] px-[3cqw] py-[2.2cqw]">
+            // Dark, so they read over the cubes behind.
+            <div key={label} className="min-w-0 rounded-[3cqw] bg-black/40 px-[3cqw] py-[2.2cqw]">
               <p className="text-[2.5cqw] uppercase tracking-widest text-white/40">{label}</p>
               <p className="mt-[0.6cqw] truncate font-display text-[4.2cqw]">{value}</p>
             </div>

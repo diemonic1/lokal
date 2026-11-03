@@ -351,10 +351,10 @@ export async function renderStorySlide({ card, cover, period, scenes = [] }) {
     const look = SLIDE_SCENES[backdrop.kind]
     ctx.save()
     ctx.filter = `brightness(${look.brightness})`
-    ctx.fillStyle = look.header || '#000'
+    ctx.fillStyle = (typeof look.header === 'function' ? look.header(backdrop.colors) : look.header) || '#000'
     ctx.fillRect(0, 0, SW, HEAD + 1)
     ctx.restore()
-    paintScene(ctx, backdrop.kind, 0, HEAD, SW, cardH, backdrop.time)
+    paintScene(ctx, backdrop.kind, 0, HEAD, SW, cardH, backdrop.time, backdrop.colors)
   } else {
     if (image) {
       // The cover blurred behind everything, as the Stories show it.
@@ -400,7 +400,7 @@ export async function renderStorySlide({ card, cover, period, scenes = [] }) {
 
   // The pictures in the slide's own boxes, under its content.
   for (const scene of scenes) {
-    if (scene !== backdrop) paintScene(ctx, scene.kind, scene.x * scale, HEAD + scene.y * scale, scene.w * scale, scene.h * scale, scene.time)
+    if (scene !== backdrop) paintScene(ctx, scene.kind, scene.x * scale, HEAD + scene.y * scale, scene.w * scale, scene.h * scale, scene.time, scene.colors)
   }
   // The slide.
   ctx.drawImage(shot, 0, HEAD, SW, cardH)
