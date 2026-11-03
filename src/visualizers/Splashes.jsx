@@ -882,7 +882,7 @@ function createFluid(canvas, read) {
   }
 }
 
-export default function Splashes({ className = '', settings = SPLASH_DEFAULTS }) {
+export default function Splashes({ className = '', settings = SPLASH_DEFAULTS, style }) {
   const canvasRef = useRef(null)
   const playing = usePlayerStore(s => s.isPlaying)
   const trackId = usePlayerStore(s => s.currentTrack?.id ?? null)
@@ -904,7 +904,7 @@ export default function Splashes({ className = '', settings = SPLASH_DEFAULTS })
   }, [])
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${className}`} style={style}>
       <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 block h-full w-full" />
     </div>
   )

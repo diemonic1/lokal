@@ -13,6 +13,10 @@
 // - Closing it (X, Escape) pauses the soundtrack; Share opens its dialog over
 //   the Stories, which go on behind it.
 // - Names (tracks, artists, genres, stations) are written as their tags have them.
+// - Around the card, the colour splashes move with the music (Settings > Appearance >
+//   Stories), over the blurred cover or the splashes' own colour. The card keeps its own
+//   copy of the cover behind it, so it looks the same either way; neither is in the
+//   share picture (the card only, without its backdrop).
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -28,6 +32,10 @@ import { translate, useTranslation } from '../i18n'
 import { periodTitle } from '../recapPeriods'
 import { daysText, filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
 import { coversOf, openShareCard, trackArtSource } from '../shareCard'
+import { useAppearanceSettings, useAppearanceText, useStoriesBackground } from '../appearanceFlags'
+import Splashes from '../visualizers/Splashes'
+import { readSplashSettings } from '../visualizers/splashSettings'
+import { pickColor } from '../visualizers/audio'
 import { useFullCover } from '../fullCover'
 
 // How long a slide's song waits for its analysis (to start at its highlight)
@@ -393,6 +401,9 @@ function StoryViewer({ onClose, recap, period }) {
   }
 
   const art = slide.key === 'stations' ? '' : trackArt(slide.track)
+  const background = useStoriesBackground()
+  const splashSettings = useAppearanceSettings(readSplashSettings)
+  const splashBackground = pickColor(useAppearanceText('side_splash_bg'), '#161616')
   const move = reduceMotion ? 0 : 1
 
   return (
@@ -409,20 +420,13 @@ function StoryViewer({ onClose, recap, period }) {
       className="fixed inset-0 z-[90] flex items-center justify-center overflow-hidden bg-black text-white outline-none"
       style={{ WebkitAppRegion: 'no-drag' }}
     >
-      {/* The slide's cover, blurred, behind everything; colour where there's none. */}
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={art || 'colour'}
-          aria-hidden
-          initial={{ opacity: 0 }}
-          animate={{ opacity: art ? 0.5 : 0.9 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-[-10%] bg-cover bg-center"
-          style={art ? { backgroundImage: `url("${art}")`, filter: 'blur(70px) saturate(1.3)' } : { backgroundImage: COLOR_BACKDROP, filter: 'blur(30px)' }}
-        />
-      </AnimatePresence>
-      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.25),rgba(0,0,0,0.85))]" />
+      {/* Behind the card: the slide's cover, blurred, and/or the colour splashes. */}
+      {(!background.visual || background.cover) && <Backdrop art={art} />}
+      {background.visual && (
+        <div aria-hidden className="absolute inset-0 flex" style={background.cover ? undefined : { background: splashBackground }}>
+          <Splashes className="flex-1" settings={splashSettings} style={{ opacity: background.opacity }} />
+        </div>
+      )}
 
       <div className="relative flex flex-col items-center gap-3">
         {/* The period, Share and Close, as wide as the card. */}
@@ -449,9 +453,10 @@ function StoryViewer({ onClose, recap, period }) {
             onPointerCancel={(event) => endPress(event, false)}
             onPointerLeave={(event) => endPress(event, false)}
             onContextMenu={(event) => event.preventDefault()}
-            className="relative select-none overflow-hidden rounded-[28px] border border-white/10 bg-black/30 shadow-2xl backdrop-blur-xl"
+            className="relative select-none overflow-hidden rounded-[28px] border border-white/10 shadow-2xl"
             style={{ height: CARD_HEIGHT, aspectRatio: '9 / 16', containerType: 'size' }}
           >
+            <CardBackdrop card={cardRef} art={art} />
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={slide.key}
@@ -580,6 +585,53 @@ function CardButton({ onClick, label, pressed, children }) {
       className="flex h-[7.5cqw] w-[7.5cqw] flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20">
       {children}
     </button>
+  )
+}
+
+/** The slide's cover, blurred, over the whole window (colour where there's none), dimmed towards the edges. */
+function Backdrop({ art }) {
+  return <>
+    <AnimatePresence initial={false}>
+      <motion.div
+        key={art || 'colour'}
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: art ? 0.5 : 0.9 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.8 }}
+        className="absolute inset-[-10%] bg-cover bg-center"
+        style={art ? { backgroundImage: `url("${art}")`, filter: 'blur(70px) saturate(1.3)' } : { backgroundImage: COLOR_BACKDROP, filter: 'blur(30px)' }}
+      />
+    </AnimatePresence>
+    <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.25),rgba(0,0,0,0.85))]" />
+  </>
+}
+
+/**
+ * The card's own background: the window's [Backdrop] laid where the card is, under a light shade,
+ * so the card shows its piece of the blurred cover whatever is drawn around it. Not in the share
+ * picture (shareCard.js draws its own backdrop).
+ */
+function CardBackdrop({ card, art }) {
+  const [place, setPlace] = useState(null)
+  useEffect(() => {
+    const element = card.current
+    if (!element) return undefined
+    const measure = () => {
+      const rect = element.getBoundingClientRect()
+      setPlace({ left: -(rect.left + element.clientLeft), top: -(rect.top + element.clientTop), width: window.innerWidth, height: window.innerHeight })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    window.addEventListener('resize', measure)
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure) }
+  }, [card])
+  return (
+    <div aria-hidden data-share-skip className="pointer-events-none absolute inset-0 overflow-hidden bg-black">
+      {place && <div className="absolute overflow-hidden" style={place}><Backdrop art={art} /></div>}
+      <div className="absolute inset-0 bg-black/30" />
+    </div>
   )
 }
 

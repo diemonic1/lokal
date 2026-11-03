@@ -7,7 +7,7 @@ import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop, FileAudio, Bell } from 'lucide-react'
+import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop, FileAudio, Bell, Languages } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
@@ -58,6 +58,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'visualizations', label: 'Visualizations', icon: AudioWaveform },
   { key: 'topbars', label: 'App Top Bars', icon: PanelTop },
   { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'language', label: 'Language', icon: Languages },
   { key: 'data', label: 'Data', icon: Download },
   { key: 'about', label: 'About', icon: Info },
 ]
@@ -1953,6 +1954,15 @@ activeCategory === 'data' ? usersTried
       </Section>
       )}
       {inCategory('appearance') && (
+      <Section title="Stories">
+        {visualToggle('stories_visual', 'Visualization', "The colour splashes fill the screen around the Recap Stories' card, moving with the song that plays (their settings: Visualizations > Side Panel). Off: the slide's blurred cover.")}
+        {settings.stories_visual !== '0' && <>
+          {visualSlider('stories_visual_opacity', 'Visibility', 'How strongly the splashes show. 100%: fully, 0%: not at all.', 0, 100, 50, '%')}
+          {visualToggle('stories_cover', 'Cover in the background', "The slide's blurred cover under the splashes. Off: the splashes' own background colour.")}
+        </>}
+      </Section>
+      )}
+      {inCategory('language') && (
       <Section title="Language">
         <Row label="App Language" desc="Choose the language used for Lokal’s interface. Track and album titles from your music files are not translated.">
           <select
@@ -2231,41 +2241,6 @@ activeCategory === 'data' ? usersTried
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="pt-4 mt-4 border-t border-border">
-            <Row
-              label="Tint App Logo"
-              desc="Tint the logo with the theme's accent colour."
-            >
-              <button
-                onClick={async () => {
-                  const enabled = parseFloat(themeOverrides['--logo-mask-opacity'] || '0') > 0.05
-                  if (enabled) {
-                    await saveOverrides({
-                      '--logo-image-filter': 'none',
-                      '--logo-image-opacity': '1',
-                      '--logo-mask-opacity': '0',
-                      '--logo-wrap-bg': 'transparent',
-                      '--logo-wrap-shadow': 'none',
-                      '--logo-wrap-border': '1px solid transparent',
-                    })
-                  } else {
-                    await saveOverrides({
-                      '--logo-image-filter': 'grayscale(1) brightness(1.02) contrast(1.06)',
-                      '--logo-image-opacity': '1',
-                      '--logo-mask-opacity': '0.38',
-                      '--logo-wrap-bg': 'rgba(var(--accent-rgb), 0.1)',
-                      '--logo-wrap-shadow': '0 0 12px rgba(var(--accent-rgb), 0.1)',
-                      '--logo-wrap-border': '1px solid rgba(var(--accent-rgb), 0.2)',
-                    })
-                  }
-                }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${parseFloat(themeOverrides['--logo-mask-opacity'] || '0') > 0.05 ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}
-              >
-                {t(parseFloat(themeOverrides['--logo-mask-opacity'] || '0') > 0.05 ? 'On' : 'Off')}
-              </button>
-            </Row>
           </div>
 
           <button

@@ -53,6 +53,11 @@
 //   side_*_cover_opacity  0-100, how strongly that cover shows (50)
 //   side_visual_gradient_off  Settings > Visualizations > Side Panel: '0' keeps the fade under the
 //                       Visualization + Lyrics picture while the visualization shows (unset: off then)
+//   stories_visual      Settings > Appearance > Stories > Visualization: '0' leaves the Recap
+//                       Stories' sides to the blurred cover; unset: the colour splashes fill them
+//   stories_visual_opacity  ... > Visibility: 0-100 % how strongly the splashes show; unset: 50
+//   stories_cover       ... > Cover in the background: '0' puts the splashes' own background colour
+//                       (side_splash_bg) under them; unset: the blurred cover
 //   side_splash_*       the colour splashes' own settings (see SPLASH_KEYS in visualizers/splashSettings.js)
 //   side_trails_*       the trails' own settings (see TRAILS_KEYS in visualizers/trailsSettings.js):
 //                       _life (0-100, how long the trails stay), _layout (circle / fill), _scale
@@ -93,7 +98,8 @@ const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed',
   'side_splash_bg', ...SPLASH_SETTING_KEYS,
   'side_character_cover', 'side_character_cover_opacity',
   'side_character_sensitivity', 'side_character_strength', 'side_character_size', 'side_character_color', 'side_character_dots', 'side_character_mouse', 'side_anomaly_cover', 'side_anomaly_cover_opacity', 'side_splash_cover', 'side_splash_cover_opacity',
-  'side_trails_bg', 'side_trails_cover', 'side_trails_cover_opacity', ...TRAILS_SETTING_KEYS]
+  'side_trails_bg', 'side_trails_cover', 'side_trails_cover_opacity', ...TRAILS_SETTING_KEYS,
+  'stories_visual', 'stories_visual_opacity', 'stories_cover']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -180,6 +186,15 @@ export function usePlayerVisualizer() {
   const chosen = usePlayerVisualizerChoice()
   const eco = useSubscribed(isEcoMode)
   return eco ? 'off' : chosen
+}
+
+/** The Recap Stories' background (Settings > Appearance > Stories): the splashes ('off' in eco mode), how strongly they show (0-1), the cover under them. */
+export function useStoriesBackground() {
+  const visual = useAppearanceText('stories_visual') !== '0'
+  const opacity = Math.max(0, Math.min(100, useAppearanceValue('stories_visual_opacity', 50))) / 100
+  const cover = useAppearanceText('stories_cover') !== '0'
+  const eco = useSubscribed(isEcoMode)
+  return { visual: visual && !eco, opacity, cover }
 }
 
 export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes', 'trails']
