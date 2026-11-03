@@ -27,7 +27,8 @@ import { plural } from '../plural'
 import { translate, useTranslation } from '../i18n'
 import { periodTitle } from '../recapPeriods'
 import { daysText, filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
-import { coversOf, openShareCard } from '../shareCard'
+import { coversOf, openShareCard, trackArtSource } from '../shareCard'
+import { useFullCover } from '../fullCover'
 
 // How long a slide's song waits for its analysis (to start at its highlight)
 // before it plays from the top anyway.
@@ -121,13 +122,6 @@ function buildSlides(recap, period, libraryOf = {}) {
     track: nth(2),
     tracks: topTracks.slice(0, 5),
   })
-  if (recap?.uniqueArtists) slides.push({
-    key: 'artistsCount',
-    eyebrow: translate('artists'),
-    title: translate('you listened to {artists}.', { artists: plural(recap.uniqueArtists, 'artist') }),
-    // Still the last slide's song.
-    track: slides[slides.length - 1].track,
-  })
   const topArtist = topArtists[0]
   if (topArtist) slides.push({
     key: 'artist',
@@ -141,7 +135,7 @@ function buildSlides(recap, period, libraryOf = {}) {
     key: 'artists',
     eyebrow: translate('top artists'),
     title: translate('your favorite artists.'),
-    body: translate('{n} different artists in all.', { n: (recap?.uniqueArtists || topArtists.length).toLocaleString() }),
+    body: translate('{n} different artists listened to in all.', { n: (recap?.uniqueArtists || topArtists.length).toLocaleString() }),
     track: fresh(artistSongs(topArtists[1].artist), artistSongs(topArtists[1].artist)[0]),
     artists: topArtists.slice(0, 5),
   })
@@ -277,6 +271,7 @@ function StoryViewer({ onClose, recap, period }) {
   const slide = slides[Math.min(index, last)]
   const topTracks = recap?.topTracks || []
   const dialogRef = useRef(null)
+  const cardRef = useRef(null)
   const press = useRef(null)
 
   const go = useCallback((step) => setIndex(value => Math.max(0, Math.min(value + step, last))), [last])
@@ -435,9 +430,9 @@ function StoryViewer({ onClose, recap, period }) {
           <p className="min-w-0 flex-1 truncate text-[10px] font-display uppercase tracking-[0.24em] text-white/60">
             {t('lokal recap')}{period ? ` · ${periodTitle(period)}` : ''}
           </p>
-          {/* The share dialog lives in the app behind the story: the story closes for it. */}
-          {/* The share dialog opens over the Stories, which go on (and play on) behind it. */}
-          <StoryButton onClick={() => openShareCard(slideShareSpec(slide, recap, period, index + 1, slides.length))} label={t('Share this slide as a picture')}>
+          {/* The share dialog opens over the Stories, which go on (and play on) behind it; the
+              picture is the slide itself as it looks (shareCard.js renderStorySlide). */}
+          <StoryButton onClick={() => cardRef.current && openShareCard({ ...slideShareSpec(slide, recap, period, index + 1, slides.length), slide: { card: cardRef.current, cover: slide.key === 'stations' ? null : trackArtSource(slide.track), period: period ? periodTitle(period) : '' } })} label={t('Share this slide as a picture')}>
             <Share2 size={14} />
           </StoryButton>
           <StoryButton onClick={closeStory} label={t('Close Stories')}>
@@ -448,6 +443,7 @@ function StoryViewer({ onClose, recap, period }) {
         <div className="flex items-center gap-4">
           <SideArrow label={t('Previous slide')} disabled={index === 0} onClick={() => go(-1)}><ChevronLeft size={34} /></SideArrow>
           <div
+            ref={cardRef}
             onPointerDown={onPointerDown}
             onPointerUp={(event) => endPress(event, true)}
             onPointerCancel={(event) => endPress(event, false)}
@@ -538,7 +534,7 @@ function NowPlaying({ onToggle }) {
     : track?.artist
   const VolumeIcon = volume <= 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
   return (
-    <div ref={rootRef} data-interactive className="absolute inset-x-[4cqw] bottom-[3.5cqw] flex items-center gap-[3cqw]">
+    <div ref={rootRef} data-interactive data-share-skip className="absolute inset-x-[4cqw] bottom-[3.5cqw] flex items-center gap-[3cqw]">
       <Cover src={trackArt(track)} className="h-[15cqw] w-[15cqw] flex-shrink-0 rounded-[3cqw] shadow-lg" icon={station ? Radio : Disc3} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[3.6cqw] font-medium">{title || t('Nothing playing')}</p>
@@ -605,6 +601,12 @@ function SideArrow({ label, disabled, onClick, children }) {
   )
 }
 
+/** A slide's big cover: the song's full-size picture (the thumbnail is blurry this big), the thumbnail until it's read. */
+function BigCover({ track, ...props }) {
+  const full = useFullCover(track)
+  return <Cover src={full || trackArt(track)} {...props} />
+}
+
 function Cover({ src, className = '', iconSize = 18, icon: Icon = Disc3, style }) {
   return (
     <div className={`overflow-hidden bg-white/5 ${className}`} style={style}>
@@ -654,7 +656,7 @@ function SlideVisual({ slide, recap, topTracks }) {
       <div className="space-y-[5cqw]">
         <div className="relative mx-auto mb-[3cqw] w-[50cqw]">
           <div aria-hidden className="absolute inset-0 translate-x-[3cqw] translate-y-[2cqw] rotate-6 rounded-[5cqw] bg-accent/40" />
-          <Cover src={trackArt(slide.track)} iconSize={30} className="relative aspect-square w-full -rotate-3 rounded-[5cqw] shadow-2xl" />
+          <BigCover track={slide.track} iconSize={30} className="relative aspect-square w-full -rotate-3 rounded-[5cqw] shadow-2xl" />
         </div>
         <div className="flex justify-center">
           <span className="rounded-full bg-accent px-[4cqw] py-[1.8cqw] text-[3.6cqw] font-semibold text-base">
@@ -673,27 +675,11 @@ function SlideVisual({ slide, recap, topTracks }) {
       </div>
     )
   }
-  if (slide.key === 'artistsCount') {
-    // A cover for each of the top artists, fanned out.
-    const covers = (recap.topArtists || []).map(artist => topTracks.find(track => track.artist === artist.artist && trackArt(track))).filter(Boolean).slice(0, 5)
-    return (
-      <div className="space-y-[4cqw]">
-        <p className="font-display text-[22cqw] leading-none text-accent">{Number(recap.uniqueArtists || 0).toLocaleString()}</p>
-        {covers.length > 0 && (
-          <div className="flex">
-            {covers.map((track, i) => (
-              <Cover key={track.id} src={trackArt(track)} className="-ml-[3cqw] h-[17cqw] w-[17cqw] flex-shrink-0 rounded-full border-[0.8cqw] border-black/60 first:ml-0" style={{ zIndex: 5 - i }} />
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
   if (slide.key === 'artist') {
     return (
       <div className="space-y-[4cqw]">
         <div className="flex items-end gap-[4cqw]">
-          <Cover src={trackArt(slide.track)} className={`aspect-square flex-shrink-0 -rotate-2 ${slide.long ? 'w-[34cqw]' : 'w-[44cqw]'} rounded-[4cqw] shadow-2xl`} iconSize={28} />
+          <BigCover track={slide.track} className={`aspect-square flex-shrink-0 -rotate-2 ${slide.long ? 'w-[34cqw]' : 'w-[44cqw]'} rounded-[4cqw] shadow-2xl`} iconSize={28} />
           <div className="min-w-0 pb-[1cqw]">
             <p className="text-[2.5cqw] uppercase tracking-widest text-white/40">{t('most played')}</p>
             <p className="truncate text-[3.4cqw]">{slide.track?.title}</p>

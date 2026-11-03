@@ -308,6 +308,101 @@ export async function renderShareCard(spec) {
   return canvas
 }
 
+/**
+ * A Stories slide as it looks (components/RecapStory.jsx): the card's own
+ * picture (html2canvas, at 1080 px wide) over the slide's blurred cover (or
+ * the radio's colours), under the period, with the cat and the app's name
+ * where the player was (it isn't in the picture). 1080 × 2070.
+ */
+export async function renderStorySlide({ card, cover, period }) {
+  const { default: html2canvas } = await import('html2canvas-pro')
+  const SW = 1080
+  const HEAD = 150
+  const rect = card.getBoundingClientRect()
+  const scale = SW / rect.width
+  const cardH = Math.round(rect.height * scale)
+  const [shot, image, logo] = await Promise.all([
+    html2canvas(card, {
+      scale, backgroundColor: null, logging: false, useCORS: true,
+      ignoreElements: el => el.hasAttribute?.('data-share-skip'),
+      // Square, borderless and without its own see-through shade (laid over the whole picture below,
+      // so the header shares the slide's colours).
+      onclone: (_, clone) => { clone.style.borderRadius = '0'; clone.style.border = 'none'; clone.style.boxShadow = 'none'; clone.style.background = 'transparent' },
+    }),
+    loadImage(cover),
+    new Promise(resolve => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => resolve(null); i.src = logoURL }),
+  ])
+  const accent = themeColor('--accent', '#ffd6f0')
+  const mono = '"DM Mono", ui-monospace, monospace'
+  const H = HEAD + cardH
+  const canvas = document.createElement('canvas')
+  canvas.width = SW
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, SW, H)
+  if (image) {
+    // The cover blurred behind everything, as the Stories show it.
+    ctx.save()
+    ctx.filter = 'blur(90px) saturate(1.3)'
+    ctx.globalAlpha = 0.5
+    const s = Math.max(SW * 1.2 / image.width, H * 1.2 / image.height)
+    ctx.drawImage(image, (SW - image.width * s) / 2, (H - image.height * s) / 2, image.width * s, image.height * s)
+    ctx.restore()
+  } else {
+    // The radio's colours.
+    const base = ctx.createLinearGradient(0, 0, SW, H)
+    base.addColorStop(0, '#1e1b4b'); base.addColorStop(1, '#0f172a')
+    ctx.fillStyle = base
+    ctx.fillRect(0, 0, SW, H)
+    for (const [x, y, r, color] of [[0.15, 0.2, 0.6, accent], [0.85, 0.25, 0.55, 'rgb(236, 72, 153)'], [0.5, 0.95, 0.7, 'rgb(56, 189, 248)']]) {
+      const g = ctx.createRadialGradient(SW * x, H * y, 0, SW * x, H * y, SW * r * 1.3)
+      ctx.globalAlpha = 0.6
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, SW, H)
+      ctx.globalAlpha = 1
+    }
+  }
+  const shade = ctx.createRadialGradient(SW / 2, H / 2, 0, SW / 2, H / 2, H * 0.7)
+  shade.addColorStop(0, 'rgba(0, 0, 0, 0.25)'); shade.addColorStop(1, 'rgba(0, 0, 0, 0.85)')
+  ctx.fillStyle = shade
+  ctx.fillRect(0, 0, SW, H)
+  // The card's own shade (bg-black/30), over the header too.
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+  ctx.fillRect(0, 0, SW, H)
+
+  // Header: the cat, the app and the period.
+  ctx.textBaseline = 'middle'
+  if (period) {
+    // Header: the period, the whole width (a long week is cut).
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+    ctx.font = `400 28px ${mono}`
+    ctx.letterSpacing = '4px'
+    ctx.fillText(fit(ctx, period.toUpperCase(), SW - 144), 72, HEAD / 2 + 6)
+  }
+
+  // The slide.
+  ctx.drawImage(shot, 0, HEAD, SW, cardH)
+
+  // Where the player was: the cat and the app's name, centred.
+  const footY = H - 120
+  ctx.font = `500 48px ${mono}`
+  ctx.letterSpacing = '9px'
+  const nameW = ctx.measureText('LOKAL').width
+  const logoH = 96
+  const logoW = logo ? logoH * logo.width / logo.height : 0
+  let x = (SW - (logoW ? logoW + 28 : 0) - nameW) / 2
+  if (logo) {
+    ctx.drawImage(logo, x, footY - logoH / 2, logoW, logoH)
+    x += logoW + 28
+  }
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText('LOKAL', x, footY + 4)
+  ctx.letterSpacing = '0px'
+  return canvas
+}
+
 /** Open the share card dialog for `spec`. */
 export function openShareCard(spec) {
   window.dispatchEvent(new CustomEvent('lokal:share-card', { detail: spec }))

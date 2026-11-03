@@ -731,4 +731,5 @@ export default {
   'Started': 'Начало',
   'Length': 'Длительность',
   'Date': 'Дата',
+  '{n} different artists listened to in all.': 'всего прослушано исполнителей: {n}.',
 }
