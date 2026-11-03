@@ -51,7 +51,7 @@
 import { SKY_TOP, drawSunset } from './sunset'
 import { drawLotus } from './lotus'
 import { drawTunnel } from './tunnel'
-import { drawCubes, drawDunes, drawInterference, drawStars, drawTruchet } from './wrapped'
+import { OP_LIGHT, drawChess, drawCubes, drawDunes, drawInterference, drawPulsar, drawRiley, drawTruchet } from './wrapped'
 import { coverColors, css } from './coverColors'
 
 /** The share picture's header over a cover-coloured scene: its darkest colour. */
@@ -64,7 +64,10 @@ export const SLIDE_SCENES = {
   interference: { draw: drawInterference, slide: 'artist', place: 'card', brightness: 0.2, colors: coverColors, header: lowest },
   truchet: { draw: drawTruchet, slide: 'artists', place: 'card', brightness: 0.3, colors: coverColors, header: lowest },
   cubes: { draw: drawCubes, slide: 'session', place: 'card', brightness: 0.5, colors: coverColors, header: lowest },
-  stars: { draw: drawStars, slide: 'added', place: 'card', brightness: 0.4, colors: coverColors, header: lowest },
+  riley: { draw: drawRiley, slide: 'genre', place: 'card', brightness: 0.5, colors: coverColors, header: lowest },
+  pulsar: { draw: drawPulsar, slide: 'added', place: 'card', brightness: 0.4, colors: coverColors, header: lowest },
+  // The radio has no cover: the chessboard in its own colours.
+  chess: { draw: drawChess, slide: 'stations', place: 'card', brightness: 0.4, header: OP_LIGHT },
   sunset: { draw: drawSunset, slide: 'hour', place: 'card', brightness: 0.5, header: SKY_TOP },
   lotus: { draw: drawLotus, slide: 'overview', place: 'slot', brightness: 0.85, frame: { scale: 1.2, down: -0.015 } },
 }

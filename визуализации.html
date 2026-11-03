@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wrapped Visuals</title>
+<style>
+  :root {
+    --bg: #070707;
+    --fg: #f2f2f2;
+    --muted: #8a8a8a;
+    --chip: #1a1a1a;
+    --chip-on: #f2f2f2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 20px 16px 32px;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px 20px;
+    align-items: center; justify-content: space-between;
+    max-width: 1600px; margin: 0 auto 18px;
+  }
+  h1 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: .2px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .palettes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .palettes button {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--chip); color: var(--fg);
+    border: 1px solid #2a2a2a; border-radius: 999px;
+    padding: 6px 12px 6px 6px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .palettes button[aria-pressed="true"] { border-color: var(--chip-on); }
+  .swatch { width: 18px; height: 18px; border-radius: 50%; }
+  .grid {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    justify-content: center; max-width: 1600px; margin: 0 auto;
+  }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .screen {
+    position: relative;
+    width: min(calc((100vh - 140px) * 9 / 16), calc(100vw - 32px));
+    aspect-ratio: 9 / 16;
+    background: #000;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: zoom-in;
+  }
+  .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen:fullscreen { width: 100vw; height: 100vh; border-radius: 0; cursor: zoom-out; aspect-ratio: auto; }
+  figcaption { font-size: 13px; color: var(--muted); padding-left: 4px; }
+  figcaption b { color: var(--fg); font-weight: 600; margin-right: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Wrapped — фоновые визуализации</h1>
+    <div class="hint">38 зацикленных экранов · клик по экрану — на весь экран</div>
+  </div>
+  <div class="palettes" id="palettes"></div>
+</header>
+<main class="grid" id="grid"></main>
+
+<script>
+const TAU = Math.PI * 2;
+
+const PALETTES = [
+  { name: 'Pink / Red', hi: '#ff55dc', mid: '#ff1a1f', lo: '#120002' },
+  { name: 'Lime / Blue', hi: '#c8ff3c', mid: '#2457ff', lo: '#01031a' },
+  { name: 'Sunset', hi: '#ffd447', mid: '#ff3d14', lo: '#160300' },
+  { name: 'Ultraviolet', hi: '#7ef6ff', mid: '#7b2bff', lo: '#07001a' },
+];
+let P = PALETTES[0];
+
+// Rect in local frame [x0, x0+w] x [y0, y0+h], gradient from (gx0,gy0) to (gx1,gy1) in the same frame.
+function gradRect(ctx, x0, y0, w, h, gx0, gy0, gx1, gy1, stops) {
+  const g = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+  for (const [o, c] of stops) g.addColorStop(o, c);
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+}
+
+const stops3 = () => [[0, P.hi], [0.5, P.mid], [1, P.lo]];
+
+const rgbCache = {};
+function rgb(hex) {
+  return rgbCache[hex] ||= [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+}
+function mix(c1, c2, t, alpha = 1) {
+  const a = rgb(c1), b = rgb(c2);
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
+// 0 -> lo, 0.5 -> mid, 1 -> hi
+function ramp(t, alpha = 1) {
+  t = Math.max(0, Math.min(1, t));
+  return t < 0.5 ? mix(P.lo, P.mid, t * 2, alpha) : mix(P.mid, P.hi, t * 2 - 1, alpha);
+}
+const easeInOut = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const frac = (x) => x - Math.floor(x);
+
+const smoothstep = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+const hash = (a, b) => frac(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453);
+
+// 256-step RGB lookup of ramp() for the current palette, used by per-pixel scenes.
+const lutCache = { p: null, data: null };
+function paletteLUT() {
+  if (lutCache.p === P) return lutCache.data;
+  const data = new Uint8ClampedArray(256 * 3);
+  const lo = rgb(P.lo), mid = rgb(P.mid), hi = rgb(P.hi);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    const [a, b, u] = t < 0.5 ? [lo, mid, t * 2] : [mid, hi, t * 2 - 1];
+    for (let k = 0; k < 3; k++) data[i * 3 + k] = a[k] + (b[k] - a[k]) * u;
+  }
+  lutCache.p = P;
+  lutCache.data = data;
+  return data;
+}
+
+// Evaluates fn(x, y) -> 0..1 on a low-res grid, colors it via the palette and stretches it over the screen.
+function renderField(self, ctx, W, H, cols, fn) {
+  const rows = Math.max(1, Math.round(cols * H / W));
+  const buf = self.buf ||= document.createElement('canvas');
+  if (buf.width !== cols || buf.height !== rows) {
+    buf.width = cols;
+    buf.height = rows;
+    self.img = null;
+  }
+  const bctx = buf.getContext('2d');
+  const img = self.img ||= bctx.createImageData(cols, rows);
+  const d = img.data, lut = paletteLUT();
+  let k = 0;
+  for (let r = 0; r < rows; r++) {
+    const y = (r + 0.5) / rows * H;
+    for (let c = 0; c < cols; c++) {
+      const v = fn((c + 0.5) / cols * W, y);
+      const i = Math.max(0, Math.min(255, (v * 255) | 0)) * 3;
+      d[k] = lut[i]; d[k + 1] = lut[i + 1]; d[k + 2] = lut[i + 2]; d[k + 3] = 255;
+      k += 4;
+    }
+  }
+  bctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(buf, 0, 0, W, H);
+}
+
+function polygon(ctx, r, sides, rot = 0) {
+  ctx.beginPath();
+  for (let k = 0; k < sides; k++) {
+    const t = rot + k * TAU / sides;
+    ctx.lineTo(r * Math.cos(t), r * Math.sin(t));
+  }
+  ctx.closePath();
+}
+
+const SCENES = [
+  {
+    // Sweeping ribbon: one rectangle smeared along a figure-eight path.
+    name: 'Лента',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const N = 120, step = 0.0026;
+      const ribbons = [
+        { off: 0, sx: 0.30, sy: 0.30, w: 0.78, h: 0.22, flip: 1 },
+        { off: 0.5, sx: 0.26, sy: 0.24, w: 0.6, h: 0.17, flip: -1 },
+      ];
+      for (let i = N - 1; i >= 0; i--) {
+        for (const r of ribbons) {
+          const a = (p + r.off - i * step) * TAU;
+          const x = W * (0.5 + r.flip * r.sx * Math.sin(a));
+          const y = H * (0.5 + r.sy * Math.sin(2 * a + 0.6));
+          const ang = r.flip * (a + 0.7 * Math.sin(2 * a));
+          const w = W * r.w, h = W * r.h;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(ang);
+          gradRect(ctx, -w / 2, -h / 2, w, h, -w / 2, 0, w / 2, 0, stops3());
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Twisting tunnel of nested rectangles drifting towards a moving vanishing point.
+    name: 'Тоннель',
+    period: 20,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const N = 30;
+      const twist = 0.09 + 0.06 * Math.sin(a * 2);
+      const vx = W * (0.5 + 0.2 * Math.sin(a));
+      const vy = H * (0.55 + 0.14 * Math.sin(2 * a + 1));
+      for (let i = 0; i < N; i++) {
+        const k = Math.pow(0.885, i);
+        const s = H * 1.25 * k;
+        const cx = vx + (W / 2 - vx) * k;
+        const cy = vy + (H / 2 - vy) * k;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(a + i * twist);
+        const w = s, h = s * 0.72;
+        gradRect(ctx, -w / 2, -h / 2, w, h, -w / 2, -h / 2, w / 2, h / 2, stops3());
+        ctx.restore();
+      }
+    },
+  },
+  {
+    // Mirrored stepped "stairs" at top and bottom that breathe and sway.
+    name: 'Ступени',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const group = (phase) => {
+        const a = p * TAU + phase;
+        const N = 13;
+        const stepH = H * 0.03 * (1 + 0.4 * Math.sin(a));
+        const rh = H * 0.13;
+        for (let i = 0; i < N; i++) {
+          const w = W * (1.2 - i * 0.078 * (1 + 0.18 * Math.sin(a + i * 0.35)));
+          if (w <= 0) break;
+          const cx = W / 2 + W * 0.05 * Math.sin(a + i * 0.45);
+          const yTop = H - H * 0.02 - i * stepH - rh;
+          const x0 = cx - w / 2;
+          gradRect(ctx, x0, yTop, w, rh, x0, 0, x0 + w, 0,
+            [[0, P.hi], [0.22, P.mid], [0.5, P.lo], [0.78, P.mid], [1, P.hi]]);
+          // Darken the lower part of each step for depth.
+          const g = ctx.createLinearGradient(0, yTop, 0, yTop + rh);
+          g.addColorStop(0, 'rgba(0,0,0,0)');
+          g.addColorStop(1, 'rgba(0,0,0,0.55)');
+          ctx.fillStyle = g;
+          ctx.fillRect(x0, yTop, w, rh);
+        }
+      };
+      group(0);
+      ctx.save();
+      ctx.translate(0, H);
+      ctx.scale(1, -1);
+      group(Math.PI);
+      ctx.restore();
+    },
+  },
+  {
+    // Two fans of sheets pivoting from opposite corners, opening and closing.
+    name: 'Веер',
+    period: 9,
+    draw(ctx, W, H, p) {
+      const fan = (phase) => {
+        const a = p * TAU + phase;
+        const N = 16;
+        const spread = 0.07 + 0.04 * Math.sin(a);
+        const base = 0.25 + 0.2 * Math.sin(a - 0.8);
+        const slide = W * (0.03 + 0.02 * Math.sin(a + 1.2));
+        const w = Math.hypot(W, H) * 1.1, h = H * 0.4;
+        for (let i = 0; i < N; i++) {
+          ctx.save();
+          ctx.translate(W, 0);
+          ctx.rotate(base + i * spread);
+          ctx.translate(-i * slide, 0);
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = W * 0.05;
+          gradRect(ctx, -w, 0, w, h, 0, 0, 0, h, [[0, P.lo], [0.55, P.mid], [1, P.hi]]);
+          ctx.restore();
+        }
+      };
+      fan(0);
+      ctx.save();
+      ctx.translate(W, H);
+      ctx.rotate(Math.PI);
+      fan(Math.PI);
+      ctx.restore();
+    },
+  },
+  {
+    // Several cards orbiting the screen, each leaving a stepped echo trail.
+    name: 'Карты',
+    period: 14,
+    draw(ctx, W, H, p) {
+      const M = 6, T = 22, step = 0.0045;
+      for (let i = T - 1; i >= 0; i--) {
+        for (let j = 0; j < M; j++) {
+          const a = (p - i * step) * TAU;
+          const x = W * (0.5 + 0.34 * Math.sin(a + j * 1.05));
+          const y = H * (0.5 + 0.36 * Math.sin(2 * a + j * 2.1));
+          const ang = a + j + 0.8 * Math.sin(a + j);
+          const w = W * 0.44, h = W * 0.32;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(ang);
+          gradRect(ctx, -w / 2, -h / 2, w, h, -w / 2, -h / 2, w / 2, h / 2, stops3());
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Two counter-rotating tunnels stacked vertically.
+    name: 'Вихрь',
+    period: 16,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const tunnels = [
+        { cx: 0.5, cy: 0.3, dir: 1, ph: 0 },
+        { cx: 0.5, cy: 0.72, dir: -1, ph: Math.PI },
+      ];
+      const N = 24;
+      for (const t of tunnels) {
+        const twist = t.dir * (0.11 + 0.07 * Math.sin(2 * a + t.ph));
+        const vx = W * (t.cx + 0.14 * Math.sin(a + t.ph));
+        const vy = H * (t.cy + 0.06 * Math.sin(2 * a + t.ph));
+        for (let i = 0; i < N; i++) {
+          const k = Math.pow(0.87, i);
+          const s = H * 0.75 * k;
+          const cx = vx + (W * t.cx - vx) * k;
+          const cy = vy + (H * t.cy - vy) * k;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(t.dir * a + i * twist);
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = W * 0.03;
+          gradRect(ctx, -s / 2, -s / 2, s, s, -s / 2, -s / 2, s / 2, s / 2, stops3());
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Petal fans spinning around the center, each arm a fan of pivoting sheets.
+    name: 'Лепестки',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const K = 5, N = 11;
+      const cx = W * (0.5 + 0.08 * Math.sin(a));
+      const cy = H * (0.5 + 0.06 * Math.sin(2 * a));
+      const L = H * 0.75, h = W * 0.42;
+      const spread = 0.06 + 0.045 * Math.sin(2 * a);
+      for (let k = 0; k < K; k++) {
+        for (let i = 0; i < N; i++) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(a + k * TAU / K + i * spread);
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = W * 0.04;
+          gradRect(ctx, 0, 0, L, h, 0, 0, 0, h, [[0, P.lo], [0.55, P.mid], [1, P.hi]]);
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Ring of cards circling on a wobbling ellipse, with echo trails.
+    name: 'Карусель',
+    period: 15,
+    draw(ctx, W, H, p) {
+      const M = 7, T = 18, step = 0.004;
+      for (let i = T - 1; i >= 0; i--) {
+        for (let j = 0; j < M; j++) {
+          const a = (p - i * step) * TAU;
+          const phi = a + j * TAU / M;
+          const r = 1 + 0.18 * Math.sin(3 * phi - a);
+          const x = W * (0.5 + 0.36 * r * Math.cos(phi));
+          const y = H * (0.5 + 0.3 * r * Math.sin(phi));
+          const ang = phi + Math.PI / 2 + 0.5 * Math.sin(2 * a + j);
+          const w = W * 0.38, h = W * 0.26;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(ang);
+          gradRect(ctx, -w / 2, -h / 2, w, h, -w / 2, -h / 2, w / 2, h / 2, stops3());
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Peacock fans rising from the bottom edge and hanging from the top, swaying.
+    name: 'Павлин',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const fan = (phase) => {
+        const a = p * TAU + phase;
+        const N = 15;
+        const spread = 0.11 + 0.06 * Math.sin(a);
+        const sway = 0.3 * Math.sin(a + 0.7);
+        const L = H * 0.5, w = W * 0.3;
+        // Outer sheets first so the middle ones end up on top.
+        const order = [...Array(N).keys()].sort((m, n) => Math.abs(n - (N - 1) / 2) - Math.abs(m - (N - 1) / 2));
+        for (const i of order) {
+          ctx.save();
+          ctx.translate(W / 2, H * 1.02);
+          ctx.rotate(sway + (i - (N - 1) / 2) * spread);
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = W * 0.04;
+          gradRect(ctx, -w / 2, -L, w, L, 0, 0, 0, -L, [[0, P.lo], [0.5, P.mid], [1, P.hi]]);
+          ctx.restore();
+        }
+      };
+      fan(0);
+      ctx.save();
+      ctx.translate(W, H);
+      ctx.rotate(Math.PI);
+      fan(Math.PI);
+      ctx.restore();
+    },
+  },
+  {
+    // Two twisting staircases of sheets stepping in from opposite corners.
+    name: 'Каскад',
+    period: 11,
+    draw(ctx, W, H, p) {
+      const stack = (phase) => {
+        const a = p * TAU + phase;
+        const N = 18;
+        const dx = W * (0.035 + 0.02 * Math.cos(a));
+        const dy = H * (0.022 + 0.012 * Math.sin(a));
+        const twist = 0.05 * Math.sin(a + 0.5);
+        const base = -0.45 + 0.2 * Math.sin(a);
+        const w = W * 0.95, h = W * 0.55;
+        for (let i = 0; i < N; i++) {
+          ctx.save();
+          ctx.translate(-W * 0.2 + i * dx, -H * 0.05 + i * dy);
+          ctx.rotate(base + i * twist);
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = W * 0.04;
+          gradRect(ctx, -w / 2, -h / 2, w, h, -w / 2, 0, w / 2, 0, [[0, P.lo], [0.5, P.mid], [1, P.hi]]);
+          ctx.restore();
+        }
+      };
+      stack(0);
+      ctx.save();
+      ctx.translate(W, H);
+      ctx.rotate(Math.PI);
+      stack(Math.PI);
+      ctx.restore();
+    },
+  },
+  {
+    // Concentric arc segments spinning at different integer speeds.
+    name: 'Орбиты',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const N = 14;
+      const cx = W / 2, cy = H / 2;
+      const gap = Math.min(W, H) * 0.034;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < N; i++) {
+        const r = gap * 1.5 + i * gap;
+        ctx.lineWidth = gap * 0.62;
+        ctx.strokeStyle = ramp(0.08, 1);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, TAU);
+        ctx.stroke();
+        const speed = (1 + (i % 3)) * (i % 2 ? 1 : -1);
+        const start = a * speed + i * 0.7;
+        const len = TAU * (0.22 + 0.16 * Math.sin(a + i * 0.5));
+        ctx.save();
+        ctx.shadowColor = ramp(0.9, 0.8);
+        ctx.shadowBlur = gap * 0.8;
+        ctx.strokeStyle = ramp(0.35 + 0.65 * (i / (N - 1)));
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, start, start + len);
+        ctx.stroke();
+        ctx.strokeStyle = ramp(1 - 0.5 * (i / (N - 1)));
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, start + Math.PI, start + Math.PI + len * 0.45);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.lineCap = 'butt';
+    },
+  },
+  {
+    // Tunnel of nested triangles twisting toward a wandering point.
+    name: 'Призма',
+    period: 16,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const N = 28;
+      const twist = 0.12 + 0.08 * Math.sin(2 * a);
+      const vx = W * (0.5 + 0.18 * Math.sin(a));
+      const vy = H * (0.5 + 0.16 * Math.sin(2 * a + 0.5));
+      for (let i = 0; i < N; i++) {
+        const k = Math.pow(0.88, i);
+        const r = H * 0.95 * k;
+        ctx.save();
+        ctx.translate(vx + (W / 2 - vx) * k, vy + (H / 2 - vy) * k);
+        ctx.rotate(-a + i * twist);
+        ctx.shadowColor = 'rgba(0,0,0,0.65)';
+        ctx.shadowBlur = W * 0.035;
+        polygon(ctx, r, 3, -Math.PI / 2);
+        const g = ctx.createLinearGradient(0, -r, 0, r / 2);
+        g.addColorStop(0, P.hi);
+        g.addColorStop(0.55, P.mid);
+        g.addColorStop(1, P.lo);
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.restore();
+      }
+    },
+  },
+  {
+    // Two drifting sets of expanding rings that interfere into moiré patterns.
+    name: 'Муар',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.7);
+      bg.addColorStop(0, ramp(0.2));
+      bg.addColorStop(1, '#000');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+      const spacing = W * 0.034;
+      const maxR = Math.hypot(W, H);
+      const sources = [
+        { x: 0.5 + 0.22 * Math.sin(a), y: 0.4 + 0.12 * Math.sin(2 * a), c: P.hi, dir: 1 },
+        { x: 0.5 - 0.22 * Math.sin(a), y: 0.6 - 0.12 * Math.sin(2 * a), c: P.mid, dir: -1 },
+      ];
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = spacing * 0.42;
+      for (const s of sources) {
+        ctx.strokeStyle = s.c;
+        const off = frac(p * s.dir * 2) * spacing;
+        for (let r = off; r < maxR; r += spacing) {
+          ctx.beginPath();
+          ctx.arc(W * s.x, H * s.y, r, 0, TAU);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    },
+  },
+  {
+    // Glowing orbs on Lissajous orbits, additively blended.
+    name: 'Плазма',
+    period: 14,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const M = 8;
+      for (let j = 0; j < M; j++) {
+        const x = W * (0.5 + 0.38 * Math.sin(a * (1 + (j % 2)) + j * 1.7));
+        const y = H * (0.5 + 0.4 * Math.sin(a * (1 + (j % 3)) + j * 0.9));
+        const r = W * (0.32 + 0.14 * Math.sin(2 * a + j));
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        const c = j % 2 ? P.hi : P.mid;
+        g.addColorStop(0, mix(c, '#ffffff', 0.25, 0.95));
+        g.addColorStop(0.35, mix(c, c, 0, 0.6));
+        g.addColorStop(1, mix(c, c, 0, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      ctx.restore();
+      // Thin orbit rings on top for structure.
+      ctx.lineWidth = 1.5;
+      for (let j = 0; j < 4; j++) {
+        const r = W * (0.2 + j * 0.12) * (1 + 0.08 * Math.sin(a + j));
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H / 2, r, r * 1.6, a * (j % 2 ? 1 : -1), 0, TAU);
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    // Hexagon grid pulsing and rotating in a radial wave.
+    name: 'Соты',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const s = W / 6.5;
+      const dx = s * Math.sqrt(3), dy = s * 1.5;
+      const cx = W / 2, cy = H / 2;
+      for (let row = -1; row * dy < H + s; row++) {
+        for (let col = -1; col * dx < W + s; col++) {
+          const x = col * dx + (row % 2 ? dx / 2 : 0);
+          const y = row * dy;
+          const d = Math.hypot(x - cx, y - cy) / H;
+          const u = a - d * TAU * 1.6;
+          const v = 0.5 + 0.5 * Math.sin(u);
+          const r = s * (0.25 + 0.72 * v);
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(Math.sin(u) * 0.6);
+          polygon(ctx, r, 6, Math.PI / 6);
+          const g = ctx.createLinearGradient(0, -r, 0, r);
+          g.addColorStop(0, ramp(0.55 + 0.45 * v));
+          g.addColorStop(1, ramp(0.1 + 0.3 * v));
+          ctx.fillStyle = g;
+          ctx.fill();
+          polygon(ctx, r * 0.45, 6, Math.PI / 6);
+          ctx.fillStyle = ramp(0.2 * v);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Layered wavy ridges, stacked back to front.
+    name: 'Дюны',
+    period: 9,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const L = 13;
+      for (let i = 0; i < L; i++) {
+        const base = H * (0.1 + i * 0.075);
+        const amp = H * (0.03 + 0.02 * Math.sin(a + i * 0.7));
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.75)';
+        ctx.shadowBlur = H * 0.03;
+        ctx.shadowOffsetY = -H * 0.006;
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (let x = 0; x <= W + 4; x += 4) {
+          const y = base
+            + amp * Math.sin(x / W * TAU * 1.5 + a * (i % 2 ? 1 : -1) + i)
+            + amp * 0.6 * Math.sin(x / W * TAU * 3.2 - 2 * a + i * 1.3);
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(0, base - amp * 2, 0, base + H * 0.12);
+        g.addColorStop(0, ramp(0.55 + 0.45 * (i / (L - 1))));
+        g.addColorStop(0.5, ramp(0.4));
+        g.addColorStop(1, P.lo);
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.restore();
+      }
+    },
+  },
+  {
+    // Nested five-point stars spinning with breathing spikes.
+    name: 'Звёзды',
+    period: 18,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const N = 22;
+      const cx = W * (0.5 + 0.1 * Math.sin(a));
+      const cy = H * (0.5 + 0.08 * Math.sin(2 * a));
+      for (let i = 0; i < N; i++) {
+        const R = H * 0.9 * Math.pow(0.87, i);
+        const inner = 0.42 + 0.14 * Math.sin(2 * a + i * 0.35);
+        const rot = a + i * (0.1 + 0.06 * Math.sin(a));
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = W * 0.03;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const r = k % 2 ? R * inner : R;
+          const t = -Math.PI / 2 + k * TAU / 10;
+          ctx.lineTo(r * Math.cos(t), r * Math.sin(t));
+        }
+        ctx.closePath();
+        const g = ctx.createLinearGradient(-R, -R, R, R);
+        const flip = i % 2;
+        g.addColorStop(0, flip ? P.mid : P.hi);
+        g.addColorStop(0.6, flip ? P.lo : P.mid);
+        g.addColorStop(1, P.lo);
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.restore();
+      }
+    },
+  },
+  {
+    // Dot grid driven by two interfering circular waves.
+    name: 'Интерференция',
+    period: 6,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const step = W / 13;
+      const s1 = { x: W * (0.5 + 0.3 * Math.sin(a)), y: H * 0.3 };
+      const s2 = { x: W * (0.5 - 0.3 * Math.sin(a)), y: H * 0.7 };
+      const f = TAU / (W * 0.3);
+      for (let y = step / 2; y < H; y += step) {
+        for (let x = step / 2; x < W; x += step) {
+          const d1 = Math.hypot(x - s1.x, y - s1.y);
+          const d2 = Math.hypot(x - s2.x, y - s2.y);
+          const v = (Math.sin(d1 * f - a) + Math.sin(d2 * f - a)) / 4 + 0.5;
+          const r = step * 0.5 * (0.15 + 0.85 * v);
+          ctx.fillStyle = ramp(v);
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, TAU);
+          ctx.fill();
+        }
+      }
+    },
+  },
+  {
+    // Truchet tiles: quarter circles flipping in eased quarter turns.
+    name: 'Трюше',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const cols = 6;
+      const s = W / cols;
+      const rows = Math.ceil(H / s);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const seed = frac(Math.sin(r * 12.9898 + c * 78.233) * 43758.5453);
+          const u = frac(p + (c + r) * 0.045);
+          const q = u * 4;
+          const ang = Math.floor(seed * 4) * TAU / 4
+            + (TAU / 4) * (Math.floor(q) + easeInOut(Math.min(1, frac(q) * 1.6)));
+          const dir = seed > 0.5 ? 1 : -1;
+          ctx.save();
+          ctx.translate(c * s + s / 2, r * s + s / 2);
+          ctx.fillStyle = ramp(0.08);
+          ctx.fillRect(-s / 2, -s / 2, s, s);
+          ctx.rotate(ang * dir);
+          ctx.fillStyle = ramp(0.75 + 0.25 * seed);
+          ctx.beginPath();
+          ctx.moveTo(-s / 2, -s / 2);
+          ctx.arc(-s / 2, -s / 2, s * 0.98, 0, Math.PI / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = ramp(0.45);
+          ctx.beginPath();
+          ctx.moveTo(s / 2, s / 2);
+          ctx.arc(s / 2, s / 2, s * 0.5, Math.PI, Math.PI * 1.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Isometric field of columns rising and falling in a wave.
+    name: 'Кубы',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const e = W / 9;
+      const ex = e * Math.cos(Math.PI / 6);
+      const M = Math.ceil((H + 4 * e) / e * 2);
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(1, e * 0.02);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      for (let sum = 0; sum <= 2 * M; sum++) {
+        for (let i = 0; i <= sum; i++) {
+          const j = sum - i;
+          if (i > M || j > M) continue;
+          const x = W / 2 + (i - j) * ex;
+          if (x < -ex || x > W + ex) continue;
+          const y = -e * 2 + (i + j) * e / 2;
+          const d = Math.hypot(x - W / 2, y - H / 2) / H;
+          const v = 0.5 + 0.5 * Math.sin(a - d * TAU * 1.4);
+          const hgt = e * (0.15 + 1.1 * v);
+          const yt = y - hgt;
+          ctx.fillStyle = ramp(0.25 + 0.3 * v);
+          ctx.beginPath();
+          ctx.moveTo(x - ex, yt); ctx.lineTo(x, yt + e / 2); ctx.lineTo(x, y + e / 2); ctx.lineTo(x - ex, y);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = ramp(0.05 + 0.15 * v);
+          ctx.beginPath();
+          ctx.moveTo(x + ex, yt); ctx.lineTo(x, yt + e / 2); ctx.lineTo(x, y + e / 2); ctx.lineTo(x + ex, y);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = ramp(0.55 + 0.45 * v);
+          ctx.beginPath();
+          ctx.moveTo(x, yt - e / 2); ctx.lineTo(x + ex, yt); ctx.lineTo(x, yt + e / 2); ctx.lineTo(x - ex, yt);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+      }
+    },
+  },
+  {
+    // "Geometric Abstraction op art" by Stijn Van Minnebruggen (codepen.io/donotfold/pen/XWvqbYX),
+    // rendered top-down in 2D on every other square of a tilted, gently swaying board. Fixed colors.
+    name: 'Шахматы (op art)',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = OP_LIGHT;
+      ctx.fillRect(0, 0, W, H);
+      const cell = W * 0.3;
+      const S = Math.ceil(cell * ctx.getTransform().a);
+      const tile = this.tile ||= document.createElement('canvas');
+      if (tile.width !== S) tile.width = tile.height = S;
+      // The original loop is 5 s, so it runs twice per 10 s sway cycle.
+      drawOpTile(tile.getContext('2d'), S, frac(p * 2));
+      const N = 9;
+      ctx.save();
+      ctx.translate(W / 2 + W * 0.06 * Math.sin(a), H / 2 + H * 0.035 * Math.sin(2 * a));
+      ctx.rotate((30 + 5 * Math.sin(a + 0.6)) * Math.PI / 180);
+      const sc = 1 + 0.05 * Math.sin(2 * a);
+      ctx.scale(sc, sc);
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          if ((r + c) % 2) continue;
+          ctx.drawImage(tile, (c - N / 2) * cell, (r - N / 2) * cell, cell, cell);
+        }
+      }
+      ctx.restore();
+    },
+  },
+  {
+    // Bridget Riley-style vertical stripes bent by travelling waves.
+    name: 'Волны Райли',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const N = 24, w = W / N;
+      const edge = (i, y) => i * w
+        + W * 0.08 * Math.sin(y / H * TAU * 1.2 + a + i * 0.2) * (0.6 + 0.4 * Math.sin(a - i * 0.15));
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, P.hi);
+      g.addColorStop(0.5, P.mid);
+      g.addColorStop(1, P.hi);
+      ctx.fillStyle = g;
+      for (let i = -4; i < N + 4; i += 2) {
+        ctx.beginPath();
+        for (let y = -8; y <= H + 8; y += 6) ctx.lineTo(edge(i, y), y);
+        for (let y = H + 8; y >= -8; y -= 6) ctx.lineTo(edge(i + 1, y), y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    },
+  },
+  {
+    // Two slowly counter-rotating line gratings producing large moiré fringes.
+    name: 'Муар линий',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const D = Math.hypot(W, H), s = W / 36;
+      const th = (3 + 2.5 * Math.sin(a)) * Math.PI / 180;
+      const sets = [{ ang: th, col: P.hi, dir: 1 }, { ang: -th, col: P.mid, dir: -1 }];
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const st of sets) {
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(st.ang + 0.25 * Math.sin(a));
+        ctx.fillStyle = st.col;
+        const off = frac(p * st.dir) * s;
+        for (let x = -D + off; x < D; x += s) ctx.fillRect(x, -D, s * 0.5, 2 * D);
+        ctx.restore();
+      }
+      ctx.restore();
+    },
+  },
+  {
+    // Checkerboard magnified by a wandering lens.
+    name: 'Линза',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const s = W / 9;
+      const lx = W * (0.5 + 0.3 * Math.sin(a)), ly = H * (0.5 + 0.3 * Math.sin(2 * a));
+      const R2 = (W * 0.45) ** 2;
+      const k = 0.9 + 0.3 * Math.sin(3 * a);
+      const lens = (x, y) => {
+        const dx = x - lx, dy = y - ly;
+        const e = Math.exp(-(dx * dx + dy * dy) / R2);
+        return [lx + dx * (1 + k * e), ly + dy * (1 + k * e), e];
+      };
+      const cols = Math.ceil(W / s) + 2, rows = Math.ceil(H / s) + 2;
+      const pts = [];
+      for (let r = 0; r <= rows; r++) {
+        pts.push([]);
+        for (let c = 0; c <= cols; c++) pts[r].push(lens((c - 1) * s, (r - 1) * s));
+      }
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const q = [pts[r][c], pts[r][c + 1], pts[r + 1][c + 1], pts[r + 1][c]];
+          const e = (q[0][2] + q[2][2]) / 2;
+          ctx.fillStyle = (r + c) % 2 ? ramp(0.55 + 0.45 * e) : ramp(0.05 + 0.15 * e);
+          ctx.beginPath();
+          for (const [x, y] of q) ctx.lineTo(x, y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = ctx.fillStyle;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    },
+  },
+  {
+    // Grid of nested squares that rotate in eased quarter turns, rippling from the center.
+    name: 'Квадраты',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const s = W / 5;
+      const cols = Math.ceil(W / s), rows = Math.ceil(H / s);
+      const shades = [P.hi, P.mid, P.lo];
+      ctx.fillStyle = P.mid;
+      ctx.fillRect(0, 0, W, H);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = c * s + s / 2, cy = r * s + s / 2;
+          const d = Math.hypot(cx - W / 2, cy - H / 2) / H;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.fillStyle = shades[(r + c) % 3];
+          ctx.fillRect(-s / 2, -s / 2, s, s);
+          for (let k = 1; k <= 4; k++) {
+            const q = 4 * frac(p - d * 0.6 - k * 0.04);
+            ctx.rotate((k % 2 ? 1 : -1) * (TAU / 4) * (Math.floor(q) + easeInOut(Math.min(1, frac(q) * 1.5))));
+            const side = s * Math.pow(0.7, k);
+            ctx.fillStyle = shades[(r + c + k) % 3];
+            ctx.fillRect(-side / 2, -side / 2, side, side);
+          }
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Bees & Bombs-style: every dot circles its grid point with a phase that sweeps diagonally.
+    name: 'Круговорот',
+    period: 4,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = ramp(0.05);
+      ctx.fillRect(0, 0, W, H);
+      const s = W / 8;
+      for (let y = -s; y < H + s; y += s) {
+        for (let x = -s; x < W + s; x += s) {
+          const ph = a - (x + y) / W * TAU * 0.5;
+          ctx.fillStyle = ramp(0.5 + 0.5 * Math.sin(ph));
+          ctx.beginPath();
+          ctx.arc(x + s * 0.45 * Math.cos(ph), y + s * 0.45 * Math.sin(ph), s * 0.42, 0, TAU);
+          ctx.fill();
+        }
+      }
+    },
+  },
+  {
+    // Golden-angle phyllotaxis covering the whole screen, rotating with pulsing rings.
+    name: 'Подсолнух',
+    period: 20,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const N = 1100, R = Math.hypot(W, H) / 2 * 1.05, c = R / Math.sqrt(N);
+      const ga = Math.PI * (3 - Math.sqrt(5));
+      for (let i = 1; i < N; i++) {
+        const r = c * Math.sqrt(i);
+        const th = i * ga + a;
+        const w = Math.sin(r / R * TAU * 2.5 - 3 * a);
+        ctx.fillStyle = ramp(0.5 + 0.5 * w);
+        ctx.beginPath();
+        ctx.arc(W / 2 + r * Math.cos(th), H / 2 + r * Math.sin(th), c * (0.42 + 0.18 * w), 0, TAU);
+        ctx.fill();
+      }
+    },
+  },
+  {
+    // Tiles split into four triangles that flip over their outer edge in a staggered wave.
+    name: 'Перевёртыши',
+    period: 8,
+    draw(ctx, W, H, p) {
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const s = W / 5;
+      const cols = Math.ceil(W / s), rows = Math.ceil(H / s);
+      const h = s / 2;
+      const edges = [[[-h, -h], [h, -h]], [[h, -h], [h, h]], [[h, h], [-h, h]], [[-h, h], [-h, -h]]];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          ctx.save();
+          ctx.translate(c * s + h, r * s + h);
+          edges.forEach(([e0, e1], k) => {
+            const q = 2 * frac(p - (c + r) * 0.05 - k * 0.07);
+            const phi = Math.PI * (Math.floor(q) + easeInOut(Math.min(1, frac(q) * 1.4)));
+            const cs = Math.cos(phi);
+            const mx = (e0[0] + e1[0]) / 2, my = (e0[1] + e1[1]) / 2;
+            const front = k % 2 ? P.hi : P.mid, back = k % 2 ? P.mid : P.hi;
+            ctx.fillStyle = cs >= 0 ? front : back;
+            ctx.beginPath();
+            ctx.moveTo(e0[0], e0[1]);
+            ctx.lineTo(e1[0], e1[1]);
+            ctx.lineTo(mx - mx * cs, my - my * cs);
+            ctx.closePath();
+            ctx.fill();
+          });
+          ctx.restore();
+        }
+      }
+    },
+  },
+  {
+    // Metaballs: blobs that merge and split like a lava lamp.
+    name: 'Лава',
+    period: 14,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const blobs = [];
+      for (let j = 0; j < 7; j++) {
+        blobs.push([
+          W * (0.5 + 0.42 * Math.sin(a * (1 + (j % 2)) + j * 2.1)),
+          H * (0.5 + 0.45 * Math.sin(a * (1 + (j % 3)) + j * 1.3)),
+          (W * (0.16 + 0.05 * Math.sin(2 * a + j))) ** 2,
+        ]);
+      }
+      renderField(this, ctx, W, H, 110, (x, y) => {
+        let v = 0;
+        for (const [bx, by, r2] of blobs) v += r2 / ((x - bx) ** 2 + (y - by) ** 2 + 1);
+        const e = smoothstep(0.92, 1.0, v);
+        return (1 - e) * 0.42 * v + e * Math.min(1, 0.62 + 0.3 * (v - 1));
+      });
+    },
+  },
+  {
+    // Soft mesh gradient: drifting color points blended with gaussian weights.
+    name: 'Градиент',
+    period: 16,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const vals = [1, 0.5, 0, 0.85, 0.25, 0.65];
+      const pts = vals.map((v, j) => [
+        W * (0.5 + 0.5 * Math.sin(a + j * 1.9)),
+        H * (0.5 + 0.5 * Math.sin((j % 2 ? 2 : 1) * a + j * 1.1)),
+        v,
+      ]);
+      const s2 = (W * 0.55) ** 2;
+      renderField(this, ctx, W, H, 48, (x, y) => {
+        let sw = 0, sv = 0;
+        for (const [px, py, v] of pts) {
+          const w = Math.exp(-((x - px) ** 2 + (y - py) ** 2) / s2);
+          sw += w;
+          sv += w * v;
+        }
+        return sv / (sw + 1e-9);
+      });
+    },
+  },
+  {
+    // Streamlines traced through a slowly morphing flow field.
+    name: 'Поток',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = ramp(0.06);
+      ctx.fillRect(0, 0, W, H);
+      const f = TAU / W * 1.1;
+      const angle = (x, y) => 1.6 * (Math.sin(x * f + a) + Math.sin(y * f * 0.8 - a + Math.cos(x * f * 0.6)));
+      const gap = W / 13, step = W * 0.014;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = W * 0.007;
+      for (let gy = -gap; gy < H + gap; gy += gap) {
+        for (let gx = -gap; gx < W + gap; gx += gap) {
+          const h = hash(gx, gy);
+          let x = gx + gap * (h - 0.5) + gap * 0.3 * Math.cos(a + h * TAU);
+          let y = gy + gap * (hash(gy, gx) - 0.5) + gap * 0.3 * Math.sin(a + h * TAU);
+          ctx.strokeStyle = ramp(0.35 + 0.65 * h);
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          for (let i = 0; i < 26; i++) {
+            const t = angle(x, y);
+            x += Math.cos(t) * step;
+            y += Math.sin(t) * step;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      }
+      ctx.lineCap = 'butt';
+    },
+  },
+  {
+    // Joy Division "Unknown Pleasures" ridgelines filling the screen top to bottom.
+    name: 'Пульсар',
+    period: 8,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const N = 44, gap = H / (N - 4);
+      ctx.lineWidth = Math.max(1.2, W * 0.004);
+      ctx.lineJoin = 'round';
+      for (let i = 0; i < N; i++) {
+        const y0 = i * gap;
+        ctx.beginPath();
+        ctx.moveTo(-2, y0);
+        for (let x = 0; x <= W + 4; x += 4) {
+          const env = Math.exp(-(((x - W / 2) / (W * 0.27)) ** 2));
+          const n = (Math.sin(x * 0.045 + i * 1.7 + a) + Math.sin(x * 0.083 - i * 0.9 - 2 * a)
+            + Math.sin(x * 0.019 + i * 2.3 + a)) / 3;
+          ctx.lineTo(x, y0 - env * H * 0.1 * (0.5 + 0.5 * n) ** 2);
+        }
+        ctx.lineTo(W + 4, y0);
+        ctx.lineTo(W + 4, H + 4);
+        ctx.lineTo(-2, H + 4);
+        ctx.closePath();
+        ctx.fillStyle = P.lo;
+        ctx.fill();
+        ctx.strokeStyle = ramp(0.55 + 0.45 * (i / (N - 1)));
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    // Oversized spirograph curves sweeping across the screen.
+    name: 'Спирограф',
+    period: 14,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.75);
+      bg.addColorStop(0, ramp(0.25));
+      bg.addColorStop(1, P.lo);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+      const curves = [
+        { R: 7, r: 4, d: 6, turns: 4, col: P.hi, dir: 1 },
+        { R: 9, r: 5, d: 7, turns: 5, col: P.mid, dir: -1 },
+        { R: 5, r: 2, d: 4, turns: 2, col: mix(P.hi, '#ffffff', 0.4), dir: 1 },
+      ];
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = Math.max(1.5, W * 0.006);
+      for (const cv of curves) {
+        const scale = Math.hypot(W, H) * 0.62 / (cv.R - cv.r + cv.d);
+        const tmax = TAU * cv.turns;
+        const start = p * tmax, len = tmax * 0.65, n = 700;
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(cv.dir * a);
+        ctx.strokeStyle = cv.col;
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const t = start + len * i / n;
+          const k = (cv.R - cv.r) / cv.r;
+          ctx.lineTo(scale * ((cv.R - cv.r) * Math.cos(t) + cv.d * Math.cos(k * t)),
+            scale * ((cv.R - cv.r) * Math.sin(t) - cv.d * Math.sin(k * t)));
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+    },
+  },
+  {
+    // Terraced topographic map with contour lines over a morphing height field.
+    name: 'Топография',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const f = TAU / W;
+      const cx = W * (0.5 + 0.2 * Math.sin(a)), cy = H * (0.5 + 0.15 * Math.sin(2 * a));
+      renderField(this, ctx, W, H, 200, (x, y) => {
+        const h = Math.sin(x * f * 0.9 + a) + 0.8 * Math.sin(y * f * 0.7 - a)
+          + 0.6 * Math.sin((x + y) * f * 0.5 + 2 * a) + 0.7 * Math.sin(Math.hypot(x - cx, y - cy) * f * 1.3 - a);
+        const t = (h + 3.1) / 6.2 * 9;
+        if (frac(t) < 0.1) return 0.02;
+        return 0.15 + 0.85 * Math.floor(t) / 9;
+      });
+    },
+  },
+  {
+    // Sunburst: two sets of wedges of varying width spinning in opposite directions.
+    name: 'Лучи',
+    period: 12,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = ramp(0.3);
+      ctx.fillRect(0, 0, W, H);
+      const cx = W * (0.5 + 0.1 * Math.sin(a)), cy = H * (0.5 + 0.08 * Math.sin(2 * a));
+      const R = Math.hypot(W, H);
+      const layers = [
+        { n: 20, rot: a, col: P.hi, alpha: 1, wf: 0.6 },
+        { n: 14, rot: -a, col: P.lo, alpha: 0.45, wf: 0.35 },
+      ];
+      for (const L of layers) {
+        ctx.globalAlpha = L.alpha;
+        ctx.fillStyle = L.col;
+        for (let i = 0; i < L.n; i++) {
+          const mid = L.rot + i * TAU / L.n;
+          const hw = (TAU / L.n / 2) * (L.wf + 0.4 * Math.sin(2 * a + i * 1.3));
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, R, mid - hw, mid + hw);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    },
+  },
+  {
+    // Escher-like tumbling blocks: rhombille tiling whose lighting rotates in a wave while it scrolls.
+    name: 'Блоки',
+    period: 10,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const s = W / 5;
+      const dx = Math.sqrt(3) * s, dy = 1.5 * s;
+      const v = [];
+      for (let k = 0; k < 6; k++) v.push([s * Math.cos(-Math.PI / 2 + k * Math.PI / 3), s * Math.sin(-Math.PI / 2 + k * Math.PI / 3)]);
+      const faces = [[5, 0, 1], [1, 2, 3], [3, 4, 5]];
+      const shift = frac(p) * dx;
+      for (let r = -1; r * dy < H + 2 * s; r++) {
+        for (let c = -2; c * dx < W + 2 * s; c++) {
+          const x = c * dx + (r % 2 ? dx / 2 : 0) + shift, y = r * dy;
+          const ph = a + (x + y) / W * 1.5;
+          faces.forEach(([i0, i1, i2], j) => {
+            ctx.fillStyle = ramp(0.08 + 0.9 * (0.5 + 0.5 * Math.cos(ph + j * TAU / 3)));
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + v[i0][0], y + v[i0][1]);
+            ctx.lineTo(x + v[i1][0], y + v[i1][1]);
+            ctx.lineTo(x + v[i2][0], y + v[i2][1]);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          });
+        }
+      }
+    },
+  },
+  {
+    // Orthographic wireframe torus, larger than the screen, tumbling; lines shaded by depth.
+    name: 'Тор',
+    period: 16,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.7);
+      bg.addColorStop(0, ramp(0.18));
+      bg.addColorStop(1, P.lo);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+      const R1 = H * 0.4, R2 = H * 0.2;
+      const ax = a, ay = 0.5 * Math.sin(a);
+      const cxr = Math.cos(ax), sxr = Math.sin(ax), cyr = Math.cos(ay), syr = Math.sin(ay);
+      const proj = (u, v) => {
+        let x = (R1 + R2 * Math.cos(v)) * Math.cos(u);
+        let y = (R1 + R2 * Math.cos(v)) * Math.sin(u);
+        let z = R2 * Math.sin(v);
+        [y, z] = [y * cxr - z * sxr, y * sxr + z * cxr];
+        [x, z] = [x * cyr + z * syr, -x * syr + z * cyr];
+        return [W / 2 + x, H / 2 + y, z];
+      };
+      const segs = [];
+      const U = 40, V = 18, SU = 80, SV = 40;
+      for (let i = 0; i < U; i++) {
+        const u = i * TAU / U;
+        for (let j = 0; j < SV; j++) segs.push([proj(u, j * TAU / SV), proj(u, (j + 1) * TAU / SV)]);
+      }
+      for (let j = 0; j < V; j++) {
+        const v = j * TAU / V;
+        for (let i = 0; i < SU; i++) segs.push([proj(i * TAU / SU, v), proj((i + 1) * TAU / SU, v)]);
+      }
+      const zr = R1 + R2;
+      for (const sg of segs) sg.z = (sg[0][2] + sg[1][2]) / 2;
+      segs.sort((m, n) => m.z - n.z);
+      ctx.lineCap = 'round';
+      for (const sg of segs) {
+        const t = 0.5 + 0.5 * sg.z / zr;
+        ctx.strokeStyle = ramp(0.15 + 0.85 * t);
+        ctx.lineWidth = W * (0.002 + 0.008 * t);
+        ctx.beginPath();
+        ctx.moveTo(sg[0][0], sg[0][1]);
+        ctx.lineTo(sg[1][0], sg[1][1]);
+        ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+    },
+  },
+  {
+    // Honeycomb of coins flipping around their vertical axis in a diagonal wave.
+    name: 'Монетки',
+    period: 6,
+    draw(ctx, W, H, p) {
+      const a = p * TAU;
+      ctx.fillStyle = P.lo;
+      ctx.fillRect(0, 0, W, H);
+      const s = W / 5.5, dy = s * 0.87, rad = s * 0.47;
+      for (let r = -1; r * dy < H + s; r++) {
+        for (let c = -1; c * s < W + s; c++) {
+          const x = c * s + (r % 2 ? s / 2 : 0), y = r * dy;
+          const ph = a - (x / W * 0.6 + y / H * 1.2) * Math.PI;
+          const cs = Math.cos(ph);
+          const rx = rad * Math.abs(cs);
+          ctx.fillStyle = ramp(0.22);
+          ctx.beginPath();
+          ctx.ellipse(x + rad * 0.12 * Math.sin(ph), y, rx + rad * 0.12 * Math.abs(Math.sin(ph)), rad, 0, 0, TAU);
+          ctx.fill();
+          ctx.fillStyle = cs >= 0 ? ramp(0.7 + 0.3 * cs) : ramp(0.45 - 0.15 * cs);
+          ctx.beginPath();
+          ctx.ellipse(x, y, Math.max(0.5, rx), rad, 0, 0, TAU);
+          ctx.fill();
+          ctx.strokeStyle = ramp(0.25, 0.7);
+          ctx.lineWidth = rad * 0.08;
+          ctx.beginPath();
+          ctx.ellipse(x, y, Math.max(0.5, rx * 0.72), rad * 0.72, 0, 0, TAU);
+          ctx.stroke();
+        }
+      }
+    },
+  },
+];
+
+// ---- op-art tile (orthographic re-implementation of the CodePen's CSS 3D) ----
+const OP_LIGHT = '#d8cbb1', OP_DARK = '#282624';
+const OP_STEPS = 25;
+const OP_AFTER_DEPTH = 7.2 * Math.PI / 180; // 180deg / steps
+
+// Each of the 25 dark squares flips around the tile diagonal (rotate3d(1,1,0)); its light ::after layer
+// tilts a little further (up to 7.2deg mid-cycle) just behind it. Seen from straight above, a square tilted
+// by θ is a rhombus whose cross diagonal shrinks by |cos θ|. On either side of the axis a point's depth is
+// x·tan θ, so each half-tile is painted back-to-front by sorting the planes on tan θ.
+function drawOpTile(t, S, phase) {
+  const h = S / 2;
+  t.setTransform(1, 0, 0, 1, h, h);
+  t.fillStyle = OP_LIGHT;
+  t.fillRect(-h, -h, S, S);
+  const planes = [];
+  for (let i = 1; i <= OP_STEPS; i++) {
+    const f = frac(phase - i / OP_STEPS);
+    const th = Math.PI * f;
+    const tilt = OP_AFTER_DEPTH * (f < 0.5 ? 2 * f : 2 - 2 * f);
+    planes.push({ th, color: OP_DARK, behind: 0 });
+    planes.push({ th: th + tilt, color: OP_LIGHT, behind: 1 });
+  }
+  for (const pl of planes) {
+    // A light layer can be exactly coplanar with a neighbouring dark square; nudging it keeps the
+    // order identical to the neighbouring frames instead of flipping on float noise.
+    pl.k = Math.tan(pl.th - pl.behind * 1e-9);
+    pl.w = h * Math.abs(Math.cos(pl.th));
+  }
+  for (const side of [1, -1]) {
+    const order = planes.slice().sort((m, n) => (side * (m.k - n.k)) || (n.behind - m.behind));
+    for (const pl of order) {
+      t.fillStyle = pl.color;
+      t.beginPath();
+      t.moveTo(-h, -h);
+      t.lineTo(h, h);
+      t.lineTo(-side * pl.w, side * pl.w);
+      t.closePath();
+      t.fill();
+    }
+  }
+}
+
+// ---- page setup ----
+const grid = document.getElementById('grid');
+const views = SCENES.map((scene, idx) => {
+  const fig = document.createElement('figure');
+  const screen = document.createElement('div');
+  screen.className = 'screen';
+  const cap = document.createElement('figcaption');
+  cap.innerHTML = `<b>${idx + 1}. ${scene.name}</b>цикл ${scene.period} с`;
+  fig.append(screen, cap);
+  grid.appendChild(fig);
+  screen.addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else screen.requestFullscreen?.();
+  });
+  const canvas = document.createElement('canvas');
+  screen.appendChild(canvas);
+  const view = { scene, canvas, ctx: canvas.getContext('2d'), W: 0, H: 0, visible: false };
+  new IntersectionObserver(([entry]) => { view.visible = entry.isIntersecting; }).observe(canvas);
+  new ResizeObserver(() => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    view.W = r.width; view.H = r.height;
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    view.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }).observe(canvas);
+  return view;
+});
+
+const palBox = document.getElementById('palettes');
+PALETTES.forEach((pal, i) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<span class="swatch" style="background:linear-gradient(135deg, ${pal.hi}, ${pal.mid} 55%, ${pal.lo})"></span>${pal.name}`;
+  b.setAttribute('aria-pressed', i === 0);
+  b.addEventListener('click', () => {
+    P = pal;
+    palBox.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  palBox.appendChild(b);
+});
+
+function frame(now) {
+  const t = now / 1000;
+  for (const v of views) {
+    if (!v.W || !v.visible) continue;
+    const { ctx, W, H, scene } = v;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    scene.draw(ctx, W, H, (t % scene.period) / scene.period);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

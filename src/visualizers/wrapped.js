@@ -1,7 +1,8 @@
 // More of the Recap Stories' slides' backgrounds, from the user's
-// wrapped-visuals sketches (as tunnel.js): dunes, stars, interference,
-// Truchet tiles and cubes, each in its slide's song's cover colours
-// (coverColors.js) over the darkest of them, filling its box. Each is a loop
+// wrapped-visuals sketches (as tunnel.js): dunes, interference, Truchet
+// tiles, cubes, Riley waves and the pulsar, each in its slide's song's cover
+// colours (coverColors.js) over the darkest of them, filling its box; and the
+// op-art chessboard in its own fixed colours (the radio has no cover). Each is a loop
 // and every frame follows from the time alone (see slideScenes.js). Ported to
 // the phone as Lokal_android ui/WrappedScenes.kt: keep the two alike.
 
@@ -49,38 +50,6 @@ export const drawDunes = looped(9, (ctx, W, H, p, c) => {
     const g = ctx.createLinearGradient(0, base - amp * 2, 0, base + H * 0.12)
     g.addColorStop(0, ramp(c, 0.55 + 0.45 * (i / (L - 1))))
     g.addColorStop(0.5, ramp(c, 0.4))
-    g.addColorStop(1, css(c.lo))
-    ctx.fillStyle = g
-    ctx.fill()
-    ctx.restore()
-  }
-})
-
-/** "Stars": nested five-point stars spinning, their spikes breathing. */
-export const drawStars = looped(18, (ctx, W, H, p, c) => {
-  const a = p * TAU
-  const N = 22
-  const cx = W * (0.5 + 0.1 * Math.sin(a))
-  const cy = H * (0.5 + 0.08 * Math.sin(2 * a))
-  for (let i = 0; i < N; i++) {
-    const R = H * 0.9 * Math.pow(0.87, i)
-    const inner = 0.42 + 0.14 * Math.sin(2 * a + i * 0.35)
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate(a + i * (0.1 + 0.06 * Math.sin(a)))
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)'
-    ctx.shadowBlur = W * 0.03
-    ctx.beginPath()
-    for (let k = 0; k < 10; k++) {
-      const r = k % 2 ? R * inner : R
-      const angle = -Math.PI / 2 + (k * TAU) / 10
-      ctx.lineTo(r * Math.cos(angle), r * Math.sin(angle))
-    }
-    ctx.closePath()
-    const g = ctx.createLinearGradient(-R, -R, R, R)
-    const flip = i % 2
-    g.addColorStop(0, css(flip ? c.mid : c.hi))
-    g.addColorStop(0.6, css(flip ? c.lo : c.mid))
     g.addColorStop(1, css(c.lo))
     ctx.fillStyle = g
     ctx.fill()
@@ -172,3 +141,131 @@ export const drawCubes = looped(10, (ctx, W, H, p, c) => {
     }
   }
 })
+
+/** "Riley waves": Bridget Riley-style stripes bent by travelling waves. */
+export const drawRiley = looped(8, (ctx, W, H, p, c) => {
+  const a = p * TAU
+  const N = 24
+  const w = W / N
+  const edge = (i, y) => i * w + W * 0.08 * Math.sin((y / H) * TAU * 1.2 + a + i * 0.2) * (0.6 + 0.4 * Math.sin(a - i * 0.15))
+  const g = ctx.createLinearGradient(0, 0, 0, H)
+  g.addColorStop(0, css(c.hi))
+  g.addColorStop(0.5, css(c.mid))
+  g.addColorStop(1, css(c.hi))
+  ctx.fillStyle = g
+  const step = Math.max(2, H / 140)
+  for (let i = -4; i < N + 4; i += 2) {
+    ctx.beginPath()
+    for (let y = -8; y <= H + 8; y += step) ctx.lineTo(edge(i, y), y)
+    for (let y = H + 8; y >= -8; y -= step) ctx.lineTo(edge(i + 1, y), y)
+    ctx.closePath()
+    ctx.fill()
+  }
+})
+
+/** "Pulsar": Joy Division's "Unknown Pleasures" ridgelines, top to bottom. */
+export const drawPulsar = looped(8, (ctx, W, H, p, c) => {
+  const a = p * TAU
+  const N = 44
+  const gap = H / (N - 4)
+  // The sketch's sizes are for a phone-sized screen in CSS pixels: scaled to the box.
+  const k = W / 450
+  ctx.lineWidth = Math.max(1.2 * k, W * 0.004)
+  ctx.lineJoin = 'round'
+  const step = 4 * k
+  for (let i = 0; i < N; i++) {
+    const y0 = i * gap
+    ctx.beginPath()
+    ctx.moveTo(-2, y0)
+    for (let x = 0; x <= W + step; x += step) {
+      const env = Math.exp(-(((x - W / 2) / (W * 0.27)) ** 2))
+      const n = (Math.sin(x / k * 0.045 + i * 1.7 + a) + Math.sin(x / k * 0.083 - i * 0.9 - 2 * a) + Math.sin(x / k * 0.019 + i * 2.3 + a)) / 3
+      ctx.lineTo(x, y0 - env * H * 0.1 * (0.5 + 0.5 * n) ** 2)
+    }
+    ctx.lineTo(W + step, y0)
+    ctx.lineTo(W + step, H + 4)
+    ctx.lineTo(-2, H + 4)
+    ctx.closePath()
+    ctx.fillStyle = css(c.lo)
+    ctx.fill()
+    ctx.strokeStyle = ramp(c, 0.55 + 0.45 * (i / (N - 1)))
+    ctx.stroke()
+  }
+})
+
+// The op-art chessboard's own colours.
+export const OP_LIGHT = '#d8cbb1'
+const OP_DARK = '#282624'
+const OP_STEPS = 25
+const OP_AFTER_DEPTH = (7.2 * Math.PI) / 180
+let opTile = null
+
+/**
+ * One square of "Geometric Abstraction op art" (Stijn Van Minnebruggen, codepen.io/donotfold/pen/XWvqbYX)
+ * seen from above, at `phase` of its loop: 25 dark squares flipping round the diagonal, each with a light
+ * layer tilting a little further just behind it, painted back to front on each side of the axis.
+ */
+function drawOpTile(t, S, phase) {
+  const h = S / 2
+  t.setTransform(1, 0, 0, 1, h, h)
+  t.fillStyle = OP_LIGHT
+  t.fillRect(-h, -h, S, S)
+  const planes = []
+  for (let i = 1; i <= OP_STEPS; i++) {
+    const f = frac(phase - i / OP_STEPS)
+    const th = Math.PI * f
+    const tilt = OP_AFTER_DEPTH * (f < 0.5 ? 2 * f : 2 - 2 * f)
+    planes.push({ th, color: OP_DARK, behind: 0 })
+    planes.push({ th: th + tilt, color: OP_LIGHT, behind: 1 })
+  }
+  for (const plane of planes) {
+    // A light layer can lie exactly in a dark square's plane: nudged, so the order doesn't flip on float noise.
+    plane.k = Math.tan(plane.th - plane.behind * 1e-9)
+    plane.w = h * Math.abs(Math.cos(plane.th))
+  }
+  for (const side of [1, -1]) {
+    const order = planes.slice().sort((m, n) => (side * (m.k - n.k)) || (n.behind - m.behind))
+    for (const plane of order) {
+      t.fillStyle = plane.color
+      t.beginPath()
+      t.moveTo(-h, -h)
+      t.lineTo(h, h)
+      t.lineTo(-side * plane.w, side * plane.w)
+      t.closePath()
+      t.fill()
+    }
+  }
+}
+
+/** "Chess (op art)": those squares on every other square of a tilted, gently swaying board; fixed colours. */
+export function drawChess(ctx, x, y, w, h, t) {
+  const W = w
+  const H = h
+  const p = frac(t / 10)
+  const a = p * TAU
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.beginPath()
+  ctx.rect(0, 0, W, H)
+  ctx.clip()
+  ctx.fillStyle = OP_LIGHT
+  ctx.fillRect(0, 0, W, H)
+  const cell = W * 0.3
+  const S = Math.max(1, Math.ceil(cell))
+  opTile ||= document.createElement('canvas')
+  if (opTile.width !== S) opTile.width = opTile.height = S
+  // The original loop is 5 s: twice in each 10 s sway.
+  drawOpTile(opTile.getContext('2d'), S, frac(p * 2))
+  const N = 9
+  ctx.translate(W / 2 + W * 0.06 * Math.sin(a), H / 2 + H * 0.035 * Math.sin(2 * a))
+  ctx.rotate(((30 + 5 * Math.sin(a + 0.6)) * Math.PI) / 180)
+  const scale = 1 + 0.05 * Math.sin(2 * a)
+  ctx.scale(scale, scale)
+  for (let r = 0; r < N; r++) {
+    for (let col = 0; col < N; col++) {
+      if ((r + col) % 2) continue
+      ctx.drawImage(opTile, (col - N / 2) * cell, (r - N / 2) * cell, cell, cell)
+    }
+  }
+  ctx.restore()
+}
