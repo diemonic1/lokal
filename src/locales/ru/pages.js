@@ -267,6 +267,7 @@ export default {
   'Slide {n} of {total}: {title}': 'Слайд {n} из {total}: {title}',
   'different tracks': 'разных треков',
   'artists': 'исполнителей',
+  'days with music': 'дней с музыкой',
   'Plays by hour of the day': 'Прослушивания по часам',
   'long': 'длительность',
   'skips': 'пропусков',

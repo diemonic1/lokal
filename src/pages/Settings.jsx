@@ -1955,6 +1955,7 @@ activeCategory === 'data' ? usersTried
       )}
       {inCategory('appearance') && (
       <Section title="Stories">
+        {visualToggle('stories_card_visuals', 'Visualizations on the cards', "Slides with moving pictures of their own: a glowing lotus on the first one, a sunset over the sea on \"When you listen\". Shown in eco mode too.")}
         {visualToggle('stories_visual', 'Visualization', "The colour splashes fill the screen around the Recap Stories' card, moving with the song that plays (their settings: Visualizations > Side Panel). Off: the slide's blurred cover.")}
         {settings.stories_visual !== '0' && <>
           {visualSlider('stories_visual_opacity', 'Visibility', 'How strongly the splashes show. 100%: fully, 0%: not at all.', 0, 100, 50, '%')}

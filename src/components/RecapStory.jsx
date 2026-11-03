@@ -32,7 +32,9 @@ import { translate, useTranslation } from '../i18n'
 import { periodTitle } from '../recapPeriods'
 import { daysText, filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
 import { coversOf, openShareCard, trackArtSource } from '../shareCard'
-import { useAppearanceSettings, useAppearanceText, useStoriesBackground } from '../appearanceFlags'
+import { useAppearanceSettings, useAppearanceText, useStoriesBackground, useStoriesCardVisuals } from '../appearanceFlags'
+import SlideScene from './SlideScene'
+import { sceneClock, sceneFor } from '../visualizers/slideScenes'
 import Splashes from '../visualizers/Splashes'
 import { readSplashSettings } from '../visualizers/splashSettings'
 import { pickColor } from '../visualizers/audio'
@@ -110,9 +112,9 @@ function buildSlides(recap, period, libraryOf = {}) {
   const artistSongs = (name) => [...topTracks.filter(track => track.artist === name), ...(libraryOf[name] || [])]
   const slides = [{
     key: 'overview',
-    eyebrow: periodTitle(period),
+    // The period is over the card already.
+    eyebrow: translate('in all, you listened to'),
     title: translate('{time} of music.', { time: fmtMinutes(recap?.totalMinutes || 0) }),
-    lead: translate('in all, you listened to'),
     track: topTrack,
   }]
   if (topTrack) slides.push({
@@ -402,6 +404,20 @@ function StoryViewer({ onClose, recap, period }) {
 
   const art = slide.key === 'stations' ? '' : trackArt(slide.track)
   const background = useStoriesBackground()
+  // The slide's own moving pictures (Settings > Appearance > Stories, visualizers/slideScenes.js):
+  // behind the whole card instead of the cover, or in a box the slide leaves for it.
+  const cardVisuals = useStoriesCardVisuals()
+  const cardScene = cardVisuals ? sceneFor(slide.key, 'card') : null
+  const slotScene = cardVisuals ? sceneFor(slide.key, 'slot') : null
+  // Share: where each picture is on the card, and the moment to draw.
+  const sceneShots = () => {
+    const card = cardRef.current.getBoundingClientRect()
+    const time = sceneClock()
+    return [...cardRef.current.querySelectorAll('[data-scene]')].map(element => {
+      const rect = element.getBoundingClientRect()
+      return { kind: element.dataset.scene, time, x: rect.left - card.left, y: rect.top - card.top, w: rect.width, h: rect.height }
+    })
+  }
   const splashSettings = useAppearanceSettings(readSplashSettings)
   const splashBackground = pickColor(useAppearanceText('side_splash_bg'), '#161616')
   const move = reduceMotion ? 0 : 1
@@ -436,7 +452,7 @@ function StoryViewer({ onClose, recap, period }) {
           </p>
           {/* The share dialog opens over the Stories, which go on (and play on) behind it; the
               picture is the slide itself as it looks (shareCard.js renderStorySlide). */}
-          <StoryButton onClick={() => cardRef.current && openShareCard({ ...slideShareSpec(slide, recap, period, index + 1, slides.length), slide: { card: cardRef.current, cover: slide.key === 'stations' ? null : trackArtSource(slide.track), period: period ? periodTitle(period) : '' } })} label={t('Share this slide as a picture')}>
+          <StoryButton onClick={() => cardRef.current && openShareCard({ ...slideShareSpec(slide, recap, period, index + 1, slides.length), slide: { card: cardRef.current, cover: slide.key === 'stations' ? null : trackArtSource(slide.track), period: period ? periodTitle(period) : '', scenes: sceneShots() } })} label={t('Share this slide as a picture')}>
             <Share2 size={14} />
           </StoryButton>
           <StoryButton onClick={closeStory} label={t('Close Stories')}>
@@ -457,6 +473,14 @@ function StoryViewer({ onClose, recap, period }) {
             style={{ height: CARD_HEIGHT, aspectRatio: '9 / 16', containerType: 'size' }}
           >
             <CardBackdrop card={cardRef} art={art} />
+            <AnimatePresence initial={false}>
+              {cardScene && (
+                <motion.div key={cardScene} data-share-skip aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }} className="pointer-events-none absolute inset-0">
+                  <SlideScene kind={cardScene} className="h-full w-full" />
+                </motion.div>
+              )}
+            </AnimatePresence>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={slide.key}
@@ -464,7 +488,7 @@ function StoryViewer({ onClose, recap, period }) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 * move }}
                 transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute inset-0 flex flex-col p-[7cqw] pb-[40cqw] pt-[8cqw]"
+                className="absolute inset-0 isolate flex flex-col p-[7cqw] pb-[40cqw] pt-[8cqw]"
               >
                 <span className="w-fit max-w-[62cqw] truncate rounded-full border border-white/10 bg-white/5 px-[3cqw] py-[1cqw] font-display text-[2.8cqw] uppercase tracking-widest text-accent/90">
                   {slide.eyebrow}
@@ -476,7 +500,7 @@ function StoryViewer({ onClose, recap, period }) {
                   transition={{ delay: 0.08, duration: 0.45 }}
                   className={`${slide.lead ? 'mt-[1.5cqw]' : 'mt-[5cqw]'} line-clamp-4 break-words font-display leading-[1.1] ${slide.long ? 'text-[6.2cqw]' : 'text-[8cqw]'}`}
                 >
-                  {slide.title}
+                  {slide.key === 'overview' ? <NumbersFirst text={slide.title} /> : slide.title}
                 </motion.h2>
                 {slide.body && (
                   <motion.p
@@ -492,9 +516,13 @@ function StoryViewer({ onClose, recap, period }) {
                   initial={{ opacity: 0, y: 16 * move }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.24, duration: 0.5 }}
-                  className="mt-auto pt-[4cqw]"
+                  className={slotScene ? '-z-10 mt-[5cqw] flex min-h-0 flex-1 flex-col' : 'mt-auto pt-[4cqw]'}
                 >
                   <SlideVisual slide={slide} recap={recap} topTracks={topTracks} />
+                  {/* With its picture, the slide's numbers go up under the title and the picture fills
+                      the rest, edge to edge, down to the top of the player (behind the text if it ever
+                      reaches it: this block is below the slide's others). */}
+                  {slotScene && <SlideScene kind={slotScene} className="-mx-[7cqw] -mb-[21cqw] mt-[1cqw] min-h-0 w-[calc(100%+14cqw)] flex-1" />}
                 </motion.div>
               </motion.div>
             </AnimatePresence>
@@ -635,6 +663,15 @@ function CardBackdrop({ card, art }) {
   )
 }
 
+/**
+ * A headline of numbers ("11 ч 37 мин музыки"): the numbers at full size, the words 2.5 times smaller,
+ * each unit right against its number.
+ */
+function NumbersFirst({ text }) {
+  const parts = String(text).replace(/(\d)\s+(?=\p{L})/gu, '$1').split(/(\d[\d\s.,]*\d|\d)/u)
+  return parts.map((part, i) => (i % 2 ? part : part && <span key={i} className="text-[0.4em]">{part}</span>))
+}
+
 function StoryButton({ onClick, label, children }) {
   return (
     <button onClick={onClick} aria-label={label} title={label}
@@ -691,13 +728,15 @@ function SlideVisual({ slide, recap, topTracks }) {
       [recap.totalPlays || 0, t('plays')],
       [recap.uniqueTracks || 0, t('different tracks')],
       [recap.uniqueArtists || 0, t('artists')],
+      [recap.activeDays || 0, t('days with music')],
     ]
+    // Two by two: the number, its name under it; the right column to the right edge, mirroring the left.
     return (
-      <div className="space-y-[3cqw]">
-        {stats.map(([value, label]) => (
-          <div key={label} className="flex items-baseline gap-[3cqw]">
-            <span className="font-display text-[13cqw] leading-none">{Number(value).toLocaleString()}</span>
-            <span className="text-[3.4cqw] text-white/50">{label}</span>
+      <div className="relative z-10 grid grid-cols-2 gap-x-[4cqw] gap-y-[4cqw]">
+        {stats.map(([value, label], i) => (
+          <div key={label} className={`min-w-0 ${i % 2 ? 'text-right' : ''}`}>
+            <div className="font-display text-[11cqw] leading-none">{Number(value).toLocaleString()}</div>
+            <div className="-mt-[1cqw] truncate text-[3.4cqw] text-white/50">{label}</div>
           </div>
         ))}
       </div>

@@ -683,6 +683,8 @@ export default {
   'Album cover in the background': 'Обложка альбома на фоне',
   "The colour splashes fill the screen around the Recap Stories' card, moving with the song that plays (their settings: Visualizations > Side Panel). Off: the slide's blurred cover.": 'Цветные брызги на весь экран вокруг карточки Stories в итогах, в такт играющему треку (их настройки — в «Визуализации» › «Боковая панель»). Выключено — размытая обложка слайда.',
   'Cover in the background': 'Обложка на фоне',
+  'Visualizations on the cards': 'Визуализации на карточках',
+  'Slides with moving pictures of their own: a glowing lotus on the first one, a sunset over the sea on "When you listen". Shown in eco mode too.': 'Слайды со своими живыми картинками: светящийся лотос на первом, закат над морем на «Когда вы слушаете». Показываются и в эко-режиме.',
   'Visibility': 'Видимость',
   'How strongly the splashes show. 100%: fully, 0%: not at all.': 'Насколько заметны брызги. 100% — в полную силу, 0% — их не видно.',
   "The slide's blurred cover under the splashes. Off: the splashes' own background colour.": 'Размытая обложка слайда под брызгами. Выключено — цвет фона из настроек брызг.',

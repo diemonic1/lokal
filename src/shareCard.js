@@ -18,6 +18,7 @@ import { api } from './api'
 import { translate } from './i18n'
 // The app's cat for the card's corner, inlined (a data URL): a file:// picture would taint the canvas.
 import logoURL from './assets/share-logo.png?inline'
+import { SLIDE_SCENES, paintScene } from './visualizers/slideScenes'
 
 const W = 1080
 const H = 1350
@@ -313,14 +314,18 @@ export async function renderShareCard(spec) {
  * picture (html2canvas, at 1080 px wide) over the slide's blurred cover (or
  * the radio's colours), under the period, with the cat and the app's name
  * where the player was (it isn't in the picture). 1080 × 2070.
+ * `scenes`: the slide's moving pictures as Share found them ({ kind, time, and
+ * x, y, w, h on the card, CSS px }; visualizers/slideScenes.js), drawn here at
+ * that moment: one in place of the whole card stands in for the cover.
  */
-export async function renderStorySlide({ card, cover, period }) {
+export async function renderStorySlide({ card, cover, period, scenes = [] }) {
   const { default: html2canvas } = await import('html2canvas-pro')
   const SW = 1080
   const HEAD = 150
   const rect = card.getBoundingClientRect()
   const scale = SW / rect.width
   const cardH = Math.round(rect.height * scale)
+  const backdrop = scenes.find(scene => SLIDE_SCENES[scene.kind]?.place === 'card')
   const [shot, image, logo] = await Promise.all([
     html2canvas(card, {
       scale, backgroundColor: null, logging: false, useCORS: true,
@@ -329,7 +334,7 @@ export async function renderStorySlide({ card, cover, period }) {
       // so the header shares the slide's colours).
       onclone: (_, clone) => { clone.style.borderRadius = '0'; clone.style.border = 'none'; clone.style.boxShadow = 'none'; clone.style.background = 'transparent' },
     }),
-    loadImage(cover),
+    backdrop ? null : loadImage(cover),
     new Promise(resolve => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => resolve(null); i.src = logoURL }),
   ])
   const accent = themeColor('--accent', '#ffd6f0')
@@ -341,36 +346,47 @@ export async function renderStorySlide({ card, cover, period }) {
   const ctx = canvas.getContext('2d')
   ctx.fillStyle = '#000'
   ctx.fillRect(0, 0, SW, H)
-  if (image) {
-    // The cover blurred behind everything, as the Stories show it.
+  if (backdrop) {
+    // The slide's own picture, as it was when Share was pressed; the header continues its top.
+    const look = SLIDE_SCENES[backdrop.kind]
     ctx.save()
-    ctx.filter = 'blur(90px) saturate(1.3)'
-    ctx.globalAlpha = 0.5
-    const s = Math.max(SW * 1.2 / image.width, H * 1.2 / image.height)
-    ctx.drawImage(image, (SW - image.width * s) / 2, (H - image.height * s) / 2, image.width * s, image.height * s)
+    ctx.filter = `brightness(${look.brightness})`
+    ctx.fillStyle = look.header || '#000'
+    ctx.fillRect(0, 0, SW, HEAD + 1)
     ctx.restore()
+    paintScene(ctx, backdrop.kind, 0, HEAD, SW, cardH, backdrop.time)
   } else {
-    // The radio's colours.
-    const base = ctx.createLinearGradient(0, 0, SW, H)
-    base.addColorStop(0, '#1e1b4b'); base.addColorStop(1, '#0f172a')
-    ctx.fillStyle = base
-    ctx.fillRect(0, 0, SW, H)
-    for (const [x, y, r, color] of [[0.15, 0.2, 0.6, accent], [0.85, 0.25, 0.55, 'rgb(236, 72, 153)'], [0.5, 0.95, 0.7, 'rgb(56, 189, 248)']]) {
-      const g = ctx.createRadialGradient(SW * x, H * y, 0, SW * x, H * y, SW * r * 1.3)
-      ctx.globalAlpha = 0.6
-      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0, 0, 0, 0)')
-      ctx.fillStyle = g
+    if (image) {
+      // The cover blurred behind everything, as the Stories show it.
+      ctx.save()
+      ctx.filter = 'blur(90px) saturate(1.3)'
+      ctx.globalAlpha = 0.5
+      const s = Math.max(SW * 1.2 / image.width, H * 1.2 / image.height)
+      ctx.drawImage(image, (SW - image.width * s) / 2, (H - image.height * s) / 2, image.width * s, image.height * s)
+      ctx.restore()
+    } else {
+      // The radio's colours.
+      const base = ctx.createLinearGradient(0, 0, SW, H)
+      base.addColorStop(0, '#1e1b4b'); base.addColorStop(1, '#0f172a')
+      ctx.fillStyle = base
       ctx.fillRect(0, 0, SW, H)
-      ctx.globalAlpha = 1
+      for (const [x, y, r, color] of [[0.15, 0.2, 0.6, accent], [0.85, 0.25, 0.55, 'rgb(236, 72, 153)'], [0.5, 0.95, 0.7, 'rgb(56, 189, 248)']]) {
+        const g = ctx.createRadialGradient(SW * x, H * y, 0, SW * x, H * y, SW * r * 1.3)
+        ctx.globalAlpha = 0.6
+        g.addColorStop(0, color); g.addColorStop(1, 'rgba(0, 0, 0, 0)')
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, SW, H)
+        ctx.globalAlpha = 1
+      }
     }
+    const shade = ctx.createRadialGradient(SW / 2, H / 2, 0, SW / 2, H / 2, H * 0.7)
+    shade.addColorStop(0, 'rgba(0, 0, 0, 0.25)'); shade.addColorStop(1, 'rgba(0, 0, 0, 0.85)')
+    ctx.fillStyle = shade
+    ctx.fillRect(0, 0, SW, H)
+    // The card's own shade (bg-black/30), over the header too.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+    ctx.fillRect(0, 0, SW, H)
   }
-  const shade = ctx.createRadialGradient(SW / 2, H / 2, 0, SW / 2, H / 2, H * 0.7)
-  shade.addColorStop(0, 'rgba(0, 0, 0, 0.25)'); shade.addColorStop(1, 'rgba(0, 0, 0, 0.85)')
-  ctx.fillStyle = shade
-  ctx.fillRect(0, 0, SW, H)
-  // The card's own shade (bg-black/30), over the header too.
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-  ctx.fillRect(0, 0, SW, H)
 
   // Header: the cat, the app and the period.
   ctx.textBaseline = 'middle'
@@ -382,6 +398,10 @@ export async function renderStorySlide({ card, cover, period }) {
     ctx.fillText(fit(ctx, period.toUpperCase(), SW - 144), 72, HEAD / 2 + 6)
   }
 
+  // The pictures in the slide's own boxes, under its content.
+  for (const scene of scenes) {
+    if (scene !== backdrop) paintScene(ctx, scene.kind, scene.x * scale, HEAD + scene.y * scale, scene.w * scale, scene.h * scale, scene.time)
+  }
   // The slide.
   ctx.drawImage(shot, 0, HEAD, SW, cardH)
 

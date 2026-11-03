@@ -450,6 +450,9 @@ function buildRecap(db, userId = 'guest', opts = {}) {
   for (const row of qualified) hours[hourOf(row.played_at)] += 1
   const busiest = hours.reduce((best, plays, hour) => (plays > best.plays ? { hour, plays } : best), { hour: null, plays: 0 })
   const peakHour = busiest.plays ? busiest : null
+  // The days with music: any counted play or station that day, in the listener's time zone.
+  const dayOf = new Intl.DateTimeFormat('en-CA', { timeZone: validTimeZone(opts.tz) || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
+  const activeDays = new Set([...qualified, ...radio].map(row => dayOf.format(new Date(Number(row.played_at) * 1000)))).size
   const added = addedToLibrary(db, range.from, range.to)
   return {
     ...range,
@@ -462,6 +465,7 @@ function buildRecap(db, userId = 'guest', opts = {}) {
     uniqueArtists: new Set(qualified.map(row => row.artist).filter(Boolean)).size,
     uniqueAlbums: new Set(qualified.map(row => row.album || row.id).filter(Boolean)).size,
     uniqueTracks: new Set(qualified.map(row => row.id)).size,
+    activeDays,
     topTracks,
     topArtists: topFromMap(artistMap, 'artist', 10).map(item => ({ ...item, seconds: artistSeconds.get(item.artist) || 0 })),
     topGenres: topFromMap(genreMap, 'genre', 10),

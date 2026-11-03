@@ -55,6 +55,9 @@
 //                       Visualization + Lyrics picture while the visualization shows (unset: off then)
 //   stories_visual      Settings > Appearance > Stories > Visualization: '0' leaves the Recap
 //                       Stories' sides to the blurred cover; unset: the colour splashes fill them
+//   stories_card_visuals ... > Visualizations on the cards: '0' leaves every slide to the blurred
+//                       cover; unset: the slides' own pictures (visualizers/slideScenes.js).
+//                       Eco mode doesn't switch it off
 //   stories_visual_opacity  ... > Visibility: 0-100 % how strongly the splashes show; unset: 50
 //   stories_cover       ... > Cover in the background: '0' puts the splashes' own background colour
 //                       (side_splash_bg) under them; unset: the blurred cover
@@ -99,7 +102,7 @@ const VALUE_KEYS = ['player_bar_gradient_strength', 'player_bar_gradient_speed',
   'side_character_cover', 'side_character_cover_opacity',
   'side_character_sensitivity', 'side_character_strength', 'side_character_size', 'side_character_color', 'side_character_dots', 'side_character_mouse', 'side_anomaly_cover', 'side_anomaly_cover_opacity', 'side_splash_cover', 'side_splash_cover_opacity',
   'side_trails_bg', 'side_trails_cover', 'side_trails_cover_opacity', ...TRAILS_SETTING_KEYS,
-  'stories_visual', 'stories_visual_opacity', 'stories_cover']
+  'stories_visual', 'stories_visual_opacity', 'stories_cover', 'stories_card_visuals']
 let values = Object.fromEntries(KEYS.map(key => [key, true]))
 let raw = {}
 let load = null
@@ -195,6 +198,11 @@ export function useStoriesBackground() {
   const cover = useAppearanceText('stories_cover') !== '0'
   const eco = useSubscribed(isEcoMode)
   return { visual: visual && !eco, opacity, cover }
+}
+
+/** Do the Stories' slides show their own visualizations (the sunset)? On unless switched off, eco mode or not. */
+export function useStoriesCardVisuals() {
+  return useAppearanceText('stories_card_visuals') !== '0'
 }
 
 export const SIDE_PANEL_VISUALIZERS = ['off', 'character', 'anomaly', 'splashes', 'trails']
