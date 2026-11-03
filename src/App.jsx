@@ -1731,8 +1731,8 @@ export default function App() {
   }, [])
 
   const beginLastfmPlayback = useCallback((track) => {
-    // Online radio is never sent anywhere (Last.fm, ListenBrainz).
-    if (!track?.id || isStationTrack(track)) {
+    // Online radio is never sent anywhere (Last.fm, ListenBrainz), nor what the recap's Stories play.
+    if (!track?.id || isStationTrack(track) || track.recapStory) {
       lastfmPlaybackStartedAtRef.current = 0
       lastfmPlaybackKeyRef.current = null
       return
@@ -1922,6 +1922,9 @@ export default function App() {
     const flushedTrack = currentTrackRef.current
     playSecsRef.current = 0
     if (trackId) lastFlushedTrackIdRef.current = trackId
+    // A song (or station) the recap's Stories played isn't listening: no history,
+    // play count or scrobble, so it never counts in later recaps (RecapStory.jsx).
+    if (flushedTrack?.recapStory) return
     tryScrobbleLastfmTrack(flushedTrack, secs)
     trySubmitListenBrainz(flushedTrack, secs)
     if (secs >= 3 && trackId && !isStationTrack(flushedTrack)) api.incrementPlayTime(trackId, userRef.current?.id, secs)

@@ -153,11 +153,12 @@ function resolveRange(opts = {}) {
 }
 
 /**
- * Online radio's time (electron/listeningHistory.js): counted when every song
- * is (no "library" / "streamed" filter), 30 seconds or more like a play.
+ * Online radio's time (electron/listeningHistory.js): counted with every song
+ * and with the library's (the Recap page's), not with the songs only
+ * streamed; 30 seconds or more like a play.
  */
 function radioRows(db, userId, from, to, sources) {
-  if (sources === 'library' || sources === 'streamed') return []
+  if (sources === 'streamed') return []
   try {
     return db.prepare(`
       SELECT station_id, station_name, station_url, played_at, COALESCE(seconds_played, 0) AS seconds_played
@@ -382,8 +383,8 @@ function buildRecap(db, userId = 'guest', opts = {}) {
   if (range.error) return { error: range.error }
   const now = Math.floor(Date.now() / 1000)
   if (['week', 'month', 'quarter', 'year'].includes(range.scope) && range.to >= now) {
-    // A month or year still going can be asked for "so far" (partial=1): up to now.
-    const partial = ['1', 'true'].includes(String(opts.partial)) && ['month', 'year'].includes(range.scope) && range.from <= now
+    // A week, month or year still going can be asked for "so far" (partial=1): up to now.
+    const partial = ['1', 'true'].includes(String(opts.partial)) && ['week', 'month', 'year'].includes(range.scope) && range.from <= now
     if (!partial) return { error: 'This recap period has not finished yet.' }
     range.to = now
     range.partial = true
@@ -449,6 +450,7 @@ function buildRecap(db, userId = 'guest', opts = {}) {
   for (const row of qualified) hours[hourOf(row.played_at)] += 1
   const busiest = hours.reduce((best, plays, hour) => (plays > best.plays ? { hour, plays } : best), { hour: null, plays: 0 })
   const peakHour = busiest.plays ? busiest : null
+  const added = addedToLibrary(db, range.from, range.to)
   return {
     ...range,
     userId,
@@ -471,8 +473,19 @@ function buildRecap(db, userId = 'guest', opts = {}) {
     replayQueue,
     peakHour,
     hours,
+    addedCount: added.count,
+    addedTracks: added.tracks,
     preferences: preferenceProfile,
   }
+}
+
+/** The library's songs (files) added between `from` and `to`: how many, and the newest few (for their covers). */
+function addedToLibrary(db, from, to) {
+  try {
+    const { n } = db.prepare(`SELECT COUNT(*) AS n FROM tracks t WHERE ${LIBRARY_TRACKS} AND t.added_at BETWEEN ? AND ?`).get(from, to)
+    const tracks = n ? db.prepare(`SELECT * FROM tracks t WHERE ${LIBRARY_TRACKS} AND t.added_at BETWEEN ? AND ? ORDER BY t.added_at DESC LIMIT 8`).all(from, to) : []
+    return { count: n, tracks }
+  } catch { return { count: 0, tracks: [] } }
 }
 
 /**

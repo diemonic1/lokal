@@ -59,8 +59,9 @@ export default function ShareCardModal() {
   }
 
   return (
-    <Modal open={!!spec} onClose={close} title={t(`Share ${String(spec?.kind || '').toLowerCase()}`)} width="max-w-md">
-      <div className="space-y-4">
+    // Over the recap's Stories too (z-[90]), which go on behind it (data-share-card: they leave the keys to it).
+    <Modal open={!!spec} onClose={close} title={t(`Share ${String(spec?.kind || '').toLowerCase()}`)} width="max-w-md" layer="z-[100]">
+      <div data-share-card className="space-y-4">
         <div className="mx-auto aspect-[4/5] w-full max-w-[340px] overflow-hidden rounded-xl border border-border bg-card">
           {card?.url
             ? <img src={card.url} alt={t('Share card for {name}', { name: spec?.title || '' })} className="h-full w-full object-cover" />

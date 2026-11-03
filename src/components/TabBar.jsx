@@ -3,28 +3,33 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { MoreHorizontal } from 'lucide-react'
 import { useAppStore } from '../store/player'
 import { api } from '../api'
-import { latestPeriod, listenerTimeZone, nextPeriodBoundary, recapOpened, recapTree } from '../recapPeriods'
+import { RECAP_NOTIFY_EVENT, latestPeriod, listenerTimeZone, nextPeriodBoundary, recapTree, unopenedRecap } from '../recapPeriods'
 import { getLastHomePath } from '../recommendationSession'
 import { rememberTab, tabForPath } from '../libraryNav'
 import { useAppTabs } from '../appTabs'
 import { useTranslation } from '../i18n'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 
-/** Whether there's a finished recap period that hasn't been opened yet. */
+/**
+ * Whether there's a finished recap period that hasn't been opened yet, of a
+ * kind Settings > Notifications announces (months and years by default).
+ */
 function useRecapBadge(userId) {
   const [show, setShow] = useState(false)
   useEffect(() => {
     let alive = true
     const sync = async () => {
-      // The latest finished period with plays (same rule as the Recap page).
-      let latest = ''
+      // The periods with plays, counted as the Recap page counts them (the library's songs and the radio).
+      let unopened = null
       try {
-        const result = await api.getListeningDays(userId || 'guest', { tz: listenerTimeZone() })
-        latest = latestPeriod(recapTree(Array.isArray(result?.days) ? result.days : []))?.id || ''
+        const result = await api.getListeningDays(userId || 'guest', { tz: listenerTimeZone(), sources: 'library' })
+        const tree = recapTree(Array.isArray(result?.days) ? result.days : [])
+        const latest = latestPeriod(tree)?.id || ''
         if (latest) localStorage.setItem('lokal-recap-latest-completed', latest)
+        unopened = unopenedRecap(tree, userId)
       } catch {}
       if (!alive) return
-      setShow(Boolean(latest) && !recapOpened(latest, userId))
+      setShow(Boolean(unopened))
     }
     // Check again when the next period ends (e.g. Monday 00:00), and when
     // the app comes back (a timer doesn't fire while the computer sleeps).
@@ -44,12 +49,14 @@ function useRecapBadge(userId) {
     window.addEventListener('storage', sync)
     window.addEventListener('lokal:recap-viewed', sync)
     window.addEventListener('lokal:recap-periods-changed', sync)
+    window.addEventListener(RECAP_NOTIFY_EVENT, sync)
     window.addEventListener('focus', onResume)
     document.addEventListener('visibilitychange', onResume)
     return () => {
       window.removeEventListener('storage', sync)
       window.removeEventListener('lokal:recap-viewed', sync)
       window.removeEventListener('lokal:recap-periods-changed', sync)
+      window.removeEventListener(RECAP_NOTIFY_EVENT, sync)
       window.removeEventListener('focus', onResume)
       document.removeEventListener('visibilitychange', onResume)
       clearTimeout(boundaryTimer)

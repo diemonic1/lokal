@@ -825,4 +825,11 @@ export default {
   'The file must be a JSON object with a "whole_artist_names" or "separator_words" list.': 'Файл должен быть JSON-объектом со списком "whole_artist_names" или "separator_words".',
   'From the performers config': 'Из конфига исполнителей',
   'Your artists (one per line)': 'Ваши исполнители (по одному на строку)',
+  // Settings > Notifications.
+  'Notifications': 'Уведомления',
+  'New recaps': 'Новые итоги',
+  'A dot on the Recap tab when a new recap is ready. Choose which ones.': 'Точка на вкладке «Итоги», когда готовы новые итоги. Выберите, о каких сообщать.',
+  'When a week (Monday to Sunday) ends.': 'Когда заканчивается неделя (с понедельника по воскресенье).',
+  'When a month ends.': 'Когда заканчивается месяц.',
+  'When a year ends.': 'Когда заканчивается год.',
 }

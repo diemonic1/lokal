@@ -7,7 +7,7 @@ import { QUICK_SETTING_EVENT } from '../components/QuickSettings'
 ﻿import React, { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop, FileAudio } from 'lucide-react'
+import { Info, FolderOpen, RefreshCw, Trash2, AlertTriangle, Link, CheckCircle, Disc3, Zap, Download, Music2, X, MoreHorizontal, ListMusic, Palette, ChevronDown, ChevronUp, RefreshCcw, Image as ImageIcon, Blocks, Radio as RadioIcon, AudioWaveform, Leaf, HardDrive, PanelTop, FileAudio, Bell } from 'lucide-react'
 import { api, peekSettings } from '../api'
 import DEFAULT_SETTINGS from '../../electron/defaultSettings.json'
 import { FORMATS, MP3_BITRATES, savedFormat } from '../downloadLinks'
@@ -43,6 +43,7 @@ import { plural } from '../plural'
 import { readCrossfadeSettings, CROSSFADE_MIN_S } from '../audio/crossfade'
 import SoulseekSignIn from '../components/SoulseekSignIn'
 import { EqualizerControls } from '../equalizer'
+import { recapNotifyScopes, setRecapNotifyScope } from '../recapPeriods'
 import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT, useLeftSidebarScale, setLeftSidebarScale, LEFT_SIDEBAR_SCALE } from '../sidePanelPrefs'
 
 const LASTFM_STATUS_KEY = 'lokal-lastfm-status-feed'
@@ -56,6 +57,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'fileicons', label: 'File Icons', icon: FileAudio },
   { key: 'visualizations', label: 'Visualizations', icon: AudioWaveform },
   { key: 'topbars', label: 'App Top Bars', icon: PanelTop },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'data', label: 'Data', icon: Download },
   { key: 'about', label: 'About', icon: Info },
 ]
@@ -84,6 +86,27 @@ function Section({ title, children, wide = false }) {
     </div>
   )
 }
+/**
+ * Settings > Notifications > Recaps: which new recaps (week, month, year) the
+ * Recap tab announces with its dot. Months and years unless changed.
+ */
+function RecapNotifications() {
+  const { t } = useTranslation()
+  const [scopes, setScopes] = useState(recapNotifyScopes)
+  const toggle = (scope) => {
+    setRecapNotifyScope(scope, !scopes[scope])
+    setScopes(recapNotifyScopes())
+  }
+  return [['week', 'Week recap', 'When a week (Monday to Sunday) ends.'], ['month', 'Month recap', 'When a month ends.'], ['year', 'Year recap', 'When a year ends.']].map(([scope, label, desc]) => (
+    <Row key={scope} label={label} desc={desc}>
+      <button onClick={() => toggle(scope)} aria-pressed={scopes[scope]}
+        className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors ${scopes[scope] ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>
+        {t(scopes[scope] ? 'On' : 'Off')}
+      </button>
+    </Row>
+  ))
+}
+
 /**
  * Settings > Library > Downloads > Download Folder: one of the library's
  * folders (as the sidebar lists them), or '' for the music folder itself,
@@ -1221,6 +1244,13 @@ export default function Settings() {
 activeCategory === 'data' ? usersTried
           : activeCategory !== 'addons'
       } />
+      {inCategory('notifications') && (
+      <Section title="New recaps">
+        <p className="text-xs text-muted leading-relaxed">{t('A dot on the Recap tab when a new recap is ready. Choose which ones.')}</p>
+        <RecapNotifications />
+      </Section>
+      )}
+
       {api.isElectron && onWindows && inCategory('fileicons') && (
       <Section title="File Icons" wide>
         <FileIconsSettings />

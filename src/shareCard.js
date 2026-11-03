@@ -6,6 +6,7 @@
 //
 // spec: {
 //   kind: 'Playlist' | 'Artist' | 'Recap',  title, subtitle,
+//   label: the slide's name over the title ("top artist"), counter: "5 / 11" (a Stories slide),
 //   art: [{ path, url }]   (one picture, or four for a mosaic),
 //   round: true            (a round picture, for an artist),
 //   stats: [[label, value]] (up to 4),
@@ -15,6 +16,8 @@
 
 import { api } from './api'
 import { translate } from './i18n'
+// The app's cat for the card's corner, inlined (a data URL): a file:// picture would taint the canvas.
+import logoURL from './assets/share-logo.png?inline'
 
 const W = 1080
 const H = 1350
@@ -149,6 +152,8 @@ export async function renderShareCard(spec) {
   const fonts = ['600 64px "DM Sans"', '400 30px "DM Sans"', '500 30px "DM Mono"']
   await Promise.all(fonts.map(font => document.fonts?.load(font).catch(() => null)))
   const images = (await Promise.all((spec.art || []).slice(0, 4).map(loadImage))).filter(Boolean)
+  // The app's cat (public/lokal-icon.png) by its name in the corner.
+  const logo = await new Promise(resolve => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => resolve(null); image.src = logoURL })
   const accent = themeColor('--accent', '#ffd6f0')
   const sans = '"DM Sans", system-ui, sans-serif'
   const mono = '"DM Mono", ui-monospace, monospace'
@@ -170,17 +175,26 @@ export async function renderShareCard(spec) {
 
   // Header: the app, and what this is.
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = accent
-  ctx.beginPath(); ctx.arc(M + 9, 92, 9, 0, Math.PI * 2); ctx.fill()
+  let nameX = M + 32
+  if (logo) {
+    // Its own proportions, 60 px tall, centred on the name's line.
+    const h = 60
+    const w = h * logo.width / logo.height
+    ctx.drawImage(logo, M, 92 - h / 2 - 1, w, h)
+    nameX = M + w + 18
+  } else {
+    ctx.fillStyle = accent
+    ctx.beginPath(); ctx.arc(M + 9, 92, 9, 0, Math.PI * 2); ctx.fill()
+  }
   ctx.fillStyle = '#ffffff'
   ctx.font = `500 30px ${mono}`
   ctx.letterSpacing = '6px'
   ctx.textAlign = 'left'
-  ctx.fillText('LOKAL', M + 32, 102)
+  ctx.fillText('LOKAL', nameX, 102)
   ctx.textAlign = 'right'
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
   ctx.font = `400 24px ${mono}`
-  ctx.fillText(translate(String(spec.kind || '')).toUpperCase(), W - M, 100)
+  ctx.fillText([translate(String(spec.kind || '')).toUpperCase(), spec.counter].filter(Boolean).join(' · '), W - M, 100)
   ctx.letterSpacing = '0px'
 
   // The picture: a cover, a 2×2 mosaic, or a round artist photo.
@@ -213,8 +227,17 @@ export async function renderShareCard(spec) {
   }
   ctx.restore()
 
-  // Title and subtitle.
+  // The slide's name, then the title and subtitle.
   let y = ay + size + 100
+  if (spec.label) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = accent
+    ctx.font = `500 26px ${mono}`
+    ctx.letterSpacing = '5px'
+    ctx.fillText(fit(ctx, String(spec.label).toUpperCase(), W - M * 2), W / 2, y - 18)
+    ctx.letterSpacing = '0px'
+    y += 46
+  }
   ctx.textAlign = 'center'
   ctx.fillStyle = '#ffffff'
   ctx.font = `600 64px ${sans}`

@@ -67,6 +67,20 @@ export function sessionLabel(session) {
   return translate(label)
 }
 
+/**
+ * What a session's name means (the backend's rules, electron/ipc/recaps.js
+ * labelSession), for its tooltip.
+ */
+export function sessionDescription(session) {
+  const label = String(session?.label || '')
+  if (/^\d+-minute .+ run$/.test(label)) return translate('Almost half of its songs were of one genre.')
+  if (/ deep dive$/.test(label)) return translate('At least half of its songs were by one artist.')
+  if (label === 'Discovery pass') return translate('You skipped at least 45% of its songs (5 songs or more): looking for something new.')
+  if (label === 'Late night listening') return translate('Started between 11 pm and 5 am, with calm music.')
+  if (label === 'High-energy streak') return translate('Energetic or fast music (135 BPM or more).')
+  return translate('Songs played one after another, with less than 30 minutes between them.')
+}
+
 /** A track's cover: its artwork file, else a streamed song's own (https) cover. */
 export function trackArt(track) {
   if (track?.artwork_path) return api.isElectron ? api.fileURL(track.artwork_path) : api.artworkURL(track.id)

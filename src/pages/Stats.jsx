@@ -2,7 +2,7 @@
 // plays (see electron/listeningHistory.js):
 //
 // - all time: plays, time, since when, minutes a day, the longest run of days;
-// - the latest recaps (year, month, week), opening the Recap page on them;
+// - a button to the Recap page;
 // - activity: plays (bars) and time (line) by day of a week or a month, or by
 //   month of a year, stepping back through earlier ones;
 // - a year in music: active days, the best day, the busiest weekday and a
@@ -13,14 +13,14 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Clock3, Flame, Radio, Sparkles } from 'lucide-react'
+import { ArrowRight, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Clock3, Flame, Radio, Sparkles } from 'lucide-react'
 import { api } from '../api'
 import { getLanguage, translate, useTranslation } from '../i18n'
 import { useCachedState, usePageReady } from '../pageCache'
 import { useAppStore } from '../store/player'
 import { plural } from '../plural'
 import { fmtMinutes } from '../recapText'
-import { isoDay, listenerTimeZone, mondayOf, periodLabel, recapTree, treePeriods } from '../recapPeriods'
+import { isoDay, listenerTimeZone, mondayOf } from '../recapPeriods'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -152,7 +152,7 @@ function StatsContent({ userId }) {
       ) : (
         <>
           <AllTime days={days} first={data.first} />
-          <LatestRecaps days={days} />
+          <RecapsButton />
           <Activity days={days} />
           <YearInMusic days={days} />
         </>
@@ -212,38 +212,24 @@ function AllTime({ days, first }) {
   )
 }
 
-/** The newest year, month and week recaps (finished ones, or so far), opening the Recap page on them. */
-function LatestRecaps({ days }) {
+/** Your recaps: one wide, colourful button opening the Recap page. */
+function RecapsButton() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const cards = useMemo(() => {
-    const tree = recapTree(Object.keys(days))
-    const year = tree[0]
-    const months = year?.months || []
-    const month = months[months.length - 1]
-    const weeks = treePeriods(tree).filter(period => period.scope === 'week').sort((a, b) => b.completedAt - a.completedAt)
-    return [
-      year && { kind: t('Year recap'), period: year.period || year.soFar, text: String(year.year) },
-      month && { kind: t('Month recap'), period: month.period || month.soFar, text: monthName(month.month - 1) },
-      weeks[0] && { kind: t('Week recap'), period: weeks[0], text: periodLabel(weeks[0]) },
-    ].filter(card => card?.period)
-  }, [days, t])
-  if (!cards.length) return null
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-display uppercase tracking-widest text-muted">{t('Your recaps')}</h2>
-      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-3">
-        {cards.map((card, index) => (
-          <button key={card.period.id} onClick={() => navigate('/recap', { state: { periodId: card.period.id } })}
-            className={`group relative h-32 overflow-hidden rounded-2xl border p-4 text-left transition-colors ${index === 0 ? 'border-accent/40 bg-accent/20 hover:bg-accent/30' : 'border-border bg-elevated hover:border-accent/40'}`}>
-            <span aria-hidden className={`absolute -right-6 -top-6 h-24 w-24 rounded-full ${index === 0 ? 'bg-accent/25' : 'bg-white/[0.04]'} transition-transform group-hover:scale-110`} />
-            <span aria-hidden className="absolute -bottom-10 right-8 h-20 w-20 rounded-full border-[6px] border-white/[0.06]" />
-            <p className="relative text-xs font-display uppercase tracking-widest text-muted">{card.kind}</p>
-            <p className={`relative mt-auto pt-8 text-2xl font-display ${index === 0 ? 'text-white' : 'text-accent'}`}>{card.text}</p>
-            {card.period.partial && <Sparkles size={13} className="absolute right-4 top-4 text-accent" aria-label={t('so far')} />}
-          </button>
-        ))}
-      </div>
+      <button onClick={() => navigate('/recap')}
+        className="group relative flex h-32 w-full items-center justify-between gap-4 overflow-hidden rounded-2xl border border-accent/40 p-6 text-left transition-transform hover:scale-[1.01]"
+        style={{ backgroundImage: 'linear-gradient(120deg, rgb(var(--accent-rgb) / 0.55), rgb(236 72 153 / 0.45) 55%, rgb(139 92 246 / 0.5))' }}>
+        <span aria-hidden className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/10 transition-transform group-hover:scale-110" />
+        <span aria-hidden className="absolute -bottom-14 right-40 h-28 w-28 rounded-full border-[8px] border-white/10" />
+        <span className="relative">
+          <span className="flex items-center gap-2 text-xs font-display uppercase tracking-widest text-white/75"><Sparkles size={13} />{t('Week, month and year')}</span>
+          <span className="mt-2 block text-3xl font-display text-white">{t('Go to your recaps')}</span>
+        </span>
+        <span className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition-transform group-hover:translate-x-1"><ArrowRight size={22} /></span>
+      </button>
     </section>
   )
 }

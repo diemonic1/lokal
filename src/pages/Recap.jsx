@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { BarChart3, CalendarRange, Clock3, Disc3, ListMusic, Play, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
+import { BarChart3, CalendarRange, ChevronDown, Clock3, Disc3, ListMusic, Play, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
 import { api } from '../api'
 import { useTranslation } from '../i18n'
 import { useCachedState, usePageReady } from '../pageCache'
@@ -10,9 +10,9 @@ import { useRadioStore } from '../store/radio'
 import { RADIO_CONTEXT, stationTrack } from '../radio/stations'
 import TrackList from '../components/TrackList'
 import FadeImg from '../components/FadeImg'
-import { latestPeriod, listenerTimeZone, nextPeriodBoundary, periodLabel, periodPlace, periodQuery, periodTitle, recapPlaylistName, recapTree, treePeriods, markRecapOpened } from '../recapPeriods'
+import { featuredPeriods, latestPeriod, listenerTimeZone, nextPeriodBoundary, periodLabel, periodName, periodPlace, periodQuery, periodTitle, recapPlaylistName, recapTree, treePeriods, markRecapOpened, unopenedRecap } from '../recapPeriods'
 import { plural } from '../plural'
-import { filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionLabel, trackArt } from '../recapText'
+import { filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
 import RecapStory from '../components/RecapStory'
 import { showToast } from '../components/Toaster'
 import { openShareCard, coversOf } from '../shareCard'
@@ -127,7 +127,7 @@ function SessionCard({ session, onPlay }) {
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-base font-display text-white">{sessionLabel(session)}</p>
+              <p className="truncate text-base font-display text-white cursor-help" title={sessionDescription(session)}>{sessionLabel(session)}</p>
               <p className="mt-1 text-xs text-muted">{fmtDate(session.start)}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -232,47 +232,39 @@ function ChipRow({ label, contentKey, reduceMotion, children }) {
   )
 }
 
-// Which plays a recap counts: every song, the library's files, or songs only
-// streamed (YouTube Music, SoundCloud, addons). Remembered on this computer.
-const SOURCES_KEY = 'lokal-recap-sources'
-const RECAP_SOURCES = [['all', 'All', 'Every song you played'], ['library', 'Library', 'Songs in your library (files)'], ['streamed', 'Streamed', 'Songs you only streamed (YouTube Music, SoundCloud, addons)']]
-const savedSources = () => {
-  try { const value = localStorage.getItem(SOURCES_KEY); return RECAP_SOURCES.some(([id]) => id === value) ? value : 'all' } catch { return 'all' }
-}
+// A recap counts the library's songs (files) and the online radio.
+const SOURCES = 'library'
 
-// Remounted per user (and per source filter), so one user's cached recap
-// never shows for another, nor one filter's for another.
-export default function Recap() {
-  const { user } = useAppStore()
-  const [sources, setSources] = useState(savedSources)
-  const changeSources = (value) => {
-    setSources(value)
-    try { localStorage.setItem(SOURCES_KEY, value) } catch {}
-  }
-  return <RecapContent key={`${user?.id || 'guest'}:${sources}`} user={user} sources={sources} onSourcesChange={changeSources} />
-}
+// The period buttons: the last finished week, month and year (or the one
+// still going when none has finished yet), like the Statistics page's.
+const FEATURED = [['week', 'Week recap'], ['month', 'Month recap'], ['year', 'Year recap']]
 
-function SourcesFilter({ value, onChange }) {
+function FeaturedButton({ kind, period, active, onClick, onPrefetch }) {
   const { t } = useTranslation()
   return (
-    <div role="group" aria-label={t("Songs counted")} className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card/70 p-0.5">
-      {RECAP_SOURCES.map(([id, label, title]) => (
-        <button key={id} type="button" aria-pressed={value === id} title={t(title)} onClick={() => onChange(id)}
-          className={`rounded-md px-2.5 py-1 !text-[11px] transition-colors ${value === id ? 'bg-accent text-base' : 'text-muted hover:text-white'}`}>
-          {t(label)}
-        </button>
-      ))}
-    </div>
+    <button onClick={onClick} disabled={!period} onPointerEnter={onPrefetch} onFocus={onPrefetch} aria-pressed={active}
+      className={`group relative h-28 min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-colors disabled:opacity-40 ${active ? 'border-accent/60 bg-accent/25' : 'border-border bg-elevated hover:border-accent/40'}`}>
+      <span aria-hidden className={`absolute -right-6 -top-6 h-24 w-24 rounded-full ${active ? 'bg-accent/30' : 'bg-white/[0.04]'} transition-transform group-hover:scale-110`} />
+      <span aria-hidden className="absolute -bottom-10 right-8 h-20 w-20 rounded-full border-[6px] border-white/[0.06]" />
+      <p className="relative text-xs font-display uppercase tracking-widest text-muted">{t(kind)}</p>
+      <p className={`relative mt-6 truncate text-xl font-display @lg:text-2xl ${active ? 'text-white' : 'text-accent'}`}>{period ? periodName(period) : '-'}</p>
+    </button>
   )
 }
 
-function RecapContent({ user, sources = 'all', onSourcesChange }) {
+// Remounted per user, so one user's cached recap never shows for another.
+export default function Recap() {
+  const { user } = useAppStore()
+  return <RecapContent key={user?.id || 'guest'} user={user} />
+}
+
+function RecapContent({ user }) {
   const { t } = useTranslation()
-  // Kept across visits (per user and filter): coming back shows the recap as
-  // it was while the periods refresh quietly, instead of rebuilding it on screen.
-  const k = `recap:${user?.id || 'guest'}${sources === 'all' ? '' : `:${sources}`}`
-  // A period's recap, of the songs the filter counts.
-  const recapQuery = (period) => ({ ...periodQuery(period), ...(sources === 'all' ? {} : { sources }) })
+  // Kept across visits (per user): coming back shows the recap as it was
+  // while the periods refresh quietly, instead of rebuilding it on screen.
+  const k = `recap:${user?.id || 'guest'}:${SOURCES}`
+  // A period's recap, of the songs it counts.
+  const recapQuery = (period) => ({ ...periodQuery(period), sources: SOURCES })
   const [tree, setTree, treeWasCached] = useCachedState(`${k}:tree`, [])
   const [navYear, setNavYear] = useCachedState(`${k}:year`, null)
   const [navMonth, setNavMonth] = useCachedState(`${k}:month`, null) // 'YYYY-MM' whose weeks are shown
@@ -294,7 +286,10 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   const reduceMotion = useReducedMotion()
   const [checkingPeriods, setCheckingPeriods] = useState(!treeWasCached)
   const [status, setStatus] = useState('')
-  const [storyOpen, setStoryOpen] = useState(false)
+  // The period whose Stories were asked for: they open once its recap is the one on screen.
+  const [storyFor, setStoryFor] = useState('')
+  // The year / month / week chips, for any other period.
+  const [pickerOpen, setPickerOpen] = useState(false)
   const playQueue = usePlayerStore(s => s.playQueue)
   // A recap asked for by another page (Statistics' recap cards), opened once its period is listed.
   const location = useLocation()
@@ -313,6 +308,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
   })
 
   const periods = treePeriods(tree)
+  const featured = featuredPeriods(tree)
   const selectedPeriod = periods.find(period => period.id === selectedId) || null
   const shownPeriod = periods.find(period => period.id === shownId) || selectedPeriod
   const yearEntry = tree.find(y => y.year === navYear) || null
@@ -384,7 +380,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     let days = null
     let failure = 'No answer'
     try {
-      const result = await api.getListeningDays(user?.id || 'guest', { tz: listenerTimeZone(), ...(sources === 'all' ? {} : { sources }) })
+      const result = await api.getListeningDays(user?.id || 'guest', { tz: listenerTimeZone(), sources: SOURCES })
       if (Array.isArray(result?.days)) days = result.days
       else failure = result?.error || failure
     } catch (e) { failure = e?.message || failure }
@@ -407,15 +403,16 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     const latest = latestPeriod(nextTree)
     const requested = requestedIdRef.current && available.find(period => period.id === requestedIdRef.current)
     requestedIdRef.current = ''
-    const keep = requested || available.find(period => period.id === selectedId)
-    // Nothing finished yet: the newest month (or year) so far.
-    const soFar = available.find(period => period.partial && period.scope === 'month') || available.find(period => period.partial)
-    select(keep || latest || soFar, nextTree)
+    // A new recap the tab's dot announced (Settings > Notifications) is the one shown on opening.
+    const announced = unopenedRecap(nextTree, user?.id)
+    const keep = requested || announced || available.find(period => period.id === selectedId)
+    // Nothing finished yet: this week, month or year so far.
+    const next = featuredPeriods(nextTree)
+    select(keep || latest || next.week || next.month || next.year, nextTree)
     // Same period still selected: its recap is fetched again in the
     // background (the one on screen stays until the fresh one arrives).
     if (keep) refreshRecap(keep)
-    // The sidebar's "new recap" badge is of all the listening, not one filter's.
-    if (latest && sources === 'all') {
+    if (latest) {
       localStorage.setItem('lokal-recap-latest-completed', latest.id)
       window.dispatchEvent(new CustomEvent('lokal:recap-periods-changed', { detail: { latestId: latest.id } }))
     }
@@ -504,6 +501,11 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
     loadRecap()
   }, [selectedId, user?.id])
 
+  // Stories asked for another period than the one picked since: not opened later by surprise.
+  useEffect(() => {
+    if (storyFor && storyFor !== selectedId) setStoryFor('')
+  }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Opened once its recap is actually on screen (shownId only follows a
   // successful load): not when it's picked, nor for one whose load failed
   // or that was left before it arrived.
@@ -573,19 +575,13 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
             {(checkingPeriods || loading) && <RefreshCw size={11} className="animate-spin text-muted" aria-label={t("Checking for new recaps")} />}
           </div>
           <h1 className="mt-2 text-3xl font-display text-white">{t("Your listening eras")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("A recap for every finished week (Monday to Sunday), month and year, built from your listening sessions. Click a month or year again to see it so far.")}</p>
-          <div className="mt-3"><SourcesFilter value={sources} onChange={onSourcesChange} /></div>
+          <p className="mt-1 text-sm text-muted">{t("A recap of your library and online radio for the last finished week (Monday to Sunday), month and year, or any other period.")}</p>
         </div>
-        {/* One row, always: short labels that never wrap, and on a narrow
-            page the icons alone (named on hover and for screen readers). */}
-        <div className="flex flex-shrink-0 flex-nowrap gap-2">
-          <button onClick={() => replayQueue.length && playQueue(replayQueue, 0)} disabled={loading || !replayQueue.length} title={t("Replay this era")} aria-label={t("Replay this era")} className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-accent px-3 py-2 text-sm font-medium text-base transition-colors hover:bg-accent/85 disabled:opacity-50 @md:px-4">
+        <div className="flex flex-shrink-0 flex-nowrap items-center gap-3">
+          <button onClick={() => replayQueue.length && playQueue(replayQueue, 0)} disabled={loading || !replayQueue.length} title={t("Replay this era")} aria-label={t("Replay this era")}
+            className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-elevated px-4 py-2.5 text-sm text-muted transition-colors hover:border-accent/40 hover:text-white disabled:opacity-50">
             <Play size={14} fill="currentColor" />
-            <span className="hidden @sm:inline">{t("Replay")}</span>
-          </button>
-          <button onClick={() => setStoryOpen(true)} disabled={loading || !recap || isEmptyRecap(recap)} title={t("Show the story")} aria-label={t("Show the story")} className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-border bg-elevated px-3 py-2 text-sm text-white transition-colors hover:border-accent/40 disabled:opacity-50 @md:px-4">
-            <Sparkles size={14} />
-            <span className="hidden @sm:inline">{t("Story")}</span>
+            {t("Replay")}
           </button>
         </div>
       </div>
@@ -593,41 +589,88 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
       {checkingPeriods && !tree.length ? (
         <div className="rounded-xl border border-border bg-elevated p-6 text-sm text-muted">{t("Looking for finished recaps with listening data...")}</div>
       ) : periods.length > 0 ? (
-        // Year, then month, then week: only periods with plays are listed.
-        <div className="rounded-xl border border-border bg-elevated/60 p-4">
-          <div className="flex items-center gap-3">
-            <span className="w-14 flex-shrink-0 text-[10px] font-display uppercase tracking-widest text-muted">{t("Year")}</span>
-            <div className="flex gap-2 overflow-x-auto pb-0.5">
-              {tree.map(entry => (
-                <PeriodChip key={entry.year} active={selectedId === wholeOf(entry)?.id} context={navYear === entry.year && selectedId !== wholeOf(entry)?.id} onClick={() => pickYear(entry)} onPrefetch={() => prefetch(yearTarget(entry))}
-                  title={entry.period ? t('The whole of {year}', { year: entry.year }) : navYear === entry.year ? t('{year} so far', { year: entry.year }) : t('{year} is still going: click again for the year so far', { year: entry.year })}>
-                  {entry.year}
-                </PeriodChip>
-              ))}
-            </div>
+        <div className="space-y-3">
+          {/* Week, month, year, each with its Stories under it; any other period on the right. */}
+          <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] gap-x-3 gap-y-2">
+            {FEATURED.map(([scope, kind]) => (
+              <FeaturedButton key={scope} kind={kind} period={featured[scope]} active={!!featured[scope] && selectedId === featured[scope].id}
+                onClick={() => select(featured[scope])} onPrefetch={() => prefetch(featured[scope])} />
+            ))}
+            <button onClick={() => setPickerOpen(open => !open)} aria-expanded={pickerOpen} title={t("Another period")}
+              className={`group relative flex h-28 w-32 flex-col justify-between overflow-hidden rounded-2xl border p-4 text-left transition-colors ${pickerOpen ? 'border-accent/60 bg-accent/15' : 'border-dashed border-white/20 bg-elevated/60 hover:border-accent/50'}`}>
+              <span className="flex w-full items-start justify-between">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${pickerOpen ? 'bg-accent text-base' : 'bg-accent/15 text-accent group-hover:bg-accent/25'}`}><CalendarRange size={17} /></span>
+                <ChevronDown size={16} className={`text-muted transition-transform ${pickerOpen ? 'rotate-180 text-accent' : 'group-hover:text-white'}`} />
+              </span>
+              <span className={`text-sm font-display leading-tight ${pickerOpen ? 'text-white' : 'text-white/85 group-hover:text-white'}`}>{t("Another period")}</span>
+            </button>
+            {FEATURED.map(([scope]) => {
+              const period = featured[scope]
+              return (
+                <button key={scope} disabled={!period} onPointerEnter={() => prefetch(period)}
+                  onClick={() => { select(period); setStoryFor(period.id) }} title={t("Open Stories")}
+                  className="flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition-transform hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
+                  style={{ backgroundImage: 'linear-gradient(120deg, rgb(var(--accent-rgb)), #ec4899 55%, #8b5cf6)' }}>
+                  <Sparkles size={15} />
+                  Stories
+                </button>
+              )
+            })}
           </div>
-          {/* The Month and Week rows open and close smoothly (the recap
-              below glides instead of jumping), and another year's months or
-              another month's weeks fade in rather than popping. */}
+          {/* Any other period: year, then month, then week (only periods with plays). */}
           <AnimatePresence initial={false}>
-            {yearEntry && (
-              <ChipRow key="month" label={t("Month")} contentKey={yearEntry.year} reduceMotion={reduceMotion}>
-                {yearEntry.months.map(entry => (
-                  <PeriodChip key={entry.key} active={selectedId === wholeOf(entry)?.id} context={navMonth === entry.key && selectedId !== wholeOf(entry)?.id}
-                    dashed={!entry.period} title={entry.period ? undefined : navMonth === entry.key ? t('This month so far') : t('Still going: click again for the month so far')} onClick={() => pickMonth(entry)} onPrefetch={() => prefetch(monthTarget(entry))}>
-                    {t(SHORT_MONTH_NAMES[entry.month - 1])}
-                  </PeriodChip>
-                ))}
-              </ChipRow>
-            )}
-            {monthEntry && monthEntry.weeks.length > 0 && (
-              <ChipRow key="week" label={t("Week")} contentKey={monthEntry.key} reduceMotion={reduceMotion}>
-                {monthEntry.weeks.map(period => (
-                  <PeriodChip key={period.id} active={selectedId === period.id} onClick={() => setSelectedId(period.id)} onPrefetch={() => prefetch(period)}>
-                    {periodLabel(period)}
-                  </PeriodChip>
-                ))}
-              </ChipRow>
+            {pickerOpen && (
+              <motion.div key="picker" initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
+                <div className="rounded-xl border border-border bg-elevated/60 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-14 flex-shrink-0 text-[10px] font-display uppercase tracking-widest text-muted">{t("Year")}</span>
+                    <div className="flex gap-2 overflow-x-auto pb-0.5">
+                      {tree.map(entry => (
+                        <PeriodChip key={entry.year} active={selectedId === wholeOf(entry)?.id} context={navYear === entry.year && selectedId !== wholeOf(entry)?.id}
+                          dashed={!entry.period} onClick={() => pickYear(entry)} onPrefetch={() => prefetch(yearTarget(entry))}>
+                          {entry.year}
+                        </PeriodChip>
+                      ))}
+                    </div>
+                  </div>
+                  {/* The Month and Week rows open and close smoothly, and another
+                      year's months or another month's weeks fade in rather than popping. */}
+                  <AnimatePresence initial={false}>
+                    {yearEntry && (
+                      <ChipRow key="month" label={t("Month")} contentKey={yearEntry.year} reduceMotion={reduceMotion}>
+                        {yearEntry.months.map(entry => (
+                          <PeriodChip key={entry.key} active={selectedId === wholeOf(entry)?.id} context={navMonth === entry.key && selectedId !== wholeOf(entry)?.id}
+                            dashed={!entry.period} onClick={() => pickMonth(entry)} onPrefetch={() => prefetch(monthTarget(entry))}>
+                            {t(SHORT_MONTH_NAMES[entry.month - 1])}
+                          </PeriodChip>
+                        ))}
+                      </ChipRow>
+                    )}
+                    {monthEntry && (monthEntry.weeks.length > 0 || monthEntry.weekSoFar) && (
+                      <ChipRow key="week" label={t("Week")} contentKey={monthEntry.key} reduceMotion={reduceMotion}>
+                        {[...monthEntry.weeks, ...(monthEntry.weekSoFar ? [monthEntry.weekSoFar] : [])].map(period => (
+                          <PeriodChip key={period.id} active={selectedId === period.id} dashed={period.partial} onClick={() => setSelectedId(period.id)} onPrefetch={() => prefetch(period)}>
+                            {periodLabel(period)}
+                          </PeriodChip>
+                        ))}
+                      </ChipRow>
+                    )}
+                  </AnimatePresence>
+                  {/* The period picked here, and its own Stories. */}
+                  {selectedPeriod && (
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
+                      <p className="min-w-0 truncate text-sm font-display text-white">{periodTitle(selectedPeriod)}</p>
+                      <button onClick={() => setStoryFor(selectedPeriod.id)} title={t("Open Stories")}
+                        className="flex flex-shrink-0 items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition-transform hover:scale-[1.03]"
+                        style={{ backgroundImage: 'linear-gradient(120deg, rgb(var(--accent-rgb)), #ec4899 55%, #8b5cf6)' }}>
+                        <Sparkles size={15} />
+                        Stories
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -734,7 +777,7 @@ function RecapContent({ user, sources = 'all', onSourcesChange }) {
         </div>
       )}
 
-      <RecapStory open={storyOpen} onClose={() => setStoryOpen(false)} recap={recap} period={shownPeriod} />
+      <RecapStory open={!!storyFor && shownId === storyFor && !loading && !isEmptyRecap(recap)} onClose={() => setStoryFor('')} recap={recap} period={shownPeriod} />
     </div>
   )
 }

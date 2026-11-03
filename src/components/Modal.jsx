@@ -60,7 +60,7 @@ function useDockRect(active) {
  *              data-keep-dialog -- play/pause, the seek bar, a lyrics line --
  *              and in another dialog or menu (one this one opened).
  */
-export default function Modal({ open, onClose, title, children, width = 'max-w-md', onEntered, clearBackdrop = false, dock = false }) {
+export default function Modal({ open, onClose, title, children, width = 'max-w-md', onEntered, clearBackdrop = false, dock = false, layer = 'z-50' }) {
   const panelRef = useRef(null)
   const rect = useDockRect(open && dock)
   const closeRef = useRef(onClose)
@@ -101,7 +101,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-m
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className={dock ? 'pointer-events-none fixed z-50 flex' : 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4'}
+          className={dock ? `pointer-events-none fixed ${layer} flex` : `fixed inset-0 ${layer} flex items-center justify-center p-3 sm:p-4`}
           style={dock ? (rect ? { top: rect.top, left: rect.left, width: rect.right - rect.left, height: rect.bottom - rect.top } : { inset: 0 }) : undefined}
         >
           {!dock && <div className={`absolute inset-0 ${clearBackdrop ? 'bg-transparent' : 'bg-black/70 backdrop-blur-sm'}`} onClick={onClose} />}

@@ -79,12 +79,23 @@ function weekRangeText(period, withYear = false) {
   return withYear ? `${text}, ${end.getFullYear()}` : text
 }
 
-/** "Week of Sep 21–27, 2026 Recap", "September 2026 Recap", "2026 Recap". */
+/**
+ * "Week of Sep 21–27, 2026 Recap", "September 2026 Recap", "2026 Recap": the
+ * same for a period still going (its recap so far), named by the period alone.
+ */
 export function periodTitle(period) {
   if (!period) return translate('Recap')
   if (period.scope === 'week') return translate('Week of {range} Recap', { range: weekRangeText(period, true) })
-  if (period.scope === 'month') return translate(period.partial ? '{month} {year} So Far Recap' : '{month} {year} Recap', { month: monthName(period.month - 1), year: period.year })
-  return translate(period.partial ? '{year} So Far Recap' : '{year} Recap', { year: period.year })
+  if (period.scope === 'month') return translate('{month} {year} Recap', { month: monthName(period.month - 1), year: period.year })
+  return translate('{year} Recap', { year: period.year })
+}
+
+/** The period alone, for the period buttons: "Sep 21–27, 2026", "September 2026", "2026". */
+export function periodName(period) {
+  if (!period) return ''
+  if (period.scope === 'week') return weekRangeText(period, true)
+  if (period.scope === 'month') return `${monthName(period.month - 1)} ${period.year}`
+  return String(period.year)
 }
 
 /**
@@ -100,8 +111,8 @@ export function periodPlaylistText(period) {
     thursday.setDate(thursday.getDate() + 3)
     return translate('{month} {year} - Week {n}', { month: monthName(thursday.getMonth()), year: thursday.getFullYear(), n: Math.ceil(thursday.getDate() / 7) })
   }
-  if (period.scope === 'month') return translate(period.partial ? '{month} {year} so far' : '{month} {year}', { month: monthName(period.month - 1), year: period.year })
-  return period.partial ? translate('{year} so far', { year: period.year }) : `${period.year}`
+  if (period.scope === 'month') return translate('{month} {year}', { month: monthName(period.month - 1), year: period.year })
+  return `${period.year}`
 }
 
 /** "J-Pop - September 2026 - Week 3": a playlist made from part of a recap. */
@@ -161,8 +172,8 @@ export function nextPeriodBoundary(now = new Date()) {
 
 /** What the backend needs to build a period's recap. */
 export function periodQuery(period, extra = {}) {
-  if (period.scope === 'week') return { scope: 'week', weekStart: period.weekStart, tz: localTimeZone(), ...extra }
   const partial = period.partial ? { partial: 1 } : {}
+  if (period.scope === 'week') return { scope: 'week', weekStart: period.weekStart, tz: localTimeZone(), ...partial, ...extra }
   if (period.scope === 'month') return { scope: 'month', year: period.year, month: period.month, tz: localTimeZone(), ...partial, ...extra }
   return { scope: 'year', year: period.year, tz: localTimeZone(), ...partial, ...extra }
 }
@@ -207,8 +218,10 @@ export function recapTree(days = [], now = new Date()) {
     const thursday = new Date(monday)
     thursday.setDate(thursday.getDate() + 3)
     const week = { id: `w-${isoDay(monday)}`, scope: 'week', weekStart: isoDay(monday), year: monday.getFullYear() }
-    if (periodEnd(week) > now) continue
-    monthOf(thursday.getFullYear(), thursday.getMonth() + 1).weeks.set(week.id, withText(week))
+    const month = monthOf(thursday.getFullYear(), thursday.getMonth() + 1)
+    // This week, still going: its recap so far.
+    if (periodEnd(week) > now) month.weekSoFar = withText({ ...week, id: `${week.id}-so-far`, partial: true })
+    else month.weeks.set(week.id, withText(week))
   }
   const tree = []
   for (const entry of years.values()) {
@@ -217,13 +230,14 @@ export function recapTree(days = [], now = new Date()) {
       const period = { id: `m-${month.key}`, scope: 'month', year: month.year, month: month.month }
       const finished = periodEnd(period) <= now
       const weeks = [...month.weeks.values()].sort((a, b) => a.completedAt - b.completedAt)
-      if (!month.hasPlays && !weeks.length) continue
+      if (!month.hasPlays && !weeks.length && !month.weekSoFar) continue
       months.push({
         year: month.year, month: month.month, key: month.key,
         period: finished && month.hasPlays ? withText(period) : null,
         // A month still going: its recap so far (picked with a second click).
         soFar: !finished && month.hasPlays ? withText({ ...period, id: `${period.id}-so-far`, partial: true }) : null,
         weeks,
+        weekSoFar: month.weekSoFar || null,
       })
     }
     if (!months.length) continue
@@ -250,9 +264,35 @@ export function treePeriods(tree = []) {
       if (month.period) all.push(month.period)
       if (month.soFar) all.push(month.soFar)
       all.push(...month.weeks)
+      if (month.weekSoFar) all.push(month.weekSoFar)
     }
   }
   return all
+}
+
+/**
+ * The recap each period button opens: { week, month, year }. The last
+ * finished one (last Monday to Sunday, last month, last year) when it has
+ * plays; else the one still going, so far; else the latest finished one
+ * with plays; else null.
+ */
+export function featuredPeriods(tree = [], now = new Date()) {
+  const all = treePeriods(tree)
+  const lastWeek = mondayOf(now)
+  lastWeek.setDate(lastWeek.getDate() - 7)
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const pick = (scope, lastId, currentId) => {
+    const ofScope = all.filter(period => period.scope === scope)
+    return ofScope.find(period => period.id === lastId)
+      || ofScope.find(period => period.id === currentId)
+      || ofScope.filter(period => !period.partial).sort((a, b) => b.completedAt - a.completedAt)[0]
+      || null
+  }
+  return {
+    week: pick('week', `w-${isoDay(lastWeek)}`, `w-${isoDay(mondayOf(now))}-so-far`),
+    month: pick('month', `m-${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}`, `m-${now.getFullYear()}-${pad(now.getMonth() + 1)}-so-far`),
+    year: pick('year', `year-${now.getFullYear() - 1}`, `year-${now.getFullYear()}-so-far`),
+  }
 }
 
 /** The period that ended last (what to show first). "So far" ones never count. */
@@ -265,7 +305,7 @@ export function periodPlace(tree = [], id) {
   for (const year of tree) {
     if (year.period?.id === id || year.soFar?.id === id) return { year: year.year, monthKey: null }
     for (const month of year.months) {
-      if (month.period?.id === id || month.soFar?.id === id || month.weeks.some(w => w.id === id)) return { year: year.year, monthKey: month.key }
+      if (month.period?.id === id || month.soFar?.id === id || month.weekSoFar?.id === id || month.weeks.some(w => w.id === id)) return { year: year.year, monthKey: month.key }
     }
   }
   return null
@@ -318,4 +358,32 @@ export function markRecapOpened(id, userId) {
 /** Has `userId` opened the recap `id`? */
 export function recapOpened(id, userId) {
   return !!id && readOpened(userId).includes(id)
+}
+
+// Which new recaps the Recap tab announces (its dot), set in Settings >
+// Notifications: months and years unless changed, not weeks.
+const NOTIFY_KEY = 'lokal-recap-notify'
+export const RECAP_NOTIFY_EVENT = 'lokal:recap-notify-changed'
+const NOTIFY_DEFAULTS = { week: false, month: true, year: true }
+
+/** { week, month, year }: whether a new recap of each is announced. */
+export function recapNotifyScopes() {
+  try { return { ...NOTIFY_DEFAULTS, ...JSON.parse(localStorage.getItem(NOTIFY_KEY) || '{}') } } catch { return { ...NOTIFY_DEFAULTS } }
+}
+
+export function setRecapNotifyScope(scope, on) {
+  const next = { ...recapNotifyScopes(), [scope]: !!on }
+  try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(next)) } catch {}
+  window.dispatchEvent(new CustomEvent(RECAP_NOTIFY_EVENT, { detail: next }))
+}
+
+/** The newest finished recap of an announced kind (a year first, then a month, then a week) that `userId` hasn't opened yet, or null. */
+export function unopenedRecap(tree = [], userId) {
+  const scopes = recapNotifyScopes()
+  const finished = treePeriods(tree).filter(period => !period.partial && scopes[period.scope])
+  for (const scope of ['year', 'month', 'week']) {
+    const latest = finished.filter(period => period.scope === scope).sort((a, b) => b.completedAt - a.completedAt)[0]
+    if (latest && !recapOpened(latest.id, userId)) return latest
+  }
+  return null
 }
