@@ -12,6 +12,7 @@
 // API: https://www.last.fm/api/scrobbling
 
 const crypto = require('crypto')
+const scrobbleStatus = require('./scrobbleStatus')
 
 const API_ROOT = 'https://ws.audioscrobbler.com/2.0/'
 const BATCH = 50            // Last.fm's maximum per track.scrobble call
@@ -100,6 +101,8 @@ const albumOf = (album) => { const a = String(album || '').trim(); return a && !
 
 /** A readable message for a Last.fm error response. */
 function describeError(json) {
+  // Said for any request (with any key) from addresses Last.fm keeps out, VPNs' ones often; its site still opens.
+  if (json?.error === 11 && /access denied/i.test(json?.message || '')) return 'Last.fm refuses requests from your IP address (often because of a VPN).'
   if (json?.error === 9) return 'Last.fm session expired (reconnect in Settings).'
   if (json?.error === 13) return 'Last.fm rejected the request signature (check the API secret).'
   return json?.message || (json?.error ? `Last.fm error ${json.error}` : 'Last.fm request failed')
@@ -127,6 +130,28 @@ function queuedCount(db) {
 
 let flushing = null
 let retryTimer = null
+let queueRetryTimer = null
+// Why the last try to send didn't get through ({ message, at }), null once one does.
+let lastError = null
+
+/** A failed answer as one sentence for people. */
+const reasonOf = (json) => json.networkError ? "Couldn't reach Last.fm (no internet?)." : describeError(json)
+
+function failed(message) { lastError = { message, at: Date.now() } }
+
+/** For Settings: what waits, and why the last try didn't get through. */
+function queueStatus(db) {
+  return { queued: queuedCount(db), lastError }
+}
+
+/** Sends the queue now and then every minute while the app runs (nothing to do when it's empty). */
+function startQueueRetry(db) {
+  if (queueRetryTimer) return
+  const tick = () => { if (queuedCount(db)) flushQueue(db).catch(() => {}) }
+  tick()
+  queueRetryTimer = setInterval(tick, RETRY_DELAY_MS)
+  queueRetryTimer.unref?.()
+}
 
 function scheduleFlush(db) {
   if (retryTimer) return
@@ -171,15 +196,22 @@ function flushQueue(db) {
       })
       const done = () => db.prepare(`DELETE FROM lastfm_queue WHERE id IN (${rows.map(() => '?').join(',')})`).run(...rows.map(r => r.id))
       if (!i) { done(); continue }
+      const pids = items.filter(item => item && now - item.timestamp <= MAX_AGE_S).map(item => item.pid)
       const json = await signedCall('track.scrobble', params, s)
+      if (json.networkError || json.error) {
+        failed(reasonOf(json))
+        scrobbleStatus.mark(pids, 'lastfm', 0, db, lastError.message)
+      }
       if (json.networkError || RETRYABLE.has(json.error)) {
         scheduleFlush(db)
         break
       }
       if (NEEDS_USER.has(json.error)) break // keep them until the credentials are fixed
       done() // sent, or refused for good: don't retry forever
-      if (!json.error) sent += i
-      else break
+      if (json.error) break
+      sent += i
+      lastError = null
+      scrobbleStatus.mark(pids, 'lastfm', 1, db)
     }
     return sent
   })().finally(() => { flushing = null })
@@ -205,23 +237,33 @@ async function updateNowPlaying(db, { artist, track, album, duration }) {
 }
 
 /** Scrobble a play; queued if Last.fm can't take it right now. */
-async function scrobble(db, { artist, track, album, duration, timestamp }) {
+async function scrobble(db, { artist, track, album, duration, timestamp, pid }) {
   const s = settingsOf(db)
   if (!s.enabled) return { skipped: true, reason: 'Last.fm disabled' }
   if (!s.scrobbling) return { skipped: true, reason: 'Scrobbling disabled' }
   if (!s.apiKey || !s.apiSecret || !s.sessionKey) return { skipped: true, reason: 'Last.fm not configured' }
   if (!artist || !track || !timestamp) return { error: 'artist, track and timestamp required' }
   const item = { artist: primaryArtist(db, artist), track, album: albumOf(album), duration: duration ? Math.round(duration) : 0, timestamp: Math.floor(Number(timestamp)) }
+  if (pid) item.pid = String(pid)
+  // In the History page: waiting until Last.fm takes it.
+  scrobbleStatus.mark(item.pid, 'lastfm', 0, db)
   const params = { 'artist[0]': item.artist, 'track[0]': item.track, 'timestamp[0]': String(item.timestamp), sk: s.sessionKey }
   if (item.album) params['album[0]'] = item.album
   if (item.duration) params['duration[0]'] = String(item.duration)
   const json = await signedCall('track.scrobble', params, s)
+  if (json.networkError || json.error) {
+    failed(reasonOf(json))
+    scrobbleStatus.mark(item.pid, 'lastfm', 0, db, lastError.message)
+  }
   if (json.networkError || RETRYABLE.has(json.error) || NEEDS_USER.has(json.error)) {
     enqueue(db, item)
     if (json.networkError || RETRYABLE.has(json.error)) scheduleFlush(db)
     return { queued: true, reason: json.networkError ? `Couldn't reach Last.fm (${json.networkError})` : describeError(json) }
   }
   if (json.error) return { error: describeError(json) }
+  // Taken (an ignored scrobble too: sending it again won't change Last.fm's mind).
+  lastError = null
+  scrobbleStatus.mark(item.pid, 'lastfm', 1, db)
   if (queuedCount(db)) flushQueue(db).catch(() => {})
   const attr = json.scrobbles?.['@attr']
   if (attr && Number(attr.accepted) === 0 && Number(attr.ignored) > 0) {
@@ -231,4 +273,4 @@ async function scrobble(db, { artist, track, album, duration, timestamp }) {
   return { ok: true }
 }
 
-module.exports = { sign, signedCall, primaryArtist, keepCommaArtists, updateNowPlaying, scrobble, flushQueue, queuedCount, settingsOf }
+module.exports = { sign, signedCall, primaryArtist, keepCommaArtists, updateNowPlaying, scrobble, flushQueue, startQueueRetry, queuedCount, queueStatus, settingsOf }

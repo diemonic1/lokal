@@ -230,7 +230,7 @@ export const api = {
   // Flow's songs: the library with this user's likes and plays (electron/ipc/flow.js; the server's /tracks/flow-pool on the web).
   flowPool: (uid) => isE() && el()?.flowPool ? el().flowPool(uid || 'guest') : apiFetch(`/tracks/flow-pool?userId=${encodeURIComponent(uid || 'guest')}`),
   getLikedTracks: (uid) => isE() ? el().getLikedTracks(uid) : apiFetch(`/tracks/liked?userId=${uid||'guest'}`),
-  incrementPlayTime: (tid, uid, s) => isE() ? el().incrementPlayTime(tid, uid, s) : Promise.resolve(),
+  incrementPlayTime: (tid, uid, s, pid) => isE() ? el().incrementPlayTime(tid, uid, s, pid) : Promise.resolve(),
   // Time on an online radio station, for the history (desktop, like incrementPlayTime).
   recordStationTime: (station, uid, s) => isE() && el()?.recordStationTime ? el().recordStationTime({ station, userId: uid, seconds: s }) : Promise.resolve(),
   getHistory: (uid, l, before) => isE() ? el().getHistory(uid, l, before) : apiFetch(`/tracks/history?userId=${uid||'guest'}&limit=${l||30}${before ? `&before=${before}` : ''}`),
@@ -695,7 +695,7 @@ export const api = {
   lastfmGetArtistInfo: (artist) => isE() ? el().lastfmGetArtistInfo(artist) : apiFetch(`/lastfm/artist/${encodeURIComponent(artist)}`),
   lastfmGetTrackInfo: (artist, track) => isE() ? el().lastfmGetTrackInfo(artist, track) : apiFetch(`/lastfm/track?${new URLSearchParams({artist, track})}`),
   lastfmGetSimilarArtists: (artist, limit) => isE() ? el().lastfmGetSimilarArtists(artist, limit) : apiFetch(`/lastfm/similar/${encodeURIComponent(artist)}?limit=${limit || 5}`),
-  lastfmScrobble: (artist, track, album, duration, timestamp) => isE() ? el().lastfmScrobble(artist, track, album, duration, timestamp) : apiFetch('/lastfm/scrobble', { method:'POST', body:{artist, track, album, duration, timestamp} }),
+  lastfmScrobble: (artist, track, album, duration, timestamp, pid) => isE() ? el().lastfmScrobble(artist, track, album, duration, timestamp, pid) : apiFetch('/lastfm/scrobble', { method:'POST', body:{artist, track, album, duration, timestamp} }),
   lastfmDiscovery: (page = 0, force = false) => isE() ? el().lastfmDiscovery(page, force) : apiFetch(`/lastfm/discovery?page=${encodeURIComponent(page)}&force=${force ? '1' : '0'}`),
   lastfmSimilar: (artist, track, limit = 24) => isE() ? el().lastfmSimilar(artist, track, limit) : apiFetch(`/lastfm/similar-music?${new URLSearchParams({ artist, ...(track ? { track } : {}), limit: String(limit) })}`),
   lastfmLoved: (page) => isE() ? el().lastfmLoved(page) : apiFetch(`/lastfm/loved${page ? `?page=${encodeURIComponent(page)}` : ''}`),
@@ -705,7 +705,12 @@ export const api = {
   listenbrainzDisconnect: () => isE() ? el().listenbrainzDisconnect() : apiFetch('/listenbrainz/disconnect', { method: 'POST' }),
   listenbrainzSetEnabled: (enabled) => isE() ? el().listenbrainzSetEnabled(enabled) : apiFetch('/listenbrainz/enabled', { method: 'POST', body: { enabled } }),
   listenbrainzNowPlaying: (track) => isE() ? el().listenbrainzNowPlaying(track) : apiFetch('/listenbrainz/now-playing', { method: 'POST', body: { track } }),
-  listenbrainzSubmit: (track, listenedAt) => isE() ? el().listenbrainzSubmit(track, listenedAt) : apiFetch('/listenbrainz/submit', { method: 'POST', body: { track, listenedAt } }),
+  listenbrainzSubmit: (track, listenedAt, pid) => isE() ? el().listenbrainzSubmit(track, listenedAt, pid) : apiFetch('/listenbrainz/submit', { method: 'POST', body: { track, listenedAt } }),
+  // Queued scrobbles and listens go out now (the network came back).
+  scrobbleFlush: () => isE() && el()?.scrobbleFlush ? el().scrobbleFlush() : Promise.resolve(),
+  // The playing song's scrobble states, by its key ({ [pid]: { lastfm, listenbrainz, …_error } }).
+  scrobbleStatus: (pids) => isE() && el()?.scrobbleStatus ? el().scrobbleStatus(pids) : Promise.resolve({}),
+  lastfmQueueStatus: () => isE() && el()?.lastfmQueueStatus ? el().lastfmQueueStatus() : Promise.resolve({ queued: 0, lastError: null }),
   lastfmUpdateNowPlaying: (artist, track, album, duration) => isE() ? el().lastfmUpdateNowPlaying(artist, track, album, duration) : apiFetch('/lastfm/update-now-playing', { method:'POST', body:{artist, track, album, duration} }),
   onLastfmAuthToken: (fn) => {
     if (isE() && typeof el().onLastfmAuthToken === 'function') {

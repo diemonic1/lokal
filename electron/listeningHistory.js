@@ -23,6 +23,9 @@
 //   path  the file relative to the music folder ('/' separated); absent for
 //         songs streamed from search (they have only "id")
 //   id    Lokal for PC's track id; user: the PC account (absent for 'guest')
+//   pid   the play's key ("<track id or path hash>:<started at>"), which the
+//         device that played it keeps its scrobble state under (scrobbleStatus.js);
+//         absent in plays from before scrobble states
 //   the tags are there for a song whose file is gone or renamed since.
 //
 // Listening to an online radio station is a line of its own, one per time a
@@ -43,6 +46,7 @@ const os = require('os')
 const path = require('path')
 const crypto = require('crypto')
 const { getDB, getStorageDir } = require('./ipc/db')
+const scrobbleStatus = require('./scrobbleStatus')
 
 const FOLDER = 'ListeningHistory'
 const DEVICE_TYPE = 'PC'
@@ -254,7 +258,9 @@ function rebuild(db, root, files) {
     const last = lastByUser.get(user)
     const session = last && end - seconds - last.end <= SESSION_GAP_SECONDS ? last.session : `ls-${user}-${end}`
     lastByUser.set(user, { end, session })
-    rows.push([user, track.id, seconds, session, end, labelOf(entry._folder)])
+    // Only this device's plays carry their key into the database: the scrobble states are this device's.
+    const pid = entry._folder === deviceFolderName() && typeof entry.pid === 'string' ? entry.pid : null
+    rows.push([user, track.id, seconds, session, end, labelOf(entry._folder), pid])
   }
 
   const counts = new Map()
@@ -265,7 +271,7 @@ function rebuild(db, root, files) {
 
   db.transaction(() => {
     db.prepare('DELETE FROM play_history').run()
-    const insert = db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id, played_at, device) VALUES (?, ?, ?, ?, ?, ?)')
+    const insert = db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id, played_at, device, pid) VALUES (?, ?, ?, ?, ?, ?, ?)')
     for (const row of rows) insert.run(...row)
     db.prepare('DELETE FROM radio_history').run()
     const insertRadio = db.prepare('INSERT INTO radio_history (user_id, station_id, station_name, station_url, seconds_played, played_at, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -288,7 +294,9 @@ function ensureSchema(db) {
     'ALTER TABLE play_history ADD COLUMN seconds_played INTEGER DEFAULT 0',
     'ALTER TABLE play_history ADD COLUMN session_id TEXT',
     'ALTER TABLE play_history ADD COLUMN device TEXT',
+    'ALTER TABLE play_history ADD COLUMN pid TEXT',
   ]) { try { db.exec(sql) } catch {} }
+  scrobbleStatus.ensureTable(db)
   // Online radio: time spent on each station (no songs).
   db.exec(`
     CREATE TABLE IF NOT EXISTS radio_history (
@@ -407,12 +415,14 @@ function recordPlay(payload = {}) {
     if (value) entry[key] = String(value)
   }
   if (userId !== 'guest') entry.user = userId
+  const pid = typeof payload.pid === 'string' && payload.pid ? payload.pid : null
+  if (pid) entry.pid = pid
   writeEntry(root, entry)
 
   const last = db.prepare('SELECT session_id, played_at FROM play_history WHERE user_id = ? ORDER BY played_at DESC LIMIT 1').get(userId)
   const session = last?.session_id && end - seconds - Number(last.played_at || 0) <= SESSION_GAP_SECONDS ? last.session_id : `ls-${userId}-${end}`
-  db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id, played_at, device) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(userId, track.id, seconds, session, end, `${DEVICE_TYPE} · ${deviceName()}`)
+  db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id, played_at, device, pid) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(userId, track.id, seconds, session, end, `${DEVICE_TYPE} · ${deviceName()}`, pid)
   if (playCountRule(db)(seconds, track.duration)) db.prepare('UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1 WHERE id = ?').run(track.id)
   return session
 }
@@ -441,7 +451,7 @@ function historyPage(db, userId = 'guest', limit = 30, before = null) {
   ensureSchema(db)
   const until = Number(before) || 9e15
   const count = Math.max(1, Math.min(2000, Number(limit) || 30))
-  const songs = db.prepare(`SELECT t.*, ph.id AS history_id, ph.played_at, COALESCE(ph.seconds_played, 0) AS seconds_played, ph.device FROM tracks t JOIN play_history ph ON ph.track_id = t.id WHERE ph.user_id = ? AND ph.played_at < ? ORDER BY ph.played_at DESC, ph.id DESC LIMIT ?`).all(userId, until, count)
+  const songs = db.prepare(`SELECT t.*, ph.id AS history_id, ph.played_at, COALESCE(ph.seconds_played, 0) AS seconds_played, ph.device, ss.lastfm AS scrobble_lastfm, ss.listenbrainz AS scrobble_listenbrainz, ss.lastfm_error AS scrobble_lastfm_error, ss.listenbrainz_error AS scrobble_listenbrainz_error, ph.pid AS pid FROM tracks t JOIN play_history ph ON ph.track_id = t.id LEFT JOIN scrobble_status ss ON ss.pid = ph.pid WHERE ph.user_id = ? AND ph.played_at < ? ORDER BY ph.played_at DESC, ph.id DESC LIMIT ?`).all(userId, until, count)
   const stations = db.prepare('SELECT * FROM radio_history WHERE user_id = ? AND played_at < ? ORDER BY played_at DESC, id DESC LIMIT ?').all(userId, until, count)
     .map(row => ({ kind: 'station', history_id: `r${row.id}`, played_at: row.played_at, seconds_played: row.seconds_played, device: row.device, station: { id: row.station_id, title: row.station_name, url: row.station_url } }))
   return [...songs, ...stations].sort((a, b) => b.played_at - a.played_at).slice(0, count)

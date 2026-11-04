@@ -280,6 +280,10 @@ export const usePlayerStore = create((set, get) => ({
   queue: [], queueIndex: -1, currentTrack: null,
   playbackContext: null,
   isPlaying: false, isBuffering: false, progress: 0, duration: 0,
+  // The play going on now, before it's in the history (written when it ends):
+  // { trackId, startedAt (s), pid } for the History page's top row; null between plays.
+  listening: null,
+  setListening: (listening) => set({ listening }),
   volume: parseFloat(localStorage.getItem('lokal-volume') || '1'),
   shuffle: false, repeat: 'none',
   showLyrics: false, showLyricsFullscreen: false,

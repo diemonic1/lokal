@@ -394,8 +394,8 @@ function registerLastFmHandlers(ipcMain) {
   // Scrobbling and "now playing" go through the shared scrobbler (also used
   // by the web server): correct signing, main-artist handling, no
   // placeholder albums, and an offline queue.
-  ipcMain.handle('lastfm:scrobble', (_, artist, track, album, duration, timestamp) =>
-    scrobbler.scrobble(getDB(), { artist, track, album, duration, timestamp }).catch(e => ({ error: e.message })))
+  ipcMain.handle('lastfm:scrobble', (_, artist, track, album, duration, timestamp, pid) =>
+    scrobbler.scrobble(getDB(), { artist, track, album, duration, timestamp, pid }).catch(e => ({ error: e.message })))
 
   ipcMain.handle('lastfm:updateNowPlaying', (_, artist, track, album, duration) =>
     scrobbler.updateNowPlaying(getDB(), { artist, track, album, duration }).catch(e => ({ error: e.message })))
@@ -405,8 +405,24 @@ function registerLastFmHandlers(ipcMain) {
   ipcMain.handle('lastfm:loved', (_, page) => fetchLovedTracks(page).catch(e => ({ error: e.message })))
   ipcMain.handle('lastfm:setLoved', (_, artist, track, loved) => setLovedTrack(artist, track, loved).catch(e => ({ error: e.message })))
 
-  // Scrobbles queued while offline: try once shortly after start-up.
-  setTimeout(() => { try { scrobbler.flushQueue(getDB()).catch(() => {}) } catch {} }, 20000)
+  // Settings: how many scrobbles wait, and why the last try didn't get through.
+  ipcMain.handle('lastfm:queueStatus', () => scrobbler.queueStatus(getDB()))
+  // The History page's playing song: its scrobble states.
+  ipcMain.handle('scrobble:status', (_, pids) => require('../scrobbleStatus').get(pids, getDB()))
+
+  // The network came back: queued scrobbles and listens go out now.
+  ipcMain.handle('scrobble:flush', async () => {
+    const db = getDB()
+    const lb = require('../listenbrainz')
+    const s = lb.settingsOf(db)
+    await Promise.all([
+      scrobbler.flushQueue(db).catch(() => 0),
+      s.enabled && s.token ? lb.flushQueue(db, s.token).catch(() => 0) : 0,
+    ])
+  })
+
+  // Scrobbles queued while offline: try shortly after start-up, then every minute while any wait.
+  setTimeout(() => { try { scrobbler.startQueueRetry(getDB()) } catch {} }, 20000)
 }
 
 module.exports = { registerLastFmHandlers, getPrimaryLastfmArtist, syncLovedTracks, fetchSimilar, fetchDiscovery }

@@ -406,6 +406,17 @@ export default function Settings() {
   const refreshCache = () => { Promise.resolve(api.cacheUsage?.()).then(info => { if (info && !info.error) setCacheInfo(info) }).catch(() => {}) }
   /** Reload the ListenBrainz connection status. */
   const refreshListenBrainz = () => { Promise.resolve(api.listenbrainzStatus?.()).then(s => { if (s && !s.error) setLbStatus(s) }).catch(() => {}) }
+  // Last.fm scrobbles waiting to be sent, and why the last try didn't get through.
+  const [lastfmQueue, setLastfmQueue] = useState(null)
+  const [sendingNow, setSendingNow] = useState(false)
+  const refreshLastfmQueue = () => { Promise.resolve(api.lastfmQueueStatus()).then(setLastfmQueue).catch(() => {}) }
+  const sendScrobblesNow = async () => {
+    setSendingNow(true)
+    await Promise.resolve(api.scrobbleFlush()).catch(() => {})
+    refreshLastfmQueue()
+    refreshListenBrainz()
+    setSendingNow(false)
+  }
   const [spotifyCheck, setSpotifyCheck] = useState(null)
   const testSpotifyCanvas = async () => {
     setSpotifyCheck({ loading: true })
@@ -508,7 +519,7 @@ export default function Settings() {
     if (SETTINGS_CATEGORIES.some(category => category.key === requested)) setActiveCategory(requested)
   }, [location.state?.category])
   // Load the ListenBrainz connection state when Integrations is opened.
-  useEffect(() => { if (activeCategory === 'integrations') refreshListenBrainz() }, [activeCategory]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeCategory === 'integrations') { refreshListenBrainz(); refreshLastfmQueue() } }, [activeCategory]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeCategory === 'data' && api.isElectron) refreshCache() }, [activeCategory]) // eslint-disable-line react-hooks/exhaustive-deps
   // Every category shares the page's one scroll container (App's <main>), so
   // switching from halfway down a long category used to land halfway down
@@ -1768,7 +1779,14 @@ activeCategory === 'data' ? usersTried
 
       {inCategory('integrations') && (
       <Section title="Scrobbling">
-        <Row label="Last.fm" desc={lastfmConnected ? '' : 'Sign in to Last.fm in Account Connections first.'}>
+        <Row label="Last.fm" desc={!lastfmConnected ? 'Sign in to Last.fm in Account Connections first.'
+          : lastfmQueue?.queued ? [t('{n} scrobble waiting to be sent|{n} scrobbles waiting to be sent', { n: lastfmQueue.queued }), lastfmQueue.lastError?.message ? t(lastfmQueue.lastError.message) : ''].filter(Boolean).join('\n') : ''}>
+          {lastfmConnected && (lastfmQueue?.queued > 0 || lbStatus?.queued > 0) && (
+            <button disabled={sendingNow} onClick={sendScrobblesNow}
+              className="mr-2 px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border border-border text-muted transition-colors hover:text-white disabled:opacity-40">
+              {t(sendingNow ? 'Sending…' : 'Send now')}
+            </button>
+          )}
           <button disabled={!lastfmConnected} aria-pressed={lastfmConnected && settings.lastfm_scrobbling === '1'}
             onClick={() => set('lastfm_scrobbling', settings.lastfm_scrobbling === '1' ? '0' : '1')}
             className={`px-4 py-1.5 rounded-lg text-xs font-display uppercase tracking-wider border transition-colors disabled:opacity-40 ${lastfmConnected && settings.lastfm_scrobbling === '1' ? 'bg-accent/20 border-accent/50 text-accent' : 'border-border text-muted hover:text-white'}`}>

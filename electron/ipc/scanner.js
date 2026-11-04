@@ -2491,8 +2491,8 @@ function registerV4Handlers(ipcMain) {
     return related.slice(0, 25)
   })
   // Written to this PC's history file in the music folder (electron/listeningHistory.js) and play_history.
-  ipcMain.handle('scanner:incrementPlayTime', (_, trackId, userId, seconds) => {
-    try { require('../listeningHistory').recordPlay({ trackId, userId: userId || 'guest', seconds }) } catch (e) { console.warn('incrementPlayTime:', e.message) }
+  ipcMain.handle('scanner:incrementPlayTime', (_, trackId, userId, seconds, pid) => {
+    try { require('../listeningHistory').recordPlay({ trackId, userId: userId || 'guest', seconds, pid }) } catch (e) { console.warn('incrementPlayTime:', e.message) }
   })
   // Settings > Library > Fill In Genres (see electron/online/genres.js).
   ipcMain.handle('scanner:fetchMissingGenres', () => require('../online/genres').startLibraryGenres(getDB()))

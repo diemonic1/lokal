@@ -1735,12 +1735,15 @@ export default function App() {
     if (!track?.id || isStationTrack(track) || track.recapStory) {
       lastfmPlaybackStartedAtRef.current = 0
       lastfmPlaybackKeyRef.current = null
+      // A station's time shows at the top of the History page too (no scrobbles).
+      usePlayerStore.getState().setListening(track?.id && !track.recapStory ? { trackId: track.id, startedAt: Math.floor(Date.now() / 1000), pid: null } : null)
       return
     }
 
     const startedAt = Math.floor(Date.now() / 1000)
     lastfmPlaybackStartedAtRef.current = startedAt
     lastfmPlaybackKeyRef.current = `${track.id}:${startedAt}`
+    usePlayerStore.getState().setListening({ trackId: track.id, startedAt, pid: lastfmPlaybackKeyRef.current })
 
     api.getSettings().then((settings) => {
       if (settings?.lastfm_enabled === '0') return
@@ -1824,7 +1827,8 @@ export default function App() {
         track.title,
         track.album || '',
         getLastfmTrackDuration(track),
-        startedAt
+        startedAt,
+        playbackKey
       ).then((result) => {
         if (result?.error || result?.skipped) {
           lastfmScrobbledPlaybackKeyRef.current = null
@@ -1888,7 +1892,7 @@ export default function App() {
         listenbrainzSubmittedPlaybackKeyRef.current = null
       }
     }, SCROBBLE_RETRY_MS)
-    Promise.resolve(api.listenbrainzSubmit?.(listenBrainzTrack(track), startedAt)).then((result) => {
+    Promise.resolve(api.listenbrainzSubmit?.(listenBrainzTrack(track), startedAt, playbackKey)).then((result) => {
       if (result?.ok || result?.queued) return // sent, or queued and sent later
       // Refused for good (invalid listen, rejected token): keep it marked.
       if (result?.permanent) return
@@ -1921,19 +1925,31 @@ export default function App() {
     const secs = playSecsRef.current
     const flushedTrack = currentTrackRef.current
     playSecsRef.current = 0
+    // The play is over: its own row takes the History page's top row's place.
+    if (trackId && usePlayerStore.getState().listening?.trackId === trackId) usePlayerStore.getState().setListening(null)
     if (trackId) lastFlushedTrackIdRef.current = trackId
     // A song (or station) the recap's Stories played isn't listening: no history,
     // play count or scrobble, so it never counts in later recaps (RecapStory.jsx).
     if (flushedTrack?.recapStory) return
     tryScrobbleLastfmTrack(flushedTrack, secs)
     trySubmitListenBrainz(flushedTrack, secs)
-    if (secs >= 3 && trackId && !isStationTrack(flushedTrack)) api.incrementPlayTime(trackId, userRef.current?.id, secs)
+    // The play's key goes into its history line, so the History page can show its scrobble state.
+    const playbackKey = lastfmPlaybackKeyRef.current
+    const pid = trackId && playbackKey?.startsWith(`${trackId}:`) ? playbackKey : undefined
+    if (secs >= 3 && trackId && !isStationTrack(flushedTrack)) api.incrementPlayTime(trackId, userRef.current?.id, secs, pid)
     // A station: the time on it (no songs), for the history and recaps.
     if (secs >= 3 && isStationTrack(flushedTrack) && flushedTrack.station) {
       const { id, title, url } = flushedTrack.station
       api.recordStationTime({ id, title, url }, userRef.current?.id, secs)
     }
   }, [tryScrobbleLastfmTrack, trySubmitListenBrainz])
+
+  // Back online: what was waiting for Last.fm / ListenBrainz goes out now, not at the next retry.
+  useEffect(() => {
+    const onOnline = () => { Promise.resolve(api.scrobbleFlush()).catch(() => {}) }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
 
   // Closing the app ends what's playing: its time so far is kept (an hour of a station included).
   useEffect(() => {
@@ -2322,7 +2338,7 @@ export default function App() {
       const el = audioRef.current
       const station = currentTrack
       setStreamError(null)
-      beginLastfmPlayback(null)
+      beginLastfmPlayback(station)
       resetStationDisplay(station)
       el.dataset.lokalTrackPending = String(station.id)
       el.dataset.fallbackFor = ''

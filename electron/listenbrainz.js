@@ -8,6 +8,8 @@
 //
 // API: https://listenbrainz.readthedocs.io/en/latest/users/api/core.html
 
+const scrobbleStatus = require('./scrobbleStatus')
+
 const API = 'https://api.listenbrainz.org/1'
 const QUEUE_LIMIT = 5000
 const BATCH = 100
@@ -86,6 +88,15 @@ function listenOf(track, listenedAt) {
   return listen
 }
 
+/** A failed answer as one sentence for people (the History page's dot). */
+function reasonOf(r) {
+  if (r.status === 0) return "Couldn't reach ListenBrainz (no internet?)."
+  if (r.status === 401 || r.status === 403) return 'ListenBrainz rejected the token (reconnect in Settings).'
+  if (r.status === 400) return r.json?.error ? `ListenBrainz refused this listen: ${r.json.error}` : 'ListenBrainz refused this listen.'
+  if (r.status === 429) return 'ListenBrainz asked to slow down; it will be sent later.'
+  return `ListenBrainz answered ${r.status}.`
+}
+
 // ---------------------------------------------------------------- queue
 
 // Each queued listen belongs to the ListenBrainz account (validated username)
@@ -102,6 +113,8 @@ function ensureQueue(db) {
     db.exec("ALTER TABLE listenbrainz_queue ADD COLUMN account TEXT NOT NULL DEFAULT ''")
     db.prepare('UPDATE listenbrainz_queue SET account = ?').run(accountOf(settingsOf(db)))
   }
+  // The play's key, for its scrobble state (not part of the listen ListenBrainz gets).
+  if (!columns.includes('pid')) db.exec('ALTER TABLE listenbrainz_queue ADD COLUMN pid TEXT')
 }
 
 /** The account queued listens are filed under: the validated username. */
@@ -110,9 +123,9 @@ function accountOf(settings) {
 }
 
 /** Queue a listen for later (for `account`), keeping the queue bounded. */
-function enqueue(db, listen, account) {
+function enqueue(db, listen, account, pid) {
   ensureQueue(db)
-  db.prepare('INSERT INTO listenbrainz_queue (listen, queued_at, account) VALUES (?, ?, ?)').run(JSON.stringify(listen), Date.now(), account)
+  db.prepare('INSERT INTO listenbrainz_queue (listen, queued_at, account, pid) VALUES (?, ?, ?, ?)').run(JSON.stringify(listen), Date.now(), account, pid || null)
   // Keep it bounded: drop the oldest if someone is offline for a very long time.
   const count = db.prepare('SELECT COUNT(*) AS n FROM listenbrainz_queue').get().n
   if (count > QUEUE_LIMIT) db.prepare('DELETE FROM listenbrainz_queue WHERE id IN (SELECT id FROM listenbrainz_queue ORDER BY id LIMIT ?)').run(count - QUEUE_LIMIT)
@@ -171,10 +184,10 @@ function flushQueue(db, token) {
       // disconnected, or connected with another token / account meanwhile.
       const s = settingsOf(db)
       if (!s.enabled || !s.token || s.token !== token || accountOf(s) !== account) break
-      const rows = db.prepare('SELECT id, listen FROM listenbrainz_queue WHERE account = ? ORDER BY id LIMIT ?').all(account, BATCH)
+      const rows = db.prepare('SELECT id, listen, pid FROM listenbrainz_queue WHERE account = ? ORDER BY id LIMIT ?').all(account, BATCH)
       if (!rows.length) break
       const remove = (ids) => { if (ids.length) db.prepare(`DELETE FROM listenbrainz_queue WHERE id IN (${ids.map(() => '?').join(',')})`).run(...ids) }
-      const parsed = rows.map(r => { try { return { id: r.id, listen: JSON.parse(r.listen) } } catch { return { id: r.id, listen: null } } })
+      const parsed = rows.map(r => { try { return { id: r.id, pid: r.pid, listen: JSON.parse(r.listen) } } catch { return { id: r.id, listen: null } } })
       remove(parsed.filter(p => !p.listen).map(p => p.id)) // unreadable rows can never be sent
       const good = parsed.filter(p => p.listen)
       if (!good.length) continue
@@ -182,9 +195,14 @@ function flushQueue(db, token) {
       if (r.ok) {
         remove(good.map(p => p.id))
         sent += good.length
+        scrobbleStatus.mark(good.map(p => p.pid), 'listenbrainz', 1, db)
         continue
       }
-      if (r.status !== 400) break // offline, rate limited, server error: keep them for later
+      if (r.status !== 400) {
+        // Offline, rate limited, server error: keep them for later.
+        scrobbleStatus.mark(good.map(p => p.pid), 'listenbrainz', 0, db, reasonOf(r))
+        break
+      }
       // One bad listen makes ListenBrainz refuse the whole batch: send them one
       // by one, dropping only the ones it refuses on their own.
       let stopped = false
@@ -194,8 +212,8 @@ function flushQueue(db, token) {
         const now = settingsOf(db)
         if (!now.enabled || !now.token || now.token !== token || accountOf(now) !== account) { stopped = true; break }
         const one = await call('/submit-listens', { token, method: 'POST', body: { listen_type: 'import', payload: [p.listen] } })
-        if (one.ok) { remove([p.id]); sent++; continue }
-        if (one.status === 400) { remove([p.id]); continue } // never accepted as it is
+        if (one.ok) { remove([p.id]); sent++; scrobbleStatus.mark(p.pid, 'listenbrainz', 1, db); continue }
+        if (one.status === 400) { remove([p.id]); scrobbleStatus.mark(p.pid, 'listenbrainz', 0, db, reasonOf(one)); continue } // never accepted as it is
         stopped = true // any other failure: keep this one and the rest for later
         break
       }
@@ -250,24 +268,28 @@ async function nowPlaying(db, track) {
 }
 
 /** Submit a finished listen; queued if ListenBrainz can't take it right now. */
-async function submitListen(db, track, listenedAt) {
+async function submitListen(db, track, listenedAt, pid) {
   startQueueRetry(db)
   const s = settingsOf(db)
   if (!s.enabled || !s.token) return { skipped: true, reason: 'ListenBrainz is off' }
   if (!track?.artist || !track?.title) return { skipped: true, reason: 'No artist or title' }
   const listen = listenOf(track, listenedAt || Date.now() / 1000)
+  // In the History page: waiting until ListenBrainz takes it.
+  scrobbleStatus.mark(pid, 'listenbrainz', 0, db)
   const r = await call('/submit-listens', { token: s.token, method: 'POST', body: { listen_type: 'single', payload: [listen] } })
   if (r.ok) {
+    scrobbleStatus.mark(pid, 'listenbrainz', 1, db)
     // Online again: send anything that was waiting (this account's only).
     flushActive(db)
     return { ok: true }
   }
+  scrobbleStatus.mark(pid, 'listenbrainz', 0, db, reasonOf(r))
   // Permanent: sending it again won't help (the player must not retry it).
   if (r.status === 401 || r.status === 403) return { error: 'ListenBrainz rejected the token (reconnect in Settings).', permanent: true }
   if (r.status === 400) return { error: r.json?.error || 'ListenBrainz refused this listen.', permanent: true }
   // Offline, timed out, rate limited or a server error: keep it for later,
   // for this account, and try the queue again shortly.
-  enqueue(db, listen, accountOf(s))
+  enqueue(db, listen, accountOf(s), pid)
   scheduleFlush(db)
   return { queued: true, reason: r.error || `ListenBrainz answered ${r.status}` }
 }

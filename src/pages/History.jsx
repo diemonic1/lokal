@@ -5,6 +5,7 @@
 // device's plays come in.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CalendarDays, FolderOpen, History as HistoryIcon, Laptop, Pause, Play, Radio, RefreshCw, Smartphone } from 'lucide-react'
 import { api } from '../api'
 import { getLanguage, translate, useTranslation } from '../i18n'
@@ -39,10 +40,61 @@ function DeviceLabel({ device }) {
   return <span className="inline-flex min-w-0 items-center gap-1" title={device}><Icon size={11} className="flex-shrink-0" /><span className="truncate">{device.replace(/^(PC|Android) · /, '')}</span></span>
 }
 
+/** "14:07": when a play ended. */
+const playedAt = (entry) => new Date(Number(entry.played_at) * 1000).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' })
+
+const SCROBBLE_SERVICES = [['Last.fm', 'lastfm'], ['ListenBrainz', 'listenbrainz']]
+
+/**
+ * Where this PC's play was scrobbled: a white ring (nowhere yet), its left
+ * half filled (some of its services), green (all of them). The services are
+ * the ones that were on when the play counted; none (too short, or from
+ * another device) - no circle. Hovering a ring that isn't green shows each
+ * service's state and why it's still waiting.
+ */
+function ScrobbleDot({ track }) {
+  const { t } = useTranslation()
+  const [at, setAt] = useState(null)
+  const states = SCROBBLE_SERVICES
+    .map(([name, key]) => ({ name, state: track[`scrobble_${key}`], error: track[`scrobble_${key}_error`] }))
+    .filter(({ state }) => state === 0 || state === 1)
+  if (!states.length) return null
+  const sent = states.filter(({ state }) => state === 1).length
+  const all = sent === states.length
+  const show = (event) => {
+    if (all) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    setAt({ right: window.innerWidth - rect.right, top: rect.bottom + 6 })
+  }
+  return (
+    <span className="inline-flex items-center" onMouseEnter={show} onMouseLeave={() => setAt(null)}>
+      <svg width="11" height="11" viewBox="0 0 12 12" className={all ? 'text-green-400' : 'text-white'} aria-label={all ? t('Scrobbled') : undefined}>
+        <circle cx="6" cy="6" r="5" fill={all ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" />
+        {!all && sent > 0 && <path d="M6 1 A5 5 0 0 0 6 11 Z" fill="currentColor" />}
+      </svg>
+      {at && createPortal(
+        <div className="pointer-events-none fixed z-[1000] w-72 rounded-lg border border-border bg-elevated px-3 py-2 text-left text-xs shadow-xl" style={{ right: at.right, top: at.top }}>
+          {states.map(({ name, state, error }) => (
+            <div key={name} className="py-1">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-white">{name}</span>
+                <span className={state === 1 ? 'text-green-400' : 'text-muted'}>{t(state === 1 ? 'sent' : 'waiting to be sent')}</span>
+              </div>
+              {state !== 1 && error && <p className="mt-0.5 whitespace-normal text-[11px] leading-snug text-muted">{t(error)}</p>}
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </span>
+  )
+}
+
 const historyColumns = () => [
-  { key: 'played', label: translate('Played'), width: 4, render: track => new Date(Number(track.played_at) * 1000).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' }) },
-  { key: 'listened', label: translate('Listened'), width: 5.5, render: track => listened(track.seconds_played) },
+  { key: 'played', label: translate('Played'), width: 4, render: playedAt },
+  { key: 'listened', label: translate('Listened'), width: 5.5, render: track => track.live ? translate('now') : listened(track.seconds_played) },
   { key: 'device', label: translate('Device'), width: 8, render: track => <DeviceLabel device={track.device} /> },
+  { key: 'scrobble', label: '', width: 1.75, render: track => <ScrobbleDot track={track} /> },
 ]
 
 /**
@@ -72,8 +124,8 @@ function StationRow({ entry }) {
         <span className={`block truncate text-sm ${current ? 'text-accent' : 'text-white'}`}>{name}</span>
         <span className="block truncate text-xs text-muted">{t('Online Radio')}</span>
       </span>
-      <span className="w-16 flex-shrink-0 text-right text-xs text-muted">{historyColumns()[0].render(entry)}</span>
-      <span className="w-20 flex-shrink-0 text-right text-xs text-muted">{listened(entry.seconds_played)}</span>
+      <span className="w-16 flex-shrink-0 text-right text-xs text-muted">{playedAt(entry)}</span>
+      <span className="w-20 flex-shrink-0 text-right text-xs text-muted">{entry.live ? t('now') : listened(entry.seconds_played)}</span>
       <span className="w-32 flex-shrink-0 truncate text-right text-xs text-muted"><DeviceLabel device={entry.device} /></span>
     </button>
   )
@@ -147,8 +199,34 @@ function HistoryContent({ userId }) {
     setLoadingMore(false)
   }
 
+  // The play going on now: at the top straight away (its own row comes when it ends).
+  const listening = usePlayerStore(state => state.listening)
+  const playing = usePlayerStore(state => state.currentTrack)
+  const [liveStatus, setLiveStatus] = useState(null)
+  const livePid = listening?.pid || null
+  useEffect(() => {
+    setLiveStatus(null)
+    if (!livePid) return undefined
+    const load = () => Promise.resolve(api.scrobbleStatus([livePid])).then(states => setLiveStatus(states?.[livePid] || null)).catch(() => {})
+    load()
+    // Sent (or failed) in the middle of the song: the dot changes then.
+    return api.onHistoryChanged(load)
+  }, [livePid])
+  let live = null
+  if (listening && playing?.id === listening.trackId && !(livePid && entries.some(entry => entry.pid === livePid))) {
+    const device = `PC · ${t('this computer')}`
+    live = playing.station
+      ? { kind: 'station', history_id: 'live', played_at: listening.startedAt, device, station: { id: playing.station.id, title: playing.station.title, url: playing.station.url }, live: true }
+      : {
+          ...playing, history_id: 'live', played_at: listening.startedAt, device, live: true, pid: livePid,
+          scrobble_lastfm: liveStatus?.lastfm ?? null, scrobble_listenbrainz: liveStatus?.listenbrainz ?? null,
+          scrobble_lastfm_error: liveStatus?.lastfm_error ?? null, scrobble_listenbrainz_error: liveStatus?.listenbrainz_error ?? null,
+        }
+  }
+  const shown = live ? [live, ...entries] : entries
+
   const groups = []
-  for (const entry of entries) {
+  for (const entry of shown) {
     const label = dayLabel(entry.played_at)
     if (groups[groups.length - 1]?.label !== label) groups.push({ label, entries: [] })
     groups[groups.length - 1].entries.push(entry)
@@ -171,7 +249,7 @@ function HistoryContent({ userId }) {
         )}
       </div>
 
-      {!entries.length ? (
+      {!shown.length ? (
         <p className="py-10 text-center text-sm text-muted">{loaded ? t('No listen history yet.') : t('Loading...')}</p>
       ) : (
         <div className="space-y-6">
