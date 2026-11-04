@@ -1,11 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic2, Music, Search, Languages, RotateCcw, Check, ChevronDown, Loader2, FileDown, Ban, ALargeSmall, ScanSearch, MonitorPlay, ImagePlay } from 'lucide-react'
 import { YoutubeMark, serviceIconFor } from './ServiceIcons'
 import SpotifyIcon from './SpotifyIcon'
 import { clipOpenUrl } from '../clipVideo'
-import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT } from '../sidePanelPrefs'
+import { useSideLyricsScale, sideLyricsPercent, setSideLyricsPercent, SIDE_LYRICS_PERCENT, useLyricsAutoScroll, setLyricsAutoScroll } from '../sidePanelPrefs'
 import ContextMenu, { useContextMenu } from './ContextMenu'
 import Modal from './Modal'
 import LyricsSearchDrawer from './LyricsSearchDrawer'
@@ -36,7 +36,12 @@ import {
 // only when the focused line changes.
 // ---------------------------------------------------------------------------
 
-const BROWSE_IDLE_MS = 3200
+// Scrolled by hand: the list goes back to following the song this long after
+// the last scroll; over the last RING_MS the auto-scroll button shows, a ring
+// filling around it until then.
+const BROWSE_IDLE_MS = 6000
+const RING_MS = 3000
+const TIP_DELAY_MS = 1500
 const FOCUS_LEAD_S = 0.3 // the panel starts moving to a line slightly before it lands
 const SCROLL_MS = 560
 const STAGGER_STEPS = 3
@@ -571,6 +576,101 @@ function Pill({ active, onClick, children, title, disabled }) {
   )
 }
 
+// Auto-scroll turned off for one play of one song only (a right click on the
+// button): { trackId, startedAt } -- startedAt is the player's `listening`
+// for that play. Another song, or the same song played again (repeat, picked
+// again), and it's on as before. Every lyrics view at once.
+let playOff = null
+const playOffListeners = new Set()
+let watchingPlays = false
+function setPlayOff(next) {
+  playOff = next
+  playOffListeners.forEach(listener => listener())
+}
+function watchPlays() {
+  if (watchingPlays) return
+  watchingPlays = true
+  usePlayerStore.subscribe((state) => {
+    if (!playOff) return
+    if (state.currentTrack?.id !== playOff.trackId) { setPlayOff(null); return }
+    const listening = state.listening
+    if (!listening || listening.trackId !== playOff.trackId || listening.startedAt === playOff.startedAt) return
+    // Turned off before the play was counted: this is that play.
+    if (playOff.startedAt == null) playOff = { ...playOff, startedAt: listening.startedAt }
+    else setPlayOff(null)
+  })
+}
+function turnOffForThisPlay(trackId) {
+  if (trackId == null) return
+  watchPlays()
+  const { listening } = usePlayerStore.getState()
+  setPlayOff({ trackId, startedAt: listening?.trackId === trackId ? listening.startedAt : null })
+}
+const subscribePlayOff = (listener) => { playOffListeners.add(listener); return () => playOffListeners.delete(listener) }
+const usePlayOffTrack = () => useSyncExternalStore(subscribePlayOff, () => playOff?.trackId ?? null)
+
+/** A dot over a down arrow: filled with auto-scroll on, outlined with it off. */
+function AutoScrollGlyph({ on, size }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="relative">
+      <g transform="translate(0 0.6)">
+        <circle cx="12" cy="5.2" r={on ? 2 : 1.9} fill={on ? 'currentColor' : 'none'} stroke={on ? 'none' : 'currentColor'} strokeWidth="1.5" />
+        <path d="M10.4 10.6a1.6 1.6 0 0 1 3.2 0V14h3.2L12 19.4 7.2 14h3.2Z" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={on ? 1.4 : 1.5} strokeLinejoin="round" />
+      </g>
+    </svg>
+  )
+}
+
+/**
+ * Auto-scroll on/off, the first button of the toolbar. ring: while the lyrics
+ * wait to go back to the song after a manual scroll, a key for the ring that
+ * fills clockwise around the button until they do (0: none); forceShow keeps
+ * the button up then while the rest of the toolbar stays hidden. A note on
+ * what a click does comes up after a moment's hover.
+ */
+function AutoScrollPill({ on, offForPlay, ring, forceShow, tipUp, onToggle, onTogglePlay }) {
+  const { t } = useTranslation()
+  const large = useContext(ToolbarLarge)
+  const [tip, setTip] = useState(false)
+  const tipTimer = useRef(null)
+  const hover = (inside) => {
+    clearTimeout(tipTimer.current)
+    if (inside) tipTimer.current = setTimeout(() => setTip(true), TIP_DELAY_MS)
+    else setTip(false)
+  }
+  useEffect(() => () => clearTimeout(tipTimer.current), [])
+  const label = !on ? t('Turn auto-scroll on: the lyrics go to the line being sung right away')
+    : ring ? t("Turn auto-scroll off: the lyrics won't go back to the line being sung")
+      : t('Turn auto-scroll off: scroll the lyrics by hand')
+  // The right click: off for this play only (or back on, when that's why it's off).
+  const playNote = offForPlay ? t('Off for this play of the song only: it comes back on with the next song, or when this one plays again.')
+    : on ? t('Right click: off for this play of the song only. With the next song, or when this one plays again, it comes back on.')
+      : null
+  const size = large ? 36 : 24
+  const stroke = large ? 2 : 1.5
+  return (
+    <div className="relative flex-shrink-0" onPointerEnter={() => hover(true)} onPointerLeave={() => hover(false)}>
+      <button type="button" onClick={() => { hover(false); onToggle() }} aria-label={label} aria-pressed={on} aria-description={playNote || undefined}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); hover(false); onTogglePlay() }}
+        className={`relative flex items-center justify-center ${large ? 'h-9 w-9' : 'h-6 w-6'} rounded-full text-white bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md ${forceShow ? 'transition-[opacity,background-color] duration-300' : TOOLBAR_FADE}`}>
+        {ring ? (
+          <svg key={ring} width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="pointer-events-none absolute inset-0 -rotate-90">
+            <motion.circle cx={size / 2} cy={size / 2} r={(size - stroke) / 2} fill="none" stroke="white" strokeWidth={stroke} strokeLinecap="round"
+              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: RING_MS / 1000, ease: 'linear' }} />
+          </svg>
+        ) : null}
+        <AutoScrollGlyph on={on} size={large ? 32 : 21} />
+      </button>
+      {tip && (
+        <div role="tooltip" className={`pointer-events-none absolute left-0 z-40 w-max max-w-[15rem] ${tipUp ? 'bottom-full mb-2' : 'top-full mt-2'} rounded-lg border border-white/10 bg-black/80 px-2.5 py-1.5 text-[11px] leading-snug text-white/85 backdrop-blur-md`}>
+          {label}
+          {playNote && <span className="mt-1 block text-white/50">{playNote}</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** The song's own music video, else the moving cover it's known to have (its row), or null. */
 function trackMedia(track) {
   if (String(track?.clip_url || '').trim()) return { clip: String(track.clip_url).trim() }
@@ -766,12 +866,21 @@ export default function LyricsPanel({
   const [focusIdx, setFocusIdx] = useState(-1)
   const [liveKey, setLiveKey] = useState('')
   const [browsing, setBrowsing] = useState(false)
+  // The return to the song after a manual scroll is close: the ring's key (0: not yet).
+  const [ring, setRing] = useState(0)
+  const autoScrollSetting = useLyricsAutoScroll()
+  // Off for this play of this song only (a right click on the button).
+  const playOffTrack = usePlayOffTrack()
+  const offForPlay = autoScrollSetting && track?.id != null && playOffTrack === track.id
+  const autoScroll = autoScrollSetting && !offForPlay
+  const following = autoScroll && !browsing
 
   const containerRef = useRef(null)
   // topBlur: each line's wrapper, blurred by how far into the top strip it is.
   const edgeRowsRef = useRef([])
   const rowsRef = useRef(new Map())
   const browseTimer = useRef(null)
+  const ringTimer = useRef(null)
   const lastScrollIdx = useRef(-1)
   const paintedRows = useRef(new Set())
 
@@ -869,7 +978,9 @@ export default function LyricsPanel({
     setEmbeddingId(null)
     // Scrolling around the previous song's lyrics doesn't carry over.
     clearTimeout(browseTimer.current)
+    clearTimeout(ringTimer.current)
     setBrowsing(false)
+    setRing(0)
     const cached = trackKey != null && hasCachedLyrics(trackKey)
     // Cached: its lines show right away (even if the previous song was still
     // loading); otherwise the loading state until this song's answer.
@@ -1113,17 +1224,17 @@ export default function LyricsPanel({
   }, [trackKey, lines]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
-    if (focusIdx < 0 || browsing) return
+    if (focusIdx < 0 || !following) return
     const first = lastScrollIdx.current < 0
     lastScrollIdx.current = focusIdx
     scrollToFocus(first)
-  }, [focusIdx, browsing, scrollToFocus])
+  }, [focusIdx, following, scrollToFocus])
 
   // New lines for the same song with the same line being sung (its index
   // unchanged, so the effect above doesn't run): straight back to that line,
   // once the new rows are in place (they register themselves after layout).
   useEffect(() => {
-    if (focusIdx < 0 || browsing || lastScrollIdx.current >= 0) return undefined
+    if (focusIdx < 0 || !following || lastScrollIdx.current >= 0) return undefined
     const raf = requestAnimationFrame(() => {
       if (lastScrollIdx.current >= 0) return
       lastScrollIdx.current = focusIdx
@@ -1132,20 +1243,48 @@ export default function LyricsPanel({
     return () => cancelAnimationFrame(raf)
   }, [lines, previewResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startBrowsing = useCallback(() => {
-    if (!synced && !isAutoSynced) return
-    setBrowsing(true)
+  // Lyrics that follow the song at all (synced, or plain ones timed roughly).
+  const canFollow = synced || isAutoSynced
+  const stopBrowsing = useCallback(() => {
     clearTimeout(browseTimer.current)
-    browseTimer.current = setTimeout(() => setBrowsing(false), BROWSE_IDLE_MS)
-  }, [synced, isAutoSynced])
-  useEffect(() => () => clearTimeout(browseTimer.current), [])
+    clearTimeout(ringTimer.current)
+    setRing(0)
+    setBrowsing(false)
+  }, [])
+  // Scrolled by hand (auto-scroll on): the list stops following, and goes
+  // back BROWSE_IDLE_MS after the last scroll, the ring showing it coming
+  // over the last RING_MS. Another scroll starts it all over (the ring goes).
+  const startBrowsing = useCallback(() => {
+    if (!canFollow || !autoScroll) return
+    setBrowsing(true)
+    setRing(0)
+    clearTimeout(browseTimer.current)
+    clearTimeout(ringTimer.current)
+    ringTimer.current = setTimeout(() => setRing(Date.now()), BROWSE_IDLE_MS - RING_MS)
+    browseTimer.current = setTimeout(() => { setRing(0); setBrowsing(false) }, BROWSE_IDLE_MS)
+  }, [canFollow, autoScroll])
+  useEffect(() => () => { clearTimeout(browseTimer.current); clearTimeout(ringTimer.current) }, [])
+  // Off: no going back (the ring goes too). On: straight to the line being sung.
+  const toggleAutoScroll = useCallback(() => {
+    stopBrowsing()
+    if (offForPlay) setPlayOff(null)
+    else setLyricsAutoScroll(!autoScrollSetting)
+  }, [offForPlay, autoScrollSetting, stopBrowsing])
+  // The right click: off for this play only, or back on if it's off that way.
+  // With auto-scroll off altogether there's nothing to do.
+  const togglePlayAutoScroll = useCallback(() => {
+    if (!autoScrollSetting) return
+    stopBrowsing()
+    if (offForPlay) setPlayOff(null)
+    else turnOffForThisPlay(track?.id)
+  }, [autoScrollSetting, offForPlay, stopBrowsing, track?.id])
 
   // ---- actions
   const seek = useCallback((time) => {
     if (!Number.isFinite(time)) return
-    setBrowsing(false)
+    stopBrowsing()
     setProgressWithAudioUpdate(Math.max(0, time))
-  }, [setProgressWithAudioUpdate])
+  }, [setProgressWithAudioUpdate, stopBrowsing])
 
   const pickSource = (id) => {
     if (!track?.id) return
@@ -1377,6 +1516,7 @@ export default function LyricsPanel({
         <ToolbarLarge.Provider value>
           <div data-hidden={toolbarHidden || toolbarConcealed} className="group/toolbar flex items-center gap-2">
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : toolbarTarget ? 'hidden' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {canFollow && <AutoScrollPill on={autoScroll} offForPlay={offForPlay} ring={ring} forceShow={toolbarAtBottom && !!ring} tipUp={toolbarAtBottom} onToggle={toggleAutoScroll} onTogglePlay={togglePlayAutoScroll} />}
             {toolbarAtBottom && <MediaPill media={media || trackMedia(track)} />}
             {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
@@ -1474,6 +1614,7 @@ export default function LyricsPanel({
           style={fullscreen || toolbarAtBottom ? undefined : { background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)' }}
         >
           <div className={`flex flex-shrink-0 items-center gap-1.5 ${toolbarHidden ? 'pointer-events-none' : 'pointer-events-auto'} ${lines.length ? '' : 'invisible'}`} inert={toolbarHidden || !lines.length}>
+            {canFollow && <AutoScrollPill on={autoScroll} offForPlay={offForPlay} ring={ring} forceShow={toolbarAtBottom && !!ring} tipUp={toolbarAtBottom} onToggle={toggleAutoScroll} onTogglePlay={togglePlayAutoScroll} />}
             {toolbarAtBottom && <MediaPill media={media || trackMedia(track)} />}
             {sizeControl && <SizePill onOpenChange={setSizeOpen} openUp={toolbarAtBottom} />}
             <Pill active={wantTranslation} onClick={() => toggleSub('translation')} title={t('Show translation ({language})', { language: translateTarget })}>
@@ -1631,7 +1772,7 @@ export default function LyricsPanel({
                   isNext={focusIdx >= 0 && i === nextLineIdx}
                   isLive={liveSet.has(i)}
                   synced={synced}
-                  browsing={browsing}
+                  browsing={browsing || (canFollow && !autoScroll)}
                   wordSync={wordSync}
                   fullscreen={fullscreen}
                   textScale={textScale}

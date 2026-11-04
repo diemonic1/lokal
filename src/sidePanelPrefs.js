@@ -53,6 +53,13 @@ export const setSideLyricsScale = value => write(LYRICS_SCALE_KEY, SIDE_LYRICS_S
 export const sideLyricsPercent = scale => Math.round(scale / SIDE_LYRICS_SCALE.initial * 100)
 export const setSideLyricsPercent = percent => setSideLyricsScale(Math.round(Number(percent)) / 100 * SIDE_LYRICS_SCALE.initial)
 
+// Lyrics auto-scroll (the button under the lyrics): on, the list follows the
+// line being sung; off, it's scrolled by hand only. Every lyrics view at once.
+const LYRICS_AUTO_SCROLL_KEY = 'lokal-lyrics-auto-scroll'
+const ON_OFF = { min: 0, max: 1, initial: 1 }
+export const useLyricsAutoScroll = () => usePref(LYRICS_AUTO_SCROLL_KEY, ON_OFF) === 1
+export const setLyricsAutoScroll = on => write(LYRICS_AUTO_SCROLL_KEY, ON_OFF, on ? 1 : 0, true)
+
 // The left sidebar (music folders): its width (dragged by its right edge) and
 // the size of its entries (Settings > Appearance).
 const LEFT_WIDTH_KEY = 'lokal-left-sidebar-width'
