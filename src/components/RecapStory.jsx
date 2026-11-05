@@ -30,7 +30,7 @@ import { setResumePosition } from '../cast/useCastPlayback'
 import { plural } from '../plural'
 import { translate, useTranslation } from '../i18n'
 import { periodTitle } from '../recapPeriods'
-import { daysText, filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
+import { daysText, filteredGenres, fmtDate, fmtHour, fmtMinutes, hasRecapArtist, sessionDescription, sessionLabel, trackArt } from '../recapText'
 import { coversOf, openShareCard, trackArtSource } from '../shareCard'
 import { useAppearanceSettings, useAppearanceText, useStoriesBackground, useStoriesCardVisuals } from '../appearanceFlags'
 import SlideScene from './SlideScene'
@@ -51,7 +51,7 @@ const CARD_WIDTH = `calc(${CARD_HEIGHT} * 9 / 16)`
 const COLOR_BACKDROP = 'radial-gradient(60% 55% at 15% 20%, rgb(var(--accent-rgb) / 0.75), transparent 70%), radial-gradient(55% 50% at 85% 25%, rgb(236 72 153 / 0.6), transparent 70%), radial-gradient(70% 60% at 50% 95%, rgb(56 189 248 / 0.55), transparent 70%), linear-gradient(160deg, #1e1b4b, #0f172a)'
 
 /** "11 pm": short enough for a headline. */
-function shortHour(hour) {
+export function shortHour(hour) {
   const n = Number(hour)
   // {hour24}: a 24-hour clock for the languages that use one.
   return translate('{hour} {suffix}', { hour: n % 12 || 12, suffix: n < 12 ? 'am' : 'pm', hour24: n })
@@ -66,7 +66,7 @@ const DAYPARTS = [
 ]
 
 /** Plays in each part of the day (from the 24 hours), and the part with the most. */
-function dayparts(hours) {
+export function dayparts(hours) {
   const parts = DAYPARTS.map(part => {
     let plays = 0
     for (let hour = part.from; hour !== part.to; hour = (hour + 1) % 24) plays += Number(hours?.[hour]) || 0
@@ -79,8 +79,10 @@ function dayparts(hours) {
 /** Minutes from seconds, as the slides write them ("12 min", "1h 4m"). */
 const secondsText = (seconds) => fmtMinutes(Math.round((Number(seconds) || 0) / 60))
 
-/** A track's genres, lower case, as the backend splits them (electron/ipc/recaps.js). */
-const trackGenres = (track) => String(track?.genres || track?.genre || '').split(/[\\/;,|]/).map(part => part.trim().toLowerCase()).filter(Boolean)
+/** A genre as the backend compares them (electron/genreList.js genreKey): any case, any spacing. */
+const genreKey = (name) => String(name || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase()
+/** A track's genres, as the backend counts them: its main genre and its genre list together. */
+const trackGenres = (track) => [track?.genre, track?.genres].filter(Boolean).join(',').split(/[\\/;,|]/).map(genreKey).filter(Boolean)
 
 /** A headline without its full stop (names read better bare); an ellipsis stays. */
 const bare = (text) => String(text || '').replace(/(^|[^.])\.$/, '$1')
@@ -99,30 +101,34 @@ function buildSlides(recap, period, libraryOf = {}) {
   const topArtists = recap?.topArtists || []
   const topTracks = recap?.topTracks || []
   const topTrack = topTracks[0]
-  // The nth top track, else the top one.
-  const nth = (n) => topTracks[n - 1] || topTrack
+  // What the slides play: the top tracks whose file is still there (a gone one is counted, never played).
+  const playable = topTracks.filter(track => !track.gone)
+  const first = playable[0]
+  // The nth playable top track, else the first one.
+  const nth = (n) => playable[n - 1] || first
   // Songs already given to a slide (and #3, kept for the last ones).
   const used = new Set([nth(1)?.id, nth(2)?.id, nth(3)?.id].filter(Boolean))
   const fresh = (candidates, fallback) => {
-    const track = candidates.find(item => item?.id && !used.has(item.id)) || fallback || topTrack
+    const track = candidates.find(item => item?.id && !item.gone && !used.has(item.id)) || fallback || first
     if (track?.id) used.add(track.id)
     return track
   }
   // An artist's songs: their most played in the recap first, then the rest of their library.
-  const artistSongs = (name) => [...topTracks.filter(track => track.artist === name), ...(libraryOf[name] || [])]
+  const artistSongs = (name) => [...playable.filter(track => hasRecapArtist(track, name)), ...(libraryOf[name] || [])]
   const slides = [{
     key: 'overview',
     // The period is over the card already.
     eyebrow: translate('in all, you listened to'),
     title: translate('{time} of music.', { time: fmtMinutes(recap?.totalMinutes || 0) }),
-    track: topTrack,
+    track: first,
   }]
   if (topTrack) slides.push({
     key: 'track',
     eyebrow: translate('your #1 track'),
     title: String(topTrack.title || ''),
     body: String(topTrack.artist || ''),
-    track: topTrack,
+    // The #1 itself when its file is there.
+    track: topTrack.gone ? first : topTrack,
   })
   if (topTracks.length > 1) slides.push({
     key: 'tracks',
@@ -156,7 +162,7 @@ function buildSlides(recap, period, libraryOf = {}) {
     title: translate('out of every genre, {genre} won.', { genre: topGenres[0].genre }),
     body: translate('your top genres:'),
     genres: topGenres.slice(0, 5),
-    track: fresh([...topGenres.slice(0, 5).flatMap(genre => topTracks.filter(track => trackGenres(track).includes(genre.genre.toLowerCase()))), ...topTracks], nth(4)),
+    track: fresh([...topGenres.slice(0, 5).flatMap(genre => playable.filter(track => trackGenres(track).includes(genreKey(genre.genre)))), ...playable], nth(4)),
   })
   const stations = recap?.topStations || []
   if (stations.length) slides.push({
@@ -219,7 +225,7 @@ function slideShareSpec(slide, recap, period, number, total) {
               ? { title: 'Top artists', items: topArtists.slice(0, 5).map(artist => [artist.artist, secondsText(artist.seconds)]) }
               : { title: 'Top tracks', items: topTracks.slice(0, 5).map(track => [track.title, track.artist]) }
   const art = slide.key === 'track' ? coversOf([slide.track], 1)
-    : slide.key === 'artist' ? coversOf(topTracks.filter(track => track.artist === topArtists[0]?.artist), 1)
+    : slide.key === 'artist' ? coversOf(topTracks.filter(track => hasRecapArtist(track, topArtists[0]?.artist)), 1)
       : slide.key === 'added' ? coversOf(slide.added, 4)
         : coversOf(topTracks, 4)
   return {
@@ -794,7 +800,7 @@ function SlideVisual({ slide, recap, topTracks }) {
     return (
       <div className="space-y-[2.2cqw]">
         {slide.artists.map((artist, i) => (
-          <RankRow key={artist.artist} rank={i + 1} art={trackArt(topTracks.find(item => item.artist === artist.artist))}
+          <RankRow key={artist.artist} rank={i + 1} art={trackArt(topTracks.find(item => hasRecapArtist(item, artist.artist)))}
             name={artist.artist} sub={artist.seconds ? secondsText(artist.seconds) : plural(artist.plays, 'play')} />
         ))}
       </div>

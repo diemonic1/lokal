@@ -747,4 +747,9 @@ export default {
   'Length': 'Длительность',
   'Date': 'Дата',
   '{n} different artists listened to in all.': 'всего прослушано исполнителей: {n}.',
+  // The Recap page's share card: the whole recap in one picture (shareCard.js renderRecapSummary).
+  'of music': 'музыки',
+  '(plays)': '(прослушиваний)',
+  '{time} together': '{time} вместе',
+  'mostly from {from} to {to}, favorite hour {hour}': 'чаще всего с {from} до {to}, любимый час — {hour}',
 }

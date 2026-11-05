@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy, ScanSearch, Maximize2, Minimize2, TextCursorInput } from 'lucide-react'
+import { X, Camera, Save, RefreshCw, Check, AlertCircle, Search, ImagePlus, Download, Copy, ScanSearch, Maximize2, Minimize2, TextCursorInput, Music } from 'lucide-react'
 import { api } from '../api'
 import Modal from './Modal'
 import GenreChips from './GenreChips'
@@ -104,6 +104,52 @@ function stampOf(seconds, digits = 3) {
   const m = Math.floor(n / (60 * unit))
   const s = Math.floor((n % (60 * unit)) / unit)
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(n % unit).padStart(digits, '0')}`
+}
+
+// What the lyrics tag says for a song without words: the app reads exactly this
+// as "instrumental" (electron/lyrics/fileLyrics.js lyricsKind).
+const INSTRUMENTAL_TEXT = 'Instrumental track without lyrics'
+
+/**
+ * A note button by "Insert time": after a confirmation in a small pop-up, the
+ * lyrics tag's text becomes "Instrumental track without lyrics" (everything
+ * there before is replaced). Only the field changes; Save writes it.
+ */
+function InstrumentalButton({ onConfirm }) {
+  const { t } = useTranslation()
+  const [asking, setAsking] = useState(false)
+  const boxRef = useRef(null)
+  useEffect(() => {
+    if (!asking) return undefined
+    const away = (e) => { if (!boxRef.current?.contains(e.target)) setAsking(false) }
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setAsking(false) } }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', key, true)
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', key, true) }
+  }, [asking])
+  return (
+    <div ref={boxRef} className="relative">
+      <button type="button" onClick={() => setAsking(value => !value)} aria-expanded={asking}
+        title={t('Mark the track as instrumental')} aria-label={t('Mark the track as instrumental')}
+        className={`${TOOL} w-7 justify-center px-0 ${asking ? 'border-accent/50 text-white' : ''}`}>
+        <Music size={19} />
+      </button>
+      {asking && (
+        <div role="dialog" className="absolute left-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-border bg-elevated p-3 shadow-2xl">
+          <p className="text-[12px] leading-snug text-white/85">
+            {t('All the text in the lyrics tag will be replaced with "{text}".', { text: INSTRUMENTAL_TEXT })}
+          </p>
+          <div className="mt-3 flex justify-end gap-1.5">
+            <button type="button" onClick={() => setAsking(false)} className={TOOL}>{t('Cancel')}</button>
+            <button type="button" onClick={() => { setAsking(false); onConfirm(INSTRUMENTAL_TEXT) }}
+              className="flex h-7 items-center whitespace-nowrap rounded-lg bg-accent px-2.5 text-[12px] font-medium text-base hover:bg-accent-dim">
+              {t('Replace')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -616,7 +662,7 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   <button type="button" onClick={() => setWide(!wide)} aria-pressed={wide}
                     title={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')} aria-label={wide ? t('Show the tags beside the lyrics') : t('Lyrics across the whole window')}
                     className={`${TOOL} w-7 justify-center px-0`}>
-                    {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                    {wide ? <Minimize2 size={19} /> : <Maximize2 size={19} />}
                   </button>
                   {lyrics.state === 'ready' && (
                     <button type="button" onClick={() => checkLyrics()} disabled={checking}
@@ -628,6 +674,10 @@ export default function TrackEditModal({ track, open, onClose, onSave }) {
                   )}
                   <PlayheadStamp trackId={track?.id} digits={lyrics.mode === 'syllable' ? 3 : 2}
                     onInsert={lyrics.state === 'ready' ? insertStamp : undefined} />
+                  {/* The lyrics tag's text only (shown in its tab); nothing is saved until Save. */}
+                  {lyrics.state === 'ready' && (
+                    <InstrumentalButton onConfirm={(text) => setLyrics(prev => ({ ...prev, text, mode: 'plain' }))} />
+                  )}
                 </div>
                 {/* Both tabs always: syllables can be added to a song that has none. */}
                 {lyrics.state === 'ready' && (

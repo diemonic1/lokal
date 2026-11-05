@@ -1,4 +1,6 @@
 const { getDB } = require('./db')
+const artistSplit = require('../artistSplit')
+const genreList = require('../genreList')
 
 const QUALIFIED_SECONDS = 30
 const SESSION_GAP_SECONDS = 30 * 60
@@ -18,6 +20,23 @@ function countedTracks(sources) {
   if (sources === 'library') return LIBRARY_TRACKS
   if (sources === 'streamed') return STREAMED_TRACKS
   return COUNTED_TRACKS
+}
+
+/**
+ * Plays of files no longer in the library (electron/listeningHistory.js keeps the song as the
+ * history line names it, in history_gone_tracks): library plays, so in every recap but the
+ * streamed-only one. Shaped like the recap's rows; `missing`, so the song lists offer to find
+ * the file instead of playing it. `minSeconds`: only plays this long.
+ */
+function goneRows(db, userId, from, to, sources, minSeconds = 0) {
+  if (sources === 'streamed') return []
+  try {
+    return db.prepare(`
+      SELECT g.*, -ph.id AS history_id, ph.played_at, COALESCE(ph.seconds_played, 0) AS seconds_played, ph.session_id
+      FROM history_gone_plays ph JOIN history_gone_tracks g ON g.id = ph.track_id
+      WHERE ph.user_id = ? AND ph.played_at BETWEEN ? AND ? AND COALESCE(ph.seconds_played, 0) >= ?
+    `).all(userId, from, to, minSeconds).map(row => ({ ...row, missing: 1, gone: 1 }))
+  } catch { return [] }
 }
 
 function toUnix(value, fallback = null) {
@@ -246,12 +265,97 @@ function recordListeningEvent(db, payload = {}) {
   return sessionId
 }
 
+/**
+ * A play's genres, as the Genres tab reads them (electron/genreList.js): its
+ * main genre and its genre list together, each "Rock / Pop; Indie" part a
+ * genre of its own, once each whatever the case; "Music" isn't one.
+ */
 function splitGenres(track) {
-  const SEPARATORS = /[\\/;,|]/
-  return String(track?.genres || track?.genre || '')
-    .split(SEPARATORS)
-    .map(part => part.trim())
-    .filter(genre => genre && !FALLBACK_GENRES.has(genre.toLowerCase()))
+  return genreList.trackGenres(track).filter(genre => !FALLBACK_GENRES.has(genreList.genreKey(genre)))
+}
+
+/**
+ * How a recap reads its artists (`rows`: the plays it counts): a credit of
+ * several artists ("A & B", "A feat. B") counts for each of them, unless none
+ * of them is ever credited without the others (not in these plays, nor in the
+ * library): then they're one name, "A, B". Returns credit -> names.
+ */
+function recapArtistReader(db, rows = []) {
+  let keepComma
+  try {
+    artistSplit.applySplitWordsFrom(db)
+    keepComma = artistSplit.keepCommaSet(artistSplit.readKeepCommaList(db))
+  } catch { keepComma = artistSplit.keepCommaSet() }
+  const splits = new Map()
+  const split = (raw) => {
+    const key = String(raw || '')
+    if (!splits.has(key)) splits.set(key, artistSplit.splitArtists(key, keepComma))
+    return splits.get(key)
+  }
+  const groupOf = (names) => names.map(name => name.toLowerCase()).sort().join('\u0000')
+  // The groups each artist (lower case) is credited in, in these plays.
+  const seenIn = new Map()
+  for (const row of rows) {
+    const names = split(row.artist)
+    const group = groupOf(names)
+    for (const name of names) {
+      const lower = name.toLowerCase()
+      if (!seenIn.has(lower)) seenIn.set(lower, new Set())
+      seenIn.get(lower).add(group)
+    }
+  }
+  let linked = null
+  try {
+    linked = db.prepare(`
+      SELECT DISTINCT t.artist FROM artist_track_links l
+      JOIN artists a ON a.id = l.artist_id JOIN tracks t ON t.id = l.track_id
+      WHERE LOWER(a.name) = LOWER(?)
+    `)
+  } catch {}
+  const creditedAlone = (name, group) => {
+    if ([...(seenIn.get(name.toLowerCase()) || [])].some(other => other !== group)) return true
+    try { return !!linked && linked.all(name).some(row => row.artist && groupOf(split(row.artist)) !== group) } catch { return false }
+  }
+  const read = new Map()
+  return (raw) => {
+    const key = String(raw || '')
+    if (read.has(key)) return read.get(key)
+    const names = split(key)
+    const group = groupOf(names)
+    const out = names.length > 1 && !names.some(name => creditedAlone(name, group)) ? [names.join(', ')] : names
+    read.set(key, out)
+    return out
+  }
+}
+
+/**
+ * Plays and time per name (an artist, a genre), whatever case each play
+ * writes it in (the first spelling is shown). `keyName`: what the name is
+ * called in the result; `byTime`: ranked by the time listened (artists),
+ * else by plays (genres, shown as plays).
+ */
+function nameCounter(keyName = 'artist', byTime = true) {
+  const byKey = new Map()
+  return {
+    add(names, seconds) {
+      for (const name of names) {
+        const key = genreList.genreKey(name)
+        if (!key) continue
+        const entry = byKey.get(key) || { [keyName]: name, plays: 0, seconds: 0 }
+        entry.plays += 1
+        entry.seconds += Number(seconds || 0)
+        byKey.set(key, entry)
+      }
+    },
+    get size() { return byKey.size },
+    // The most time (or plays) first, then the other one; the same again: by name (always the same order).
+    top(limit) {
+      const [first, second] = byTime ? ['seconds', 'plays'] : ['plays', 'seconds']
+      return [...byKey.values()]
+        .sort((left, right) => right[first] - left[first] || right[second] - left[second] || String(left[keyName]).localeCompare(String(right[keyName])))
+        .slice(0, limit)
+    },
+  }
 }
 
 function incrementMap(map, key, amount = 1) {
@@ -287,7 +391,7 @@ function labelSession(session) {
   return 'Listening session'
 }
 
-function buildSessions(rows) {
+function buildSessions(rows, artistsOf) {
   const sessions = []
   let current = null
   for (const row of rows) {
@@ -301,16 +405,17 @@ function buildSessions(rows) {
     current.lastPlayedAt = playedAt
   }
   return sessions.map((session, index) => {
-    const artistMap = new Map()
-    const genreMap = new Map()
+    const artists = nameCounter()
+    const genres = nameCounter('genre', false)
     const albumMap = new Map()
     const tracks = []
     const seen = new Set()
     for (const row of session.rows) {
-      incrementMap(artistMap, row.artist)
+      artists.add(artistsOf(row.artist), row.seconds_played)
       incrementMap(albumMap, row.album)
-      for (const genre of splitGenres(row)) incrementMap(genreMap, genre)
-      if (!seen.has(row.id)) {
+      genres.add(splitGenres(row), row.seconds_played)
+      // Its songs to play again: not the ones whose file is gone (they're still counted).
+      if (!seen.has(row.id) && !row.gone) {
         tracks.push(row)
         seen.add(row.id)
       }
@@ -332,8 +437,8 @@ function buildSessions(rows) {
       qualifiedCount: session.rows.filter(row => Number(row.seconds_played || 0) >= QUALIFIED_SECONDS).length,
       skippedCount: session.rows.filter(row => Number(row.seconds_played || 0) < QUALIFIED_SECONDS).length,
       totalSeconds: session.rows.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0),
-      topArtists: topFromMap(artistMap, 'artist', 5),
-      topGenres: topFromMap(genreMap, 'genre', 5),
+      topArtists: artists.top(5).map(({ artist, plays }) => ({ artist, plays })),
+      topGenres: genres.top(5).map(({ genre, plays }) => ({ genre, plays })),
       topAlbums: topFromMap(albumMap, 'album', 5).filter(item => item.album),
       audio,
       tracks: tracks.slice(0, 50),
@@ -342,28 +447,28 @@ function buildSessions(rows) {
   }).sort((left, right) => right.totalSeconds - left.totalSeconds)
 }
 
-function savePreferenceProfile(db, userId, rows) {
-  const genreMap = new Map()
-  const artistMap = new Map()
+function savePreferenceProfile(db, userId, rows, artistsOf) {
+  const genres = nameCounter('genre', false)
+  const artists = nameCounter()
   const hourMap = new Map()
-  const skippedGenres = new Map()
+  const skippedGenres = nameCounter('genre', false)
   const qualified = rows.filter(row => Number(row.seconds_played || 0) >= QUALIFIED_SECONDS)
   for (const row of rows) {
     const hour = new Date(Number(row.played_at || 0) * 1000).getHours()
     incrementMap(hourMap, String(hour), 1)
-    const genres = splitGenres(row)
+    const names = splitGenres(row)
     if (Number(row.seconds_played || 0) >= QUALIFIED_SECONDS) {
-      incrementMap(artistMap, row.artist, 1)
-      for (const genre of genres) incrementMap(genreMap, genre, 1)
+      artists.add(artistsOf(row.artist), row.seconds_played)
+      genres.add(names, row.seconds_played)
     } else {
-      for (const genre of genres) incrementMap(skippedGenres, genre, 1)
+      skippedGenres.add(names, row.seconds_played)
     }
   }
   const profile = {
     updatedAt: Math.floor(Date.now() / 1000),
-    favoriteGenres: topFromMap(genreMap, 'genre', 12),
-    skippedGenres: topFromMap(skippedGenres, 'genre', 12),
-    favoriteArtists: topFromMap(artistMap, 'artist', 12),
+    favoriteGenres: genres.top(12).map(({ genre, plays }) => ({ genre, plays })),
+    skippedGenres: skippedGenres.top(12).map(({ genre, plays }) => ({ genre, plays })),
+    favoriteArtists: artists.top(12).map(({ artist, plays }) => ({ artist, plays })),
     favoriteHours: topFromMap(hourMap, 'hour', 6).map(item => ({ hour: Number(item.hour), plays: item.plays })),
     audio: {
       energy: avg(qualified.map(row => row.energy)),
@@ -398,7 +503,7 @@ function buildRecap(db, userId = 'guest', opts = {}) {
       SELECT COUNT(*) AS n FROM play_history ph JOIN tracks t ON t.id = ph.track_id
       WHERE ph.user_id = ? AND ph.played_at BETWEEN ? AND ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${COUNTED}
     `).get(userId, range.from, range.to, QUALIFIED_SECONDS)
-    return { ...range, userId, totalPlays: n, radioSessions: radioRows(db, userId, range.from, range.to, opts.sources).length }
+    return { ...range, userId, totalPlays: n + goneRows(db, userId, range.from, range.to, opts.sources, QUALIFIED_SECONDS).length, radioSessions: radioRows(db, userId, range.from, range.to, opts.sources).length }
   }
   const rows = db.prepare(`
     SELECT t.*, ph.id as history_id, ph.played_at, COALESCE(ph.seconds_played, 0) as seconds_played, ph.session_id
@@ -409,41 +514,45 @@ function buildRecap(db, userId = 'guest', opts = {}) {
       AND ${COUNTED}
     ORDER BY ph.played_at ASC
   `).all(userId, range.from, range.to)
+    .concat(goneRows(db, userId, range.from, range.to, opts.sources))
+    .sort((left, right) => Number(left.played_at) - Number(right.played_at))
   const qualified = rows.filter(row => Number(row.seconds_played || 0) >= QUALIFIED_SECONDS)
   const trackMap = new Map()
-  const artistMap = new Map()
-  const genreMap = new Map()
+  // Each artist of a play gets it, and its minutes (the story's lists show both).
+  const artistsOf = recapArtistReader(db, qualified)
+  const artists = nameCounter()
+  const genres = nameCounter('genre', false)
   const albumMap = new Map()
   const skippedMap = new Map()
-  // Minutes with each artist, and whose each album is (the story's lists show both).
-  const artistSeconds = new Map()
+  // Whose each album is.
   const albumArtists = new Map()
   for (const row of qualified) {
-    const existing = trackMap.get(row.id) || { ...row, plays: 0, seconds: 0 }
+    // recapArtists: the track's artists as this recap counts them (the Stories find an artist's songs by them).
+    const existing = trackMap.get(row.id) || { ...row, recapArtists: artistsOf(row.artist), plays: 0, seconds: 0 }
     existing.plays += 1
     existing.seconds += Number(row.seconds_played || 0)
     trackMap.set(row.id, existing)
-    incrementMap(artistMap, row.artist)
-    incrementMap(artistSeconds, row.artist, Number(row.seconds_played || 0))
+    artists.add(artistsOf(row.artist), row.seconds_played)
     incrementMap(albumMap, row.album)
     if (row.album && !albumArtists.has(row.album)) albumArtists.set(row.album, row.album_artist || row.artist || '')
-    for (const genre of splitGenres(row)) incrementMap(genreMap, genre)
+    genres.add(splitGenres(row), row.seconds_played)
   }
   for (const row of rows.filter(row => Number(row.seconds_played || 0) < QUALIFIED_SECONDS)) {
     const existing = skippedMap.get(row.id) || { ...row, skips: 0 }
     existing.skips += 1
     skippedMap.set(row.id, existing)
   }
-  const sessions = buildSessions(rows)
+  const sessions = buildSessions(rows, artistsOf)
   const topTracks = [...trackMap.values()].sort((left, right) => right.plays - left.plays || right.seconds - left.seconds).slice(0, 50)
-  const replayQueue = topTracks.slice(0, 50)
+  // What can be played again: not the songs whose file is gone.
+  const replayQueue = topTracks.filter(track => !track.gone).slice(0, 50)
   // Radio counts towards the time listened (and has its own top), never towards plays, tracks or artists.
   const radio = radioRows(db, userId, range.from, range.to, opts.sources)
   const radioSeconds = radio.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0)
   const totalSeconds = qualified.reduce((sum, row) => sum + Number(row.seconds_played || 0), 0) + radioSeconds
   // The listening profile is of all the listening, not of one filter's share.
   const filtered = COUNTED !== COUNTED_TRACKS
-  const preferenceProfile = filtered ? null : savePreferenceProfile(db, userId, rows)
+  const preferenceProfile = filtered ? null : savePreferenceProfile(db, userId, rows, artistsOf)
   // Plays per hour of the day, in the listener's time zone (SQLite's
   // 'localtime' is the server's, which the web version may not share).
   const hourOf = hourInZone(validTimeZone(opts.tz))
@@ -463,13 +572,13 @@ function buildRecap(db, userId = 'guest', opts = {}) {
     totalMinutes: Math.round(totalSeconds / 60),
     radioMinutes: Math.round(radioSeconds / 60),
     topStations: topStations(radio),
-    uniqueArtists: new Set(qualified.map(row => row.artist).filter(Boolean)).size,
+    uniqueArtists: artists.size,
     uniqueAlbums: new Set(qualified.map(row => row.album || row.id).filter(Boolean)).size,
     uniqueTracks: new Set(qualified.map(row => row.id)).size,
     activeDays,
     topTracks,
-    topArtists: topFromMap(artistMap, 'artist', 10).map(item => ({ ...item, seconds: artistSeconds.get(item.artist) || 0 })),
-    topGenres: topFromMap(genreMap, 'genre', 10),
+    topArtists: artists.top(10),
+    topGenres: genres.top(10).map(({ genre, plays }) => ({ genre, plays })),
     topAlbums: topFromMap(albumMap, 'album', 10).filter(item => item.album).map(item => ({ ...item, artist: albumArtists.get(item.album) || '' })),
     skippedTracks: [...skippedMap.values()].sort((left, right) => right.skips - left.skips).slice(0, 10),
     sessions: sessions.slice(0, 12),
@@ -503,7 +612,7 @@ function recapTracks(db, userId = 'guest', opts = {}) {
   const range = resolveRange(opts)
   if (range.error) return { error: range.error }
   const artist = typeof opts.artist === 'string' && opts.artist ? opts.artist : null
-  const genre = typeof opts.genre === 'string' && opts.genre ? opts.genre.toLowerCase() : null
+  const genre = typeof opts.genre === 'string' && opts.genre ? genreList.genreKey(opts.genre) : null
   if (!artist && !genre) return { error: 'An artist or a genre is needed.' }
   const rows = db.prepare(`
     SELECT t.*, ph.played_at, COALESCE(ph.seconds_played, 0) as seconds_played
@@ -511,9 +620,11 @@ function recapTracks(db, userId = 'guest', opts = {}) {
     JOIN tracks t ON t.id = ph.track_id
     WHERE ph.user_id = ? AND ph.played_at BETWEEN ? AND ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${countedTracks(opts.sources)}
   `).all(userId, range.from, range.to, QUALIFIED_SECONDS)
+  // An artist as the recap names them: any of a track's artists, or the group the recap kept together.
+  const artistsOf = artist ? recapArtistReader(db, rows) : null
   const matches = artist
-    ? (row) => row.artist === artist
-    : (row) => splitGenres(row).some(name => name.toLowerCase() === genre)
+    ? (row) => artistsOf(row.artist).some(name => name.toLowerCase() === artist.toLowerCase())
+    : (row) => splitGenres(row).some(name => genreList.genreKey(name) === genre)
   const byTrack = new Map()
   for (const row of rows) {
     if (!matches(row)) continue
@@ -545,6 +656,7 @@ function listeningDays(db, userId = 'guest', opts = {}) {
     FROM play_history ph JOIN tracks t ON t.id = ph.track_id
     WHERE ph.user_id = ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${countedTracks(opts.sources)}
   `).all(userId, QUALIFIED_SECONDS).map(row => row.h)
+  for (const row of goneRows(db, userId, 0, 9e15, opts.sources, QUALIFIED_SECONDS)) hours.push(Math.floor(Number(row.played_at) / 3600))
   // Days with only radio have a recap too.
   for (const row of radioRows(db, userId, 0, 9e15, opts.sources)) hours.push(Math.floor(Number(row.played_at) / 3600))
   const format = new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -574,6 +686,9 @@ function listeningStats(db, userId = 'guest', opts = {}) {
     WHERE ph.user_id = ? AND COALESCE(ph.seconds_played, 0) >= ? AND ${COUNTED_TRACKS}
     ORDER BY ph.played_at
   `).all(userId, QUALIFIED_SECONDS)
+  // Files no longer in the library too: every play of the shared history counts, as on the phone.
+  for (const row of goneRows(db, userId, 0, 9e15, 'all', QUALIFIED_SECONDS)) rows.push({ at: row.played_at, seconds: row.seconds_played })
+  rows.sort((left, right) => Number(left.at) - Number(right.at))
   const radio = radioRows(db, userId, 0, 9e15, 'all')
   const format = new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
   // Every time zone's offset is whole quarters of an hour: one date lookup per quarter.

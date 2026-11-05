@@ -5,6 +5,7 @@ import { api } from '../api'
 import { useAppStore, usePlayerStore } from '../store/player'
 import { useShallow } from 'zustand/react/shallow'
 import { translate, useTranslation } from '../i18n'
+import { hasRecapArtist } from '../recapText'
 
 function fmtMinutes(minutes) {
   if (!minutes) return translate('{n} min', { n: 0 })
@@ -362,7 +363,7 @@ export default function RecapStories({ open, onClose }) {
                           {t('Example')}
                         </p>
                         <div className="mt-6 grid grid-cols-3 gap-3">
-                          {topTracks.filter(track => track.artist === slides[2]?.topArtist?.artist).slice(0, 3).map((track) => (
+                          {topTracks.filter(track => hasRecapArtist(track, slides[2]?.topArtist?.artist)).slice(0, 3).map((track) => (
                             <button
                               key={track.id}
                               onClick={() => playTrack(track, topTracks)}

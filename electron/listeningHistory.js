@@ -47,6 +47,7 @@ const path = require('path')
 const crypto = require('crypto')
 const { getDB, getStorageDir } = require('./ipc/db')
 const scrobbleStatus = require('./scrobbleStatus')
+const artistSplit = require('./artistSplit')
 
 const FOLDER = 'ListeningHistory'
 const DEVICE_TYPE = 'PC'
@@ -187,6 +188,15 @@ function parseLines(text, into, extra) {
 
 const relKey = (rel) => String(rel || '').replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()
 const songKey = (artist, title) => `${String(artist || '').trim().toLowerCase()}\u0000${String(title || '').trim().toLowerCase()}`
+/**
+ * The same song credited another way ("DJ Fresh ft. Rita Ora" / "Rita Ora, DJ Fresh"): the title and
+ * the set of its artists, any order. The phone matches the same way (data/Recaps.kt recapListens).
+ */
+const creditKey = (artist, title, keepComma) => {
+  const names = artistSplit.splitArtists(String(artist || ''), keepComma).map(name => name.trim().toLowerCase()).filter(Boolean).sort()
+  return names.length ? `${String(title || '').trim().toLowerCase()}\u0000${names.join('\u0000')}` : null
+}
+const isFile = (track) => !String(track?.file_path || '').startsWith('ghost://')
 
 /** A file's path relative to the music folder, '/' separated; null outside it or for streamed songs. */
 function relativePath(root, filePath) {
@@ -220,23 +230,43 @@ function rebuild(db, root, files) {
   }
 
   const tracks = db.prepare('SELECT id, file_path, artist, title, duration FROM tracks').all()
+  let keepComma
+  try { artistSplit.applySplitWordsFrom(db); keepComma = artistSplit.keepCommaSet(artistSplit.readKeepCommaList(db)) } catch { keepComma = artistSplit.keepCommaSet() }
   const byId = new Map()
   const byPath = new Map()
   const bySong = new Map()
+  const byCredit = new Map()
+  // A file of the song wins over a streamed copy of it.
+  const keep = (map, key, track) => { if (key && (!map.has(key) || (!isFile(map.get(key)) && isFile(track)))) map.set(key, track) }
   for (const track of tracks) {
     byId.set(track.id, track)
     const rel = relativePath(root, track.file_path)
     if (rel) byPath.set(relKey(rel), track)
-    const key = songKey(track.artist, track.title)
-    // A file of the song wins over a streamed copy of it.
-    if (!bySong.has(key) || (bySong.get(key).file_path.startsWith('ghost://') && !track.file_path.startsWith('ghost://'))) bySong.set(key, track)
+    keep(bySong, songKey(track.artist, track.title), track)
+    keep(byCredit, creditKey(track.artist, track.title, keepComma), track)
   }
-  // The same file first, then the same track id (streamed songs), then the same artist and title (moved or renamed).
-  const match = (entry) => (entry.path && byPath.get(relKey(entry.path))) || (entry.id && byId.get(entry.id)) || bySong.get(songKey(entry.artist, entry.title)) || null
+  // The same file first, then the same track id (streamed songs), then the same artist and title,
+  // then the same title and artists credited another way (moved, renamed or re-tagged). A play of a
+  // file (the line has a path) is only ever matched to a file of the library.
+  const match = (entry) => {
+    const byName = bySong.get(songKey(entry.artist, entry.title)) || byCredit.get(creditKey(entry.artist, entry.title, keepComma))
+    if (entry.path) return byPath.get(relKey(entry.path)) || (byName && isFile(byName) ? byName : null)
+    return (entry.id && byId.get(entry.id)) || byName || null
+  }
+  // A play of a file that isn't in the library any more (deleted, or re-downloaded under other tags)
+  // still counts, as on the phone: as the song the line names (history_gone_tracks), never playable.
+  const gone = new Map()
+  const goneOf = (entry) => {
+    const id = `gone:${relKey(entry.path)}`
+    // The newest line's tags win (entries are in time order).
+    gone.set(id, [id, root ? path.join(root, ...String(entry.path).split('/')) : String(entry.path), entry.title || null, entry.artist || null, entry.album || null, entry.albumArtist || null, entry.genre || null, Number(entry.dur) || null])
+    return id
+  }
 
   entries.sort((a, b) => Number(a.end) - Number(b.end))
   const seen = new Set()
   const rows = []
+  const goneRows = []
   const radioRows = []
   const lastByUser = new Map()
   for (const entry of entries) {
@@ -252,7 +282,8 @@ function rebuild(db, root, files) {
       continue
     }
     const track = match(entry)
-    if (!track) continue
+    const trackId = track ? track.id : (entry.path ? goneOf(entry) : null)
+    if (!trackId) continue
     const user = typeof entry.user === 'string' && entry.user ? entry.user : 'guest'
     // Sessions: plays with less than 30 minutes between them, across devices.
     const last = lastByUser.get(user)
@@ -260,7 +291,8 @@ function rebuild(db, root, files) {
     lastByUser.set(user, { end, session })
     // Only this device's plays carry their key into the database: the scrobble states are this device's.
     const pid = entry._folder === deviceFolderName() && typeof entry.pid === 'string' ? entry.pid : null
-    rows.push([user, track.id, seconds, session, end, labelOf(entry._folder), pid])
+    if (track) rows.push([user, trackId, seconds, session, end, labelOf(entry._folder), pid])
+    else goneRows.push([user, trackId, seconds, session, end, labelOf(entry._folder)])
   }
 
   const counts = new Map()
@@ -273,6 +305,12 @@ function rebuild(db, root, files) {
     db.prepare('DELETE FROM play_history').run()
     const insert = db.prepare('INSERT INTO play_history (user_id, track_id, seconds_played, session_id, played_at, device, pid) VALUES (?, ?, ?, ?, ?, ?, ?)')
     for (const row of rows) insert.run(...row)
+    db.prepare('DELETE FROM history_gone_plays').run()
+    db.prepare('DELETE FROM history_gone_tracks').run()
+    const insertGone = db.prepare('INSERT INTO history_gone_tracks (id, file_path, title, artist, album, album_artist, genre, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    for (const row of gone.values()) insertGone.run(...row)
+    const insertGonePlay = db.prepare('INSERT INTO history_gone_plays (user_id, track_id, seconds_played, session_id, played_at, device) VALUES (?, ?, ?, ?, ?, ?)')
+    for (const row of goneRows) insertGonePlay.run(...row)
     db.prepare('DELETE FROM radio_history').run()
     const insertRadio = db.prepare('INSERT INTO radio_history (user_id, station_id, station_name, station_url, seconds_played, played_at, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
     for (const row of radioRows) insertRadio.run(...row)
@@ -286,7 +324,7 @@ function rebuild(db, root, files) {
       if (current.get(id) !== count) update.run(count, id)
     }
   })()
-  return rows.length + radioRows.length
+  return rows.length + goneRows.length + radioRows.length
 }
 
 function ensureSchema(db) {
@@ -310,6 +348,29 @@ function ensureSchema(db) {
       device TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_rh_user_time ON radio_history(user_id, played_at);
+    -- Plays of files that aren't in the library any more (play_history only holds the library's
+    -- songs), with their song as the history lines name it ('gone:<path>'): counted by the recaps
+    -- and statistics as on the phone, never playable.
+    CREATE TABLE IF NOT EXISTS history_gone_plays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      track_id TEXT NOT NULL,
+      seconds_played INTEGER DEFAULT 0,
+      session_id TEXT,
+      played_at INTEGER NOT NULL,
+      device TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hgp_user_time ON history_gone_plays(user_id, played_at);
+    CREATE TABLE IF NOT EXISTS history_gone_tracks (
+      id TEXT PRIMARY KEY,
+      file_path TEXT,
+      title TEXT,
+      artist TEXT,
+      album TEXT,
+      album_artist TEXT,
+      genre TEXT,
+      duration REAL
+    );
   `)
   if (readSetting(db, 'history_files_version') === SCHEMA_VERSION) return
   // The start of the shared history: what only this PC's database knew is dropped.

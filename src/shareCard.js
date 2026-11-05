@@ -423,6 +423,286 @@ export async function renderStorySlide({ card, cover, period, scenes = [] }) {
   return canvas
 }
 
+/**
+ * A whole recap as one landscape picture (1920 × 1080): what all the Stories
+ * slides say, in four columns of boxes. `summary` comes written out
+ * (pages/Recap.jsx recapSummary); a part the recap has nothing for is null,
+ * and the column's stretching box takes its room.
+ * summary: {
+ *   period, total, stats: [[value, label]] (4),
+ *   track: { title, artist, note, art }, artist: { name, note, time, art },
+ *   tracks: [{ title, artist, art }], artists: [{ name, value, art }],
+ *   genres: [{ name, plays }], when: { title, text, parts: [{ label, plays, top }] },
+ *   radio: { time, items: [[name, time]] }, session: { time, text },
+ *   added: { title, text, art: [] },
+ * }
+ */
+export async function renderRecapSummary(summary) {
+  const RW = 1920
+  const RH = 1080
+  const PAD = 56
+  const HEAD = 112
+  const GAP = 20
+  const COL_H = 900
+  const COL_W = (RW - PAD * 2 - GAP * 3) / 4
+  const BOX_X = 26 // box padding: sides
+  const BOX_Y = 22 // and top / bottom
+  const TALL = 333 // the last box of the outer columns
+  const SHORT = 224 // and of the middle ones
+  const sans = '"DM Sans", system-ui, sans-serif'
+  const mono = '"DM Mono", ui-monospace, monospace'
+  const accent = themeColor('--accent', '#ffd6f0')
+  await Promise.all(['700 68px "DM Sans"', '500 24px "DM Sans"', '400 18px "DM Sans"', '500 20px "DM Mono"', '400 18px "DM Mono"'].map(font => document.fonts?.load(font).catch(() => null)))
+
+  // Every picture once (the same cover can stand for a track and its artist).
+  const sources = new Map()
+  const want = (source) => { const key = source?.path || source?.url; if (key && !sources.has(key)) sources.set(key, source); return key || null }
+  const s = summary
+  const keys = {
+    track: want(s.track?.art), artist: want(s.artist?.art),
+    tracks: (s.tracks || []).map(item => want(item.art)), artists: (s.artists || []).map(item => want(item.art)),
+    added: (s.added?.art || []).map(want),
+  }
+  const [images, logo] = await Promise.all([
+    Promise.all([...sources].map(async ([key, source]) => [key, await loadImage(source)])).then(entries => new Map(entries)),
+    new Promise(resolve => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => resolve(null); i.src = logoURL }),
+  ])
+  const imageOf = key => (key && images.get(key)) || null
+
+  const canvas = document.createElement('canvas')
+  canvas.width = RW
+  canvas.height = RH
+  const ctx = canvas.getContext('2d')
+  ctx.textBaseline = 'alphabetic'
+
+  // Background: near black, lit from the top left by the #1 track's colour.
+  ctx.fillStyle = '#0b0b0d'
+  ctx.fillRect(0, 0, RW, RH)
+  const glowColor = imageOf(keys.track) ? averageColor(imageOf(keys.track)) : null
+  const glow = ctx.createRadialGradient(RW * 0.15, RH * 0.1, 0, RW * 0.15, RH * 0.1, 900)
+  glow.addColorStop(0, glowColor ? glowColor.replace('rgb', 'rgba').replace(')', ', 0.5)') : 'rgba(126, 74, 160, 0.55)')
+  glow.addColorStop(1, 'rgba(11, 11, 13, 0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, RW, RH)
+  const glow2 = ctx.createRadialGradient(RW * 0.95, RH, 0, RW * 0.95, RH, 800)
+  glow2.addColorStop(0, 'rgba(236, 72, 153, 0.14)')
+  glow2.addColorStop(1, 'rgba(11, 11, 13, 0)')
+  ctx.fillStyle = glow2
+  ctx.fillRect(0, 0, RW, RH)
+
+  const text = (value, x, y, font, color, { align = 'left', spacing = 0, width } = {}) => {
+    ctx.font = font
+    ctx.fillStyle = color
+    ctx.textAlign = align
+    ctx.letterSpacing = `${spacing}px`
+    const shown = width ? fit(ctx, value, width) : String(value ?? '')
+    ctx.fillText(shown, x, y)
+    const measured = ctx.measureText(shown).width
+    ctx.letterSpacing = '0px'
+    return measured
+  }
+  const muted = 'rgba(255, 255, 255, 0.55)'
+  const faint = 'rgba(255, 255, 255, 0.5)'
+  const picture = (key, x, y, size, radius, round) => {
+    const image = imageOf(key)
+    ctx.save()
+    if (round) { ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2) } else roundRect(ctx, x, y, size, size, radius)
+    ctx.clip()
+    if (image) cover(ctx, image, x, y, size, size)
+    else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+      ctx.fillRect(x, y, size, size)
+      ctx.fillStyle = accent
+      ctx.globalAlpha = 0.5
+      ctx.font = `600 ${Math.round(size * 0.45)}px ${sans}`
+      ctx.textAlign = 'center'
+      ctx.fillText('♪', x + size / 2, y + size * 0.66)
+      ctx.globalAlpha = 1
+    }
+    ctx.restore()
+  }
+  // A box with its name; returns where its content starts.
+  const box = (x, y, h, label, extra) => {
+    roundRect(ctx, x + 0.5, y + 0.5, COL_W - 1, h - 1, 26)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.055)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    const w = text(String(label).toUpperCase(), x + BOX_X, y + BOX_Y + 18, `500 20px ${mono}`, accent, { spacing: 4, width: COL_W - BOX_X * 2 })
+    if (extra) text(extra, x + BOX_X + w + 4, y + BOX_Y + 18, `500 20px ${mono}`, 'rgba(255, 255, 255, 0.45)', { spacing: 2, width: COL_W - BOX_X * 2 - w - 4 })
+    return y + BOX_Y + 20 + 14
+  }
+  const inner = COL_W - BOX_X * 2
+
+  // Header: the cat and the app, the period on the right.
+  let nameX = PAD
+  if (logo) {
+    const h = 64
+    const w = h * logo.width / logo.height
+    ctx.drawImage(logo, PAD, HEAD / 2 - h / 2, w, h)
+    nameX = PAD + w + 18
+  }
+  text('LOKAL', nameX, HEAD / 2 + 12, `500 34px ${mono}`, '#ffffff', { spacing: 7 })
+  ctx.font = `500 24px ${mono}`
+  ctx.letterSpacing = '4px'
+  const periodText = String(s.period || '').toUpperCase()
+  const periodW = ctx.measureText(periodText).width
+  ctx.letterSpacing = '0px'
+  text(periodText, RW - PAD, HEAD / 2 + 9, `500 24px ${mono}`, '#ffffff', { align: 'right', spacing: 4 })
+  text(`${translate('Recap').toUpperCase()} · `, RW - PAD - periodW, HEAD / 2 + 9, `400 24px ${mono}`, 'rgba(255, 255, 255, 0.6)', { align: 'right', spacing: 4 })
+
+  // The boxes, column by column: [height | 'grow', draw(x, y, h)].
+  const featureBox = (label, key, round, title, line1, line2) => (x, y, h) => {
+    const top = box(x, y, h, label)
+    picture(key, x + BOX_X, top, 112, 18, round)
+    const tx = x + BOX_X + 112 + 20
+    const tw = inner - 112 - 20
+    // The name as big as fits on one line (34 px down to 26), else on two at 26 px (the second cut).
+    let size = 34
+    let titleLines = [title]
+    for (; size > 26; size -= 2) {
+      ctx.font = `600 ${size}px ${sans}`
+      if (ctx.measureText(String(title || '')).width <= tw) break
+    }
+    ctx.font = `600 ${size}px ${sans}`
+    if (ctx.measureText(String(title || '')).width > tw) titleLines = wrap(ctx, title, tw, 2)
+    const titleH = size * 1.15
+    // The lines together, centred on the picture.
+    const blockH = titleH * titleLines.length + 32 + (line2 ? 32 : 0)
+    let ty = top + 56 - blockH / 2
+    for (const line of titleLines) { ty += titleH; text(line, tx, ty - size * 0.25, `600 ${size}px ${sans}`, '#ffffff', { width: tw }) }
+    ty += 32
+    text(line1, tx, ty - 6, `400 22px ${sans}`, muted, { width: tw })
+    if (line2) { ty += 32; text(line2, tx, ty - 6, `500 20px ${mono}`, accent, { width: tw }) }
+  }
+  const rankBox = (label, rows, { round, compact, extra } = {}) => (x, y, h) => {
+    const top = box(x, y, h, label, extra)
+    const rowH = compact ? 46 : 60
+    rows.forEach((row, i) => {
+      const cy = top + rowH * i + rowH / 2
+      text(String(i + 1).padStart(2, '0'), x + BOX_X, cy + 8, `500 22px ${mono}`, accent)
+      let tx = x + BOX_X + 48
+      if (row.art !== undefined) { picture(row.art, tx, cy - 25, 50, 9, round); tx += 50 + 16 }
+      let right = x + COL_W - BOX_X
+      if (row.value) right -= text(row.value, right, cy + 7, `400 18px ${mono}`, muted, { align: 'right' }) + 14
+      const tw = right - tx
+      if (row.sub) {
+        text(row.main, tx, cy - 2, `500 24px ${sans}`, '#ffffff', { width: tw })
+        text(row.sub, tx, cy + 22, `400 18px ${sans}`, faint, { width: tw })
+      } else text(row.main, tx, cy + 8, `500 24px ${sans}`, '#ffffff', { width: tw })
+    })
+  }
+  // Wrapped lines of `value`; returns the y under them.
+  const lines = (value, x, y, font, color, max, lineH) => {
+    ctx.font = font
+    for (const line of wrap(ctx, value, inner, max)) { text(line, x, y, font, color); y += lineH }
+    return y
+  }
+
+  const col1 = [
+    ['grow', (x, y, h) => {
+      const top = box(x, y, h, translate('in all, you listened to'))
+      text(s.total, x + BOX_X, top + 62, `700 68px ${sans}`, '#ffffff', { spacing: -2, width: inner })
+      text(translate('of music'), x + BOX_X, top + 112, `500 40px ${sans}`, 'rgba(255, 255, 255, 0.6)', { width: inner })
+      // The four numbers, two by two, at the box's foot.
+      const cellH = 100
+      const gridTop = y + h - BOX_Y - cellH * 2
+      ;(s.stats || []).slice(0, 4).forEach(([value, label], i) => {
+        const cx = x + BOX_X + (i % 2) * (inner / 2)
+        const cy = gridTop + Math.floor(i / 2) * cellH
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+        ctx.fillRect(cx, cy, inner / 2, 1)
+        if (i % 2) ctx.fillRect(cx, cy, 1, cellH)
+        const lx = cx + (i % 2 ? 20 : 0)
+        text(value, lx, cy + 58, `500 42px ${mono}`, accent, { width: inner / 2 - 24 })
+        text(String(label).toUpperCase(), lx, cy + 86, `400 16px ${mono}`, faint, { spacing: 3, width: inner / 2 - 24 })
+      })
+    }],
+    s.added && [TALL, (x, y, h) => {
+      const top = box(x, y, h, translate('new in your library'))
+      text(s.added.title, x + BOX_X, top + 40, `700 44px ${sans}`, '#ffffff', { width: inner })
+      lines(s.added.text, x + BOX_X, top + 76, `400 21px ${sans}`, muted, 2, 28)
+      const art = keys.added.slice(0, 4)
+      if (art.length) {
+        const size = (inner - 12 * 3) / 4
+        art.forEach((key, i) => picture(key, x + BOX_X + i * (size + 12), y + h - BOX_Y - size, size, 14))
+      }
+    }],
+  ]
+  const col2 = [
+    s.track && [198, featureBox(translate('your #1 track'), keys.track, false, s.track.title, s.track.artist, s.track.note)],
+    s.tracks?.length && ['grow', rankBox(translate('top tracks'), s.tracks.map((item, i) => ({ main: item.title, sub: item.artist, art: keys.tracks[i] })))],
+    s.session && [SHORT, (x, y, h) => {
+      const top = box(x, y, h, translate('the longest session'))
+      text(s.session.time, x + BOX_X, top + 40, `700 44px ${sans}`, '#ffffff', { width: inner })
+      lines(s.session.text, x + BOX_X, top + 78, `400 21px ${sans}`, muted, 3, 28)
+    }],
+  ]
+  const col3 = [
+    s.artist && [198, featureBox(translate('top artist'), keys.artist, true, s.artist.name, s.artist.note, s.artist.time)],
+    s.artists?.length && ['grow', rankBox(translate('top artists'), s.artists.map((item, i) => ({ main: item.name, value: item.value, art: keys.artists[i] })), { round: true })],
+    s.radio && [SHORT, rankBox(translate('on the radio'), s.radio.items.slice(0, 3).map(([main, value]) => ({ main, value })), { compact: true, extra: `· ${s.radio.time}` })],
+  ]
+  const col4 = [
+    s.genres?.length && ['grow', (x, y, h) => {
+      const top = box(x, y, h, translate('Genres'), translate('(plays)'))
+      const max = Math.max(...s.genres.map(item => Number(item.plays) || 0), 1)
+      s.genres.forEach((item, i) => {
+        const ry = top + i * 65
+        const vw = text(Number(item.plays || 0).toLocaleString(), x + COL_W - BOX_X, ry + 22, `400 18px ${mono}`, muted, { align: 'right' })
+        text(item.name, x + BOX_X, ry + 22, `500 23px ${sans}`, '#ffffff', { width: inner - vw - 12 })
+        roundRect(ctx, x + BOX_X, ry + 34, inner, 9, 4.5)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+        ctx.fill()
+        roundRect(ctx, x + BOX_X, ry + 34, Math.max(9, inner * (Number(item.plays) || 0) / max), 9, 4.5)
+        ctx.fillStyle = accent
+        ctx.fill()
+      })
+    }],
+    s.when && [TALL, (x, y, h) => {
+      const top = box(x, y, h, translate('when you listen'))
+      text(s.when.title, x + BOX_X, top + 40, `700 44px ${sans}`, '#ffffff', { width: inner })
+      lines(s.when.text, x + BOX_X, top + 76, `400 21px ${sans}`, muted, 2, 28)
+      // Four bars, the busiest part of the day lit, their names under them.
+      const parts = s.when.parts || []
+      const max = Math.max(...parts.map(part => part.plays), 1)
+      const barW = (inner - 10 * 3) / 4
+      const base = y + h - BOX_Y - 28
+      parts.forEach((part, i) => {
+        const bx = x + BOX_X + i * (barW + 10)
+        const bh = Math.max(8, 92 * part.plays / max)
+        ctx.save()
+        ctx.beginPath()
+        ctx.roundRect ? ctx.roundRect(bx, base - bh, barW, bh, [10, 10, 4, 4]) : roundRect(ctx, bx, base - bh, barW, bh, 4)
+        ctx.fillStyle = part.top ? accent : 'rgba(255, 255, 255, 0.14)'
+        ctx.fill()
+        ctx.restore()
+        text(String(part.label).toUpperCase(), bx + barW / 2, base + 24, `400 15px ${mono}`, 'rgba(255, 255, 255, 0.6)', { align: 'center', spacing: 1, width: barW })
+      })
+    }],
+  ]
+
+  ;[col1, col2, col3, col4].forEach((column, i) => {
+    const items = column.filter(Boolean)
+    if (!items.length) return
+    const fixed = items.reduce((sum, [h]) => sum + (h === 'grow' ? 0 : h), 0) + GAP * (items.length - 1)
+    const growing = items.filter(([h]) => h === 'grow').length
+    // No stretching box (its part is missing): the first one stretches instead.
+    const spare = COL_H - fixed
+    const x = PAD + i * (COL_W + GAP)
+    let y = HEAD
+    items.forEach(([h, draw], n) => {
+      const height = h === 'grow' ? spare / growing : (!growing && n === 0 ? h + spare : h)
+      draw(x, y, height)
+      y += height + GAP
+    })
+  })
+
+  text(translate('Made with Lokal').toUpperCase(), RW / 2, RH - 26, `400 18px ${mono}`, 'rgba(255, 255, 255, 0.35)', { align: 'center', spacing: 3 })
+  return canvas
+}
+
 /** Open the share card dialog for `spec`. */
 export function openShareCard(spec) {
   window.dispatchEvent(new CustomEvent('lokal:share-card', { detail: spec }))

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { BarChart3, CalendarRange, ChevronDown, Clock3, Disc3, ListMusic, Play, Radio, RefreshCw, Sparkles, Share2 } from 'lucide-react'
 import { api } from '../api'
-import { useTranslation } from '../i18n'
+import { translate, useTranslation } from '../i18n'
 import { useCachedState, usePageReady } from '../pageCache'
 import { useAppStore, usePlayerStore } from '../store/player'
 import { useRadioStore } from '../store/radio'
@@ -12,10 +12,10 @@ import TrackList from '../components/TrackList'
 import FadeImg from '../components/FadeImg'
 import { featuredPeriods, latestPeriod, listenerTimeZone, nextPeriodBoundary, periodLabel, periodName, periodPlace, periodQuery, periodTitle, recapPlaylistName, recapTree, treePeriods, markRecapOpened, unopenedRecap } from '../recapPeriods'
 import { plural } from '../plural'
-import { filteredGenres, fmtDate, fmtHour, fmtMinutes, sessionDescription, sessionLabel, trackArt } from '../recapText'
-import RecapStory from '../components/RecapStory'
+import { filteredGenres, fmtDate, fmtHour, fmtMinutes, hasRecapArtist, sessionDescription, sessionLabel, trackArt } from '../recapText'
+import RecapStory, { dayparts, shortHour } from '../components/RecapStory'
 import { showToast } from '../components/Toaster'
-import { openShareCard, coversOf } from '../shareCard'
+import { openShareCard, coversOf, trackArtSource } from '../shareCard'
 
 
 /** Nothing to show: no plays and no time on the radio. */
@@ -253,6 +253,54 @@ function FeaturedButton({ kind, period, active, onClick, onPrefetch }) {
 }
 
 // Remounted per user, so one user's cached recap never shows for another.
+/** A headline without its full stop (as the Stories write it). */
+const bare = (text) => String(text || '').replace(/(^|[^.])\.$/, '$1')
+
+/**
+ * Everything a recap's Stories say, written out for the landscape share card
+ * (shareCard.js renderRecapSummary). A part with nothing in it is null.
+ */
+function recapSummary(recap, period) {
+  const t = translate
+  const topTracks = recap.topTracks || []
+  const topArtists = recap.topArtists || []
+  // An artist's picture: the cover of their most played track.
+  const artistArt = (name) => trackArtSource(topTracks.find(track => hasRecapArtist(track, name) && trackArtSource(track)))
+  const secondsText = (seconds) => fmtMinutes(Math.round((Number(seconds) || 0) / 60))
+  const [topTrack] = topTracks
+  const [topArtist] = topArtists
+  const parts = dayparts(recap.hours)
+  const session = recap.longestSession
+  const stations = recap.topStations || []
+  return {
+    period,
+    total: fmtMinutes(recap.totalMinutes || 0),
+    // Plays (each listen of 30 s or more) and tracks (different songs), as the page shows them.
+    stats: [
+      [(recap.totalPlays || 0).toLocaleString(), t('Plays')],
+      [(recap.uniqueTracks || 0).toLocaleString(), t('Tracks')],
+      [(recap.uniqueArtists || 0).toLocaleString(), t('Artists')],
+      [recap.peakHour?.plays ? shortHour(recap.peakHour.hour) : '—', t('Peak Hour')],
+    ],
+    track: topTrack ? { title: topTrack.title, artist: topTrack.artist, note: topTrack.plays ? plural(topTrack.plays, 'play') : '', art: trackArtSource(topTrack) } : null,
+    artist: topArtist ? { name: topArtist.artist, note: plural(topArtist.plays, 'play'), time: t('{time} together', { time: secondsText(topArtist.seconds) }), art: artistArt(topArtist.artist) } : null,
+    tracks: topTracks.slice(0, 5).map(track => ({ title: track.title, artist: track.artist, art: trackArtSource(track) })),
+    artists: topArtists.slice(0, 5).map(item => ({ name: item.artist, value: secondsText(item.seconds), art: artistArt(item.artist) })),
+    genres: filteredGenres(recap.topGenres || []).slice(0, 5).map(item => ({ name: item.genre, plays: item.plays })),
+    when: recap.peakHour?.plays && parts.top ? {
+      title: bare(t(`${parts.top.persona}.`)),
+      text: t('mostly from {from} to {to}, favorite hour {hour}', { from: shortHour(parts.top.from), to: shortHour(parts.top.to), hour: shortHour(recap.peakHour.hour) }),
+      parts: parts.parts.map(part => ({ label: t(part.label), plays: part.plays, top: part.key === parts.top.key })),
+    } : null,
+    radio: stations.length ? { time: fmtMinutes(recap.radioMinutes || 0), items: stations.slice(0, 3).map(item => [item.station, secondsText(item.seconds)]) } : null,
+    session: session?.tracks?.length ? {
+      time: fmtMinutes(session.durationMinutes),
+      text: [sessionLabel(session), fmtDate(session.start), plural(session.trackCount || session.tracks.length, 'track')].filter(Boolean).join(' · '),
+    } : null,
+    added: recap.addedCount > 0 ? { title: `+${plural(recap.addedCount, 'track')}`, text: bare(t('fresh finds for the collection.')), art: coversOf(recap.addedTracks || [], 4) } : null,
+  }
+}
+
 export default function Recap() {
   const { user } = useAppStore()
   return <RecapContent key={user?.id || 'guest'} user={user} />
@@ -520,20 +568,14 @@ function RecapContent({ user }) {
   const heroTrack = topTracks[0]
   const heroArt = trackArt(heroTrack)
 
-  // The share card: the period's top covers, its numbers and top artists.
+  // The share card: the whole recap, everything its Stories say, as one landscape picture.
   const shownTitle = shownPeriod ? periodTitle(shownPeriod) : ''
   const shareRecap = () => {
     if (!recap) return
     openShareCard({
       kind: 'Recap',
       title: shownTitle || t('My recap'),
-      subtitle: `${fmtDate(recap.from)} – ${fmtDate(recap.to)}`,
-      art: coversOf(topTracks, 4),
-      // Plays (each listen of 30 s or more) and tracks (different songs), as the page shows them.
-      stats: [['Listened', fmtMinutes(recap.totalMinutes)], ['Plays', (recap.totalPlays || 0).toLocaleString()], ['Tracks', (recap.uniqueTracks || 0).toLocaleString()], ['Artists', (recap.uniqueArtists || 0).toLocaleString()]],
-      list: (recap.topArtists || []).length
-        ? { title: 'Top artists', items: recap.topArtists.slice(0, 5).map(item => [item.artist, plural(item.plays, 'play')]) }
-        : { title: 'Top tracks', items: topTracks.slice(0, 5).map(track => [track.title, track.artist]) },
+      summary: recapSummary(recap, shownTitle || t('My recap')),
       fileName: `${t('Recap')} ${shownTitle}`,
     })
   }
@@ -737,7 +779,7 @@ function RecapContent({ user }) {
             <section className="min-w-0 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-display uppercase tracking-widest text-muted">{t("Top Tracks")}</h2>
-                <button onClick={() => playQueue(topTracks, 0)} className="text-xs font-display uppercase tracking-wider text-accent hover:text-accent/70">{t("Play Top 50")}</button>
+                <button onClick={() => replayQueue.length && playQueue(replayQueue, 0)} className="text-xs font-display uppercase tracking-wider text-accent hover:text-accent/70">{t("Play Top 50")}</button>
               </div>
               <TrackList tracks={topTracks.slice(0, 20)} reduceMotion />
             </section>

@@ -21,6 +21,17 @@ export function fmtMinutes(minutes) {
   return mins ? translate('{h}h {m}m', { h: hours, m: mins }) : translate('{h}h', { h: hours })
 }
 
+/**
+ * Whether `name` (an artist as a recap names them) is one of the track's
+ * artists, as that recap counted them (recapArtists, electron/ipc/recaps.js):
+ * a credit of several artists is each of them, or one group kept together.
+ */
+export function hasRecapArtist(track, name) {
+  if (!track || !name) return false
+  const lower = String(name).toLowerCase()
+  return (track.recapArtists || [track.artist]).some(artist => String(artist || '').toLowerCase() === lower)
+}
+
 export function fmtDate(seconds) {
   if (!seconds) return ''
   return new Date(seconds * 1000).toLocaleDateString(getLanguage(), { month: 'short', day: 'numeric', year: 'numeric' })

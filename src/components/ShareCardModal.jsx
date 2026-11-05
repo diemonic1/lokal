@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Copy, Download, Check, Loader2 } from 'lucide-react'
 import Modal from './Modal'
-import { renderShareCard, renderStorySlide } from '../shareCard'
+import { renderRecapSummary, renderShareCard, renderStorySlide } from '../shareCard'
 import { useTranslation } from '../i18n'
 
 const safeName = (name) => String(name || 'lokal').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'lokal'
@@ -24,8 +24,8 @@ export default function ShareCardModal() {
     if (!spec) return undefined
     let alive = true
     let url = null
-    // A Stories slide comes as itself (spec.slide), anything else as the card.
-    Promise.resolve(spec.slide ? renderStorySlide(spec.slide) : renderShareCard(spec))
+    // A Stories slide comes as itself (spec.slide), a whole recap as its landscape summary, anything else as the card.
+    Promise.resolve(spec.slide ? renderStorySlide(spec.slide) : spec.summary ? renderRecapSummary(spec.summary) : renderShareCard(spec))
       .then(canvas => new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Could not make the picture'))), 'image/png')))
       .then(blob => {
         url = URL.createObjectURL(blob)
@@ -61,9 +61,9 @@ export default function ShareCardModal() {
 
   return (
     // Over the recap's Stories too (z-[90]), which go on behind it (data-share-card: they leave the keys to it).
-    <Modal open={!!spec} onClose={close} title={t(`Share ${String(spec?.kind || '').toLowerCase()}`)} width="max-w-md" layer="z-[100]">
+    <Modal open={!!spec} onClose={close} title={t(`Share ${String(spec?.kind || '').toLowerCase()}`)} width={spec?.summary ? 'max-w-2xl' : 'max-w-md'} layer="z-[100]">
       <div data-share-card className="space-y-4">
-        <div className={`mx-auto w-full overflow-hidden rounded-xl border border-border bg-card ${spec?.slide ? 'aspect-[1080/2070] max-w-[260px]' : 'aspect-[4/5] max-w-[340px]'}`}>
+        <div className={`mx-auto w-full overflow-hidden rounded-xl border border-border bg-card ${spec?.slide ? 'aspect-[1080/2070] max-w-[260px]' : spec?.summary ? 'aspect-[16/9]' : 'aspect-[4/5] max-w-[340px]'}`}>
           {card?.url
             ? <img src={card.url} alt={t('Share card for {name}', { name: spec?.title || '' })} className="h-full w-full object-cover" />
             : (
