@@ -80,7 +80,7 @@ function dayparts(hours) {
 const secondsText = (seconds) => fmtMinutes(Math.round((Number(seconds) || 0) / 60))
 
 /** A track's genres, lower case, as the backend splits them (electron/ipc/recaps.js). */
-const trackGenres = (track) => String(track?.genres || track?.genre || '').split(',').map(part => part.trim().toLowerCase()).filter(Boolean)
+const trackGenres = (track) => String(track?.genres || track?.genre || '').split(/[\\/;,|]/).map(part => part.trim().toLowerCase()).filter(Boolean)
 
 /** A headline without its full stop (names read better bare); an ellipsis stays. */
 const bare = (text) => String(text || '').replace(/(^|[^.])\.$/, '$1')

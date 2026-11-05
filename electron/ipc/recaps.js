@@ -247,8 +247,9 @@ function recordListeningEvent(db, payload = {}) {
 }
 
 function splitGenres(track) {
+  const SEPARATORS = /[\\/;,|]/
   return String(track?.genres || track?.genre || '')
-    .split(',')
+    .split(SEPARATORS)
     .map(part => part.trim())
     .filter(genre => genre && !FALLBACK_GENRES.has(genre.toLowerCase()))
 }
