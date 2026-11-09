@@ -272,7 +272,18 @@ export default function CacheAnalysis() {
                 <span className="text-xs tabular-nums text-muted">{t('On disk: {size}', { size: bytes(total.disk) })}</span>
                 <span className="text-xs tabular-nums text-muted">{t('{n} file|{n} files', { n: total.files.toLocaleString(), count: total.files })}</span>
               </div>
-              <p className="mt-1 truncate text-xs text-muted" title={report.root}>{report.root}</p>
+              <p className="mt-1 truncate text-xs text-muted" title={report.root}>{t('App data folder: {path}', { path: report.root })}</p>
+              {/* The app itself (the exe and its files next to AppData): apart from the total above. */}
+              {report.app && (
+                <div className="mt-3 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 rounded-xl border border-border bg-card/40 px-4 py-2">
+                  <span className="text-[11px] uppercase tracking-wider text-muted">{t('The app itself')}</span>
+                  <span className="font-display text-lg tabular-nums text-white">{bytes(report.app.size)}</span>
+                  <span className="text-xs tabular-nums text-muted">{t('On disk: {size}', { size: bytes(report.app.disk) })}</span>
+                  <span className="text-xs tabular-nums text-muted">{t('{n} file|{n} files', { n: report.app.files.toLocaleString(), count: report.app.files })}</span>
+                  <span className="min-w-0 truncate text-xs text-muted" title={report.app.root}>{report.app.root}</span>
+                  <span className="text-[11px] text-muted/70">{t('Not counted in the total above, never cleaned up')}</span>
+                </div>
+              )}
             </div>
             <div className="flex h-3 w-full overflow-hidden rounded-full bg-white/[0.08]">
               {report.sections.map(s => (

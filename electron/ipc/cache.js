@@ -22,7 +22,7 @@ function analysisContext() {
   try { database = db.getDB() } catch {}
   try { activePartition = database?.prepare("SELECT value FROM settings WHERE key = 'yt_account_partition'").get()?.value || '' } catch {}
   try { currentLog = require('electron-log').transports.file.getFile()?.path || null } catch {}
-  return { userData: app.getPath('userData'), dataDir: db.getStorageDir(), db: database, activePartition, currentLog }
+  return { userData: app.getPath('userData'), dataDir: db.getStorageDir(), db: database, activePartition, currentLog, installDir: require('../portableData').appInstallDir(app) }
 }
 
 function registerCacheHandlers(ipcMain) {

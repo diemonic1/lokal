@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigationType } from 'react-router-dom'
 import { ArrowDownUp, ArrowLeft, Check, FolderInput, ListOrdered, Music, Search, SlidersHorizontal, X } from 'lucide-react'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toaster'
@@ -14,6 +15,7 @@ import { useCachedState, usePageReady } from '../pageCache'
 import { ALL_TRACKS, useLibraryFolder } from '../libraryNav'
 import { useTranslation } from '../i18n'
 import { TRACK_CHANGED, readTrack, placeTrack } from '../trackChanged'
+import { holdScrollRestore, mainScroller } from '../scrollMemory'
 
 const LIBRARY_PAGE_SIZE = 50
 // Once per launch, the folder opens on the song that was playing (see Library).
@@ -21,6 +23,9 @@ let revealedAtLaunch = false
 /** The folder opens on the song starting now (a song played from the command line), as at launch. */
 export function revealPlayingInLibrary() { revealedAtLaunch = false }
 const REVEAL_MAX_PAGES = 20
+// The folder each step of the history showed (location.key -> folder): Back
+// (the mouse's too) reopens the folder before, where it was scrolled to.
+const folderByEntry = new Map()
 // How the list goes from one folder's songs to the next's. While the next
 // folder loads, the old list waits (faded or dimmed); once its songs are in,
 // the new list comes in (a CSS animation, see .folder-in-* in index.css,
@@ -375,6 +380,8 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
   const currentId = usePlayerStore(s => s.currentTrack?.id ?? null)
   const currentPath = usePlayerStore(s => s.currentTrack?.file_path || '')
   const [revealId, setRevealId] = useState(null)
+  // Bumped when a folder opened anew should open on the song playing (below).
+  const [revealTick, setRevealTick] = useState(0)
   useEffect(() => {
     if (revealedAtLaunch || inGenre || reorder || !loaded || loading || switchingFolder || currentId == null) return
     if (tracks.some(track => track.id === currentId)) {
@@ -385,9 +392,52 @@ export default function Library({ fixedGenre = null, title = null, onBack = null
     const inFolder = !folder || String(currentPath).replace(/\\/g, '/').includes(`/${folder}/`)
     if (inFolder && hasMore && tracks.length < LIBRARY_PAGE_SIZE * REVEAL_MAX_PAGES) load(true)
     else revealedAtLaunch = true
-  }, [currentId, currentPath, loaded, loading, switchingFolder, tracks, hasMore, folder, inGenre, reorder]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentId, currentPath, loaded, loading, switchingFolder, tracks, hasMore, folder, inGenre, reorder, revealTick]) // eslint-disable-line react-hooks/exhaustive-deps
   // Another folder or sort: it's not opened on that song again.
   useEffect(() => { setRevealId(null) }, [listKey, sort, source, genre, quality, problemsOnly])
+
+  // Each step of the history keeps its folder: Back / Forward reopens it (and
+  // src/scrollMemory.js scrolls it back to where it was).
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const entrySeen = useRef(null)
+  useEffect(() => {
+    if (inGenre) return
+    if (entrySeen.current !== location.key) {
+      entrySeen.current = location.key
+      const saved = folderByEntry.get(location.key)
+      if (navigationType === 'POP' && saved != null && saved !== sidebarFolder) { setLibraryFolder(saved); return }
+      // The Library tab clicked again: opened anew, as below.
+      if (navigationType !== 'POP') openedFresh.current = true
+    }
+    folderByEntry.set(location.key, sidebarFolder)
+    if (folderByEntry.size > 300) folderByEntry.delete(folderByEntry.keys().next().value)
+  }, [location.key, sidebarFolder]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A folder opened anew (picked in the sidebar, the Library tab clicked)
+  // opens on the song playing when it's in there, else at the top -- not at
+  // the previous folder's scroll. Back / Forward leave it to scrollMemory.
+  const openedFresh = useRef(navigationType !== 'POP')
+  const shownFolder = useRef(listKey)
+  useEffect(() => {
+    if (inGenre || shownFolder.current === listKey) return
+    shownFolder.current = listKey
+    openedFresh.current = navigationType !== 'POP'
+  }, [listKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (inGenre || !openedFresh.current || switchingFolder || !loaded) return
+    openedFresh.current = false
+    const main = mainScroller()
+    if (main) main.scrollTop = 0
+    revealedAtLaunch = false
+    setRevealId(null)
+    setRevealTick(n => n + 1)
+  }, [switchingFolder, loaded, listKey, location.key]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Coming back to a folder: the scroll is put back only once its songs are in.
+  useEffect(() => {
+    holdScrollRestore('library', switchingFolder || !loaded || loading)
+  }, [switchingFolder, loaded, loading])
+  useEffect(() => () => holdScrollRestore('library', false), [])
 
   const activeFilters = (source !== 'all' ? 1 : 0) + (genre && !inGenre ? 1 : 0) + (quality ? 1 : 0) + (problemsOnly ? 1 : 0)
   const clearFilters = () => { setSource('all'); if (!inGenre) setGenre(''); setQuality(''); setProblemsOnly(false) }

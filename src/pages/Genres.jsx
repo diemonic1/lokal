@@ -10,6 +10,7 @@ import CoverPlay from '../components/CoverPlay'
 import { plural } from '../plural'
 import { useTranslation } from '../i18n'
 import Library from './Library'
+import { goBack } from '../scrollMemory'
 
 // Songs without any genre, as a genre of its own (see genreFilter in
 // electron/ipc/scanner.js).
@@ -139,6 +140,6 @@ export function GenreTracks() {
   const { name = '' } = useParams()
   const genre = name
   return (
-    <Library key={genre} fixedGenre={genre} title={genre === NO_GENRE ? t('No genre') : genre} onBack={() => navigate('/genres')} />
+    <Library key={genre} fixedGenre={genre} title={genre === NO_GENRE ? t('No genre') : genre} onBack={() => goBack(navigate, '/genres')} />
   )
 }

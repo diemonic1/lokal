@@ -9,6 +9,7 @@ import { api } from '../api'
 import { makeAlbumContext, makeArtistContext } from '../playbackContext'
 import { plural } from '../plural'
 import { useTranslation } from '../i18n'
+import { goBack } from '../scrollMemory'
 import { openShareCard, artistArtSource, coversOf } from '../shareCard'
 import SelectionBar from '../components/SelectionBar'
 import { useSelection } from '../selection'
@@ -244,7 +245,7 @@ export default function Artist() {
     <div className="pb-8">
       <div className="relative h-56 overflow-hidden" {...imageDrop.dropProps}>
         <button
-          onClick={() => nav(-1)}
+          onClick={() => goBack(nav, '/artists')}
           className="absolute left-6 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:text-white @md:left-8 @md:top-5"
         >
           <ArrowLeft size={14} />

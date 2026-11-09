@@ -1,5 +1,5 @@
-// Cache Analysis page: what takes space in the app's folder (%APPDATA%\lokal-music
-// on Windows) -- every file under it, sorted into sections: the library database
+// Cache Analysis page: what takes space in the app's data folder (AppData next
+// to the exe, see portableData.js; %APPDATA%\lokal-music in development) -- every file under it, sorted into sections: the library database
 // (with its tables), covers, Lokal's own caches, tools, Chromium's caches, the
 // embedded sign-in sessions, logs and app state. Anything not recognised is still
 // counted, under "Other", so the total matches what Explorer shows.
@@ -229,7 +229,7 @@ async function children(dir) {
  * The full report. `userData`: the app's folder; `dataDir`: Lokal's data folder
  * (usually userData/data); `db`: the open library database.
  */
-async function analyze({ userData, dataDir, db, onProgress, activePartition, currentLog }) {
+async function analyze({ userData, dataDir, db, onProgress, activePartition, currentLog, installDir }) {
   const groups = { database: [], artwork: [], lokalCache: [], radioHistory: [], userFiles: [], tools: [], browserCache: [], sessions: [], logs: [], appState: [], other: [] }
   const allFiles = []
   const step = (label) => { try { onProgress?.(label) } catch {} }
@@ -326,9 +326,23 @@ async function analyze({ userData, dataDir, db, onProgress, activePartition, cur
   const largestFiles = allFiles.sort((a, b) => b.size - a.size).slice(0, 15)
     .map(f => ({ path: path.relative(userData, f.path) || f.path, size: f.size }))
 
+  // The app itself (the exe and its files), apart from the data: not in the total.
+  let appSize = null
+  if (installDir) {
+    step(installDir)
+    const skip = new Set([path.resolve(userData).toLowerCase(), dataDir ? path.resolve(dataDir).toLowerCase() : ''])
+    appSize = { root: installDir, ...empty() }
+    for (const name of await children(installDir)) {
+      const p = path.join(installDir, name)
+      if (skip.has(path.resolve(p).toLowerCase())) continue
+      add(appSize, await measure(p))
+    }
+  }
+
   return {
     root: userData,
     dataDir,
+    app: appSize,
     finishedAt: Date.now(),
     total,
     sections,

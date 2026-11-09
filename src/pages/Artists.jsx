@@ -14,6 +14,7 @@ import { showToast } from '../components/Toaster'
 import { discoveryArtistKey, loadDiscoveryArtists, setArtistFollowed, useDiscoveryArtists } from '../discoveryArtists'
 import { useTranslation } from '../i18n'
 import { useArtistImageDialog, useImageDropTarget } from '../components/ArtistImageDrop'
+import { ARTISTS_VIEW_EVENT } from '../components/SidebarCollections'
 
 const PAGE_SIZE = 60
 const TOP_ARTISTS_LIMIT = 8
@@ -243,11 +244,25 @@ export default function Artists() {
       if (followed !== followedRef.current) { setBusy(false); return }
       // A failed request keeps what's shown (and the cache) as it was.
       if (!Array.isArray(result?.items)) { setBusy(false); return }
-      const items = result.items
-      if (!append && !search) writeCache(cacheKey, { items, total: result?.total || 0, hasMore: !!result?.hasMore })
-      setArtists((current) => (append ? [...current, ...items] : items))
-      setTotal(result?.total || 0)
-      setHasMore(!!result?.hasMore)
+      let items = result.items
+      let more = !!result?.hasMore
+      // A quiet refresh of a list that had more pages loaded (coming back to
+      // it, scrolled down): when its first page is the same, the pages after
+      // it stay, so the page is as long as it was left (and the way back
+      // lands where it was).
+      if (!append && seen?.items?.length > items.length && items.every((item, index) => seen.items[index]?.id === item.id)) {
+        items = [...items, ...seen.items.slice(items.length)]
+        more = !!seen.hasMore
+      }
+      const total = result?.total || 0
+      // Every page loaded is kept for the way back (not only the first).
+      setArtists((current) => {
+        const next = append ? [...current, ...items] : items
+        if (!search) writeCache(cacheKey, { items: next, total, hasMore: more })
+        return next
+      })
+      setTotal(total)
+      setHasMore(more)
       setBusy(false)
     }).catch(() => {
       if (stale()) return
@@ -293,6 +308,8 @@ export default function Artists() {
     setLoading(!seen)
     setFollowedOnly(next)
     try { localStorage.setItem('lokal-artists-followed', next ? '1' : '0') } catch {}
+    // The sidebar lists the artists in the same order.
+    window.dispatchEvent(new CustomEvent(ARTISTS_VIEW_EVENT))
   }
 
   useEffect(() => { loadTopArtists() }, [])
@@ -323,6 +340,7 @@ export default function Artists() {
   const changeSort = (value) => {
     setSort(value)
     localStorage.setItem('lokal-artists-sort', value)
+    window.dispatchEvent(new CustomEvent(ARTISTS_VIEW_EVENT))
   }
 
   // Grid, compact grid, or list (long names are easier to read and scan in a list).

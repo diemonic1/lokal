@@ -445,6 +445,8 @@ function initDB() {
   } catch {}
 
   try { require('../searchIndex').ensureSearchIndex(db) } catch (e) { console.warn('[db] Search index unavailable:', e.message) }
+  // The data folder moved (copied next to the exe...): its files' paths follow.
+  try { require('../relocateDataPaths').relocateDataPaths(db, _dataDir) } catch (e) { console.warn('[db] Could not update moved data paths:', e.message) }
 
   return db
 }

@@ -1,3 +1,7 @@
+// The app's data lives next to the exe, in AppData (./portableData.js): set
+// before anything below asks for a path.
+require('./portableData').usePortableData(require('electron').app)
+
 // An audio file on the command line (double-clicked in Explorer, "Open with"
 // Lokal) opens the quick player: a small window of its own, in a light process
 // of its own, apart from the app (./quick/main.js). Nothing below loads for it.

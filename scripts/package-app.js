@@ -16,8 +16,35 @@ const release = path.join(root, 'release')
 let build = 0
 try { build = Number(JSON.parse(fs.readFileSync(path.join(root, 'build-number.json'), 'utf8')).build) || 0 } catch {}
 
+// electron-builder empties win-unpacked/ before it writes the app there. What
+// lives in it besides the app is set aside first and put back afterwards (even
+// when the build fails): AppData/, the app's data (electron/portableData.js),
+// and icons/, the AIMP icon packs dropped in.
+const KEEP = ['AppData', 'icons']
+const keepDir = path.join(release, '.kept-while-building')
+const kept = []
+for (const name of KEEP) {
+  const from = path.join(release, 'win-unpacked', name)
+  if (!fs.existsSync(from)) continue
+  fs.mkdirSync(keepDir, { recursive: true })
+  const to = path.join(keepDir, name)
+  if (fs.existsSync(to)) { console.error(`${to} is left from an earlier build: move it back to win-unpacked/ first.`); process.exit(1) }
+  fs.renameSync(from, to)
+  kept.push(name)
+}
+const restoreKept = () => {
+  for (const name of kept) {
+    const to = path.join(release, 'win-unpacked', name)
+    fs.mkdirSync(path.dirname(to), { recursive: true })
+    if (fs.existsSync(to)) fs.rmSync(to, { recursive: true, force: true })
+    fs.renameSync(path.join(keepDir, name), to)
+  }
+  try { fs.rmdirSync(keepDir) } catch {}
+}
+
 const cli = path.join(path.dirname(require.resolve('electron-builder/package.json')), 'cli.js')
 const result = spawnSync(process.execPath, [cli, `-c.buildNumber=${build}`, ...process.argv.slice(2)], { cwd: root, stdio: 'inherit' })
+restoreKept()
 if (result.status !== 0) process.exit(result.status ?? 1)
 
 const isInfo = name => /^.+_B\d+\.txt$/.test(name)

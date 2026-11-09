@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Heart, Music, Play, Shuffle, Trash2, Edit2, Check, X, RefreshCw, Image as ImageIcon, Search, Sparkles, SlidersHorizontal, Share2, ListOrdered } from 'lucide-react'
+import { ArrowLeft, Heart, Music, Play, Shuffle, Trash2, Edit2, Check, X, RefreshCw, Image as ImageIcon, Search, Sparkles, SlidersHorizontal, Share2, ListOrdered } from 'lucide-react'
 import { usePlayerStore, useAppStore } from '../store/player'
 import TrackList from '../components/TrackList'
 import PlaylistCover from '../components/PlaylistCover'
@@ -16,6 +16,7 @@ import { useCachedState, usePageReady } from '../pageCache'
 import { filterPlaylistTracks } from '../playlistSearch'
 import { useFavoritesEnabled } from '../appearanceFlags'
 import { useTranslation } from '../i18n'
+import { goBack } from '../scrollMemory'
 
 // The playlist's actions, as plain icons beside the Play button.
 const ICON_BUTTON = 'flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
@@ -280,6 +281,11 @@ export default function Playlist() {
 
   return (
     <div className="p-6 pb-10">
+      {/* Back to where the playlist was opened from (the Playlists tab when it was opened first). */}
+      <button type="button" onClick={() => goBack(nav, '/playlists')}
+        className="mb-4 inline-flex items-center gap-2 text-xs text-muted transition-colors hover:text-white">
+        <ArrowLeft size={14} /> {t('Back')}
+      </button>
       <div className="flex items-end gap-4 mb-4">
         <div className="relative w-28 h-28 flex-shrink-0 group">
           <div className="w-28 h-28 rounded-2xl overflow-hidden bg-elevated border border-border flex items-center justify-center shadow-xl">

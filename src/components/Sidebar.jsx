@@ -4,7 +4,8 @@ import { AppWindow, Folder, ListMusic, PanelLeftClose, PanelLeftOpen } from 'luc
 import { api } from '../api'
 import FadeImg from './FadeImg'
 import { TRACK_CHANGED } from '../trackChanged'
-import { ALL_TRACKS, setLibraryFolder, useLibraryFolder } from '../libraryNav'
+import { ALL_TRACKS, setLibraryFolder, tabForPath, useLibraryFolder } from '../libraryNav'
+import SidebarCollections, { SIDEBAR_COLLECTION_TABS } from './SidebarCollections'
 import { LEFT_SIDEBAR_WIDTH, setLeftSidebarWidth, useLeftSidebarScale, useLeftSidebarWidth } from '../sidePanelPrefs'
 import { useTranslation } from '../i18n'
 import { useAppearanceText } from '../appearanceFlags'
@@ -93,9 +94,16 @@ export default function Sidebar() {
   }, [folders, allFolders, selected, allTracksSetting])
 
   const onLibrary = loc.pathname === '/library'
+  // On the Genres, Artists and Playlists tabs the sidebar lists the tab's own
+  // genres, artists or playlists instead of the folders.
+  const tab = tabForPath(loc.pathname)
+  const collectionTab = SIDEBAR_COLLECTION_TABS.includes(tab) ? tab : null
+  // Every folder picked is a step of its own: Back (the mouse's too) goes to
+  // the folder before, where it was scrolled to (see Library and scrollMemory).
   const open = path => {
+    if (onLibrary && path === selected) return
     setLibraryFolder(path)
-    if (!onLibrary) nav('/library')
+    nav('/library', { state: { folder: path } })
   }
 
   // Width: dragged by the right edge, kept between sessions.
@@ -143,8 +151,9 @@ export default function Sidebar() {
       </button>
       </div>
 
-      <nav aria-label={t('Music folders')} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-1.5">
-        {folders.map(folder => {
+      <nav aria-label={collectionTab ? t(collectionTab === '/genres' ? 'Genres' : collectionTab === '/artists' ? 'Artists' : 'Playlists') : t('Music folders')} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-1.5">
+        {collectionTab && <SidebarCollections key={collectionTab} tab={collectionTab} collapsed={collapsed} scale={scale} cover={cover} />}
+        {!collectionTab && folders.map(folder => {
           const active = onLibrary && folder.path === selected
           const src = coverSrc(folder)
           return (
@@ -169,7 +178,7 @@ export default function Sidebar() {
             </button>
           )
         })}
-        {showAllTracks && (() => {
+        {!collectionTab && showAllTracks && (() => {
           const active = onLibrary && selected === ALL_TRACKS
           return (<>
             <div role="separator" className="!my-1.5 mx-1 h-px bg-white/15" />

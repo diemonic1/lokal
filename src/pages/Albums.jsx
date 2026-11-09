@@ -26,6 +26,7 @@ import { albumCacheKey, isConnected, loadOnlineAlbumCached, mergeWithLibrary, on
 import { downloadOnline, playOnline } from '../onlineActions'
 import { losslessMenuItem, losslessManyMenuItem } from '../quality'
 import { translate, useTranslation } from '../i18n'
+import { goBack } from '../scrollMemory'
 import { trackFolderItems } from '../trackFolderItem'
 
 const shuffledList = list => {
@@ -484,7 +485,7 @@ export default function Albums() {
               trackCount={showOnline ? merged.tracks.length : (albumTracks.length || selectedAlbum.track_count || 0)}
               duration={(showOnline ? merged.tracks : albumTracks).reduce((sum, track) => sum + (Number(track.duration) || 0), 0)}
               online={showOnline ? (merged.owned === merged.tracks.length ? t('all in your library') : t('{owned} of {total} in your library', { owned: merged.owned, total: merged.tracks.length })) : ''}
-              onBack={() => navigate(-1)}
+              onBack={() => goBack(navigate, '/albums')}
               onArtist={() => navigate(artistPath(selectedAlbum.album_artist || selectedAlbum.artists))}
             >
               <button onClick={() => (showOnline ? playMerged(merged.tracks[0]) : playQueue(albumTracks, 0, albumContext))} disabled={!(showOnline ? merged.tracks.length : albumTracks.length)}

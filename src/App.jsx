@@ -71,6 +71,7 @@ import { createDiscordPublisher } from './discord'
 import Toaster, { showLoadingToast, showToast } from './components/Toaster'
 import ReleaseRefreshBanner from './components/ReleaseRefreshBanner'
 import { PageReadyContext, PageShownContext, PAGE_READY_TIMEOUT_MS } from './pageCache'
+import { mainScroller, noteEntry, noteScroll, pauseRecording, restoreScroll, scrollToTop, startRecording } from './scrollMemory'
 import { audioSrcFor, isAddonProvider, providerLabel, streamRef } from './onlineTracks'
 
 // An addon refusing because its access isn't set up (or has lapsed).
@@ -317,20 +318,43 @@ function AnimatedRoutes() {
   const location = useLocation()
   const navigationType = useNavigationType()
   const routeKey = location.pathname === '/' || location.pathname.startsWith('/home/') ? 'home' : location.pathname
-  // Every page scrolls inside the same <main>, so without this a page opened
-  // from a scrolled-down one (e.g. Settings from the middle of Home) inherited
-  // that scroll position. Reset once the old page has faded out -- resetting
-  // immediately would visibly jump the outgoing page -- and only for new
-  // navigations: Back/Forward (POP, incl. mouse side buttons) is left as is.
-  const resetOnEnter = useRef(false)
+  // Every page scrolls inside the same <main>. A page opened anew starts at
+  // the top; Back / Forward (POP, incl. the mouse's side buttons) puts it
+  // back where it was left (src/scrollMemory.js). Between two pages that's
+  // done once the old page has faded out -- doing it at once would visibly
+  // jump the outgoing page; within one page (an album opened in Albums, a
+  // Home tab, a Library folder) at once.
+  const previous = useRef({ key: null, routeKey: null })
+  const pendingEnter = useRef(null)
+  useLayoutEffect(() => {
+    const before = previous.current
+    if (before.key === location.key) return
+    previous.current = { key: location.key, routeKey }
+    noteEntry(location.key, navigationType, before.key)
+    if (before.key == null) { startRecording(location.key); return }
+    pauseRecording()
+    const pop = navigationType === 'POP'
+    if (before.routeKey !== routeKey) { pendingEnter.current = { key: location.key, pop }; return }
+    pendingEnter.current = null
+    if (pop) restoreScroll(location.key)
+    else if (navigationType === 'REPLACE') { startRecording(location.key); noteScroll(mainScroller()?.scrollTop || 0) }
+    // A folder picked: the Library itself scrolls, to the top or to the song playing.
+    else if (routeKey === '/library') startRecording(location.key)
+    else scrollToTop(location.key)
+  }, [location.key]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    resetOnEnter.current = navigationType !== 'POP'
-  }, [routeKey, navigationType])
+    const main = mainScroller()
+    if (!main) return
+    const onScroll = () => noteScroll(main.scrollTop)
+    main.addEventListener('scroll', onScroll, { passive: true })
+    return () => main.removeEventListener('scroll', onScroll)
+  }, [])
   const handleExitComplete = () => {
-    if (!resetOnEnter.current) return
-    resetOnEnter.current = false
-    const main = document.querySelector('main.flex-1.overflow-y-auto')
-    if (main) main.scrollTop = 0
+    const enter = pendingEnter.current
+    if (!enter) return
+    pendingEnter.current = null
+    if (enter.pop) restoreScroll(enter.key)
+    else scrollToTop(enter.key)
   }
   return (
     <AnimatePresence mode="wait" onExitComplete={handleExitComplete}>
