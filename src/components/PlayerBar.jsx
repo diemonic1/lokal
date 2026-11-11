@@ -437,7 +437,11 @@ export default function PlayerBar() {
             <div aria-hidden className="pointer-events-none absolute -inset-x-3 rounded-full"
               style={{ backgroundColor: `rgb(var(--surface-rgb) / ${(1 - shadeTransparency / 100).toFixed(2)})`, filter: 'blur(10px)', top: 1, height: 12 }} />
           )}
-          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted min-w-[2rem] flex-shrink-0 whitespace-nowrap text-right font-display">{station && !duration ? '' : fmt(display)}</span>
+          {/* A live station can't be sought: no bar, no times, just the label, centred. */}
+          {station && !duration ? (
+            <span className="relative flex-1 text-center text-[10px] leading-4 text-accent font-display uppercase tracking-wider">{t('On air')}</span>
+          ) : (<>
+          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted min-w-[2rem] flex-shrink-0 whitespace-nowrap text-right font-display">{fmt(display)}</span>
           {/* The unplayed part in the theme's text colour, toned down to grey. */}
           {/* The bar, and over it (not clipped by its rounded ends) the important moment's notch. */}
           <div className="relative flex-1 flex items-center">
@@ -476,9 +480,8 @@ export default function PlayerBar() {
             </div>
           )}
           </div>
-          {station && !duration
-            ? <span className="relative text-[10px] text-accent w-8 font-display uppercase tracking-wider">{t('On air')}</span>
-            : <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted min-w-[2rem] flex-shrink-0 whitespace-nowrap font-display">{fmt(duration)}</span>}
+          <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted min-w-[2rem] flex-shrink-0 whitespace-nowrap font-display">{fmt(duration)}</span>
+          </>)}
         </div>
         </div>
 
