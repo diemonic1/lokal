@@ -446,11 +446,14 @@ export default function PlayerBar() {
             onMouseMove={handleScrub}
             onMouseDown={startScrub}
             onMouseLeave={() => { if (!scrubbing.current) setLocalProg(null) }}>
-            <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
-              {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
-            </div>
+            {!(isBuffering && (streamed || station)) && (
+              <div className="h-full bg-accent rounded-full relative" style={{ width: `${duration ? (display/duration)*100 : 0}%` }}>
+                {!station && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />}
+              </div>
+            )}
+            {/* On the bar's own grey track, as for any song. */}
             {isBuffering && (streamed || station) && (
-              <div role="progressbar" aria-label={t("Loading track")} className="absolute inset-0 overflow-hidden rounded-full bg-elevated">
+              <div role="progressbar" aria-label={t("Loading track")} className="absolute inset-0 overflow-hidden rounded-full">
                 <div className="queue-loading-seekbar h-full w-1/3 rounded-full bg-accent" />
               </div>
             )}

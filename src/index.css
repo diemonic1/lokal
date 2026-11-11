@@ -146,7 +146,7 @@ input, button, select, textarea, [data-no-drag] { -webkit-app-region: no-drag; }
   0% { transform: translateX(-110%); }
   100% { transform: translateX(310%); }
 }
-.queue-loading-seekbar { animation: queue-loading-seekbar 1.4s ease-in-out infinite; }
+.queue-loading-seekbar { animation: queue-loading-seekbar 3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .queue-loading-seekbar { animation: none; width: 100%; opacity: 0.5; }
 }
