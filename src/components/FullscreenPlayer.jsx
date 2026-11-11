@@ -26,6 +26,7 @@ import { contextLabel, isContextNavigable, navigateToContext } from '../playback
 import { trackArtURL } from '../onlineTracks'
 import FullCoverImage from './FullCoverImage'
 import { isStationTrack } from '../radio/stations'
+import RadioStatus from './RadioStatus'
 import ArtistNames from './ArtistNames'
 import { useEcoMode } from '../ecoMode'
 import { COVER_PERCENT, fullscreenCoverPercent, setFullscreenCoverPercent, useFullscreenCoverScale } from '../fullscreenCoverSize'
@@ -1017,7 +1018,7 @@ export default function FullscreenPlayer() {
                           onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                           <div className="absolute inset-y-0 left-0 rounded-full bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
                         </div>
-                        <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
+                        <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? <RadioStatus tone="light" /> : fmt(duration)}</span>
                         <CoverButton onClick={exitClipFull} label={t('Exit full screen')}><Minimize size={16} /></CoverButton>
                       </div>
                     )}
@@ -1044,7 +1045,7 @@ export default function FullscreenPlayer() {
                 onPointerDown={startScrub} role="slider" aria-label={t('Position')} aria-valuemin={0} aria-valuemax={Math.round(duration || 0)} aria-valuenow={Math.round(progress || 0)}>
                 <div className="absolute inset-y-0 left-0 bg-white/90" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
               </div>
-              <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? t('On air') : fmt(duration)}</span>
+              <span className="min-w-[2.75rem] flex-shrink-0 whitespace-nowrap text-sm tabular-nums text-white/75">{isStationTrack(currentTrack) && !duration ? <RadioStatus tone="light" /> : fmt(duration)}</span>
             </div>
 
             {/* In at once, fading: never waiting on the old title's way out (see PlayerBar). */}

@@ -7,6 +7,18 @@ export default {
   'Online radio: {station}': 'Онлайн-радио: {station}',
   '“{title}” isn\'t playing: {message}': '«{title}» не играет: {message}',
   'The station stopped responding.': 'Станция перестала отвечать.',
+  // The player's label while a station connects or fails (short)
+  'Connecting…': 'Подключение…',
+  'Not playing': 'Не играет',
+  'No response': 'Нет ответа',
+  'No connection': 'Нет связи',
+  'Station not found ({status})': 'Станция не найдена ({status})',
+  'Access denied ({status})': 'Доступ закрыт ({status})',
+  'Server error ({status})': 'Ошибка сервера ({status})',
+  'Server answered {status}': 'Сервер ответил {status}',
+  'Stream interrupted': 'Поток оборвался',
+  'Unsupported stream': 'Формат не поддерживается',
+  'Playback error': 'Ошибка воспроизведения',
   '{n} station|{n} stations': ['{n} станция', '{n} станции', '{n} станций'],
   'Loaded: {n} station|Loaded: {n} stations': ['Загружено: {n} станция', 'Загружено: {n} станции', 'Загружено: {n} станций'],
   'Give the link to your station catalogue: a JSON file listing your stations. It\'s downloaded once and kept; you can change the link or update it any time in Settings > Online Radio.':

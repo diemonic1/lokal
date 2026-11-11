@@ -8,6 +8,7 @@ import Waveform from '../visualizers/Waveform'
 import { usePlayerVisualizer, useFavoritesEnabled } from '../appearanceFlags'
 import { trackArtURL } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
+import RadioStatus from './RadioStatus'
 import { useMusicVideo, useMusicVideoView } from '../musicVideo'
 import MusicVideoPlayer from './MusicVideoPlayer'
 import VideoOffsetControl from './VideoOffsetControl'
@@ -303,7 +304,7 @@ export default function MiniPlayer({ windowed = false }) {
               <div className="h-full rounded-full bg-accent" style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }} />
             </div>
             <div className="mt-1.5 flex items-center justify-between">
-              <span className="min-w-[5rem] whitespace-nowrap text-[10px] tabular-nums text-white/70">{isStationTrack(currentTrack) && !duration ? t('On air') : `${fmt(progress)} / ${fmt(duration)}`}</span>
+              <span className="min-w-[5rem] whitespace-nowrap text-[10px] tabular-nums text-white/70">{isStationTrack(currentTrack) && !duration ? <RadioStatus tone="light" className="!justify-start" /> : `${fmt(progress)} / ${fmt(duration)}`}</span>
               <div className="flex items-center gap-1">
                 <button onClick={prev} aria-label={t('Previous')} className="p-1.5 text-white/80 hover:text-white"><SkipBack size={15} fill="currentColor" /></button>
                 <button onClick={togglePlay} disabled={!currentTrack} aria-label={isPlaying ? t('Pause') : t('Play')} className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105 disabled:opacity-40">{isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="translate-x-px" />}</button>

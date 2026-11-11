@@ -23,6 +23,7 @@ import CoverGradient from './CoverGradient'
 import { meshKeyFor } from './ArtworkBackdrop'
 import { trackArtURL, isStreamed, streamLabel, saveTracksToLibrary, libraryDownloadMessage } from '../onlineTracks'
 import { isStationTrack } from '../radio/stations'
+import RadioStatus from './RadioStatus'
 import SaveToLibraryButton from './SaveToLibraryButton'
 import { TIERS, formatLabel, isSuspect, tierOf, losslessMenuItem } from '../quality'
 import MixingMark from './MixingMark'
@@ -439,7 +440,7 @@ export default function PlayerBar() {
           )}
           {/* A live station can't be sought: no bar, no times, just the label, centred. */}
           {station && !duration ? (
-            <span className="relative flex-1 text-center text-[10px] leading-4 text-accent font-display uppercase tracking-wider">{t('On air')}</span>
+            <span className="relative flex flex-1 min-w-0 justify-center"><RadioStatus /></span>
           ) : (<>
           <span className="relative text-xs text-[#e5e5e5] [[data-theme=light]_&]:text-muted min-w-[2rem] flex-shrink-0 whitespace-nowrap text-right font-display">{fmt(display)}</span>
           {/* The unplayed part in the theme's text colour, toned down to grey. */}

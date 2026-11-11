@@ -66,5 +66,9 @@ export const useRadioStore = create((set, get) => ({
       if (result?.ok) set(state => (state.historyStations[String(stationId)] ? {} : { historyStations: { ...state.historyStations, [String(stationId)]: true } }))
     } catch {}
   },
+  // The station being connected: the last trouble met on the way (a short
+  // phrase, see radioSession.js), and whether it gave up. Cleared once it plays.
+  connection: { trackId: null, issue: null, detail: '', failed: false },
+  setConnection: (connection) => set({ connection: { trackId: null, issue: null, detail: '', failed: false, ...connection } }),
   setStreamInfo: (stationId, info) => set(state => ({ streamInfo: { ...state.streamInfo, [stationId]: { ...state.streamInfo[stationId], ...info } } })),
 }))

@@ -2370,6 +2370,7 @@ export default function App() {
       el.dataset.fallbackPending = ''
       setIsBuffering(usePlayerStore.getState().isPlaying)
       const isCurrent = () => usePlayerStore.getState().currentTrack?.id === station.id
+      useRadioStore.getState().setConnection({ trackId: station.id })
       startRadio(el, station, {
         bufferSec: radioBufferSeconds(peekSettings()?.radio_buffer_sec),
         autoplay: usePlayerStore.getState().isPlaying,
@@ -2377,12 +2378,16 @@ export default function App() {
           onTitle: (text, audioTime) => { handleStationTitle(station.id, text, audioTime).catch(() => {}) },
           onStreamInfo: info => useRadioStore.getState().setStreamInfo(station.station?.id || station.id, info),
           onBuffering: busy => { if (isCurrent()) setIsBuffering(busy) },
-          onFailed: message => {
+          onIssue: (issue, failed) => {
+            if (!isCurrent()) return
+            useRadioStore.getState().setConnection({ trackId: station.id, issue, detail: issue?.detail || '', failed: !!failed })
+          },
+          onFailed: (message, params) => {
             if (!isCurrent()) return
             usePlayerStore.getState().setIsPlaying(false)
             setIsBuffering(false)
             setStreamError({ title: station.station?.title || station.title, message })
-            showToast(translate("“{title}” isn't playing: {message}", { title: station.station?.title || station.title, message: translate(message) }))
+            showToast(translate("“{title}” isn't playing: {message}", { title: station.station?.title || station.title, message: translate(message, params) }))
           },
           onLog: (message, level) => playbackLog(message, level),
         },
@@ -2551,7 +2556,10 @@ export default function App() {
 
     // Online radio: pausing stops the stream; playing reconnects, live.
     if (isStationTrack(usePlayerStore.getState().currentTrack)) {
-      if (isPlaying) { setIsBuffering(audioRef.current.paused); playRadio(); if (!playTimerRef.current) startTimer() }
+      if (isPlaying) {
+        const connection = useRadioStore.getState().connection
+        if (connection.failed) useRadioStore.getState().setConnection({ ...connection, failed: false })
+        setIsBuffering(audioRef.current.paused); playRadio(); if (!playTimerRef.current) startTimer() }
       else { pauseRadio(); setIsBuffering(false); stopTimer() }
       return
     }
