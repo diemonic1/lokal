@@ -11,7 +11,9 @@
 //   in:  {"cmd":"read","id":N} | {"cmd":"focus"} | {"cmd":"close"}
 // Closing standard input (Lokal went away) closes the window.
 //
-// Usage: LokalSignIn.exe --profile <folder> --url <sign-in page>
+// Usage: LokalSignIn.exe [--hidden] --profile <folder> --url <page>
+//   --hidden: the window sits far off screen, out of the taskbar (keeping the
+//   session alive in the background: Google rotates its cookies while a signed-in page is open).
 
 using System;
 using System.Collections.Generic;
@@ -57,14 +59,17 @@ namespace LokalSignIn
         private static int Main(string[] args)
         {
             string profile = null, url = null;
-            for (var i = 0; i + 1 < args.Length; i++)
+            var hidden = false;
+            for (var i = 0; i < args.Length; i++)
             {
-                if (args[i] == "--profile") profile = args[++i];
+                if (args[i] == "--hidden") hidden = true;
+                else if (i + 1 >= args.Length) break;
+                else if (args[i] == "--profile") profile = args[++i];
                 else if (args[i] == "--url") url = args[++i];
             }
             if (string.IsNullOrEmpty(profile) || string.IsNullOrEmpty(url) || !SignInForm.Allowed(url))
             {
-                Send(Message("error", "code", "failed", "message", "Usage: LokalSignIn.exe --profile <folder> --url <https Google or YouTube page>"));
+                Send(Message("error", "code", "failed", "message", "Usage: LokalSignIn.exe [--hidden] --profile <folder> --url <https Google or YouTube page>"));
                 return 2;
             }
             try { CoreWebView2Environment.GetAvailableBrowserVersionString(); }
@@ -75,7 +80,7 @@ namespace LokalSignIn
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new SignInForm(profile, url));
+            Application.Run(new SignInForm(profile, url, hidden));
             return 0;
         }
     }
@@ -103,6 +108,7 @@ namespace LokalSignIn
         private readonly System.Windows.Forms.Timer cookiePoll = new System.Windows.Forms.Timer { Interval = 1000 };
         private string lastCookies = "";
         private bool ready;
+        private readonly bool hidden;
 
         internal static bool Allowed(string value)
         {
@@ -110,10 +116,11 @@ namespace LokalSignIn
             return uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo) && AllowedHost.IsMatch(uri.Host);
         }
 
-        internal SignInForm(string profile, string url)
+        internal SignInForm(string profile, string url, bool hidden)
         {
             this.profile = profile;
             startUrl = url;
+            this.hidden = hidden;
             Text = "Sign in to YouTube Music";
             // Sizes below are at 96 DPI; WinForms scales them to the screen's
             // DPI (without AutoScaleDimensions it doesn't, and the window comes
@@ -124,8 +131,16 @@ namespace LokalSignIn
             ClientSize = new Size(430, 880); // a large phone
             MinimumSize = new Size(360, 560);
             StartPosition = FormStartPosition.CenterScreen;
+            if (hidden)
+            {
+                // A real window, so the page runs like in a browser, but far off screen and not in the taskbar.
+                FormBorderStyle = FormBorderStyle.None;
+                ShowInTaskbar = false;
+                StartPosition = FormStartPosition.Manual;
+                Location = new Point(-32000, -32000);
+            }
             ResumeLayout(false);
-            Load += (s, e) => FitScreen();
+            if (!hidden) Load += (s, e) => FitScreen();
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             Controls.Add(web);
             Load += async (s, e) => await StartAsync();
@@ -150,7 +165,9 @@ namespace LokalSignIn
             try
             {
                 Directory.CreateDirectory(profile);
-                var environment = await CoreWebView2Environment.CreateAsync(null, profile);
+                // A window far off screen is not "covered": the page must not be throttled (cookie rotation).
+                var options = hidden ? new CoreWebView2EnvironmentOptions("--disable-features=CalculateNativeWinOcclusion") : null;
+                var environment = await CoreWebView2Environment.CreateAsync(null, profile, options);
                 await web.EnsureCoreWebView2Async(environment);
                 var core = web.CoreWebView2;
                 core.Settings.AreDevToolsEnabled = false;

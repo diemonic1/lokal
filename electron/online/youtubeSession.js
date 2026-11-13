@@ -1,4 +1,6 @@
 const crypto = require('crypto')
+const fs = require('fs')
+const path = require('path')
 const youtube = require('./youtube')
 const { openYouTubeBrowser, accountContext, youtubeCookie } = require('./youtubeBrowser')
 const { openEmbeddedYouTubeLogin } = require('./youtubeEmbeddedLogin')
@@ -17,6 +19,14 @@ async function openSignInWindow(options) {
 
 const PARTITION = 'persist:lokal-ytmusic'
 const MUSIC = 'https://music.youtube.com'
+const PROFILE_PREFIX = 'youtube-profile-'
+// Google rotates the session cookies only while a signed-in page is open. A copy
+// taken once at sign-in goes stale, so the WebView2 profile of the sign-in is
+// kept, and reopened hidden now and then (like the Video Player app does):
+// that is where the rotation happens, and the fresh cookies are copied back.
+const KEEP_ALIVE_EVERY_MS = 20 * 60 * 1000
+const KEEP_ALIVE_FIRST_MS = 8 * 1000
+const SETTLE_MS = 8000
 
 // Cookies that name the signed-in account. Google rotates the others (SIDCC,
 // __Secure-*PSIDCC, __Secure-*PSIDTS, YSC…) on ordinary responses, including
@@ -45,8 +55,17 @@ function electronCookie(cookie) {
 }
 
 /** Activate an isolated login snapshot only after authenticated Music verification. */
-function createYouTubeSession({ electron, getSettings, saveSettings, provider = youtube, syncCookies = header => require('../ipc/ytCookies').syncSessionCookies(header), openBrowser } = {}) {
+function createYouTubeSession({ electron, getSettings, saveSettings, provider = youtube, syncCookies = header => require('../ipc/ytCookies').syncSessionCookies(header), openBrowser, openHidden, settleMs = SETTLE_MS } = {}) {
   const runtime = () => electron || require('electron')
+  const profilePath = name => path.join(runtime().app?.getPath?.('userData') || require('os').tmpdir(), name)
+  const removeProfile = name => {
+    if (!/^youtube-profile-[\da-f-]+$/.test(name || '')) return
+    const attempt = left => fs.rm(profilePath(name), { recursive: true, force: true }, error => { if (error && left > 0) setTimeout(() => attempt(left - 1), 1000) })
+    attempt(5)
+  }
+  let refreshing = null
+  let refreshController = null
+  let keepAliveTimer
   let ses, loginJob
   let revision = 0
   let requestContext = {}
@@ -121,6 +140,7 @@ function createYouTubeSession({ electron, getSettings, saveSettings, provider = 
     if (loginJob) { loginJob.browser?.focus(); return loginJob.promise }
     getSession()
     const partition = `${PARTITION}-${crypto.randomUUID()}`
+    const profileName = `${PROFILE_PREFIX}${crypto.randomUUID()}`
     const job = { token: ++revision, partition, session: runtime().session.fromPartition(partition), controller: new AbortController(), finished: false, checking: false, dirty: true, browser: null }
     job.promise = new Promise(resolve => { job.resolve = resolve })
     loginJob = job
@@ -181,7 +201,9 @@ function createYouTubeSession({ electron, getSettings, saveSettings, provider = 
           if (!current()) return
           if (!(await sameAccount(identity))) { if (current()) continue; return }
           // The old jar and selected account remain intact until this atomic switch.
-          saveSettings({ yt_account_partition: partition, yt_account_user_agent: native ? '' : job.session.getUserAgent(), yt_account_context: JSON.stringify(context), yt_account_session: '1', yt_account_revision: String(Date.now()), yt_cookies: '1', yt_cookie_browser: 'session' })
+          const keptProfile = job.browser.profile ? profileName : ''
+          const previousProfile = getSettings().yt_account_profile
+          saveSettings({ yt_account_profile: keptProfile, yt_account_partition: partition, yt_account_user_agent: native ? '' : job.session.getUserAgent(), yt_account_context: JSON.stringify(context), yt_account_session: '1', yt_account_revision: String(Date.now()), yt_cookies: '1', yt_cookie_browser: 'session' })
           const previous = ses
           ses = job.session
           requestContext = context
@@ -189,6 +211,8 @@ function createYouTubeSession({ electron, getSettings, saveSettings, provider = 
           syncCookies(freshCookies)
           finish(job, result)
           previous.clearStorageData().catch(() => {})
+          lastRefresh = Date.now()
+          if (previousProfile && previousProfile !== keptProfile) removeProfile(previousProfile)
         }
       } finally { job.checking = false }
     }
@@ -196,7 +220,7 @@ function createYouTubeSession({ electron, getSettings, saveSettings, provider = 
     ;(async () => {
       try {
         const opener = openBrowser || (mode === 'browser' ? openYouTubeBrowser : openSignInWindow)
-        job.browser = await opener({ electron: runtime(), session: job.session, signal: job.controller.signal, onChange: changed, onClosed: () => finish(job, { authenticated: false, cancelled: true }), onError: error => finish(job, { authenticated: false, error: error.message || 'The sign-in window failed.' }), onProgress })
+        job.browser = await opener({ electron: runtime(), session: job.session, signal: job.controller.signal, profile: profilePath(profileName), onChange: changed, onClosed: () => finish(job, { authenticated: false, cancelled: true }), onError: error => finish(job, { authenticated: false, error: error.message || 'The sign-in window failed.' }), onProgress })
         if (!current()) { await job.browser.close(); return }
         job.verifyTimer = setInterval(() => {
           if (!current() || job.checking) return
@@ -207,18 +231,79 @@ function createYouTubeSession({ electron, getSettings, saveSettings, provider = 
     })()
     return job.promise
   }
+  let lastRefresh = 0
+  const hasIdentity = cookies => cookies.some(cookie => youtubeCookie(cookie) && IDENTITY_COOKIES.has(cookie.name) && cookie.value)
+  const openProfile = options => (openHidden || openWebView2Login)({ electron: runtime(), ...options })
+
+  /**
+   * Reopens the kept WebView2 profile hidden, lets YouTube Music rotate the
+   * cookies there, and copies them into Lokal's session (and cookies.txt).
+   * → true when the session was refreshed, false when left as it is.
+   */
+  const refreshFromProfile = async () => {
+    const name = getSettings().yt_account_profile
+    if (getSettings().yt_account_session !== '1' || !name || !/^youtube-profile-[\da-f-]+$/.test(name)) return false
+    if (loginJob || !fs.existsSync(profilePath(name)) || (!openHidden && !helperPath())) return false
+    const target = getSession()
+    const token = revision
+    refreshController = new AbortController()
+    let win
+    try {
+      win = await openProfile({ profile: profilePath(name), hidden: true, url: `${MUSIC}/`, signal: refreshController.signal, onChange: () => {}, onClosed: () => {}, onError: () => {} })
+      if (settleMs > 0) await new Promise(resolve => setTimeout(resolve, settleMs))
+      const snapshot = await win.read()
+      if (token !== revision || target !== ses || loginJob) return false
+      const cookies = snapshot.cookies.filter(youtubeCookie)
+      if (!hasIdentity(cookies)) return false
+      const wanted = new Set(cookies.map(cookie => `${cookie.domain}|${cookie.path}|${cookie.name}`))
+      for (const old of await target.cookies.get({ url: MUSIC })) {
+        if (wanted.has(`${old.domain}|${old.path}|${old.name}`)) continue
+        await target.cookies.remove(`https://${String(old.domain || '').replace(/^\./, '')}${old.path || '/'}`, old.name).catch(() => {})
+      }
+      for (const cookie of cookies) await target.cookies.set(electronCookie(cookie))
+      const context = accountContext(snapshot.context)
+      if (Object.keys(context).length) { requestContext = context; saveSettings({ yt_account_context: JSON.stringify(context) }) }
+      await target.cookies.flushStore()
+      provider.clearAccountCache()
+      syncCookies(await cookieHeader(target))
+      lastRefresh = Date.now()
+      return true
+    } catch (error) {
+      // No WebView2, the app is closing: the cookies we have stay.
+      return false
+    } finally {
+      try { await win?.close({ preserveSession: true }) } catch {}
+      refreshController = null
+    }
+  }
+  const refresh = () => {
+    if (!refreshing) refreshing = refreshFromProfile().catch(() => false).finally(() => { refreshing = null })
+    return refreshing
+  }
+  /** Refreshes the session shortly after launch and then every 20 minutes. */
+  const startKeepAlive = () => {
+    if (keepAliveTimer) return
+    const tick = () => { refresh() }
+    keepAliveTimer = setInterval(tick, KEEP_ALIVE_EVERY_MS)
+    keepAliveTimer.unref?.()
+    setTimeout(tick, KEEP_ALIVE_FIRST_MS).unref?.()
+  }
+
   const cancelSignIn = () => { if (loginJob) finish(loginJob, { authenticated: false, cancelled: true }); return { ok: true } }
   const disconnect = async () => {
     revision++
     cancelSignIn()
+    refreshController?.abort()
+    if (refreshing) await refreshing.catch(() => {})
     await getSession().clearStorageData()
-    saveSettings({ yt_account_session: '0', yt_account_context: '', yt_account_partition: '', yt_account_user_agent: '', yt_account_revision: String(Date.now()), yt_cookies: '0', yt_cookie_browser: 'session', yt_cookie_header: '' })
+    removeProfile(getSettings().yt_account_profile)
+    saveSettings({ yt_account_profile: '', yt_account_session: '0', yt_account_context: '', yt_account_partition: '', yt_account_user_agent: '', yt_account_revision: String(Date.now()), yt_cookies: '0', yt_cookie_browser: 'session', yt_cookie_header: '' })
     syncCookies('')
     requestContext = {}
     provider.clearAccountCache()
     return { ok: true }
   }
-  return { credentials, signIn, cancelSignIn, disconnect }
+  return { credentials, signIn, cancelSignIn, disconnect, refresh, startKeepAlive }
 }
 
 module.exports = { createYouTubeSession, electronCookie, accountIdentity, PARTITION }

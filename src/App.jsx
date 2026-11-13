@@ -410,6 +410,17 @@ export default function App() {
   useTaskbarTitle()
   // Every launch reads the music folder's tags again (progress: the bar by Home).
   useEffect(() => { rescanOnStartup() }, [])
+  // The YouTube Music connection is checked at launch (and again every 30 minutes),
+  // so Settings → Integrations shows its state at once instead of "Not verified".
+  useEffect(() => {
+    if (!api.isElectron) return undefined
+    const verify = () => Promise.resolve(api.getSettings()).then(saved => {
+      if (saved?.yt_account_session === '1') return api.youtubeAccount(true)
+    }).catch(() => {})
+    verify()
+    const timer = setInterval(verify, 30 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
   const audioRef = useRef(null)
   const cfAudioRef = useRef(null)
   const streamRecoveryRef = useRef({ track: null, pending: false, failed: [] })

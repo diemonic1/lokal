@@ -111,6 +111,8 @@ function registerOnlineHandlers(ipcMain) {
     const stmt = getDB().prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
     getDB().transaction(() => { for (const [key, value] of Object.entries(values)) stmt.run(key, String(value)) })()
   } })
+  // Keeps the YouTube Music login alive: its kept sign-in profile is reopened hidden now and then.
+  try { accountSession.startKeepAlive() } catch {}
   // The fast engine asks as the account for a video YouTube won't give signed out.
   require('../online/youtubeFast').setAccount(async () => {
     const credentials = await accountSession.credentials()
@@ -145,7 +147,13 @@ function registerOnlineHandlers(ipcMain) {
     // Releases carry their exact date when Deezer has the artist.
     return (options?.type === 'releases' ? require('../online/releaseDates').releaseCatalogue(options, viaYouTube) : viaYouTube()).catch(e => ({ error: e.message }))
   })
-  ipcMain.handle('online:account', (_, force = false) => accountRequest(auth => youtube.fetchAccountData({ ...auth, force: !!force })).catch(e => ({ error: e.message, authenticated: false })))
+  ipcMain.handle('online:account', async (_, force = false) => {
+    const check = () => accountRequest(auth => youtube.fetchAccountData({ ...auth, force: !!force })).catch(e => ({ error: e.message, authenticated: false }))
+    const result = await check()
+    // Stale cookies: the kept sign-in profile may hold fresh ones.
+    if (result?.authenticated !== true && settings().yt_account_session === '1' && await accountSession.refresh()) return check()
+    return result
+  })
   ipcMain.handle('online:accountPlaylist', (_, playlistId) => accountRequest(({ cookies, fetchImpl }) => youtube.fetchAccountPlaylist(playlistId, cookies, fetchImpl)).catch(e => ({ error: e.message })))
   ipcMain.handle('online:radio', (_, videoId) => accountRequest(auth => youtube.fetchRadio(videoId, auth)).catch(() => []))
   ipcMain.handle('online:setAccountLiked', (_, videoId, liked) => accountRequest(({ cookies, fetchImpl }) => youtube.setAccountLiked(videoId, liked, cookies, fetchImpl)).catch(e => ({ error: e.message })))

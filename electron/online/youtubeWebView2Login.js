@@ -3,7 +3,10 @@
 // browser, Windows Hello passkeys included, where it refuses Electron's own
 // window ("This browser or app may not be secure"). Lokal reads the YouTube
 // Music cookies from the helper and checks them the same way as before
-// (youtubeSession.js); the helper's own profile is deleted when it closes.
+// (youtubeSession.js). A profile that signed in successfully is kept
+// (userData/youtube-profile-*): Google rotates the session cookies only while a
+// signed-in page is open, so youtubeSession.js reopens it hidden now and then
+// to keep the session alive. A profile that did not sign in is deleted.
 //
 // Same shape as openEmbeddedYouTubeLogin: { session, close, focus, read }.
 
@@ -32,13 +35,19 @@ function helperPath({ platform = process.platform, resourcesPath = process.resou
 /** A sign-in the helper can't do (no WebView2 runtime, didn't start): Lokal's own window instead. */
 class HelperUnavailable extends Error {}
 
-async function openWebView2Login({ electron, signal, onChange = () => {}, onClosed = () => {}, onError = () => {}, onProgress = () => {}, executable = helperPath(), spawnImpl = require('child_process').spawn } = {}) {
+/**
+ * @param profile  the profile folder; default: a new temporary one
+ * @param hidden   no visible window (far off screen, not in the taskbar): refreshing the session in the background
+ * @param url      the first page (default: Google's sign-in)
+ */
+async function openWebView2Login({ electron, signal, profile: profileDir, hidden = false, url = LOGIN.href, onChange = () => {}, onClosed = () => {}, onError = () => {}, onProgress = () => {}, executable = helperPath(), spawnImpl = require('child_process').spawn } = {}) {
   if (!executable) throw new HelperUnavailable('The WebView2 sign-in helper is not installed.')
   if (signal?.aborted) throw new Error('Sign-in cancelled.')
   const runtime = electron || require('electron')
-  const profile = path.join(runtime.app.getPath('userData'), 'youtube-signin', crypto.randomUUID())
+  const profile = profileDir || path.join(runtime.app.getPath('userData'), 'youtube-signin', crypto.randomUUID())
   fs.mkdirSync(profile, { recursive: true })
-  const child = spawnImpl(executable, ['--profile', profile, '--url', LOGIN.href], { windowsHide: false, stdio: ['pipe', 'pipe', 'ignore'] })
+  const child = spawnImpl(executable, [...(hidden ? ['--hidden'] : []), '--profile', profile, '--url', url], { windowsHide: hidden, stdio: ['pipe', 'pipe', 'ignore'] })
+  let keep = hidden // a background refresh never deletes the kept profile
   let closed = false
   let closing = false // Lokal asked it to close: not the person cancelling
   let started = false
@@ -47,6 +56,7 @@ async function openWebView2Login({ electron, signal, onChange = () => {}, onClos
   let buffer = ''
 
   const removeProfile = () => {
+    if (keep) return
     // WebView2 lets go of its files a moment after the window closes.
     const attempt = left => fs.rm(profile, { recursive: true, force: true }, error => { if (error && left > 0) setTimeout(() => attempt(left - 1), 1000) })
     attempt(5)
@@ -67,8 +77,9 @@ async function openWebView2Login({ electron, signal, onChange = () => {}, onClos
     pending.clear()
     removeProfile()
   }
-  const close = async () => {
+  const close = async ({ preserveSession = false } = {}) => {
     if (closed) return
+    keep = preserveSession
     closing = true
     send({ cmd: 'close' })
     const exited = new Promise(resolve => child.once('exit', resolve))
@@ -81,7 +92,7 @@ async function openWebView2Login({ electron, signal, onChange = () => {}, onClos
 
   const handle = message => {
     if (!message || typeof message !== 'object') return
-    if (message.type === 'ready') { started = true; clearTimeout(startTimer); readyResolve(); onProgress({ message: 'Complete Google sign-in. This window closes once Lokal confirms your YouTube Music connection.' }) }
+    if (message.type === 'ready') { started = true; clearTimeout(startTimer); readyResolve(); if (!hidden) onProgress({ message: 'Complete Google sign-in. This window closes once Lokal confirms your YouTube Music connection.' }) }
     else if (message.type === 'changed') { if (!closed) onChange() }
     else if (message.type === 'snapshot') {
       const waiter = pending.get(message.id)
@@ -118,7 +129,8 @@ async function openWebView2Login({ electron, signal, onChange = () => {}, onClos
   return {
     // Not Lokal's own session: each read carries the cookies (youtubeSession.js copies them in).
     session: null,
-    close: () => close(),
+    close: options => close(options),
+    profile,
     focus: () => send({ cmd: 'focus' }),
     read() {
       if (closed) return Promise.reject(new Error('Sign-in window closed.'))
